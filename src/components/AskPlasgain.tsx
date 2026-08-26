@@ -118,27 +118,27 @@ export const AskPlasgain: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">Ask Plasgain Knowledge Assistant</h1>
-            <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase tracking-wide">
+            <h1 className="text-xl font-bold tracking-tight text-body">Ask Plasgain Knowledge Assistant</h1>
+            <span className="text-meta font-bold px-2 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge uppercase tracking-wide">
               Grounded AI Engine
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-meta text-ink-dim mt-0.5">
             Instant answers strictly grounded in approved Plasgain product sheets, catalogues, conflict registers, and Australian standards.
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-100 px-3 py-1.5 rounded-md border border-slate-200 font-medium self-start">
-          <ShieldCheck className="w-4 h-4 text-emerald-600" />
+        <div className="flex items-center gap-1.5 text-meta text-ink-dim bg-paper px-3 py-1.5 rounded-edge border border-line font-medium self-start">
+          <ShieldCheck className="w-4 h-4 text-brand-deep" />
           <span>Strict Anti-Hallucination Grounding</span>
         </div>
       </div>
 
       {/* Search & Prompt Box */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-3">
+      <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-3">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -151,12 +151,12 @@ export const AskPlasgain: React.FC = () => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Ask anything about Plasgain products, lumens, battery Wh, CCT, spigot sizes, or Australian standards..."
-            className="w-full text-xs sm:text-sm text-slate-900 pl-4 pr-24 py-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-600 shadow-2xs"
+            className="w-full text-meta sm:text-body pl-4 pr-24 py-3 rounded-edge border border-line focus:outline-none focus:ring-2 focus:ring-brand-deep/20 focus:border-brand-deep shadow-2xs"
           />
           <button
             type="submit"
             disabled={isLoading || !query.trim()}
-            className="absolute right-1.5 top-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white text-xs font-medium px-4 py-2 rounded-md transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="absolute right-1.5 top-1.5 bg-brand-deep hover:bg-brand-deep disabled:bg-line-strong text-white text-meta font-medium px-4 py-2 rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             {isLoading ? (
               <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -171,7 +171,7 @@ export const AskPlasgain: React.FC = () => {
 
         {/* Validation Questions / Starter Pills */}
         <div className="space-y-1.5 pt-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+          <span className="text-spec font-bold text-ink-faint uppercase tracking-wider block">
             Validation Test Scenarios & Quick Queries:
           </span>
           <div className="flex flex-wrap gap-1.5">
@@ -179,7 +179,7 @@ export const AskPlasgain: React.FC = () => {
               <button
                 key={idx}
                 onClick={() => handleAsk(vq.query)}
-                className="text-3xs bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-900 px-2.5 py-1 rounded-md border border-slate-200 hover:border-emerald-300 transition-all text-left cursor-pointer font-medium"
+                className="text-3xs bg-raised hover:bg-brand-wash text-body hover:text-brand-deep px-2.5 py-1 rounded-edge border border-line hover:border-brand-edge transition-all text-left cursor-pointer font-medium"
               >
                 {vq.label}
               </button>
@@ -193,22 +193,22 @@ export const AskPlasgain: React.FC = () => {
         {qaHistory.map((item, idx) => (
           <div
             key={idx}
-            className="bg-white rounded-xl border border-slate-200 shadow-xs p-5 space-y-4 transition-all"
+            className="bg-white rounded-panel border border-line shadow-xs p-5 space-y-4 transition-all"
           >
             {/* User Question */}
-            <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100">
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-line">
               <div className="flex items-start gap-2.5">
-                <div className="w-6 h-6 rounded-md bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+                <div className="w-6 h-6 rounded-edge bg-brand-wash text-brand-deep flex items-center justify-center font-bold text-meta shrink-0 mt-0.5">
                   Q
                 </div>
-                <h3 className="font-bold text-slate-900 text-sm sm:text-base leading-snug">
+                <h3 className="font-bold text-body sm:text-base leading-snug">
                   {item.question}
                 </h3>
               </div>
               <span
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 uppercase tracking-wider ${
+                className={`text-spec font-bold px-2 py-0.5 rounded-edge shrink-0 uppercase tracking-wider ${
                   item.response.confidence === "High"
-                    ? "bg-emerald-100 text-emerald-800"
+                    ? "bg-brand-wash text-brand-deep"
                     : item.response.confidence === "Medium"
                     ? "bg-amber-100 text-amber-800"
                     : "bg-rose-100 text-rose-800"
@@ -220,7 +220,7 @@ export const AskPlasgain: React.FC = () => {
 
             {/* Conflict Warning if present */}
             {(item.response.conflictWarning || item.response.technicalConfirmationRequired) && (
-              <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5">
+              <div className="p-3 rounded-edge bg-amber-50 border border-amber-200 text-meta text-amber-900 flex items-start gap-2.5">
                 <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-bold block text-amber-950">Technical Confirmation Required</span>
@@ -230,21 +230,21 @@ export const AskPlasgain: React.FC = () => {
             )}
 
             {/* Direct Answer (Markdown rendered cleanly) */}
-            <div className="text-xs sm:text-sm text-slate-800 leading-relaxed bg-slate-50/70 p-4 rounded-lg border border-slate-200 whitespace-pre-wrap">
+            <div className="text-meta sm:text-body leading-relaxed bg-raised p-4 rounded-edge border border-line whitespace-pre-wrap">
               {item.response.answer}
             </div>
 
             {/* Learning Snippet */}
             {item.response.learningSnippet && (
-              <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-600 flex items-start gap-2">
+              <div className="bg-raised border border-line rounded-edge p-3 text-meta text-ink-dim flex items-start gap-2">
                 <Lightbulb className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                 <div>
-                  <strong className="text-slate-900 font-semibold">
+                  <strong className="text-body font-semibold">
                     {item.response.learningSnippet.concept || "Key Technical Concept"}:{" "}
                   </strong>
                   <span>{item.response.learningSnippet.explanation}</span>
                   {item.response.learningSnippet.whyItMattersToCustomer && (
-                    <p className="mt-1 text-slate-500 italic">
+                    <p className="mt-1 text-ink-dim italic">
                       Why it matters: {item.response.learningSnippet.whyItMattersToCustomer}
                     </p>
                   )}
@@ -254,21 +254,21 @@ export const AskPlasgain: React.FC = () => {
 
             {/* Citations */}
             {item.response.citations && item.response.citations.length > 0 && (
-              <div className="pt-2 border-t border-slate-100 space-y-1.5">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <div className="pt-2 border-t border-line space-y-1.5">
+                <span className="text-spec font-bold text-ink-faint uppercase tracking-wider block">
                   Approved Grounded Citations:
                 </span>
                 <div className="space-y-1.5">
                   {item.response.citations.map((c, i) => (
                     <div
                       key={i}
-                      className="text-xs bg-slate-50 p-2.5 rounded border border-slate-200 text-slate-700 flex items-start gap-2"
+                      className="text-meta bg-raised p-2.5 rounded border border-line flex items-start gap-2"
                     >
-                      <FileText className="w-3.5 h-3.5 text-emerald-700 shrink-0 mt-0.5" />
+                      <FileText className="w-3.5 h-3.5 text-brand-deep shrink-0 mt-0.5" />
                       <div>
-                        <span className="font-bold text-slate-900">{c.document}</span>
-                        {c.pageOrSection && <span className="text-slate-500 ml-1">({c.pageOrSection})</span>}
-                        {c.excerpt && <p className="text-slate-600 text-[11px] italic mt-0.5">"{c.excerpt}"</p>}
+                        <span className="font-bold text-body">{c.document}</span>
+                        {c.pageOrSection && <span className="text-ink-dim ml-1">({c.pageOrSection})</span>}
+                        {c.excerpt && <p className="text-ink-dim text-spec italic mt-0.5">"{c.excerpt}"</p>}
                       </div>
                     </div>
                   ))}
@@ -279,12 +279,12 @@ export const AskPlasgain: React.FC = () => {
             {/* Suggested Follow-ups */}
             {item.response.suggestedFollowUpQuestions && item.response.suggestedFollowUpQuestions.length > 0 && (
               <div className="pt-2 flex flex-wrap items-center gap-2">
-                <span className="text-[11px] font-bold text-slate-500">Related follow-ups:</span>
+                <span className="text-spec font-bold text-ink-dim">Related follow-ups:</span>
                 {item.response.suggestedFollowUpQuestions.map((fq, i) => (
                   <button
                     key={i}
                     onClick={() => handleAsk(fq)}
-                    className="text-xs text-emerald-800 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-md border border-emerald-200 transition-colors cursor-pointer font-medium"
+                    className="text-meta text-brand-deep hover:text-brand-deep bg-brand-wash hover:bg-brand-wash px-2.5 py-1 rounded-edge border border-brand-edge transition-colors cursor-pointer font-medium"
                   >
                     {fq} &rarr;
                   </button>

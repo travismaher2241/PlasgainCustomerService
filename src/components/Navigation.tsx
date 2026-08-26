@@ -28,7 +28,7 @@ export const Navigation: React.FC = () => {
   ];
 
   return (
-    <nav className="bg-stone-50 border-b border-stone-200 sticky top-16 z-30 overflow-x-auto scrollbar-none">
+    <nav className="bg-raised border-b border-line sticky top-16 z-30 overflow-x-auto scrollbar-none">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex space-x-1 sm:space-x-2 py-2">
           {navItems.map((item) => {
@@ -38,20 +38,20 @@ export const Navigation: React.FC = () => {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-md text-xs sm:text-sm font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                className={`flex items-center space-x-2 px-3 py-2 rounded-edge text-meta sm:text-body font-medium whitespace-nowrap transition-colors cursor-pointer ${
                   isActive
-                    ? "bg-white text-emerald-900 border border-stone-300 shadow-xs"
-                    : "text-stone-600 hover:text-stone-900 hover:bg-stone-200/60 border border-transparent"
+                    ? "bg-white text-brand-deep border border-line-strong shadow-xs"
+                    : "text-ink-dim hover:text-ink hover:bg-line border border-transparent"
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? "text-emerald-800" : "text-stone-500"}`} />
+                <Icon className={`w-4 h-4 ${isActive ? "text-brand-deep" : "text-ink-dim"}`} />
                 <span>{item.label}</span>
                 {item.badge !== undefined && (
                   <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                    className={`text-spec font-bold px-1.5 py-0.5 rounded-full ${
                       isActive
-                        ? "bg-emerald-100 text-emerald-800"
-                        : "bg-stone-200 text-stone-600"
+                        ? "bg-brand-wash text-brand-deep"
+                        : "bg-line text-ink-dim"
                     }`}
                   >
                     {item.badge}

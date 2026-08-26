@@ -100,23 +100,23 @@ export const ExplainTermModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 bg-chrome/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-line overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
         
         {/* Header */}
-        <div className="bg-gradient-to-r from-emerald-900 to-slate-900 text-white p-5 flex items-start justify-between">
+        <div className="bg-gradient-to-r from-brand-deep to-chrome-line text-white p-5 flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 flex items-center justify-center font-bold shadow-inner">
+            <div className="w-10 h-10 rounded-panel bg-brand/20 border border-brand/30 text-brand-lift flex items-center justify-center font-bold shadow-inner">
               <BookOpen className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-amber-300 uppercase tracking-widest px-2 py-0.5 rounded bg-amber-400/10 border border-amber-400/20">
+                <span className="text-spec font-bold text-amber-300 uppercase tracking-widest px-2 py-0.5 rounded bg-amber-400/10 border border-amber-400/20">
                   Customer Service Explainer
                 </span>
                 {activeExplanation?.australianStandardRef && (
-                  <span className="text-[10px] text-emerald-300 flex items-center gap-1 font-medium">
-                    <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                  <span className="text-spec text-brand-lift flex items-center gap-1 font-medium">
+                    <ShieldCheck className="w-3 h-3 text-brand-lift" />
                     {activeExplanation.australianStandardRef}
                   </span>
                 )}
@@ -128,7 +128,7 @@ export const ExplainTermModal: React.FC = () => {
           </div>
           <button
             onClick={() => setExplainingTerm(null)}
-            className="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+            className="text-ink-faint hover:text-white p-1.5 rounded-edge hover:bg-white/10 transition-colors cursor-pointer"
             title="Close explainer"
           >
             <X className="w-5 h-5" />
@@ -136,9 +136,9 @@ export const ExplainTermModal: React.FC = () => {
         </div>
 
         {/* Search & Category Pills */}
-        <div className="p-3 bg-slate-50 border-b border-slate-200 space-y-2">
+        <div className="p-3 bg-raised border-b border-line space-y-2">
           <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-4 h-4 text-ink-faint absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={searchTerm}
@@ -150,19 +150,19 @@ export const ExplainTermModal: React.FC = () => {
                 }
               }}
               placeholder="Search 30+ lighting terms (e.g. Autonomy, CCT, AS1158, IK09, LiFePO4, Optics)..."
-              className="w-full pl-9 pr-4 py-2 bg-white text-xs rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-slate-800"
+              className="w-full pl-9 pr-4 py-2 bg-white text-meta rounded-edge border border-line focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent"
             />
           </div>
 
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] scrollbar-none">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-spec scrollbar-none">
             {categories.map(cat => (
               <button
                 key={cat}
                 onClick={() => setActiveCategoryFilter(cat)}
-                className={`px-2.5 py-1 rounded-md font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                className={`px-2.5 py-1 rounded-edge font-medium whitespace-nowrap transition-colors cursor-pointer ${
                   activeCategoryFilter === cat
-                    ? "bg-emerald-800 text-white shadow-xs"
-                    : "bg-white text-slate-600 hover:bg-slate-200 border border-slate-200"
+                    ? "bg-brand-deep text-white shadow-xs"
+                    : "bg-white text-ink-dim hover:bg-line border border-line"
                 }`}
               >
                 {cat}
@@ -176,38 +176,38 @@ export const ExplainTermModal: React.FC = () => {
           {activeExplanation ? (
             <>
               {/* Plain English Definition */}
-              <div className="bg-emerald-50/50 border border-emerald-200/80 p-4 rounded-xl space-y-1.5 shadow-xs">
+              <div className="bg-brand-wash border border-brand-edge p-4 rounded-panel space-y-1.5 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-emerald-950 uppercase tracking-wider flex items-center gap-1.5">
-                    <Info className="w-3.5 h-3.5 text-emerald-700" />
+                  <span className="text-spec font-bold text-brand-deep uppercase tracking-wider flex items-center gap-1.5">
+                    <Info className="w-3.5 h-3.5 text-brand-deep" />
                     Plain English Definition
                   </span>
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                  <span className="text-spec font-semibold px-2 py-0.5 rounded-full bg-brand-wash text-brand-deep">
                     {activeExplanation.category}
                   </span>
                 </div>
-                <p className="text-sm text-slate-800 leading-relaxed font-medium">
+                <p className="text-body leading-relaxed font-medium">
                   {activeExplanation.plainEnglish}
                 </p>
               </div>
 
               {/* Customer Phrasing Box (Copyable) */}
               {activeExplanation.howToExplainToCustomer && (
-                <div className="bg-gradient-to-r from-amber-50 to-orange-50/40 border border-amber-200 p-4 rounded-xl space-y-2">
+                <div className="bg-gradient-to-r from-amber-50 to-orange-50/40 border border-amber-200 p-4 rounded-panel space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-amber-950 flex items-center gap-1.5">
+                    <span className="text-meta font-bold text-amber-950 flex items-center gap-1.5">
                       <Lightbulb className="w-4 h-4 text-amber-600" />
                       What to tell the client (Ready Script):
                     </span>
                     <button
                       onClick={() => handleCopy(activeExplanation.howToExplainToCustomer, "customer explanation script")}
-                      className="text-xs text-amber-900 font-bold bg-amber-200/80 hover:bg-amber-300 px-2.5 py-1 rounded-md flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                      className="text-meta text-amber-900 font-bold bg-amber-200/80 hover:bg-amber-300 px-2.5 py-1 rounded-edge flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                     >
                       <Copy className="w-3.5 h-3.5" />
                       Copy Script
                     </button>
                   </div>
-                  <p className="italic text-xs text-slate-800 bg-white/70 p-3 rounded-lg border border-amber-200/60 leading-relaxed">
+                  <p className="italic text-meta bg-white/70 p-3 rounded-edge border border-amber-200/60 leading-relaxed">
                     "{activeExplanation.howToExplainToCustomer}"
                   </p>
                 </div>
@@ -215,20 +215,20 @@ export const ExplainTermModal: React.FC = () => {
 
               {/* Grid: Why it Matters & Practical Example */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl space-y-1">
-                  <span className="text-[11px] font-bold text-slate-900 uppercase tracking-wider block">
+                <div className="bg-raised border border-line p-3.5 rounded-panel space-y-1">
+                  <span className="text-spec font-bold uppercase tracking-wider block">
                     Why it matters in quoting
                   </span>
-                  <p className="text-xs text-slate-600 leading-relaxed">
+                  <p className="text-meta text-ink-dim leading-relaxed">
                     {activeExplanation.whyItMattersInSales}
                   </p>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200 p-3.5 rounded-xl space-y-1">
-                  <span className="text-[11px] font-bold text-slate-900 uppercase tracking-wider block">
+                <div className="bg-raised border border-line p-3.5 rounded-panel space-y-1">
+                  <span className="text-spec font-bold uppercase tracking-wider block">
                     Practical Application
                   </span>
-                  <p className="text-xs text-slate-600 leading-relaxed">
+                  <p className="text-meta text-ink-dim leading-relaxed">
                     {activeExplanation.practicalExample}
                   </p>
                 </div>
@@ -236,11 +236,11 @@ export const ExplainTermModal: React.FC = () => {
 
               {/* Common Mistakes / Traps */}
               {activeExplanation.commonMistakesToAvoid && (
-                <div className="bg-rose-50/70 border border-rose-200 p-3.5 rounded-xl text-rose-950 space-y-1">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-rose-900 block">
+                <div className="bg-rose-50/70 border border-rose-200 p-3.5 rounded-panel text-rose-950 space-y-1">
+                  <span className="text-spec font-bold uppercase tracking-wider text-rose-900 block">
                     Common Quoting Mistake to Avoid
                   </span>
-                  <p className="text-xs text-rose-800 leading-relaxed">
+                  <p className="text-meta text-rose-800 leading-relaxed">
                     {activeExplanation.commonMistakesToAvoid}
                   </p>
                 </div>
@@ -249,14 +249,14 @@ export const ExplainTermModal: React.FC = () => {
               {/* Related Plasgain Luminaires */}
               {activeExplanation.relatedPlasgainProducts && activeExplanation.relatedPlasgainProducts.length > 0 && (
                 <div className="pt-1">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
+                  <span className="text-spec font-bold text-ink-dim uppercase tracking-wider block mb-1.5">
                     Applicable Plasgain Range:
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {activeExplanation.relatedPlasgainProducts.map((prod, idx) => (
                       <span
                         key={idx}
-                        className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-slate-100 border border-slate-200 text-slate-700 flex items-center gap-1"
+                        className="text-spec font-semibold px-2.5 py-1 rounded-edge bg-paper border border-line flex items-center gap-1"
                       >
                         <Zap className="w-3 h-3 text-amber-500" />
                         {prod}
@@ -268,18 +268,18 @@ export const ExplainTermModal: React.FC = () => {
             </>
           ) : (
             <div className="text-center py-8 space-y-2">
-              <p className="text-sm font-semibold text-slate-700">Select a lighting term to explore</p>
-              <p className="text-xs text-slate-500">Choose from common Australian standards and specifications below</p>
+              <p className="text-body font-semibold">Select a lighting term to explore</p>
+              <p className="text-meta text-ink-dim">Choose from common Australian standards and specifications below</p>
             </div>
           )}
 
           {/* Quick Browse Term Tags */}
-          <div className="pt-3 border-t border-slate-200">
+          <div className="pt-3 border-t border-line">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              <span className="text-spec font-bold text-ink-dim uppercase tracking-wider">
                 Explore Core Lighting Terms:
               </span>
-              <span className="text-[11px] text-slate-400">
+              <span className="text-spec text-ink-faint">
                 {filteredList.length} terms available
               </span>
             </div>
@@ -288,14 +288,14 @@ export const ExplainTermModal: React.FC = () => {
                 <button
                   key={idx}
                   onClick={() => handleSelectTerm(item)}
-                  className={`text-left p-2 rounded-lg border text-xs font-medium transition-all flex items-center justify-between cursor-pointer ${
+                  className={`text-left p-2 rounded-edge border text-meta font-medium transition-all flex items-center justify-between cursor-pointer ${
                     activeExplanation?.term === item.term
-                      ? "bg-emerald-50 border-emerald-400 text-emerald-950 font-bold shadow-xs"
-                      : "bg-white hover:bg-slate-50 border-slate-200 text-slate-700"
+                      ? "bg-brand-wash border-brand text-brand-deep font-bold shadow-xs"
+                      : "bg-white hover:bg-raised border-line text-body"
                   }`}
                 >
                   <span className="truncate mr-1">{item.term.split("(")[0]}</span>
-                  <ChevronRight className="w-3 h-3 text-slate-400 shrink-0" />
+                  <ChevronRight className="w-3 h-3 text-ink-faint shrink-0" />
                 </button>
               ))}
             </div>
@@ -303,13 +303,13 @@ export const ExplainTermModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between">
-          <div className="text-[11px] text-slate-500">
-            Compliant with <span className="font-semibold text-slate-700">AS/NZS 1158</span> & <span className="font-semibold text-slate-700">AS/NZS 4509</span>
+        <div className="p-4 bg-raised border-t border-line flex items-center justify-between">
+          <div className="text-spec text-ink-dim">
+            Compliant with <span className="font-semibold text-body">AS/NZS 1158</span> & <span className="font-semibold text-body">AS/NZS 4509</span>
           </div>
           <button
             onClick={() => setExplainingTerm(null)}
-            className="px-5 py-2 rounded-lg bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+            className="px-5 py-2 rounded-edge bg-brand-deep hover:bg-chrome text-white text-meta font-bold transition-colors cursor-pointer shadow-xs"
           >
             Done
           </button>

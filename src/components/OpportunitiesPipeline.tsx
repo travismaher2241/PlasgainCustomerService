@@ -74,25 +74,25 @@ export const OpportunitiesPipeline: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">Opportunities & Pipeline</h1>
-            <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200 uppercase tracking-wide">
+            <h1 className="text-xl font-bold tracking-tight text-body">Opportunities & Pipeline</h1>
+            <span className="text-meta font-bold px-2 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge uppercase tracking-wide">
               {opportunities.length} Active Deals
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-meta text-ink-dim mt-0.5">
             Track sales progression, missing customer parameters, quote deadlines, and AI action items.
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="bg-slate-100 p-1 rounded-lg border border-slate-200 flex items-center gap-1">
+          <div className="bg-paper p-1 rounded-edge border border-line flex items-center gap-1">
             <button
               onClick={() => setViewMode("list")}
-              className={`p-1.5 rounded-md text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors ${
-                viewMode === "list" ? "bg-white text-emerald-900 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+              className={`p-1.5 rounded-edge text-meta font-semibold flex items-center gap-1 cursor-pointer transition-colors ${
+                viewMode === "list" ? "bg-white text-brand-deep shadow-2xs" : "text-ink-dim hover:text-ink"
               }`}
             >
               <List className="w-3.5 h-3.5" />
@@ -100,8 +100,8 @@ export const OpportunitiesPipeline: React.FC = () => {
             </button>
             <button
               onClick={() => setViewMode("kanban")}
-              className={`p-1.5 rounded-md text-xs font-semibold flex items-center gap-1 cursor-pointer transition-colors ${
-                viewMode === "kanban" ? "bg-white text-emerald-900 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+              className={`p-1.5 rounded-edge text-meta font-semibold flex items-center gap-1 cursor-pointer transition-colors ${
+                viewMode === "kanban" ? "bg-white text-brand-deep shadow-2xs" : "text-ink-dim hover:text-ink"
               }`}
             >
               <KanbanSquare className="w-3.5 h-3.5" />
@@ -111,7 +111,7 @@ export const OpportunitiesPipeline: React.FC = () => {
 
           <button
             onClick={() => navigateToWorkflow("new-enquiry")}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-3.5 py-2 rounded-md text-xs transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="bg-brand-deep hover:bg-brand-deep text-white font-medium px-3.5 py-2 rounded-edge text-meta transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
             <Plus className="w-4 h-4" />
             <span>New Opportunity</span>
@@ -122,22 +122,22 @@ export const OpportunitiesPipeline: React.FC = () => {
       {/* Filters & Search */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="relative flex-1 max-w-md">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+          <Search className="w-4 h-4 text-ink-faint absolute left-3 top-3" />
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search by project, client company, or location..."
-            className="w-full text-xs text-slate-900 pl-9 pr-4 py-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-emerald-600 bg-white"
+            className="w-full text-meta pl-9 pr-4 py-2.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep bg-white"
           />
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto">
-          <span className="text-xs text-slate-500 font-medium">Stage:</span>
+          <span className="text-meta text-ink-dim font-medium">Stage:</span>
           <select
             value={stageFilter}
             onChange={(e) => setStageFilter(e.target.value)}
-            className="text-xs text-slate-800 px-3 py-2 rounded-md border border-slate-200 bg-white focus:outline-none focus:border-emerald-600"
+            className="text-meta px-3 py-2 rounded-edge border border-line bg-white focus:outline-none focus:border-brand-deep"
           >
             <option value="all">All Stages</option>
             {stages.map((s) => (
@@ -153,11 +153,11 @@ export const OpportunitiesPipeline: React.FC = () => {
       {viewMode === "list" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Opportunities Table (2 cols) */}
-          <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="lg:col-span-2 bg-white rounded-panel border border-line shadow-xs overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full text-left text-meta border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                  <tr className="bg-raised text-ink-dim border-b border-line">
                     <th className="py-3 px-4 font-semibold">Project & Customer</th>
                     <th className="py-3 px-3 font-semibold">Stage</th>
                     <th className="py-3 px-3 font-semibold">Est. Value</th>
@@ -165,39 +165,39 @@ export const OpportunitiesPipeline: React.FC = () => {
                     <th className="py-3 px-4 font-semibold">Next Action</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-line">
                   {filteredOpportunities.map((opp) => {
                     const isSelected = selectedOpp?.id === opp.id;
                     return (
                       <tr
                         key={opp.id}
                         onClick={() => handleSelectOpp(opp)}
-                        className={`hover:bg-slate-50 transition-colors cursor-pointer ${
-                          isSelected ? "bg-emerald-50/60 font-medium" : ""
+                        className={`hover:bg-raised transition-colors cursor-pointer ${
+                          isSelected ? "bg-brand-wash font-medium" : ""
                         }`}
                       >
                         <td className="py-3 px-4">
-                          <div className="font-bold text-slate-900">{opp.project}</div>
-                          <div className="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5">
+                          <div className="font-bold text-body">{opp.project}</div>
+                          <div className="text-spec text-ink-dim flex items-center gap-1.5 mt-0.5">
                             <span>{opp.customerCompany}</span>
                             <span>•</span>
                             <span>{opp.location}</span>
                           </div>
                         </td>
                         <td className="py-3 px-3">
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 uppercase">
+                          <span className="text-spec font-bold px-2 py-0.5 rounded bg-paper border border-line uppercase">
                             {opp.stage}
                           </span>
                         </td>
-                        <td className="py-3 px-3 font-bold text-emerald-700">
+                        <td className="py-3 px-3 font-bold text-brand-deep">
                           {opp.estimatedValue ? `$${opp.estimatedValue.toLocaleString()}` : "TBD"}
                         </td>
                         <td className="py-3 px-3">
                           {opp.readinessScore ? (
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                              className={`text-spec font-bold px-2 py-0.5 rounded ${
                                 opp.readinessScore >= 80
-                                  ? "bg-emerald-100 text-emerald-800"
+                                  ? "bg-brand-wash text-brand-deep"
                                   : opp.readinessScore >= 50
                                   ? "bg-amber-100 text-amber-800"
                                   : "bg-rose-100 text-rose-800"
@@ -206,10 +206,10 @@ export const OpportunitiesPipeline: React.FC = () => {
                               {opp.readinessScore}%
                             </span>
                           ) : (
-                            <span className="text-slate-400">—</span>
+                            <span className="text-ink-faint">—</span>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-slate-700">
+                        <td className="py-3 px-4 text-body">
                           <div className="truncate max-w-xs">{opp.nextAction}</div>
                         </td>
                       </tr>
@@ -223,20 +223,20 @@ export const OpportunitiesPipeline: React.FC = () => {
           {/* Selected Opportunity Detail Panel (1 col) */}
           <div className="space-y-4">
             {selectedOpp ? (
-              <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
-                <div className="flex items-start justify-between gap-2 pb-3 border-b border-slate-200">
+              <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4">
+                <div className="flex items-start justify-between gap-2 pb-3 border-b border-line">
                   <div>
-                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block">
+                    <span className="text-spec font-bold text-brand-deep uppercase tracking-wider block">
                       Opportunity Overview
                     </span>
-                    <h3 className="font-bold text-slate-900 text-base">{selectedOpp.project}</h3>
+                    <h3 className="font-bold text-body text-base">{selectedOpp.project}</h3>
                   </div>
                   <select
                     value={selectedOpp.stage}
                     onChange={(e) =>
                       handleStageChange(selectedOpp.id, e.target.value as OpportunityStage)
                     }
-                    className="text-xs font-semibold px-2.5 py-1 rounded-md border border-slate-200 bg-slate-50 focus:outline-none focus:border-emerald-600"
+                    className="text-meta font-semibold px-2.5 py-1 rounded-edge border border-line bg-raised focus:outline-none focus:border-brand-deep"
                   >
                     {stages.map((st) => (
                       <option key={st} value={st}>
@@ -246,30 +246,30 @@ export const OpportunitiesPipeline: React.FC = () => {
                   </select>
                 </div>
 
-                <div className="space-y-2 text-xs">
-                  <div className="flex items-center justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-500">Company:</span>
-                    <span className="font-bold text-slate-900">{selectedOpp.customerCompany}</span>
+                <div className="space-y-2 text-meta">
+                  <div className="flex items-center justify-between py-1 border-b border-line">
+                    <span className="text-ink-dim">Company:</span>
+                    <span className="font-bold text-body">{selectedOpp.customerCompany}</span>
                   </div>
-                  <div className="flex items-center justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-500">Contact:</span>
-                    <span className="font-semibold text-slate-900">
+                  <div className="flex items-center justify-between py-1 border-b border-line">
+                    <span className="text-ink-dim">Contact:</span>
+                    <span className="font-semibold text-body">
                       {selectedOpp.contactName} ({selectedOpp.contactEmail})
                     </span>
                   </div>
-                  <div className="flex items-center justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-500">Location:</span>
-                    <span className="text-slate-900">{selectedOpp.location}</span>
+                  <div className="flex items-center justify-between py-1 border-b border-line">
+                    <span className="text-ink-dim">Location:</span>
+                    <span className="text-body">{selectedOpp.location}</span>
                   </div>
-                  <div className="flex items-center justify-between py-1 border-b border-slate-100">
-                    <span className="text-slate-500">Est. Quantity / Value:</span>
-                    <span className="font-bold text-emerald-700">
+                  <div className="flex items-center justify-between py-1 border-b border-line">
+                    <span className="text-ink-dim">Est. Quantity / Value:</span>
+                    <span className="font-bold text-brand-deep">
                       {selectedOpp.estimatedQuantity || 0} units • $
                       {(selectedOpp.estimatedValue || 0).toLocaleString()}
                     </span>
                   </div>
                   {selectedOpp.quoteDeadline && (
-                    <div className="flex items-center justify-between py-1 border-b border-slate-100 text-amber-800 font-medium">
+                    <div className="flex items-center justify-between py-1 border-b border-line text-amber-800 font-medium">
                       <span className="flex items-center gap-1">
                         <Clock className="w-3.5 h-3.5 text-amber-600" /> Quote Due:
                       </span>
@@ -279,32 +279,32 @@ export const OpportunitiesPipeline: React.FC = () => {
                 </div>
 
                 {/* AI Next Best Action Card */}
-                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs space-y-1.5">
-                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                <div className="bg-raised border border-line rounded-edge p-3 text-meta space-y-1.5">
+                  <div className="font-bold text-body flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                     <span>Next Action:</span>
                   </div>
-                  <p className="text-slate-700">{selectedOpp.nextAction}</p>
+                  <p className="text-body">{selectedOpp.nextAction}</p>
                 </div>
 
                 {/* Quick Workflow Action Buttons */}
-                <div className="space-y-2 pt-2 border-t border-slate-100">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                <div className="space-y-2 pt-2 border-t border-line">
+                  <span className="text-spec font-bold text-ink-faint uppercase tracking-wider block">
                     AI Sales Copilot Actions:
                   </span>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       onClick={() => navigateToWorkflow("tools", "call-prep", selectedOpp.id)}
-                      className="text-xs font-semibold p-2.5 rounded-md bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      className="text-meta font-semibold p-2.5 rounded-edge bg-raised hover:bg-paper border border-line flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
-                      <PhoneCall className="w-3.5 h-3.5 text-emerald-600" />
+                      <PhoneCall className="w-3.5 h-3.5 text-brand-deep" />
                       <span>Prep Call</span>
                     </button>
                     <button
                       onClick={() => navigateToWorkflow("tools", "quote-review")}
-                      className="text-xs font-semibold p-2.5 rounded-md bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-200 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      className="text-meta font-semibold p-2.5 rounded-edge bg-raised hover:bg-paper border border-line flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                     >
-                      <FileCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      <FileCheck className="w-3.5 h-3.5 text-brand-deep" />
                       <span>Review Quote</span>
                     </button>
                   </div>
@@ -323,11 +323,11 @@ export const OpportunitiesPipeline: React.FC = () => {
             return (
               <div
                 key={stage}
-                className="bg-slate-50/70 rounded-xl p-3 border border-slate-200 space-y-2 min-w-[220px]"
+                className="bg-raised rounded-panel p-3 border border-line space-y-2 min-w-[220px]"
               >
-                <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                  <span className="text-xs font-bold text-slate-900">{stage}</span>
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                <div className="flex items-center justify-between pb-2 border-b border-line">
+                  <span className="text-meta font-bold">{stage}</span>
+                  <span className="text-spec font-bold px-1.5 py-0.5 rounded-full bg-line">
                     {oppsInStage.length}
                   </span>
                 </div>
@@ -337,16 +337,16 @@ export const OpportunitiesPipeline: React.FC = () => {
                     <div
                       key={opp.id}
                       onClick={() => handleSelectOpp(opp)}
-                      className="bg-white p-3 rounded-lg border border-slate-200 hover:border-emerald-400 shadow-2xs hover:shadow-xs transition-all cursor-pointer space-y-1.5"
+                      className="bg-white p-3 rounded-edge border border-line hover:border-brand shadow-2xs hover:shadow-xs transition-all cursor-pointer space-y-1.5"
                     >
-                      <div className="font-bold text-slate-900 text-xs">{opp.project}</div>
-                      <div className="text-[11px] text-slate-500">{opp.customerCompany}</div>
+                      <div className="font-bold text-meta">{opp.project}</div>
+                      <div className="text-spec text-ink-dim">{opp.customerCompany}</div>
                       {opp.estimatedValue && (
-                        <div className="text-xs font-bold text-emerald-700">
+                        <div className="text-meta font-bold text-brand-deep">
                           ${opp.estimatedValue.toLocaleString()}
                         </div>
                       )}
-                      <div className="text-[10px] text-slate-400 truncate pt-1 border-t border-slate-100">
+                      <div className="text-spec text-ink-faint truncate pt-1 border-t border-line">
                         {opp.nextAction}
                       </div>
                     </div>

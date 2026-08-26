@@ -245,22 +245,22 @@ export const ToolsHub: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-stone-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-stone-900">Sales Power Tools Hub</h1>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+            <h1 className="text-xl font-bold text-body">Sales Power Tools Hub</h1>
+            <span className="text-meta font-semibold px-2.5 py-0.5 rounded-full bg-brand-wash text-brand-deep border border-brand-edge">
               7 Purpose-Built Workflows
             </span>
           </div>
-          <p className="text-xs text-stone-500 mt-0.5">
+          <p className="text-meta text-ink-dim mt-0.5">
             Specialised AI assistants for tenders, quote verification, customer intelligence, phone calls, and side-by-side comparisons.
           </p>
         </div>
       </div>
 
       {/* Sub-tools Navigation */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none border-b border-stone-200">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none border-b border-line">
         {subTools.map((t) => {
           const Icon = t.icon;
           const isActive = activeToolTab === t.id;
@@ -268,10 +268,10 @@ export const ToolsHub: React.FC = () => {
             <button
               key={t.id}
               onClick={() => setActiveToolTab(t.id)}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-edge text-meta font-semibold whitespace-nowrap transition-colors cursor-pointer ${
                 isActive
-                  ? "bg-emerald-800 text-white shadow-xs"
-                  : "bg-stone-100 hover:bg-stone-200 text-stone-700"
+                  ? "bg-brand-deep text-white shadow-xs"
+                  : "bg-paper hover:bg-line text-body"
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -284,24 +284,24 @@ export const ToolsHub: React.FC = () => {
       {/* TOOL 1: TENDER & RFQ ANALYSER */}
       {activeToolTab === "tender-analyser" && (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs space-y-4">
+          <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-stone-900 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-emerald-800" />
+              <h2 className="text-body font-bold flex items-center gap-2">
+                <FileText className="w-4 h-4 text-brand-deep" />
                 Tender Specification & Lighting Scope Parser
               </h2>
-              <span className="text-xs text-stone-500">Extracts compliance clauses & risk flags</span>
+              <span className="text-meta text-ink-dim">Extracts compliance clauses & risk flags</span>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+              <label className="block text-meta font-semibold mb-1.5">
                 Paste Tender Specification or Schedule Excerpts:
               </label>
               <textarea
                 value={tenderText}
                 onChange={(e) => setTenderText(e.target.value)}
                 rows={5}
-                className="w-full text-xs text-stone-900 p-3 rounded-lg border border-stone-300 focus:outline-none focus:border-emerald-700 font-mono bg-stone-50"
+                className="w-full text-meta p-3 rounded-edge border border-line-strong focus:outline-none focus:border-brand-deep font-mono bg-raised"
               />
             </div>
 
@@ -309,7 +309,7 @@ export const ToolsHub: React.FC = () => {
               <button
                 onClick={handleAnalyzeTender}
                 disabled={isTenderLoading}
-                className="bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-semibold px-5 py-2 rounded-lg text-xs transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+                className="bg-brand-deep hover:bg-chrome disabled:bg-line-strong text-white font-semibold px-5 py-2 rounded-edge text-meta transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
               >
                 {isTenderLoading ? (
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -322,32 +322,32 @@ export const ToolsHub: React.FC = () => {
           </div>
 
           {tenderResult && (
-            <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs space-y-4">
-              <h3 className="font-bold text-stone-900 text-sm pb-2 border-b border-stone-200">
+            <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4">
+              <h3 className="font-bold text-body pb-2 border-b border-line">
                 Tender Requirement Matrix & Plasgain Compliance Assessment
               </h3>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+                <table className="w-full text-left text-meta border-collapse">
                   <thead>
-                    <tr className="bg-stone-50 text-stone-600 border-b border-stone-200">
+                    <tr className="bg-raised text-ink-dim border-b border-line">
                       <th className="py-2 px-3 font-semibold">Tender Clause / Requirement</th>
                       <th className="py-2 px-3 font-semibold">Specified Value</th>
                       <th className="py-2 px-3 font-semibold">Plasgain Position</th>
                       <th className="py-2 px-3 font-semibold">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-100">
+                  <tbody className="divide-y divide-line">
                     {tenderResult.specificationsMatrix?.map((row: any, i: number) => (
                       <tr key={i}>
-                        <td className="py-2 px-3 font-semibold text-stone-900">{row.clause || row.requirement}</td>
-                        <td className="py-2 px-3 text-stone-700">{row.specifiedValue}</td>
-                        <td className="py-2 px-3 text-stone-700">{row.plasgainPosition}</td>
+                        <td className="py-2 px-3 font-semibold text-body">{row.clause || row.requirement}</td>
+                        <td className="py-2 px-3 text-body">{row.specifiedValue}</td>
+                        <td className="py-2 px-3 text-body">{row.plasgainPosition}</td>
                         <td className="py-2 px-3">
                           <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            className={`text-spec font-bold px-2 py-0.5 rounded-full ${
                               row.status === "Compliant"
-                                ? "bg-emerald-100 text-emerald-800"
+                                ? "bg-brand-wash text-brand-deep"
                                 : row.status === "Clarification Needed"
                                 ? "bg-amber-100 text-amber-800"
                                 : "bg-rose-100 text-rose-800"
@@ -363,7 +363,7 @@ export const ToolsHub: React.FC = () => {
               </div>
 
               {tenderResult.riskFlags && (
-                <div className="bg-amber-50 p-3.5 rounded-lg border border-amber-200 text-xs space-y-1.5">
+                <div className="bg-amber-50 p-3.5 rounded-edge border border-amber-200 text-meta space-y-1.5">
                   <span className="font-bold text-amber-900 flex items-center gap-1.5">
                     <AlertTriangle className="w-4 h-4 text-amber-700" />
                     Key Commercial & Technical Risks to Address:
@@ -383,36 +383,36 @@ export const ToolsHub: React.FC = () => {
       {/* TOOL 2: QUOTE REVIEWER */}
       {activeToolTab === "quote-review" && (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs space-y-4">
+          <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-stone-900 flex items-center gap-2">
-                <ClipboardCheck className="w-4 h-4 text-emerald-800" />
+              <h2 className="text-body font-bold flex items-center gap-2">
+                <ClipboardCheck className="w-4 h-4 text-brand-deep" />
                 Pre-Send Quote Reviewer & Discrepancy Checker
               </h2>
-              <span className="text-xs text-stone-500">Catches wrong CCT, missing brackets, unquoted freight</span>
+              <span className="text-meta text-ink-dim">Catches wrong CCT, missing brackets, unquoted freight</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                <label className="block text-meta font-semibold mb-1">
                   Customer Enquiry / RFQ Requirement:
                 </label>
                 <textarea
                   value={quoteEnquiryText}
                   onChange={(e) => setQuoteEnquiryText(e.target.value)}
                   rows={4}
-                  className="w-full text-xs text-stone-900 p-2.5 rounded-lg border border-stone-300 focus:outline-none focus:border-emerald-700 font-mono bg-stone-50"
+                  className="w-full text-meta p-2.5 rounded-edge border border-line-strong focus:outline-none focus:border-brand-deep font-mono bg-raised"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">
+                <label className="block text-meta font-semibold mb-1">
                   Proposed Quote Line Items:
                 </label>
                 <textarea
                   value={quoteItemsText}
                   onChange={(e) => setQuoteItemsText(e.target.value)}
                   rows={4}
-                  className="w-full text-xs text-stone-900 p-2.5 rounded-lg border border-stone-300 focus:outline-none focus:border-emerald-700 font-mono bg-stone-50"
+                  className="w-full text-meta p-2.5 rounded-edge border border-line-strong focus:outline-none focus:border-brand-deep font-mono bg-raised"
                 />
               </div>
             </div>
@@ -421,7 +421,7 @@ export const ToolsHub: React.FC = () => {
               <button
                 onClick={handleReviewQuote}
                 disabled={isQuoteLoading}
-                className="bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-semibold px-5 py-2 rounded-lg text-xs transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+                className="bg-brand-deep hover:bg-chrome disabled:bg-line-strong text-white font-semibold px-5 py-2 rounded-edge text-meta transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
               >
                 {isQuoteLoading ? (
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -434,13 +434,13 @@ export const ToolsHub: React.FC = () => {
           </div>
 
           {quoteResult && (
-            <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-stone-200">
-                <h3 className="font-bold text-stone-900 text-sm">Quote Audit Findings</h3>
+            <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-line">
+                <h3 className="font-bold text-body">Quote Audit Findings</h3>
                 <span
-                  className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
+                  className={`text-meta font-bold px-2.5 py-0.5 rounded-full ${
                     quoteResult.overallVerdict === "Approved to Send"
-                      ? "bg-emerald-100 text-emerald-800"
+                      ? "bg-brand-wash text-brand-deep"
                       : "bg-rose-100 text-rose-800"
                   }`}
                 >
@@ -449,7 +449,7 @@ export const ToolsHub: React.FC = () => {
               </div>
 
               {quoteResult.potentialProblems && quoteResult.potentialProblems.length > 0 && (
-                <div className="bg-rose-50 p-4 rounded-lg border border-rose-200 text-xs space-y-2">
+                <div className="bg-rose-50 p-4 rounded-edge border border-rose-200 text-meta space-y-2">
                   <span className="font-bold text-rose-900 flex items-center gap-1.5">
                     <AlertTriangle className="w-4 h-4 text-rose-600" />
                     Critical Discrepancies Caught (Fix Before Sending):
@@ -467,7 +467,7 @@ export const ToolsHub: React.FC = () => {
               )}
 
               {quoteResult.checkItems && quoteResult.checkItems.length > 0 && (
-                <div className="bg-amber-50 p-4 rounded-lg border border-amber-200 text-xs space-y-2">
+                <div className="bg-amber-50 p-4 rounded-edge border border-amber-200 text-meta space-y-2">
                   <span className="font-bold text-amber-900 flex items-center gap-1.5">
                     <AlertTriangle className="w-4 h-4 text-amber-600" />
                     Items to Verify Before Sending:
@@ -485,12 +485,12 @@ export const ToolsHub: React.FC = () => {
               )}
 
               {(quoteResult.matched || quoteResult.matchedItems) && (
-                <div className="bg-stone-50 p-4 rounded-lg border border-stone-200 text-xs space-y-1.5">
-                  <span className="font-bold text-stone-900 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <div className="bg-raised p-4 rounded-edge border border-line text-meta space-y-1.5">
+                  <span className="font-bold text-body flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-brand-deep" />
                     Correctly Matched Parameters:
                   </span>
-                  <ul className="space-y-1 pl-5 list-disc text-stone-700">
+                  <ul className="space-y-1 pl-5 list-disc text-body">
                     {(quoteResult.matched || quoteResult.matchedItems).map((m: any, idx: number) => (
                       <li key={idx}>
                         {typeof m === "string" ? m : `${m.item}: ${m.details || m.item}`}
@@ -501,12 +501,12 @@ export const ToolsHub: React.FC = () => {
               )}
 
               {quoteResult.beforeSendingChecklist && quoteResult.beforeSendingChecklist.length > 0 && (
-                <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-200 text-xs space-y-1.5">
-                  <span className="font-bold text-emerald-950 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                <div className="bg-brand-wash p-4 rounded-edge border border-brand-edge text-meta space-y-1.5">
+                  <span className="font-bold text-brand-deep flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-brand-deep" />
                     Pre-Dispatch Checklist:
                   </span>
-                  <ul className="space-y-1 pl-5 list-disc text-emerald-900">
+                  <ul className="space-y-1 pl-5 list-disc text-brand-deep">
                     {quoteResult.beforeSendingChecklist.map((item: string, idx: number) => (
                       <li key={idx}>{item}</li>
                     ))}
@@ -521,32 +521,32 @@ export const ToolsHub: React.FC = () => {
       {/* TOOL 3: CUSTOMER RESEARCH */}
       {activeToolTab === "customer-research" && (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs space-y-4">
+          <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-stone-900 flex items-center gap-2">
-                <Search className="w-4 h-4 text-emerald-800" />
+              <h2 className="text-body font-bold flex items-center gap-2">
+                <Search className="w-4 h-4 text-brand-deep" />
                 Australian Contractor & Council Intelligence (Search Grounded)
               </h2>
-              <span className="text-xs text-stone-500">Live Google Search Grounding</span>
+              <span className="text-meta text-ink-dim">Live Google Search Grounding</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">Company / Organisation Name:</label>
+                <label className="block text-meta font-semibold mb-1">Company / Organisation Name:</label>
                 <input
                   type="text"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  className="w-full text-xs text-stone-900 p-2.5 rounded-lg border border-stone-300 focus:outline-none focus:border-emerald-700"
+                  className="w-full text-meta p-2.5 rounded-edge border border-line-strong focus:outline-none focus:border-brand-deep"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">Region / Location:</label>
+                <label className="block text-meta font-semibold mb-1">Region / Location:</label>
                 <input
                   type="text"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  className="w-full text-xs text-stone-900 p-2.5 rounded-lg border border-stone-300 focus:outline-none focus:border-emerald-700"
+                  className="w-full text-meta p-2.5 rounded-edge border border-line-strong focus:outline-none focus:border-brand-deep"
                 />
               </div>
             </div>
@@ -555,7 +555,7 @@ export const ToolsHub: React.FC = () => {
               <button
                 onClick={handleResearchCustomer}
                 disabled={isResearchLoading}
-                className="bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-semibold px-5 py-2 rounded-lg text-xs transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+                className="bg-brand-deep hover:bg-chrome disabled:bg-line-strong text-white font-semibold px-5 py-2 rounded-edge text-meta transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
               >
                 {isResearchLoading ? (
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -568,21 +568,21 @@ export const ToolsHub: React.FC = () => {
           </div>
 
           {researchResult && (
-            <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs space-y-4 text-xs">
-              <div className="flex items-center justify-between pb-3 border-b border-stone-200">
-                <h3 className="font-bold text-stone-900 text-sm">{companyName} — Account Brief</h3>
-                <span className="text-stone-500">{location}</span>
+            <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4 text-meta">
+              <div className="flex items-center justify-between pb-3 border-b border-line">
+                <h3 className="font-bold text-body">{companyName} — Account Brief</h3>
+                <span className="text-ink-dim">{location}</span>
               </div>
 
               <div className="space-y-3">
-                <p className="text-stone-700 leading-relaxed bg-stone-50 p-3 rounded-lg border border-stone-200">
+                <p className="text-body leading-relaxed bg-raised p-3 rounded-edge border border-line">
                   {researchResult.overview || researchResult.summary}
                 </p>
 
                 {researchResult.relevantProjects && (
                   <div>
-                    <h4 className="font-bold text-stone-900 mb-1">Typical Projects & Sector Focus:</h4>
-                    <ul className="list-disc pl-5 space-y-1 text-stone-700">
+                    <h4 className="font-bold text-body mb-1">Typical Projects & Sector Focus:</h4>
+                    <ul className="list-disc pl-5 space-y-1 text-body">
                       {researchResult.relevantProjects.map((proj: string, idx: number) => (
                         <li key={idx}>{proj}</li>
                       ))}
@@ -591,7 +591,7 @@ export const ToolsHub: React.FC = () => {
                 )}
 
                 {researchResult.salesStrategy && (
-                  <div className="bg-emerald-50 p-3.5 rounded-lg border border-emerald-200 text-emerald-950 space-y-1">
+                  <div className="bg-brand-wash p-3.5 rounded-edge border border-brand-edge text-brand-deep space-y-1">
                     <span className="font-bold flex items-center gap-1.5">
                       <Sparkles className="w-4 h-4 text-amber-600" /> Recommended Sales Angle:
                     </span>
@@ -607,30 +607,30 @@ export const ToolsHub: React.FC = () => {
       {/* TOOL 4: CALL PREPARATION BRIEF */}
       {activeToolTab === "call-prep" && (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs space-y-4">
+          <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-stone-900 flex items-center gap-2">
-                <PhoneCall className="w-4 h-4 text-emerald-800" />
+              <h2 className="text-body font-bold flex items-center gap-2">
+                <PhoneCall className="w-4 h-4 text-brand-deep" />
                 1-Minute Pre-Call Briefing Generator
               </h2>
-              <span className="text-xs text-stone-500">Selected: {selectedOpp?.project}</span>
+              <span className="text-meta text-ink-dim">Selected: {selectedOpp?.project}</span>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-stone-50 p-3 rounded-lg border border-stone-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-meta bg-raised p-3 rounded-edge border border-line">
               <div>
-                <span className="text-stone-500 block">Opportunity:</span>
-                <span className="font-bold text-stone-900">{selectedOpp?.project}</span>
+                <span className="text-ink-dim block">Opportunity:</span>
+                <span className="font-bold text-body">{selectedOpp?.project}</span>
               </div>
               <div>
-                <span className="text-stone-500 block">Contact:</span>
-                <span className="font-semibold text-stone-800">
+                <span className="text-ink-dim block">Contact:</span>
+                <span className="font-semibold text-body">
                   {selectedOpp?.contactName} ({selectedOpp?.customerCompany})
                 </span>
               </div>
               <button
                 onClick={handlePrepCall}
                 disabled={isCallPrepLoading}
-                className="bg-emerald-800 hover:bg-emerald-900 text-white font-semibold px-4 py-2 rounded-lg text-xs transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs self-end sm:self-center"
+                className="bg-brand-deep hover:bg-chrome text-white font-semibold px-4 py-2 rounded-edge text-meta transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs self-end sm:self-center"
               >
                 {isCallPrepLoading ? (
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -643,31 +643,31 @@ export const ToolsHub: React.FC = () => {
           </div>
 
           {callPrepResult && (
-            <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs space-y-4 text-xs">
-              <div className="flex items-center justify-between pb-3 border-b border-stone-200">
-                <h3 className="font-bold text-stone-900 text-sm">Pre-Call Cheat Sheet</h3>
-                <span className="text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+            <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4 text-meta">
+              <div className="flex items-center justify-between pb-3 border-b border-line">
+                <h3 className="font-bold text-body">Pre-Call Cheat Sheet</h3>
+                <span className="text-brand-deep font-bold bg-brand-wash px-2 py-0.5 rounded border border-brand-edge">
                   Primary Goal: {callPrepResult.primaryGoal}
                 </span>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-stone-50 p-3.5 rounded-lg border border-stone-200 space-y-2">
-                  <span className="font-bold text-stone-900 block">Key Questions to Ask on Call:</span>
-                  <ul className="space-y-1.5 pl-4 list-disc text-stone-700">
+                <div className="bg-raised p-3.5 rounded-edge border border-line space-y-2">
+                  <span className="font-bold text-body block">Key Questions to Ask on Call:</span>
+                  <ul className="space-y-1.5 pl-4 list-disc text-body">
                     {callPrepResult.questionsToAsk?.map((q: string, i: number) => (
                       <li key={i}>{q}</li>
                     ))}
                   </ul>
                 </div>
 
-                <div className="bg-amber-50/60 p-3.5 rounded-lg border border-amber-200 space-y-2">
+                <div className="bg-amber-50/60 p-3.5 rounded-edge border border-amber-200 space-y-2">
                   <span className="font-bold text-amber-950 block">Likely Objections & Handling:</span>
                   <div className="space-y-2">
                     {callPrepResult.objectionHandling?.map((obj: any, i: number) => (
-                      <div key={i} className="text-[11px]">
+                      <div key={i} className="text-spec">
                         <strong className="text-amber-900">"{obj.objection}"</strong>
-                        <p className="text-stone-700 italic mt-0.5">Response: {obj.response}</p>
+                        <p className="text-body italic mt-0.5">Response: {obj.response}</p>
                       </div>
                     ))}
                   </div>
@@ -681,24 +681,24 @@ export const ToolsHub: React.FC = () => {
       {/* TOOL 5: CALL NOTES PROCESSOR */}
       {activeToolTab === "call-notes" && (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs space-y-4">
+          <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-stone-900 flex items-center gap-2">
-                <Edit3 className="w-4 h-4 text-emerald-800" />
+              <h2 className="text-body font-bold flex items-center gap-2">
+                <Edit3 className="w-4 h-4 text-brand-deep" />
                 Raw Call Notes to Structured CRM Fields
               </h2>
-              <span className="text-xs text-stone-500">Converts messy typing into clean tasks</span>
+              <span className="text-meta text-ink-dim">Converts messy typing into clean tasks</span>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-stone-700 mb-1.5">
+              <label className="block text-meta font-semibold mb-1.5">
                 Paste Telephone / Meeting Scratchpad Notes:
               </label>
               <textarea
                 value={rawCallNotes}
                 onChange={(e) => setRawCallNotes(e.target.value)}
                 rows={4}
-                className="w-full text-xs text-stone-900 p-3 rounded-lg border border-stone-300 focus:outline-none focus:border-emerald-700 font-mono bg-stone-50"
+                className="w-full text-meta p-3 rounded-edge border border-line-strong focus:outline-none focus:border-brand-deep font-mono bg-raised"
               />
             </div>
 
@@ -706,7 +706,7 @@ export const ToolsHub: React.FC = () => {
               <button
                 onClick={handleProcessNotes}
                 disabled={isNotesLoading}
-                className="bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-semibold px-5 py-2 rounded-lg text-xs transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+                className="bg-brand-deep hover:bg-chrome disabled:bg-line-strong text-white font-semibold px-5 py-2 rounded-edge text-meta transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
               >
                 {isNotesLoading ? (
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -719,21 +719,21 @@ export const ToolsHub: React.FC = () => {
           </div>
 
           {callNotesResult && (
-            <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs space-y-4 text-xs">
-              <h3 className="font-bold text-stone-900 text-sm pb-2 border-b border-stone-200">
+            <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4 text-meta">
+              <h3 className="font-bold text-body pb-2 border-b border-line">
                 Structured CRM Output
               </h3>
 
               <div className="space-y-3">
-                <div className="bg-stone-50 p-3 rounded-lg border border-stone-200">
-                  <span className="font-bold text-stone-900 block mb-1">Executive Summary for CRM Note:</span>
-                  <p className="text-stone-700">{callNotesResult.crmSummary || callNotesResult.summary}</p>
+                <div className="bg-raised p-3 rounded-edge border border-line">
+                  <span className="font-bold text-body block mb-1">Executive Summary for CRM Note:</span>
+                  <p className="text-body">{callNotesResult.crmSummary || callNotesResult.summary}</p>
                 </div>
 
                 {callNotesResult.actionItems && (
-                  <div className="bg-emerald-50/50 p-3 rounded-lg border border-emerald-200">
-                    <span className="font-bold text-emerald-950 block mb-1.5">Action Items & Deadlines:</span>
-                    <ul className="space-y-1 pl-5 list-disc text-stone-800">
+                  <div className="bg-brand-wash p-3 rounded-edge border border-brand-edge">
+                    <span className="font-bold text-brand-deep block mb-1.5">Action Items & Deadlines:</span>
+                    <ul className="space-y-1 pl-5 list-disc text-body">
                       {callNotesResult.actionItems.map((item: string, idx: number) => (
                         <li key={idx}>{item}</li>
                       ))}
@@ -749,22 +749,22 @@ export const ToolsHub: React.FC = () => {
       {/* TOOL 6: FOLLOW-UP ASSISTANT */}
       {activeToolTab === "follow-up" && (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs space-y-4">
+          <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-stone-900 flex items-center gap-2">
-                <Mail className="w-4 h-4 text-emerald-800" />
+              <h2 className="text-body font-bold flex items-center gap-2">
+                <Mail className="w-4 h-4 text-brand-deep" />
                 Smart Follow-Up Email Assistant
               </h2>
-              <span className="text-xs text-stone-500">Non-pushy, high-value B2B templates</span>
+              <span className="text-meta text-ink-dim">Non-pushy, high-value B2B templates</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">Opportunity Stage:</label>
+                <label className="block text-meta font-semibold mb-1">Opportunity Stage:</label>
                 <select
                   value={followUpStage}
                   onChange={(e) => setFollowUpStage(e.target.value)}
-                  className="w-full text-xs text-stone-900 p-2.5 rounded-lg border border-stone-300 focus:outline-none focus:border-emerald-700 bg-white"
+                  className="w-full text-meta p-2.5 rounded-edge border border-line-strong focus:outline-none focus:border-brand-deep bg-white"
                 >
                   <option value="Awaiting Information">Awaiting Information (Questions Sent)</option>
                   <option value="Quote Sent">Quote Sent (Checking Feedback)</option>
@@ -774,12 +774,12 @@ export const ToolsHub: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">Specific Context / Note:</label>
+                <label className="block text-meta font-semibold mb-1">Specific Context / Note:</label>
                 <input
                   type="text"
                   value={followUpContext}
                   onChange={(e) => setFollowUpContext(e.target.value)}
-                  className="w-full text-xs text-stone-900 p-2.5 rounded-lg border border-stone-300 focus:outline-none focus:border-emerald-700"
+                  className="w-full text-meta p-2.5 rounded-edge border border-line-strong focus:outline-none focus:border-brand-deep"
                 />
               </div>
             </div>
@@ -788,7 +788,7 @@ export const ToolsHub: React.FC = () => {
               <button
                 onClick={handleGenerateFollowUp}
                 disabled={isFollowUpLoading}
-                className="bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-semibold px-5 py-2 rounded-lg text-xs transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+                className="bg-brand-deep hover:bg-chrome disabled:bg-line-strong text-white font-semibold px-5 py-2 rounded-edge text-meta transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
               >
                 {isFollowUpLoading ? (
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -801,9 +801,9 @@ export const ToolsHub: React.FC = () => {
           </div>
 
           {followUpResult && (
-            <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs space-y-3 text-xs">
-              <div className="flex items-center justify-between pb-2 border-b border-stone-200">
-                <h3 className="font-bold text-stone-900 text-sm">Generated Follow-Up Email</h3>
+            <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-3 text-meta">
+              <div className="flex items-center justify-between pb-2 border-b border-line">
+                <h3 className="font-bold text-body">Generated Follow-Up Email</h3>
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(
@@ -811,7 +811,7 @@ export const ToolsHub: React.FC = () => {
                     );
                     showToast("Follow-up copied to clipboard", "success");
                   }}
-                  className="text-xs text-emerald-800 font-semibold flex items-center gap-1 hover:underline cursor-pointer"
+                  className="text-meta text-brand-deep font-semibold flex items-center gap-1 hover:underline cursor-pointer"
                 >
                   <Copy className="w-3.5 h-3.5" />
                   <span>Copy to Clipboard</span>
@@ -819,8 +819,8 @@ export const ToolsHub: React.FC = () => {
               </div>
 
               <div>
-                <span className="font-bold text-stone-700 block mb-1">Subject: {followUpResult.subject}</span>
-                <div className="bg-stone-50 p-4 rounded-lg border border-stone-200 whitespace-pre-line text-stone-800 font-sans leading-relaxed">
+                <span className="font-bold text-body block mb-1">Subject: {followUpResult.subject}</span>
+                <div className="bg-raised p-4 rounded-edge border border-line whitespace-pre-line text-body font-sans leading-relaxed">
                   {followUpResult.body}
                 </div>
               </div>
@@ -832,22 +832,22 @@ export const ToolsHub: React.FC = () => {
       {/* TOOL 7: PRODUCT COMPARISON */}
       {activeToolTab === "product-comparison" && (
         <div className="space-y-6">
-          <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs space-y-4">
+          <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-stone-900 flex items-center gap-2">
-                <Scale className="w-4 h-4 text-emerald-800" />
+              <h2 className="text-body font-bold flex items-center gap-2">
+                <Scale className="w-4 h-4 text-brand-deep" />
                 Side-by-Side Product Spec & Advantage Comparison
               </h2>
-              <span className="text-xs text-stone-500">Includes 'Claims We Should NOT Make'</span>
+              <span className="text-meta text-ink-dim">Includes 'Claims We Should NOT Make'</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">Product 1 (Plasgain Option A):</label>
+                <label className="block text-meta font-semibold mb-1">Product 1 (Plasgain Option A):</label>
                 <select
                   value={product1}
                   onChange={(e) => setProduct1(e.target.value)}
-                  className="w-full text-xs text-stone-900 p-2.5 rounded-lg border border-stone-300 bg-white"
+                  className="w-full text-meta p-2.5 rounded-edge border border-line-strong bg-white"
                 >
                   {products.map((p) => (
                     <option key={p.id} value={p.name}>
@@ -858,11 +858,11 @@ export const ToolsHub: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-stone-700 mb-1">Product 2 (Plasgain Option B or Competitor):</label>
+                <label className="block text-meta font-semibold mb-1">Product 2 (Plasgain Option B or Competitor):</label>
                 <select
                   value={product2}
                   onChange={(e) => setProduct2(e.target.value)}
-                  className="w-full text-xs text-stone-900 p-2.5 rounded-lg border border-stone-300 bg-white"
+                  className="w-full text-meta p-2.5 rounded-edge border border-line-strong bg-white"
                 >
                   {products.map((p) => (
                     <option key={p.id} value={p.name}>
@@ -877,7 +877,7 @@ export const ToolsHub: React.FC = () => {
               <button
                 onClick={handleCompareProducts}
                 disabled={isCompareLoading}
-                className="bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white font-semibold px-5 py-2 rounded-lg text-xs transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+                className="bg-brand-deep hover:bg-chrome disabled:bg-line-strong text-white font-semibold px-5 py-2 rounded-edge text-meta transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
               >
                 {isCompareLoading ? (
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -890,28 +890,28 @@ export const ToolsHub: React.FC = () => {
           </div>
 
           {comparisonResult && (
-            <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs space-y-4 text-xs">
-              <h3 className="font-bold text-stone-900 text-sm pb-2 border-b border-stone-200">
+            <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4 text-meta">
+              <h3 className="font-bold text-body pb-2 border-b border-line">
                 {product1} vs {product2} Comparison
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-emerald-50/50 p-4 rounded-lg border border-emerald-200 space-y-2">
-                  <span className="font-bold text-emerald-950 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <div className="bg-brand-wash p-4 rounded-edge border border-brand-edge space-y-2">
+                  <span className="font-bold text-brand-deep flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-brand-deep" />
                     Where {product1} Has the Advantage:
                   </span>
-                  <p className="text-stone-800 leading-relaxed">
+                  <p className="text-body leading-relaxed">
                     {comparisonResult.whereProduct1Wins || comparisonResult.advantages1}
                   </p>
                 </div>
 
-                <div className="bg-amber-50/50 p-4 rounded-lg border border-amber-200 space-y-2">
+                <div className="bg-amber-50/50 p-4 rounded-edge border border-amber-200 space-y-2">
                   <span className="font-bold text-amber-950 flex items-center gap-1.5">
                     <AlertTriangle className="w-4 h-4 text-amber-600" />
                     Claims We Should NOT Make:
                   </span>
-                  <p className="text-stone-800 leading-relaxed">
+                  <p className="text-body leading-relaxed">
                     {comparisonResult.claimsWeShouldNotMake || comparisonResult.limitations}
                   </p>
                 </div>

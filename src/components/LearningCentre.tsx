@@ -157,28 +157,28 @@ export const LearningCentre: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-stone-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-stone-900">Learning & Training Centre</h1>
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+            <h1 className="text-xl font-bold text-body">Learning & Training Centre</h1>
+            <span className="text-meta font-semibold px-2.5 py-0.5 rounded-full bg-brand-wash text-brand-deep border border-brand-edge">
               Solar & Lighting Mastery
             </span>
           </div>
-          <p className="text-xs text-stone-500 mt-0.5">
+          <p className="text-meta text-ink-dim mt-0.5">
             5-minute bite-sized technical modules, interactive product quizzes, sales simulators, and lighting glossary.
           </p>
         </div>
       </div>
 
       {/* Navigation tabs */}
-      <div className="flex items-center gap-2 border-b border-stone-200 pb-1">
+      <div className="flex items-center gap-2 border-b border-line pb-1">
         <button
           onClick={() => setActiveSection("lessons")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-edge text-meta font-semibold transition-colors cursor-pointer ${
             activeSection === "lessons"
-              ? "bg-emerald-800 text-white shadow-xs"
-              : "bg-stone-100 hover:bg-stone-200 text-stone-700"
+              ? "bg-brand-deep text-white shadow-xs"
+              : "bg-paper hover:bg-line text-body"
           }`}
         >
           <BookOpen className="w-3.5 h-3.5" />
@@ -187,10 +187,10 @@ export const LearningCentre: React.FC = () => {
 
         <button
           onClick={() => setActiveSection("quiz")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-edge text-meta font-semibold transition-colors cursor-pointer ${
             activeSection === "quiz"
-              ? "bg-emerald-800 text-white shadow-xs"
-              : "bg-stone-100 hover:bg-stone-200 text-stone-700"
+              ? "bg-brand-deep text-white shadow-xs"
+              : "bg-paper hover:bg-line text-body"
           }`}
         >
           <Award className="w-3.5 h-3.5" />
@@ -199,10 +199,10 @@ export const LearningCentre: React.FC = () => {
 
         <button
           onClick={() => setActiveSection("simulator")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-edge text-meta font-semibold transition-colors cursor-pointer ${
             activeSection === "simulator"
-              ? "bg-emerald-800 text-white shadow-xs"
-              : "bg-stone-100 hover:bg-stone-200 text-stone-700"
+              ? "bg-brand-deep text-white shadow-xs"
+              : "bg-paper hover:bg-line text-body"
           }`}
         >
           <MessageSquare className="w-3.5 h-3.5" />
@@ -211,10 +211,10 @@ export const LearningCentre: React.FC = () => {
 
         <button
           onClick={() => setActiveSection("scenarios")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-edge text-meta font-semibold transition-colors cursor-pointer ${
             activeSection === "scenarios"
-              ? "bg-emerald-800 text-white shadow-xs"
-              : "bg-stone-100 hover:bg-stone-200 text-stone-700"
+              ? "bg-brand-deep text-white shadow-xs"
+              : "bg-paper hover:bg-line text-body"
           }`}
         >
           <Sparkles className="w-3.5 h-3.5" />
@@ -223,10 +223,10 @@ export const LearningCentre: React.FC = () => {
 
         <button
           onClick={() => setActiveSection("glossary")}
-          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-edge text-meta font-semibold transition-colors cursor-pointer ${
             activeSection === "glossary"
-              ? "bg-emerald-800 text-white shadow-xs"
-              : "bg-stone-100 hover:bg-stone-200 text-stone-700"
+              ? "bg-brand-deep text-white shadow-xs"
+              : "bg-paper hover:bg-line text-body"
           }`}
         >
           <HelpCircle className="w-3.5 h-3.5" />
@@ -245,59 +245,59 @@ export const LearningCentre: React.FC = () => {
                 <button
                   key={les.id}
                   onClick={() => setSelectedLesson(les)}
-                  className={`w-full text-left p-3.5 rounded-xl border transition-all cursor-pointer space-y-1 ${
+                  className={`w-full text-left p-3.5 rounded-panel border transition-all cursor-pointer space-y-1 ${
                     isSelected
-                      ? "bg-emerald-50 border-emerald-300 ring-2 ring-emerald-700/20"
-                      : "bg-white border-stone-200 hover:border-stone-300"
+                      ? "bg-brand-wash border-brand-edge ring-2 ring-brand-deep/20"
+                      : "bg-white border-line hover:border-line-strong"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-stone-100 text-stone-600 uppercase">
+                    <span className="text-spec font-bold px-1.5 py-0.5 rounded bg-paper text-ink-dim uppercase">
                       {les.category}
                     </span>
-                    <span className="text-[10px] text-stone-500 font-medium">{les.readTimeMinutes} min read</span>
+                    <span className="text-spec text-ink-dim font-medium">{les.readTimeMinutes} min read</span>
                   </div>
-                  <h4 className="font-bold text-stone-900 text-xs">{les.title}</h4>
-                  <p className="text-[11px] text-stone-500 line-clamp-1">{les.summary}</p>
+                  <h4 className="font-bold text-meta">{les.title}</h4>
+                  <p className="text-spec text-ink-dim line-clamp-1">{les.summary}</p>
                 </button>
               );
             })}
           </div>
 
           {/* Selected Lesson Reader (2 cols) */}
-          <div className="lg:col-span-2 bg-white rounded-xl border border-stone-200 p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+          <div className="lg:col-span-2 bg-white rounded-panel border border-line p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-line">
               <div>
-                <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">
+                <span className="text-spec font-bold text-brand-deep uppercase tracking-wider block">
                   {selectedLesson.category} • {selectedLesson.readTimeMinutes} Minute Module
                 </span>
-                <h3 className="text-lg font-bold text-stone-900">{selectedLesson.title}</h3>
+                <h3 className="text-lg font-bold text-body">{selectedLesson.title}</h3>
               </div>
-              <span className="text-xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded">
+              <span className="text-meta bg-brand-wash text-brand-deep font-bold px-2 py-0.5 rounded">
                 Verified Curriculum
               </span>
             </div>
 
-            <div className="space-y-4 text-xs text-stone-700 leading-relaxed">
-              <div className="bg-stone-50 p-4 rounded-lg border border-stone-200">
-                <strong className="text-stone-900 block mb-1">Module Summary:</strong>
+            <div className="space-y-4 text-meta leading-relaxed">
+              <div className="bg-raised p-4 rounded-edge border border-line">
+                <strong className="text-body block mb-1">Module Summary:</strong>
                 <p>{selectedLesson.summary}</p>
               </div>
 
               <div>
-                <h4 className="font-bold text-stone-900 text-sm mb-2">Key Learning Points:</h4>
+                <h4 className="font-bold text-body mb-2">Key Learning Points:</h4>
                 <ul className="space-y-2">
                   {selectedLesson.keyTakeaways.map((point, idx) => (
-                    <li key={idx} className="flex items-start gap-2 bg-emerald-50/40 p-2.5 rounded border border-emerald-100">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                      <span className="text-stone-800">{point}</span>
+                    <li key={idx} className="flex items-start gap-2 bg-brand-wash p-2.5 rounded border border-brand-edge">
+                      <CheckCircle2 className="w-4 h-4 text-brand-deep shrink-0 mt-0.5" />
+                      <span className="text-body">{point}</span>
                     </li>
                   ))}
                 </ul>
               </div>
 
               {selectedLesson.salesRelevance && (
-                <div className="bg-amber-50/60 p-4 rounded-lg border border-amber-200 text-amber-950 space-y-1">
+                <div className="bg-amber-50/60 p-4 rounded-edge border border-amber-200 text-amber-950 space-y-1">
                   <strong className="font-bold flex items-center gap-1.5">
                     <Sparkles className="w-4 h-4 text-amber-600" />
                     How to Use This in Customer Conversations:
@@ -312,14 +312,14 @@ export const LearningCentre: React.FC = () => {
 
       {/* 2. QUIZ VIEW */}
       {activeSection === "quiz" && (
-        <div className="bg-white rounded-xl border border-stone-200 p-6 shadow-xs space-y-6 max-w-3xl mx-auto">
-          <div className="flex items-center justify-between pb-3 border-b border-stone-200">
+        <div className="bg-white rounded-panel border border-line p-6 shadow-xs space-y-6 max-w-3xl mx-auto">
+          <div className="flex items-center justify-between pb-3 border-b border-line">
             <div>
-              <h3 className="font-bold text-stone-900 text-base">Product & Standards Knowledge Check</h3>
-              <p className="text-xs text-stone-500">Test your recall on battery autonomy, AS1158, and CCT</p>
+              <h3 className="font-bold text-body text-base">Product & Standards Knowledge Check</h3>
+              <p className="text-meta text-ink-dim">Test your recall on battery autonomy, AS1158, and CCT</p>
             </div>
             {isQuizSubmitted && (
-              <span className="text-sm font-bold px-3 py-1 rounded bg-emerald-100 text-emerald-800">
+              <span className="text-body font-bold px-3 py-1 rounded bg-brand-wash text-brand-deep">
                 Score: {calculateScore()} / {quizQuestions.length}
               </span>
             )}
@@ -329,9 +329,9 @@ export const LearningCentre: React.FC = () => {
             {quizQuestions.map((q, qIdx) => {
               const selectedOpt = selectedAnswers[qIdx];
               return (
-                <div key={qIdx} className="space-y-3 pb-4 border-b border-stone-100 last:border-0 text-xs">
-                  <div className="font-bold text-stone-900 text-sm flex items-start gap-2">
-                    <span className="w-5 h-5 rounded-full bg-emerald-800 text-white flex items-center justify-center text-[10px] shrink-0 mt-0.5">
+                <div key={qIdx} className="space-y-3 pb-4 border-b border-line last:border-0 text-meta">
+                  <div className="font-bold text-body flex items-start gap-2">
+                    <span className="w-5 h-5 rounded-full bg-brand-deep text-white flex items-center justify-center text-spec shrink-0 mt-0.5">
                       {qIdx + 1}
                     </span>
                     <span>{q.question}</span>
@@ -342,12 +342,12 @@ export const LearningCentre: React.FC = () => {
                       const isChosen = selectedOpt === optIdx;
                       const isCorrect = q.correctIndex === optIdx;
 
-                      let optStyle = "bg-stone-50 border-stone-200 hover:border-emerald-300";
+                      let optStyle = "bg-raised border-line hover:border-brand-edge";
                       if (isQuizSubmitted) {
-                        if (isCorrect) optStyle = "bg-emerald-100 border-emerald-400 font-semibold text-emerald-950";
+                        if (isCorrect) optStyle = "bg-brand-wash border-brand font-semibold text-brand-deep";
                         else if (isChosen) optStyle = "bg-rose-100 border-rose-400 text-rose-950";
                       } else if (isChosen) {
-                        optStyle = "bg-emerald-50 border-emerald-400 ring-2 ring-emerald-700/20";
+                        optStyle = "bg-brand-wash border-brand ring-2 ring-brand-deep/20";
                       }
 
                       return (
@@ -355,17 +355,17 @@ export const LearningCentre: React.FC = () => {
                           key={optIdx}
                           disabled={isQuizSubmitted}
                           onClick={() => setSelectedAnswers({ ...selectedAnswers, [qIdx]: optIdx })}
-                          className={`w-full text-left p-3 rounded-lg border text-xs transition-all cursor-pointer flex items-center justify-between ${optStyle}`}
+                          className={`w-full text-left p-3 rounded-edge border text-meta transition-all cursor-pointer flex items-center justify-between ${optStyle}`}
                         >
                           <span>{opt}</span>
-                          {isQuizSubmitted && isCorrect && <Check className="w-4 h-4 text-emerald-700 shrink-0" />}
+                          {isQuizSubmitted && isCorrect && <Check className="w-4 h-4 text-brand-deep shrink-0" />}
                         </button>
                       );
                     })}
                   </div>
 
                   {isQuizSubmitted && (
-                    <div className="pl-7 pt-1 text-[11px] text-stone-600 italic">
+                    <div className="pl-7 pt-1 text-spec text-ink-dim italic">
                       <strong>Explanation: </strong> {q.explanation}
                     </div>
                   )}
@@ -374,14 +374,14 @@ export const LearningCentre: React.FC = () => {
             })}
           </div>
 
-          <div className="pt-3 border-t border-stone-200 flex justify-end gap-3">
+          <div className="pt-3 border-t border-line flex justify-end gap-3">
             {isQuizSubmitted ? (
               <button
                 onClick={() => {
                   setSelectedAnswers({});
                   setIsQuizSubmitted(false);
                 }}
-                className="bg-stone-100 hover:bg-stone-200 text-stone-800 font-semibold px-4 py-2 rounded-lg text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                className="bg-paper hover:bg-line font-semibold px-4 py-2 rounded-edge text-meta transition-colors flex items-center gap-1.5 cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>Retry Quiz</span>
@@ -396,7 +396,7 @@ export const LearningCentre: React.FC = () => {
                   setIsQuizSubmitted(true);
                   showToast("Quiz submitted! Review explanations below", "success");
                 }}
-                className="bg-emerald-800 hover:bg-emerald-900 text-white font-semibold px-5 py-2.5 rounded-lg text-xs transition-colors cursor-pointer shadow-xs"
+                className="bg-brand-deep hover:bg-chrome text-white font-semibold px-5 py-2.5 rounded-edge text-meta transition-colors cursor-pointer shadow-xs"
               >
                 Submit Answers
               </button>
@@ -407,15 +407,15 @@ export const LearningCentre: React.FC = () => {
 
       {/* 3. SIMULATOR VIEW */}
       {activeSection === "simulator" && (
-        <div className="bg-white rounded-xl border border-stone-200 p-6 shadow-xs space-y-4 max-w-3xl mx-auto">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-stone-200">
+        <div className="bg-white rounded-panel border border-line p-6 shadow-xs space-y-4 max-w-3xl mx-auto">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-line">
             <div>
-              <h3 className="font-bold text-stone-900 text-base">Interactive Customer Roleplay Simulator</h3>
-              <p className="text-xs text-stone-500">Practice handling tough objections with simulated Australian buyers</p>
+              <h3 className="font-bold text-body text-base">Interactive Customer Roleplay Simulator</h3>
+              <p className="text-meta text-ink-dim">Practice handling tough objections with simulated Australian buyers</p>
             </div>
 
             <div className="flex items-center gap-1">
-              <span className="text-xs text-stone-500 font-medium">Persona:</span>
+              <span className="text-meta text-ink-dim font-medium">Persona:</span>
               <select
                 value={persona}
                 onChange={(e) => {
@@ -433,7 +433,7 @@ export const LearningCentre: React.FC = () => {
                     }
                   ]);
                 }}
-                className="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-stone-300 bg-stone-50"
+                className="text-meta font-semibold px-2.5 py-1.5 rounded-edge border border-line-strong bg-raised"
               >
                 <option value="Civil Contractor">Civil Contractor (Cost & Reliability)</option>
                 <option value="Council Officer">Council Lighting Officer (AS1158 & CCT)</option>
@@ -443,20 +443,20 @@ export const LearningCentre: React.FC = () => {
           </div>
 
           {/* Chat Stream */}
-          <div className="h-80 overflow-y-auto p-4 rounded-xl bg-stone-50 border border-stone-200 space-y-3 text-xs">
+          <div className="h-80 overflow-y-auto p-4 rounded-panel bg-raised border border-line space-y-3 text-meta">
             {simMessages.map((msg, idx) => (
               <div
                 key={idx}
                 className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
               >
-                <span className="text-[10px] text-stone-400 mb-0.5 px-1 font-semibold">
+                <span className="text-spec text-ink-faint mb-0.5 px-1 font-semibold">
                   {msg.sender === "user" ? "You (Plasgain Sales)" : `${persona}`}
                 </span>
                 <div
-                  className={`p-3 rounded-xl max-w-lg leading-relaxed ${
+                  className={`p-3 rounded-panel max-w-lg leading-relaxed ${
                     msg.sender === "user"
-                      ? "bg-emerald-800 text-white rounded-tr-none"
-                      : "bg-white text-stone-900 border border-stone-200 rounded-tl-none shadow-2xs"
+                      ? "bg-brand-deep text-white rounded-tr-none"
+                      : "bg-white text-body border border-line rounded-tl-none shadow-2xs"
                   }`}
                 >
                   {msg.text}
@@ -464,23 +464,23 @@ export const LearningCentre: React.FC = () => {
               </div>
             ))}
             {isSimLoading && (
-              <div className="flex items-center gap-2 text-stone-400 text-xs italic">
-                <div className="w-3.5 h-3.5 border-2 border-emerald-800 border-t-transparent rounded-full animate-spin"></div>
+              <div className="flex items-center gap-2 text-ink-faint text-meta italic">
+                <div className="w-3.5 h-3.5 border-2 border-brand-deep border-t-transparent rounded-full animate-spin"></div>
                 <span>Customer is replying...</span>
               </div>
             )}
           </div>
 
           {/* Quick coaching prompts */}
-          <div className="flex flex-wrap gap-1.5 text-[11px]">
-            <span className="text-stone-500 font-medium">Quick suggestions:</span>
+          <div className="flex flex-wrap gap-1.5 text-spec">
+            <span className="text-ink-dim font-medium">Quick suggestions:</span>
             <button
               onClick={() =>
                 handleSimSend(
                   "Our systems are sized for southern Victorian winter solstice with 4-5 nights autonomy on Grade-A LiFePO4 cells (3,000+ cycles to 80% DOD). Trenching mains power over 1.2km often costs $80-$120/metre just in civil works, making solar significantly more cost-effective."
                 )
               }
-              className="text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded border border-emerald-200 transition-colors cursor-pointer"
+              className="text-brand-deep hover:text-brand-deep bg-brand-wash hover:bg-brand-wash px-2.5 py-1 rounded border border-brand-edge transition-colors cursor-pointer"
             >
               "Explain winter sizing & trenching cost comparison"
             </button>
@@ -490,7 +490,7 @@ export const LearningCentre: React.FC = () => {
                   "We provide full point-by-point Dialux photometric simulation reports matching AS/NZS 1158.3.1 Category P4 criteria with our 3000K warm white optics."
                 )
               }
-              className="text-emerald-800 hover:text-emerald-950 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded border border-emerald-200 transition-colors cursor-pointer"
+              className="text-brand-deep hover:text-brand-deep bg-brand-wash hover:bg-brand-wash px-2.5 py-1 rounded border border-brand-edge transition-colors cursor-pointer"
             >
               "Offer Dialux photometric report & 3000K compliance"
             </button>
@@ -509,12 +509,12 @@ export const LearningCentre: React.FC = () => {
               value={userInput}
               onChange={(e) => setUserInput(e.target.value)}
               placeholder="Type your response to the customer..."
-              className="flex-1 text-xs text-stone-900 p-2.5 rounded-lg border border-stone-300 focus:outline-none focus:border-emerald-700"
+              className="flex-1 text-meta p-2.5 rounded-edge border border-line-strong focus:outline-none focus:border-brand-deep"
             />
             <button
               type="submit"
               disabled={isSimLoading || !userInput.trim()}
-              className="bg-emerald-800 hover:bg-emerald-900 disabled:bg-stone-300 text-white px-4 py-2.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shadow-xs"
+              className="bg-brand-deep hover:bg-chrome disabled:bg-line-strong text-white px-4 py-2.5 rounded-edge text-meta font-semibold transition-colors cursor-pointer shadow-xs"
             >
               Send Response
             </button>
@@ -527,16 +527,16 @@ export const LearningCentre: React.FC = () => {
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div className="relative flex-1 max-w-md">
-              <Search className="w-4 h-4 text-stone-400 absolute left-3 top-3" />
+              <Search className="w-4 h-4 text-ink-faint absolute left-3 top-3" />
               <input
                 type="text"
                 value={glossarySearch}
                 onChange={(e) => setGlossarySearch(e.target.value)}
                 placeholder="Search lighting terms, standards, or acronyms..."
-                className="w-full text-xs text-stone-900 pl-9 pr-4 py-2.5 rounded-lg border border-stone-300 focus:outline-none focus:border-emerald-700 bg-white"
+                className="w-full text-meta pl-9 pr-4 py-2.5 rounded-edge border border-line-strong focus:outline-none focus:border-brand-deep bg-white"
               />
             </div>
-            <span className="text-xs text-stone-500 font-medium">
+            <span className="text-meta text-ink-dim font-medium">
               {filteredGlossary.length} lighting terms
             </span>
           </div>
@@ -545,22 +545,22 @@ export const LearningCentre: React.FC = () => {
             {filteredGlossary.map((term, idx) => (
               <div
                 key={idx}
-                className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs space-y-2 text-xs"
+                className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-2 text-meta"
               >
                 <div className="flex items-center justify-between">
-                  <h4 className="font-bold text-stone-900 text-sm">{term.term}</h4>
+                  <h4 className="font-bold text-body">{term.term}</h4>
                   <button
                     onClick={() => setExplainingTerm(term.term)}
-                    className="text-[11px] text-emerald-800 underline font-semibold cursor-pointer"
+                    className="text-spec text-brand-deep underline font-semibold cursor-pointer"
                   >
                     Deep Dive
                   </button>
                 </div>
-                <p className="text-stone-700 leading-relaxed">
+                <p className="text-body leading-relaxed">
                   {term.definition || term.shortDefinition}
                 </p>
-                <div className="bg-emerald-50/60 p-2.5 rounded border border-emerald-100 text-[11px] text-stone-800">
-                  <strong className="text-emerald-950">Sales Relevance: </strong>
+                <div className="bg-brand-wash p-2.5 rounded border border-brand-edge text-spec">
+                  <strong className="text-brand-deep">Sales Relevance: </strong>
                   {term.salesRelevance || term.whyItMatters || term.plasgainRelevance}
                 </div>
               </div>
@@ -572,36 +572,36 @@ export const LearningCentre: React.FC = () => {
       {/* 5. TRAINING SCENARIOS & EXAMPLES */}
       {activeSection === "scenarios" && (
         <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs">
+          <div className="bg-white rounded-panel border border-line p-5 shadow-xs">
             <div className="flex items-center gap-2 mb-1">
-              <Sparkles className="w-4 h-4 text-emerald-700" />
-              <h3 className="font-bold text-stone-900 text-sm">
+              <Sparkles className="w-4 h-4 text-brand-deep" />
+              <h3 className="font-bold text-body">
                 Practical Australian Lighting Practice Scenarios
               </h3>
             </div>
-            <p className="text-xs text-stone-500">
+            <p className="text-meta text-ink-dim">
               Load realistic Australian council and commercial contractor enquiries into the AI Analysis Workspace to test specification extraction, standard compliance evaluation (AS/NZS 1158), and luminaire matching.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Scenario 1: Ballarat */}
-            <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs flex flex-col justify-between space-y-3">
+            <div className="bg-white rounded-panel border border-line p-5 shadow-xs flex flex-col justify-between space-y-3">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded uppercase">
+                  <span className="text-spec font-bold text-brand-deep bg-brand-wash px-2 py-0.5 rounded uppercase">
                     Solar Pathway
                   </span>
-                  <span className="text-[11px] text-stone-400 font-medium">Ballarat, VIC</span>
+                  <span className="text-spec text-ink-faint font-medium">Ballarat, VIC</span>
                 </div>
-                <h4 className="font-bold text-stone-900 text-sm">
+                <h4 className="font-bold text-body">
                   Ballarat 1.2km Shared Path Upgrade
                 </h4>
-                <p className="text-xs text-stone-600 leading-relaxed">
+                <p className="text-meta text-ink-dim leading-relaxed">
                   ABC Civil pricing a 1.2km shared path requiring off-grid solar option due to mains trenching costs. 6m poles, dusk-to-dawn operation.
                 </p>
-                <div className="p-2.5 rounded bg-stone-50 border border-stone-200/80 text-[11px] text-stone-700">
-                  <strong className="text-stone-900">Key Learning:</strong> Identifying missing AS/NZS 1158 subcategory (P4), path width, and battery autonomy survival.
+                <div className="p-2.5 rounded bg-raised border border-line text-spec">
+                  <strong className="text-body">Key Learning:</strong> Identifying missing AS/NZS 1158 subcategory (P4), path width, and battery autonomy survival.
                 </div>
               </div>
 
@@ -620,7 +620,7 @@ export const LearningCentre: React.FC = () => {
                   showToast("Loaded Ballarat Shared Path enquiry into workspace", "info");
                   navigateToWorkflow("new-enquiry");
                 }}
-                className="w-full py-2 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                className="w-full py-2 px-3 rounded-edge bg-brand-deep hover:bg-brand-deep text-white font-semibold text-meta transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
               >
                 <span>Load into AI Workspace</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -628,22 +628,22 @@ export const LearningCentre: React.FC = () => {
             </div>
 
             {/* Scenario 2: Geelong */}
-            <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs flex flex-col justify-between space-y-3">
+            <div className="bg-white rounded-panel border border-line p-5 shadow-xs flex flex-col justify-between space-y-3">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded uppercase">
+                  <span className="text-spec font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded uppercase">
                     Coastal / IK10
                   </span>
-                  <span className="text-[11px] text-stone-400 font-medium">Geelong, VIC</span>
+                  <span className="text-spec text-ink-faint font-medium">Geelong, VIC</span>
                 </div>
-                <h4 className="font-bold text-stone-900 text-sm">
+                <h4 className="font-bold text-body">
                   Eastern Beach Foreshore Bollards
                 </h4>
-                <p className="text-xs text-stone-600 leading-relaxed">
+                <p className="text-meta text-ink-dim leading-relaxed">
                   Council expression of interest for 24x solar pathway bollards. Requires IK10 vandal resistance, zero upward light spill, and 3000K warm white.
                 </p>
-                <div className="p-2.5 rounded bg-stone-50 border border-stone-200/80 text-[11px] text-stone-700">
-                  <strong className="text-stone-900">Key Learning:</strong> Protecting coastal fauna with 3000K CCT and dark sky zero upward light spill requirements.
+                <div className="p-2.5 rounded bg-raised border border-line text-spec">
+                  <strong className="text-body">Key Learning:</strong> Protecting coastal fauna with 3000K CCT and dark sky zero upward light spill requirements.
                 </div>
               </div>
 
@@ -662,7 +662,7 @@ export const LearningCentre: React.FC = () => {
                   showToast("Loaded Geelong Foreshore enquiry into workspace", "info");
                   navigateToWorkflow("new-enquiry");
                 }}
-                className="w-full py-2 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                className="w-full py-2 px-3 rounded-edge bg-brand-deep hover:bg-brand-deep text-white font-semibold text-meta transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
               >
                 <span>Load into AI Workspace</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -670,22 +670,22 @@ export const LearningCentre: React.FC = () => {
             </div>
 
             {/* Scenario 3: Monash */}
-            <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs flex flex-col justify-between space-y-3">
+            <div className="bg-white rounded-panel border border-line p-5 shadow-xs flex flex-col justify-between space-y-3">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded uppercase">
+                  <span className="text-spec font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded uppercase">
                     Industrial Flood
                   </span>
-                  <span className="text-[11px] text-stone-400 font-medium">Dandenong, VIC</span>
+                  <span className="text-spec text-ink-faint font-medium">Dandenong, VIC</span>
                 </div>
-                <h4 className="font-bold text-stone-900 text-sm">
+                <h4 className="font-bold text-body">
                   Dandenong Transport Depot Heavy Yard
                 </h4>
-                <p className="text-xs text-stone-600 leading-relaxed">
+                <p className="text-meta text-ink-dim leading-relaxed">
                   Freight transport depot with overloaded electrical substation. High-output solar floodlighting on 10m-12m poles with 5 nights battery autonomy.
                 </p>
-                <div className="p-2.5 rounded bg-stone-50 border border-stone-200/80 text-[11px] text-stone-700">
-                  <strong className="text-stone-900">Key Learning:</strong> Sizing high-mast solar panels and battery storage for heavy vehicle loading areas.
+                <div className="p-2.5 rounded bg-raised border border-line text-spec">
+                  <strong className="text-body">Key Learning:</strong> Sizing high-mast solar panels and battery storage for heavy vehicle loading areas.
                 </div>
               </div>
 
@@ -704,7 +704,7 @@ export const LearningCentre: React.FC = () => {
                   showToast("Loaded Monash Transport Depot enquiry into workspace", "info");
                   navigateToWorkflow("new-enquiry");
                 }}
-                className="w-full py-2 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                className="w-full py-2 px-3 rounded-edge bg-brand-deep hover:bg-brand-deep text-white font-semibold text-meta transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
               >
                 <span>Load into AI Workspace</span>
                 <ArrowRight className="w-3.5 h-3.5" />

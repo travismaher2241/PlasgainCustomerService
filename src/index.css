@@ -43,16 +43,21 @@
 
   /* --- Surfaces -------------------------------------------------------- */
   /* Neutrals carry a faint green bias so they read as chosen, not inherited. */
+  /* NOTE: colour tokens are named ink-*, NOT body-*. '--color-body' would
+     collide with the '--text-body' size token: both generate '.text-body', the
+     colour wins, and every text-body silently loses its font-size while
+     overriding text-white. Keep these namespaces apart.
+  */
   --color-paper: #f4f6f5;
   --color-surface: #ffffff;
   --color-raised: #fafbfa;
   --color-line: #e1e6e3;
   --color-line-strong: #c7cfca;
-  --color-body: #0d1211;
-  --color-body-dim: #58625e;
+  --color-ink: #0d1211;
+  --color-ink-dim: #58625e;
   /* 4.77:1 on paper, 5.21:1 on white — the lightest this can go and still
      clear AA for small text. Do not lighten it. */
-  --color-body-faint: #656f6a;
+  --color-ink-faint: #656f6a;
 
   /* --- Status ---------------------------------------------------------- */
   /* Warm ramp, separate from the accent. Values are the light-surface
@@ -103,7 +108,7 @@
 
   body {
     background: var(--color-paper);
-    color: var(--color-body);
+    color: var(--color-ink);
     font-family: var(--font-ui);
     font-size: var(--text-body);
   }

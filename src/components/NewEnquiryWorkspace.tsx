@@ -278,22 +278,22 @@ export const NewEnquiryWorkspace: React.FC = () => {
   const renderStatusBadge = (field: StatusField) => {
     if (field.status === "Confirmed") {
       return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 uppercase tracking-wider">
-          <Check className="w-3 h-3 text-emerald-600" />
+        <span className="inline-flex items-center gap-1 text-spec font-bold px-2 py-0.5 rounded bg-brand-wash text-brand-deep uppercase tracking-wider">
+          <Check className="w-3 h-3 text-brand-deep" />
           CONFIRMED
         </span>
       );
     }
     if (field.status === "Inferred") {
       return (
-        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700 uppercase tracking-wider">
+        <span className="inline-flex items-center gap-1 text-spec font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700 uppercase tracking-wider">
           <Info className="w-3 h-3 text-amber-600" />
           INFERRED
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-700 uppercase tracking-wider">
+      <span className="inline-flex items-center gap-1 text-spec font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-700 uppercase tracking-wider">
         <AlertTriangle className="w-3 h-3 text-rose-600" />
         UNKNOWN
       </span>
@@ -303,12 +303,12 @@ export const NewEnquiryWorkspace: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Workspace Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">Enquiry Analysis Workspace</h1>
+            <h1 className="text-xl font-bold tracking-tight text-body">Enquiry Analysis Workspace</h1>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-meta text-ink-dim mt-0.5">
             Extract structured lighting requirements, evaluate readiness, ground product recommendations, and generate customer questions.
           </p>
         </div>
@@ -328,14 +328,14 @@ export const NewEnquiryWorkspace: React.FC = () => {
                   source: "Email"
                 });
               }}
-              className="text-xs text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-50 px-3 py-1.5 rounded-md border border-slate-200 font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              className="text-meta text-ink-dim hover:text-ink bg-white hover:bg-raised px-3 py-1.5 rounded-edge border border-line font-medium transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>New Analysis</span>
             </button>
             <button
               onClick={handleSaveOpportunity}
-              className="text-xs font-medium px-3.5 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              className="text-meta font-medium px-3.5 py-1.5 rounded-edge bg-brand-deep hover:bg-brand-deep text-white transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
             >
               <Save className="w-3.5 h-3.5" />
               <span>Save to Pipeline</span>
@@ -345,16 +345,16 @@ export const NewEnquiryWorkspace: React.FC = () => {
       </div>
 
       {/* INPUT FORM (if not yet analyzed or expanding) */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
+      <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4 text-emerald-700" />
-            <h2 className="text-sm font-bold text-slate-900">
+            <FileText className="w-4 h-4 text-brand-deep" />
+            <h2 className="text-body font-bold">
               {currentEnquiryAnalysis ? "Original Customer Note & Metadata" : "Input Customer Enquiry"}
             </h2>
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-xs text-slate-400 font-semibold flex items-center gap-1">
+            <span className="text-meta text-ink-faint font-semibold flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5 text-amber-500" />
               <span>Try sample:</span>
             </span>
@@ -372,7 +372,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
                 });
                 showToast("Loaded Ballarat Shared Path sample enquiry", "info");
               }}
-              className="text-xs px-2.5 py-1 rounded-md bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-900 border border-slate-200 hover:border-emerald-300 font-medium transition-colors cursor-pointer"
+              className="text-meta px-2.5 py-1 rounded-edge bg-raised hover:bg-brand-wash hover:text-brand-deep border border-line hover:border-brand-edge font-medium transition-colors cursor-pointer"
             >
               Ballarat Shared Path
             </button>
@@ -390,7 +390,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
                 });
                 showToast("Loaded Geelong Foreshore sample enquiry", "info");
               }}
-              className="text-xs px-2.5 py-1 rounded-md bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-900 border border-slate-200 hover:border-emerald-300 font-medium transition-colors cursor-pointer"
+              className="text-meta px-2.5 py-1 rounded-edge bg-raised hover:bg-brand-wash hover:text-brand-deep border border-line hover:border-brand-edge font-medium transition-colors cursor-pointer"
             >
               Geelong Foreshore
             </button>
@@ -408,7 +408,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
                 });
                 showToast("Loaded Monash Transport Depot sample enquiry", "info");
               }}
-              className="text-xs px-2.5 py-1 rounded-md bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-900 border border-slate-200 hover:border-emerald-300 font-medium transition-colors cursor-pointer"
+              className="text-meta px-2.5 py-1 rounded-edge bg-raised hover:bg-brand-wash hover:text-brand-deep border border-line hover:border-brand-edge font-medium transition-colors cursor-pointer"
             >
               Monash Depot
             </button>
@@ -417,7 +417,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
 
         {/* Text Input */}
         <div>
-          <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+          <label className="block text-meta font-semibold mb-1.5">
             Pasted Email / Tender Extract / Telephone Notes:
           </label>
           <textarea
@@ -425,70 +425,70 @@ export const NewEnquiryWorkspace: React.FC = () => {
             onChange={(e) => handleInputChange("rawContent", e.target.value)}
             placeholder="Paste raw customer email, contractor notes, RFQ text, or spec excerpts here..."
             rows={4}
-            className="w-full text-xs text-slate-900 p-3 rounded-lg border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-700/20 focus:border-emerald-600 placeholder:text-slate-400 font-mono bg-slate-50/50"
+            className="w-full text-meta p-3 rounded-edge border border-line focus:outline-none focus:ring-2 focus:ring-brand-deep/20 focus:border-brand-deep placeholder:text-ink-faint font-mono bg-raised"
           />
         </div>
 
         {/* Metadata Fields */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <div>
-            <label className="block text-[11px] font-semibold text-slate-600 mb-1">Company</label>
+            <label className="block text-spec font-semibold text-ink-dim mb-1">Company</label>
             <input
               type="text"
               id="workspace-company-input"
               value={rawEnquiryInput.company}
               onChange={(e) => handleInputChange("company", e.target.value)}
               placeholder="e.g. ABC Civil Pty Ltd"
-              className="w-full text-xs text-slate-900 px-2.5 py-1.5 rounded-md border border-slate-200 focus:outline-none focus:border-emerald-600"
+              className="w-full text-meta px-2.5 py-1.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep"
             />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-slate-600 mb-1">Contact Name</label>
+            <label className="block text-spec font-semibold text-ink-dim mb-1">Contact Name</label>
             <input
               type="text"
               id="workspace-contact-name-input"
               value={rawEnquiryInput.customer}
               onChange={(e) => handleInputChange("customer", e.target.value)}
               placeholder="e.g. Rob Mitchell"
-              className="w-full text-xs text-slate-900 px-2.5 py-1.5 rounded-md border border-slate-200 focus:outline-none focus:border-emerald-600"
+              className="w-full text-meta px-2.5 py-1.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep"
             />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-slate-600 mb-1">Project Name</label>
+            <label className="block text-spec font-semibold text-ink-dim mb-1">Project Name</label>
             <input
               type="text"
               value={rawEnquiryInput.project}
               onChange={(e) => handleInputChange("project", e.target.value)}
               placeholder="e.g. Ballarat Trail Upgrade"
-              className="w-full text-xs text-slate-900 px-2.5 py-1.5 rounded-md border border-slate-200 focus:outline-none focus:border-emerald-600"
+              className="w-full text-meta px-2.5 py-1.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep"
             />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-slate-600 mb-1">Location / State</label>
+            <label className="block text-spec font-semibold text-ink-dim mb-1">Location / State</label>
             <input
               type="text"
               value={rawEnquiryInput.location}
               onChange={(e) => handleInputChange("location", e.target.value)}
               placeholder="e.g. Ballarat, VIC"
-              className="w-full text-xs text-slate-900 px-2.5 py-1.5 rounded-md border border-slate-200 focus:outline-none focus:border-emerald-600"
+              className="w-full text-meta px-2.5 py-1.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep"
             />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-slate-600 mb-1">Contact Email/Phone</label>
+            <label className="block text-spec font-semibold text-ink-dim mb-1">Contact Email/Phone</label>
             <input
               type="text"
               value={rawEnquiryInput.contact}
               onChange={(e) => handleInputChange("contact", e.target.value)}
               placeholder="rob@abccivil.com.au"
-              className="w-full text-xs text-slate-900 px-2.5 py-1.5 rounded-md border border-slate-200 focus:outline-none focus:border-emerald-600"
+              className="w-full text-meta px-2.5 py-1.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep"
             />
           </div>
           <div>
-            <label className="block text-[11px] font-semibold text-slate-600 mb-1">Enquiry Source</label>
+            <label className="block text-spec font-semibold text-ink-dim mb-1">Enquiry Source</label>
             <select
               value={rawEnquiryInput.source}
               onChange={(e) => handleInputChange("source", e.target.value)}
-              className="w-full text-xs text-slate-900 px-2 py-1.5 rounded-md border border-slate-200 focus:outline-none focus:border-emerald-600 bg-white"
+              className="w-full text-meta px-2 py-1.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep bg-white"
             >
               <option value="Email">Email</option>
               <option value="Phone Notes">Phone Call Notes</option>
@@ -500,10 +500,10 @@ export const NewEnquiryWorkspace: React.FC = () => {
         </div>
 
         {/* Attachment Upload & Action */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-100">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-line">
           <div className="flex items-center gap-2">
-            <label className="inline-flex items-center gap-1.5 text-xs text-slate-600 hover:text-emerald-700 bg-slate-50 hover:bg-slate-100 px-3 py-1.5 rounded-md border border-slate-200 cursor-pointer transition-colors font-medium">
-              <UploadCloud className="w-4 h-4 text-slate-400" />
+            <label className="inline-flex items-center gap-1.5 text-meta text-ink-dim hover:text-brand-deep bg-raised hover:bg-paper px-3 py-1.5 rounded-edge border border-line cursor-pointer transition-colors font-medium">
+              <UploadCloud className="w-4 h-4 text-ink-faint" />
               <span>Attach PDF / Word / Excel / Drawing</span>
               <input
                 type="file"
@@ -514,7 +514,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
               />
             </label>
             {simulatedFiles.length > 0 && (
-              <span className="text-xs text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              <span className="text-meta text-brand-deep font-semibold bg-brand-wash px-2 py-0.5 rounded border border-brand-edge">
                 {simulatedFiles.length} file(s) attached
               </span>
             )}
@@ -523,7 +523,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
           <button
             onClick={handleAnalyze}
             disabled={isLoading}
-            className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-medium px-5 py-2 rounded-md text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+            className="bg-brand-deep hover:bg-brand-deep disabled:bg-line-strong text-white font-medium px-5 py-2 rounded-edge text-meta transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
           >
             {isLoading ? (
               <>
@@ -555,35 +555,35 @@ export const NewEnquiryWorkspace: React.FC = () => {
           {/* Top Banner: Next Best Action & Readiness Gauge */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             {/* Next Best Action Card (2 cols) - Editorial Dark Slate */}
-            <div className="lg:col-span-2 bg-[#0F172A] text-white rounded-xl p-6 shadow-sm border border-slate-800 flex flex-col justify-between">
+            <div className="lg:col-span-2 bg-[#0F172A] text-white rounded-panel p-6 shadow-sm border border-chrome-line flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between gap-2 mb-2.5">
-                  <span className="text-[10px] font-bold tracking-widest text-emerald-400 uppercase">
+                  <span className="text-spec font-bold tracking-widest text-brand-lift uppercase">
                     RECOMMENDED NEXT ACTION
                   </span>
-                  <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
+                  <span className="text-spec font-semibold px-2 py-0.5 rounded bg-chrome-raised text-ink-faint border border-chrome-line">
                     Urgency: {currentEnquiryAnalysis.nextBestAction.urgency}
                   </span>
                 </div>
                 <h3 className="text-base font-bold text-white mb-1.5">
                   {currentEnquiryAnalysis.nextBestAction.title}
                 </h3>
-                <p className="text-xs text-slate-300 leading-relaxed max-w-xl">
+                <p className="text-meta text-ink-faint leading-relaxed max-w-xl">
                   {currentEnquiryAnalysis.nextBestAction.description}
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3 mt-5 pt-4 border-t border-slate-800">
+              <div className="flex flex-wrap items-center gap-3 mt-5 pt-4 border-t border-chrome-line">
                 <button
                   onClick={handleGenerateReply}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-md text-xs transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+                  className="bg-brand-deep hover:bg-brand-deep text-white font-medium px-4 py-2 rounded-edge text-meta transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
                 >
                   <Mail className="w-3.5 h-3.5" />
                   <span>{currentEnquiryAnalysis.nextBestAction.primaryActionLabel}</span>
                 </button>
                 <button
                   onClick={() => navigateToWorkflow("product-finder")}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-3.5 py-2 rounded-md text-xs transition-colors border border-slate-700 flex items-center gap-1.5 cursor-pointer"
+                  className="bg-chrome-raised hover:bg-chrome-raised text-chrome-text font-medium px-3.5 py-2 rounded-edge text-meta transition-colors border border-chrome-line flex items-center gap-1.5 cursor-pointer"
                 >
                   <span>Explore Product Specs &rarr;</span>
                 </button>
@@ -591,14 +591,14 @@ export const NewEnquiryWorkspace: React.FC = () => {
             </div>
 
             {/* Quote Readiness Score Gauge (1 col) */}
-            <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-xs flex flex-col justify-between">
+            <div className="bg-white rounded-panel border border-line p-6 shadow-xs flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] uppercase font-bold text-slate-400">Readiness Score</span>
+                  <span className="text-spec uppercase font-bold text-ink-faint">Readiness Score</span>
                   <span
-                    className={`text-xs font-bold px-2 py-0.5 rounded ${
+                    className={`text-meta font-bold px-2 py-0.5 rounded ${
                       currentEnquiryAnalysis.readiness.score >= 80
-                        ? "bg-emerald-100 text-emerald-800"
+                        ? "bg-brand-wash text-brand-deep"
                         : currentEnquiryAnalysis.readiness.score >= 50
                         ? "bg-amber-100 text-amber-800"
                         : "bg-rose-100 text-rose-800"
@@ -609,18 +609,18 @@ export const NewEnquiryWorkspace: React.FC = () => {
                 </div>
 
                 <div className="flex items-baseline gap-2 mb-3">
-                  <span className="text-3xl font-black text-emerald-600">
+                  <span className="text-3xl font-black text-brand-deep">
                     {currentEnquiryAnalysis.readiness.score}%
                   </span>
-                  <span className="text-xs text-slate-500">Quoting Feasibility</span>
+                  <span className="text-meta text-ink-dim">Quoting Feasibility</span>
                 </div>
 
                 {/* Progress bar */}
-                <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden mb-3 border border-slate-200">
+                <div className="w-full bg-paper rounded-full h-2 overflow-hidden mb-3 border border-line">
                   <div
                     className={`h-2 rounded-full transition-all duration-500 ${
                       currentEnquiryAnalysis.readiness.score >= 80
-                        ? "bg-emerald-600"
+                        ? "bg-brand-deep"
                         : currentEnquiryAnalysis.readiness.score >= 50
                         ? "bg-amber-500"
                         : "bg-rose-500"
@@ -629,20 +629,20 @@ export const NewEnquiryWorkspace: React.FC = () => {
                   ></div>
                 </div>
 
-                <p className="text-xs text-slate-600 mb-3 leading-relaxed">
+                <p className="text-meta text-ink-dim mb-3 leading-relaxed">
                   {currentEnquiryAnalysis.readiness.summaryExplanation}
                 </p>
               </div>
 
               {/* Quick counts */}
-              <div className="grid grid-cols-2 gap-2 pt-3 border-t border-slate-100 text-xs">
-                <div className="bg-emerald-50/70 p-2.5 rounded-md border border-emerald-100">
-                  <div className="font-bold text-emerald-900 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <div className="grid grid-cols-2 gap-2 pt-3 border-t border-line text-meta">
+                <div className="bg-brand-wash p-2.5 rounded-edge border border-brand-edge">
+                  <div className="font-bold text-brand-deep flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-brand-deep" />
                     <span>{currentEnquiryAnalysis.readiness.knownItems.length} Confirmed</span>
                   </div>
                 </div>
-                <div className="bg-rose-50/70 p-2.5 rounded-md border border-rose-100">
+                <div className="bg-rose-50/70 p-2.5 rounded-edge border border-rose-100">
                   <div className="font-bold text-rose-900 flex items-center gap-1.5">
                     <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
                     <span>{currentEnquiryAnalysis.readiness.missingItems.length} Missing</span>
@@ -655,15 +655,15 @@ export const NewEnquiryWorkspace: React.FC = () => {
           {/* Known vs Missing Information Checklist */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {/* Known Items */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
-              <div className="flex items-center gap-2 pb-3 border-b border-slate-200 mb-3">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <h3 className="font-bold text-slate-900 text-sm">Confirmed & Known Parameters</h3>
+            <div className="bg-white rounded-panel border border-line p-5 shadow-xs">
+              <div className="flex items-center gap-2 pb-3 border-b border-line mb-3">
+                <CheckCircle2 className="w-4 h-4 text-brand-deep" />
+                <h3 className="font-bold text-body">Confirmed & Known Parameters</h3>
               </div>
               <ul className="space-y-2">
                 {currentEnquiryAnalysis.readiness.knownItems.map((item, idx) => (
-                  <li key={idx} className="text-xs text-slate-700 flex items-start gap-2">
-                    <span className="w-4 h-4 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                  <li key={idx} className="text-meta flex items-start gap-2">
+                    <span className="w-4 h-4 rounded-full bg-brand-wash text-brand-deep flex items-center justify-center text-spec font-bold shrink-0 mt-0.5">
                       ✓
                     </span>
                     <span className="leading-relaxed">{item}</span>
@@ -673,17 +673,17 @@ export const NewEnquiryWorkspace: React.FC = () => {
             </div>
 
             {/* Missing Items */}
-            <div className="bg-white rounded-xl border border-rose-200/80 p-5 shadow-xs">
+            <div className="bg-white rounded-panel border border-rose-200/80 p-5 shadow-xs">
               <div className="flex items-center gap-2 pb-3 border-b border-rose-100 mb-3">
                 <AlertTriangle className="w-4 h-4 text-rose-600" />
-                <h3 className="font-bold text-slate-900 text-sm">
+                <h3 className="font-bold text-body">
                   Information Still Required Before Quoting
                 </h3>
               </div>
               <ul className="space-y-2">
                 {currentEnquiryAnalysis.readiness.missingItems.map((item, idx) => (
-                  <li key={idx} className="text-xs text-slate-800 flex items-start gap-2 bg-rose-50/60 p-2.5 rounded-md border border-rose-100">
-                    <span className="w-4 h-4 rounded-full bg-rose-200 text-rose-900 flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">
+                  <li key={idx} className="text-meta flex items-start gap-2 bg-rose-50/60 p-2.5 rounded-edge border border-rose-100">
+                    <span className="w-4 h-4 rounded-full bg-rose-200 text-rose-900 flex items-center justify-center text-spec font-bold shrink-0 mt-0.5">
                       !
                     </span>
                     <span className="leading-relaxed">{item}</span>
@@ -694,51 +694,51 @@ export const NewEnquiryWorkspace: React.FC = () => {
           </div>
 
           {/* Structured Opportunity Summary Table */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-3">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+          <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-3">
+            <div className="flex items-center justify-between pb-3 border-b border-line">
               <div>
-                <h3 className="font-bold text-slate-900 text-sm">Opportunity Requirement Matrix</h3>
-                <p className="text-xs text-slate-500">
+                <h3 className="font-bold text-body">Opportunity Requirement Matrix</h3>
+                <p className="text-meta text-ink-dim">
                   Extracted technical and commercial parameters
                 </p>
               </div>
-              <div className="flex items-center gap-3 text-xs">
-                <span className="flex items-center gap-1 text-slate-600 font-medium">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Confirmed
+              <div className="flex items-center gap-3 text-meta">
+                <span className="flex items-center gap-1 text-ink-dim font-medium">
+                  <span className="w-2 h-2 rounded-full bg-brand"></span> Confirmed
                 </span>
-                <span className="flex items-center gap-1 text-slate-600 font-medium">
+                <span className="flex items-center gap-1 text-ink-dim font-medium">
                   <span className="w-2 h-2 rounded-full bg-amber-500"></span> Inferred
                 </span>
-                <span className="flex items-center gap-1 text-slate-600 font-medium">
+                <span className="flex items-center gap-1 text-ink-dim font-medium">
                   <span className="w-2 h-2 rounded-full bg-rose-500"></span> Unknown
                 </span>
               </div>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+              <table className="w-full text-left text-meta border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
+                  <tr className="bg-raised text-ink-dim border-b border-line">
                     <th className="py-2.5 px-3 font-semibold w-1/4">Requirement Field</th>
                     <th className="py-2.5 px-3 font-semibold w-7/12">Extracted Value & Context</th>
                     <th className="py-2.5 px-3 font-semibold w-2/12">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-line">
                   {Object.entries(currentEnquiryAnalysis.opportunitySummary).map(([key, rawField]) => {
                     const field = rawField as StatusField;
                     const label = key
                       .replace(/([A-Z])/g, " $1")
                       .replace(/^./, (str) => str.toUpperCase());
                     return (
-                      <tr key={key} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-2.5 px-3 font-semibold text-slate-800">{label}</td>
-                        <td className="py-2.5 px-3 text-slate-700">
+                      <tr key={key} className="hover:bg-raised transition-colors">
+                        <td className="py-2.5 px-3 font-semibold text-body">{label}</td>
+                        <td className="py-2.5 px-3 text-body">
                           {field?.value || "Unknown"}
                           {key === "cct" && (
                             <button
                               onClick={() => setExplainingTerm("CCT (Correlated Colour Temperature)")}
-                              className="ml-2 text-[11px] text-emerald-700 hover:underline font-medium cursor-pointer"
+                              className="ml-2 text-spec text-brand-deep hover:underline font-medium cursor-pointer"
                             >
                               Explain CCT
                             </button>
@@ -746,7 +746,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
                           {key === "standardsMentioned" && (
                             <button
                               onClick={() => setExplainingTerm("AS/NZS 1158")}
-                              className="ml-2 text-[11px] text-emerald-700 hover:underline font-medium cursor-pointer"
+                              className="ml-2 text-spec text-brand-deep hover:underline font-medium cursor-pointer"
                             >
                               Explain AS1158
                             </button>
@@ -762,82 +762,82 @@ export const NewEnquiryWorkspace: React.FC = () => {
           </div>
 
           {/* Product Recommendations & Citations */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+          <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-line">
               <div>
-                <h3 className="font-bold text-slate-900 text-sm">
+                <h3 className="font-bold text-body">
                   Plasgain Product Recommendations & Knowledge Base Grounding
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-meta text-ink-dim">
                   Matched against approved Plasgain product datasheets and Australian standards
                 </p>
               </div>
-              <span className="text-[10px] font-bold px-2.5 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase tracking-wider">
+              <span className="text-spec font-bold px-2.5 py-1 rounded bg-brand-wash text-brand-deep border border-brand-edge uppercase tracking-wider">
                 Grounded in Approved Docs
               </span>
             </div>
 
             {/* Recommended Starting Point */}
             {currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint && (
-              <div className="bg-emerald-50/40 border border-emerald-200 rounded-xl p-5 space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-emerald-200/60">
+              <div className="bg-brand-wash border border-brand-edge rounded-panel p-5 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-brand-edge">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
+                      <span className="text-meta font-bold text-brand-deep uppercase tracking-wider">
                         Recommended Starting Point
                       </span>
-                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-700 text-white">
+                      <span className="text-meta font-bold px-2 py-0.5 rounded bg-brand-deep text-white">
                         {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.matchLevel || "Strong"} Match
                       </span>
                     </div>
-                    <h4 className="text-base font-bold text-slate-900 mt-0.5">
+                    <h4 className="text-base font-bold text-body mt-0.5">
                       {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.productName || "Plasgain Luminaire"} (
                       {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.productCode || "PLASGAIN-SOLAR"})
                     </h4>
                   </div>
                 </div>
 
-                <div className="text-xs text-slate-700 leading-relaxed">
-                  <strong className="text-slate-900">Why it appears suitable: </strong>
+                <div className="text-meta leading-relaxed">
+                  <strong className="text-body">Why it appears suitable: </strong>
                   {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.whySuitable || "Engineered specifically for Australian public infrastructure."}
                 </div>
 
                 {/* Supporting Specs Grid */}
                 {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.supportingSpecifications && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 bg-white p-3.5 rounded-lg border border-emerald-200/80 text-xs">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 bg-white p-3.5 rounded-edge border border-brand-edge text-meta">
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Application Fit</span>
-                      <span className="text-slate-800 font-medium">
+                      <span className="text-spec font-bold text-ink-faint uppercase block">Application Fit</span>
+                      <span className="text-body font-medium">
                         {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.supportingSpecifications.applicationFit || "Standard"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Luminaire Output</span>
-                      <span className="text-slate-800 font-medium">
+                      <span className="text-spec font-bold text-ink-faint uppercase block">Luminaire Output</span>
+                      <span className="text-body font-medium">
                         {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.supportingSpecifications.luminaireOutput || "Standard"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block">CCT Options</span>
-                      <span className="text-slate-800 font-medium">
+                      <span className="text-spec font-bold text-ink-faint uppercase block">CCT Options</span>
+                      <span className="text-body font-medium">
                         {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.supportingSpecifications.cctAvailable || "3000K, 4000K"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Solar & Battery</span>
-                      <span className="text-slate-800 font-medium">
+                      <span className="text-spec font-bold text-ink-faint uppercase block">Solar & Battery</span>
+                      <span className="text-body font-medium">
                         {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.supportingSpecifications.solarAndBattery || "Standard"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Mounting / Poles</span>
-                      <span className="text-slate-800 font-medium">
+                      <span className="text-spec font-bold text-ink-faint uppercase block">Mounting / Poles</span>
+                      <span className="text-body font-medium">
                         {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.supportingSpecifications.mountingOptions || "Standard"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block">Control & Sensor</span>
-                      <span className="text-slate-800 font-medium">
+                      <span className="text-spec font-bold text-ink-faint uppercase block">Control & Sensor</span>
+                      <span className="text-body font-medium">
                         {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.supportingSpecifications.controlOptions || "Smart Controller"}
                       </span>
                     </div>
@@ -847,19 +847,19 @@ export const NewEnquiryWorkspace: React.FC = () => {
                 {/* Source Citations */}
                 {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.sourceCitations && (
                   <div className="space-y-1.5 pt-1">
-                    <span className="text-[11px] font-bold text-slate-700 block">Supporting Document Citations:</span>
+                    <span className="text-spec font-bold block">Supporting Document Citations:</span>
                     <div className="space-y-1.5">
                       {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.sourceCitations.map(
                         (cite, i) => (
                           <div
                             key={i}
-                            className="text-xs bg-white/90 p-2.5 rounded border border-emerald-200/80 text-slate-700 flex items-start gap-2"
+                            className="text-meta bg-white/90 p-2.5 rounded border border-brand-edge flex items-start gap-2"
                           >
-                            <FileText className="w-3.5 h-3.5 text-emerald-700 shrink-0 mt-0.5" />
+                            <FileText className="w-3.5 h-3.5 text-brand-deep shrink-0 mt-0.5" />
                             <div>
-                              <span className="font-semibold text-emerald-950">{cite.documentTitle}</span>
-                              {cite.sectionOrPage && <span className="text-slate-500 ml-1">({cite.sectionOrPage})</span>}
-                              {cite.excerpt && <p className="text-slate-600 mt-0.5 italic text-[11px]">"{cite.excerpt}"</p>}
+                              <span className="font-semibold text-brand-deep">{cite.documentTitle}</span>
+                              {cite.sectionOrPage && <span className="text-ink-dim ml-1">({cite.sectionOrPage})</span>}
+                              {cite.excerpt && <p className="text-ink-dim mt-0.5 italic text-spec">"{cite.excerpt}"</p>}
                             </div>
                           </div>
                         )
@@ -869,7 +869,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
                 )}
 
                 {/* Distinction note: Sales fit vs engineered design */}
-                <div className="bg-amber-50/80 border border-amber-200 p-3 rounded-lg text-xs text-amber-900 flex items-start gap-2">
+                <div className="bg-amber-50/80 border border-amber-200 p-3 rounded-edge text-meta text-amber-900 flex items-start gap-2">
                   <ShieldCheck className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                   <div>
                     <strong className="font-bold">Engineering Distinction Notice: </strong>
@@ -884,21 +884,21 @@ export const NewEnquiryWorkspace: React.FC = () => {
             {currentEnquiryAnalysis.productRecommendations?.alternatives &&
               currentEnquiryAnalysis.productRecommendations.alternatives.length > 0 && (
                 <div className="space-y-2 pt-2">
-                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                  <h4 className="text-meta font-bold uppercase tracking-wide">
                     Alternative Product Options to Consider:
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {currentEnquiryAnalysis.productRecommendations.alternatives.map((alt, i) => (
                       <div
                         key={i}
-                        className="bg-slate-50 p-3.5 rounded-lg border border-slate-200 text-xs space-y-1.5"
+                        className="bg-raised p-3.5 rounded-edge border border-line text-meta space-y-1.5"
                       >
-                        <div className="font-bold text-slate-900">{alt.productName}</div>
-                        <p className="text-slate-600">
-                          <strong className="text-slate-700">When to use:</strong> {alt.whenToUse}
+                        <div className="font-bold text-body">{alt.productName}</div>
+                        <p className="text-ink-dim">
+                          <strong className="text-body">When to use:</strong> {alt.whenToUse}
                         </p>
-                        <p className="text-slate-500 text-[11px]">
-                          <strong className="text-slate-600">Trade-offs:</strong> {alt.tradeOffs}
+                        <p className="text-ink-dim text-spec">
+                          <strong className="text-ink-dim">Trade-offs:</strong> {alt.tradeOffs}
                         </p>
                       </div>
                     ))}
@@ -908,13 +908,13 @@ export const NewEnquiryWorkspace: React.FC = () => {
           </div>
 
           {/* Questions Before We Quote & Email Generator */}
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
+          <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-line">
               <div>
-                <h3 className="font-bold text-slate-900 text-sm">
+                <h3 className="font-bold text-body">
                   Questions Before We Quote (Select to Include in Email)
                 </h3>
-                <p className="text-xs text-slate-500">
+                <p className="text-meta text-ink-dim">
                   Specific technical and commercial questions tailored to this enquiry
                 </p>
               </div>
@@ -925,13 +925,13 @@ export const NewEnquiryWorkspace: React.FC = () => {
                       currentEnquiryAnalysis.questionsBeforeWeQuote.map((q) => q.question)
                     )
                   }
-                  className="text-xs text-slate-600 hover:text-slate-900 underline font-medium cursor-pointer"
+                  className="text-meta text-ink-dim hover:text-ink underline font-medium cursor-pointer"
                 >
                   Select All
                 </button>
                 <button
                   onClick={() => setSelectedQuestions([])}
-                  className="text-xs text-slate-500 hover:text-slate-700 underline font-medium cursor-pointer"
+                  className="text-meta text-ink-dim hover:text-ink underline font-medium cursor-pointer"
                 >
                   Clear
                 </button>
@@ -944,27 +944,27 @@ export const NewEnquiryWorkspace: React.FC = () => {
                 return (
                   <label
                     key={q.id}
-                    className={`flex items-start gap-3 p-3 rounded-lg border transition-all cursor-pointer ${
+                    className={`flex items-start gap-3 p-3 rounded-edge border transition-all cursor-pointer ${
                       isChecked
-                        ? "bg-emerald-50/40 border-emerald-300"
-                        : "bg-slate-50/50 border-slate-200 hover:border-slate-300"
+                        ? "bg-brand-wash border-brand-edge"
+                        : "bg-raised border-line hover:border-line-strong"
                     }`}
                   >
                     <input
                       type="checkbox"
                       checked={isChecked}
                       onChange={() => toggleQuestion(q.question)}
-                      className="mt-0.5 h-4 w-4 rounded text-emerald-600 focus:ring-emerald-600 border-slate-300"
+                      className="mt-0.5 h-4 w-4 rounded text-brand-deep focus:ring-brand-deep border-line-strong"
                     />
                     <div className="space-y-0.5">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-900 text-xs">{q.question}</span>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-200 text-slate-700">
+                        <span className="font-semibold text-meta">{q.question}</span>
+                        <span className="text-spec font-bold px-1.5 py-0.5 rounded bg-line">
                           {q.category}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-500">
-                        <strong className="text-slate-600">Why it matters:</strong> {q.whyItMatters}
+                      <p className="text-spec text-ink-dim">
+                        <strong className="text-ink-dim">Why it matters:</strong> {q.whyItMatters}
                       </p>
                     </div>
                   </label>
@@ -972,14 +972,14 @@ export const NewEnquiryWorkspace: React.FC = () => {
               })}
             </div>
 
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-xs text-slate-500">
+            <div className="pt-3 border-t border-line flex items-center justify-between">
+              <span className="text-meta text-ink-dim">
                 {selectedQuestions.length} of {currentEnquiryAnalysis.questionsBeforeWeQuote.length} questions selected
               </span>
               <button
                 onClick={handleGenerateReply}
                 disabled={selectedQuestions.length === 0}
-                className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-medium px-4 py-2 rounded-md text-xs transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+                className="bg-brand-deep hover:bg-brand-deep disabled:bg-line-strong text-white font-medium px-4 py-2 rounded-edge text-meta transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
               >
                 <Mail className="w-4 h-4" />
                 <span>Create Customer Reply Email ({selectedQuestions.length})</span>
@@ -989,10 +989,10 @@ export const NewEnquiryWorkspace: React.FC = () => {
 
           {/* Internal Sales Coach Tip */}
           {currentEnquiryAnalysis.internalSalesCoachTip && (
-            <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 text-xs text-slate-700 flex items-start gap-3">
+            <div className="bg-raised rounded-panel border border-line p-4 text-meta flex items-start gap-3">
               <Lightbulb className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
               <div>
-                <strong className="font-bold text-slate-900">Plasgain Sales Coach Tip: </strong>
+                <strong className="font-bold text-body">Plasgain Sales Coach Tip: </strong>
                 <span>{currentEnquiryAnalysis.internalSalesCoachTip}</span>
               </div>
             </div>
@@ -1002,16 +1002,16 @@ export const NewEnquiryWorkspace: React.FC = () => {
 
       {/* Customer Reply Modal */}
       {isReplyModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl max-w-2xl w-full p-6 shadow-xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-panel max-w-2xl w-full p-6 shadow-xl border border-line space-y-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-line">
               <div className="flex items-center gap-2">
-                <Mail className="w-5 h-5 text-emerald-700" />
-                <h3 className="font-bold text-slate-900 text-base">Generated Customer Clarification Email</h3>
+                <Mail className="w-5 h-5 text-brand-deep" />
+                <h3 className="font-bold text-body text-base">Generated Customer Clarification Email</h3>
               </div>
               <button
                 onClick={() => setIsReplyModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-sm font-bold cursor-pointer"
+                className="text-ink-faint hover:text-ink-dim text-body font-bold cursor-pointer"
               >
                 ✕
               </button>
@@ -1019,37 +1019,37 @@ export const NewEnquiryWorkspace: React.FC = () => {
 
             {isGeneratingEmail ? (
               <div className="py-12 flex flex-col items-center justify-center space-y-3">
-                <div className="w-8 h-8 border-3 border-emerald-700 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-xs text-slate-600 font-medium">Generating professional B2B email...</p>
+                <div className="w-8 h-8 border-3 border-brand-deep border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-meta text-ink-dim font-medium">Generating professional B2B email...</p>
               </div>
             ) : generatedEmail ? (
               <div className="space-y-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Subject Line</label>
+                  <label className="block text-spec font-bold text-ink-dim uppercase mb-1">Subject Line</label>
                   <input
                     type="text"
                     value={generatedEmail.subject}
                     onChange={(e) =>
                       setGeneratedEmail((prev) => (prev ? { ...prev, subject: e.target.value } : null))
                     }
-                    className="w-full text-xs font-semibold text-slate-900 p-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-emerald-600 bg-slate-50"
+                    className="w-full text-meta font-semibold p-2.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep bg-raised"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 uppercase mb-1">Email Body</label>
+                  <label className="block text-spec font-bold text-ink-dim uppercase mb-1">Email Body</label>
                   <textarea
                     value={generatedEmail.body}
                     onChange={(e) =>
                       setGeneratedEmail((prev) => (prev ? { ...prev, body: e.target.value } : null))
                     }
                     rows={12}
-                    className="w-full text-xs text-slate-900 p-3 rounded-lg border border-slate-200 focus:outline-none focus:border-emerald-600 font-sans leading-relaxed bg-slate-50"
+                    className="w-full text-meta p-3 rounded-edge border border-line focus:outline-none focus:border-brand-deep font-sans leading-relaxed bg-raised"
                   />
                 </div>
 
-                <div className="flex items-center justify-between pt-3 border-t border-slate-200">
-                  <span className="text-[11px] text-slate-500">
+                <div className="flex items-center justify-between pt-3 border-t border-line">
+                  <span className="text-spec text-ink-dim">
                     Ready to copy into Outlook / Gmail
                   </span>
                   <div className="flex items-center gap-2">
@@ -1060,7 +1060,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
                         );
                         showToast("Email copied to clipboard!", "success");
                       }}
-                      className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium px-3.5 py-2 rounded-md text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                      className="bg-paper hover:bg-line font-medium px-3.5 py-2 rounded-edge text-meta transition-colors flex items-center gap-1.5 cursor-pointer"
                     >
                       <Copy className="w-3.5 h-3.5" />
                       <span>Copy to Clipboard</span>
@@ -1070,7 +1070,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
                         handleSaveOpportunity();
                         setIsReplyModalOpen(false);
                       }}
-                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-md text-xs transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      className="bg-brand-deep hover:bg-brand-deep text-white font-medium px-4 py-2 rounded-edge text-meta transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <Save className="w-3.5 h-3.5" />
                       <span>Save & Close</span>

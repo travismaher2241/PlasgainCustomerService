@@ -70,21 +70,21 @@ export const GlobalCopilot: React.FC = () => {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-96 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-200">
+    <div className="fixed bottom-4 right-4 z-50 w-96 max-w-[calc(100vw-2rem)] bg-white rounded-panel shadow-2xl border border-line flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-200">
       {/* Copilot Header - Editorial Dark */}
-      <div className="bg-[#0F172A] p-4 text-white flex items-center justify-between border-b border-slate-800">
+      <div className="bg-[#0F172A] p-4 text-white flex items-center justify-between border-b border-chrome-line">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-md bg-emerald-600 flex items-center justify-center text-white font-bold">
+          <div className="w-7 h-7 rounded-edge bg-brand-deep flex items-center justify-center text-white font-bold">
             <Sparkles className="w-3.5 h-3.5" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="font-bold text-xs">Plasgain Sales Copilot</span>
-              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">
+              <span className="font-bold text-meta">Plasgain Sales Copilot</span>
+              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-chrome text-brand-lift border border-brand-deep">
                 LIVE
               </span>
             </div>
-            <span className="text-[10px] text-slate-400 block">
+            <span className="text-spec text-ink-faint block">
               Context: {activeTab}
             </span>
           </div>
@@ -92,24 +92,24 @@ export const GlobalCopilot: React.FC = () => {
 
         <button
           onClick={() => setIsCopilotOpen(false)}
-          className="text-slate-400 hover:text-white p-1 rounded transition-colors cursor-pointer"
+          className="text-ink-faint hover:text-white p-1 rounded transition-colors cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>
       </div>
 
       {/* Messages */}
-      <div className="p-3.5 h-80 overflow-y-auto space-y-3 text-xs bg-slate-50/50">
+      <div className="p-3.5 h-80 overflow-y-auto space-y-3 text-meta bg-raised">
         {messages.map((m, idx) => (
           <div
             key={idx}
             className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"}`}
           >
             <div
-              className={`max-w-[85%] p-3 rounded-lg leading-relaxed ${
+              className={`max-w-[85%] p-3 rounded-edge leading-relaxed ${
                 m.role === "user"
-                  ? "bg-emerald-600 text-white rounded-br-xs"
-                  : "bg-white text-slate-800 border border-slate-200 shadow-2xs rounded-bl-xs"
+                  ? "bg-brand-deep text-white rounded-br-xs"
+                  : "bg-white text-body border border-line shadow-2xs rounded-bl-xs"
               }`}
             >
               {m.content}
@@ -117,24 +117,24 @@ export const GlobalCopilot: React.FC = () => {
           </div>
         ))}
         {isLoading && (
-          <div className="flex items-center gap-2 text-slate-500 text-xs py-1">
-            <div className="w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+          <div className="flex items-center gap-2 text-ink-dim text-meta py-1">
+            <div className="w-3.5 h-3.5 border-2 border-brand-deep border-t-transparent rounded-full animate-spin"></div>
             <span>Thinking...</span>
           </div>
         )}
       </div>
 
       {/* Quick Prompts */}
-      <div className="px-3 py-1.5 bg-slate-100/80 border-t border-slate-200 flex gap-1.5 overflow-x-auto text-[11px]">
+      <div className="px-3 py-1.5 bg-paper border-t border-line flex gap-1.5 overflow-x-auto text-spec">
         <button
           onClick={() => handleSend("What questions should I ask before quoting?")}
-          className="whitespace-nowrap bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-700 hover:text-emerald-700 cursor-pointer"
+          className="whitespace-nowrap bg-white px-2 py-0.5 rounded border border-line text-body hover:text-brand-deep cursor-pointer"
         >
           Key Questions?
         </button>
         <button
           onClick={() => handleSend("Explain Cat P4 lighting compliance.")}
-          className="whitespace-nowrap bg-white px-2 py-0.5 rounded border border-slate-200 text-slate-700 hover:text-emerald-700 cursor-pointer"
+          className="whitespace-nowrap bg-white px-2 py-0.5 rounded border border-line text-body hover:text-brand-deep cursor-pointer"
         >
           Cat P4?
         </button>
@@ -146,19 +146,19 @@ export const GlobalCopilot: React.FC = () => {
           e.preventDefault();
           handleSend(input);
         }}
-        className="p-2.5 bg-white border-t border-slate-200 flex items-center gap-2"
+        className="p-2.5 bg-white border-t border-line flex items-center gap-2"
       >
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask Copilot anything..."
-          className="flex-1 text-xs text-slate-900 px-3 py-2 rounded-md border border-slate-200 focus:outline-none focus:border-emerald-600 bg-slate-50"
+          className="flex-1 text-meta px-3 py-2 rounded-edge border border-line focus:outline-none focus:border-brand-deep bg-raised"
         />
         <button
           type="submit"
           disabled={isLoading || !input.trim()}
-          className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 text-white p-2 rounded-md transition-colors cursor-pointer"
+          className="bg-brand-deep hover:bg-brand-deep disabled:bg-line text-white p-2 rounded-edge transition-colors cursor-pointer"
         >
           <Send className="w-3.5 h-3.5" />
         </button>

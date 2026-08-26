@@ -41,25 +41,25 @@ export const CRMCommandCenter: React.FC = () => {
   ).length;
 
   return (
-    <div className="min-h-screen bg-slate-50/50">
+    <div className="min-h-screen bg-raised">
       {/* Top CRM Navigation Bar */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-xs">
+      <div className="bg-white border-b border-line sticky top-0 z-20 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
             {/* Left CRM Tabs */}
             <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto py-2">
               <button
                 onClick={() => setActiveCRMTab("today")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                className={`px-3 py-1.5 rounded-edge text-meta font-bold transition-all flex items-center gap-1.5 shrink-0 ${
                   activeCRMTab === "today"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    ? "bg-brand-deep text-white shadow-xs"
+                    : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <Sun className="w-3.5 h-3.5" />
                 Today / Focus
                 {nextBestActions.length > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeCRMTab === "today" ? "bg-emerald-800 text-emerald-100" : "bg-indigo-100 text-indigo-800 font-bold"}`}>
+                  <span className={`px-1.5 py-0.2 rounded-full text-spec ${activeCRMTab === "today" ? "bg-chrome text-white font-semibold" : "bg-indigo-100 text-indigo-800 font-bold"}`}>
                     {nextBestActions.length}
                   </span>
                 )}
@@ -67,10 +67,10 @@ export const CRMCommandCenter: React.FC = () => {
 
               <button
                 onClick={() => setActiveCRMTab("accounts")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                className={`px-3 py-1.5 rounded-edge text-meta font-bold transition-all flex items-center gap-1.5 shrink-0 ${
                   activeCRMTab === "accounts"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    ? "bg-brand-deep text-white shadow-xs"
+                    : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <Building2 className="w-3.5 h-3.5" />
@@ -79,10 +79,10 @@ export const CRMCommandCenter: React.FC = () => {
 
               <button
                 onClick={() => setActiveCRMTab("pipeline")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                className={`px-3 py-1.5 rounded-edge text-meta font-bold transition-all flex items-center gap-1.5 shrink-0 ${
                   activeCRMTab === "pipeline"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    ? "bg-brand-deep text-white shadow-xs"
+                    : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <Kanban className="w-3.5 h-3.5" />
@@ -91,16 +91,16 @@ export const CRMCommandCenter: React.FC = () => {
 
               <button
                 onClick={() => setActiveCRMTab("leads")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                className={`px-3 py-1.5 rounded-edge text-meta font-bold transition-all flex items-center gap-1.5 shrink-0 ${
                   activeCRMTab === "leads"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    ? "bg-brand-deep text-white shadow-xs"
+                    : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <Flame className="w-3.5 h-3.5" />
                 Leads Hub
                 {hotLeadsCount > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeCRMTab === "leads" ? "bg-emerald-800 text-emerald-100" : "bg-rose-100 text-rose-800 font-bold"}`}>
+                  <span className={`px-1.5 py-0.2 rounded-full text-spec ${activeCRMTab === "leads" ? "bg-chrome text-white font-semibold" : "bg-rose-100 text-rose-800 font-bold"}`}>
                     {hotLeadsCount}
                   </span>
                 )}
@@ -108,16 +108,16 @@ export const CRMCommandCenter: React.FC = () => {
 
               <button
                 onClick={() => setActiveCRMTab("tasks")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                className={`px-3 py-1.5 rounded-edge text-meta font-bold transition-all flex items-center gap-1.5 shrink-0 ${
                   activeCRMTab === "tasks"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    ? "bg-brand-deep text-white shadow-xs"
+                    : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Tasks & Log
                 {overdueCount > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeCRMTab === "tasks" ? "bg-emerald-800 text-emerald-100" : "bg-rose-100 text-rose-800 font-bold"}`}>
+                  <span className={`px-1.5 py-0.2 rounded-full text-spec ${activeCRMTab === "tasks" ? "bg-chrome text-white font-semibold" : "bg-rose-100 text-rose-800 font-bold"}`}>
                     {overdueCount}
                   </span>
                 )}
@@ -125,10 +125,10 @@ export const CRMCommandCenter: React.FC = () => {
 
               <button
                 onClick={() => setActiveCRMTab("analytics")}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                className={`px-3 py-1.5 rounded-edge text-meta font-bold transition-all flex items-center gap-1.5 shrink-0 ${
                   activeCRMTab === "analytics"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    ? "bg-brand-deep text-white shadow-xs"
+                    : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <TrendingUp className="w-3.5 h-3.5" />
@@ -140,9 +140,9 @@ export const CRMCommandCenter: React.FC = () => {
             <div className="hidden sm:flex items-center gap-2">
               <button
                 onClick={() => openQuickLog("call")}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+                className="inline-flex items-center gap-1 px-3 py-1.5 text-meta font-semibold bg-paper hover:bg-line rounded-edge transition-colors"
               >
-                <Phone className="w-3 h-3 text-emerald-700" />
+                <Phone className="w-3 h-3 text-brand-deep" />
                 Quick Log
               </button>
             </div>
@@ -155,7 +155,7 @@ export const CRMCommandCenter: React.FC = () => {
         <Suspense
           fallback={
             <div className="flex items-center justify-center min-h-[300px] w-full">
-              <div className="w-7 h-7 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-7 h-7 border-3 border-brand-deep border-t-transparent rounded-full animate-spin"></div>
             </div>
           }
         >

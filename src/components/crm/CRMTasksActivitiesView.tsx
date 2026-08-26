@@ -105,36 +105,36 @@ export const CRMTasksActivitiesView: React.FC = () => {
   const getPriorityBadge = (priority: TaskPriority) => {
     switch (priority) {
       case "Urgent":
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800">Urgent</span>;
+        return <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-rose-100 text-rose-800">Urgent</span>;
       case "High":
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800">High</span>;
+        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-amber-100 text-amber-800">High</span>;
       case "Medium":
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-800">Medium</span>;
+        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-blue-100 text-blue-800">Medium</span>;
       case "Low":
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">Low</span>;
+        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-paper">Low</span>;
     }
   };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-line pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Tasks & Activity Log</h1>
-          <p className="text-sm text-slate-600">
+          <h1 className="text-2xl font-bold text-body tracking-tight">Tasks & Activity Log</h1>
+          <p className="text-body text-ink-dim">
             Accountable follow-ups, scheduled milestones, and comprehensive sales touchpoint records.
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => openQuickLog("call")}
-            className="px-3 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 shadow-sm"
+            className="px-3 py-2 text-meta font-semibold bg-white border border-line-strong rounded-edge hover:bg-raised shadow-sm"
           >
             + Log Activity
           </button>
           <button
             onClick={() => setIsNewTaskModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 shadow-sm transition-colors"
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-meta font-semibold text-white bg-brand-deep rounded-edge hover:bg-brand-deep shadow-sm transition-colors"
           >
             <Plus className="w-4 h-4" /> Add Task
           </button>
@@ -142,11 +142,11 @@ export const CRMTasksActivitiesView: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-6 border-b border-slate-200 text-xs font-semibold">
+      <div className="flex items-center gap-6 border-b border-line text-meta font-semibold">
         <button
           onClick={() => setActiveSubTab("tasks")}
           className={`py-3 border-b-2 transition-colors flex items-center gap-2 ${
-            activeSubTab === "tasks" ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-800"
+            activeSubTab === "tasks" ? "border-brand-deep text-brand-deep" : "border-transparent text-ink-dim hover:text-ink"
           }`}
         >
           <CheckCircle2 className="w-4 h-4" /> Tasks & Follow-Ups ({tasks.filter((t) => t.status !== "Completed").length} pending)
@@ -154,7 +154,7 @@ export const CRMTasksActivitiesView: React.FC = () => {
         <button
           onClick={() => setActiveSubTab("activities")}
           className={`py-3 border-b-2 transition-colors flex items-center gap-2 ${
-            activeSubTab === "activities" ? "border-emerald-600 text-emerald-700" : "border-transparent text-slate-500 hover:text-slate-800"
+            activeSubTab === "activities" ? "border-brand-deep text-brand-deep" : "border-transparent text-ink-dim hover:text-ink"
           }`}
         >
           <Layers className="w-4 h-4" /> All Customer Activities ({activities.length})
@@ -162,15 +162,15 @@ export const CRMTasksActivitiesView: React.FC = () => {
       </div>
 
       {/* Search & Sub-filters */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-panel border border-line shadow-xs">
         <div className="flex items-center gap-2 flex-1 max-w-md">
-          <Search className="w-4 h-4 text-slate-400" />
+          <Search className="w-4 h-4 text-ink-faint" />
           <input
             type="text"
             placeholder={activeSubTab === "tasks" ? "Search tasks..." : "Search activities..."}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full text-xs bg-transparent focus:outline-none"
+            className="w-full text-meta bg-transparent focus:outline-none"
           />
         </div>
 
@@ -178,15 +178,15 @@ export const CRMTasksActivitiesView: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setTaskFilter("pending")}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg ${
-                taskFilter === "pending" ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
+              className={`px-3 py-1 text-meta font-semibold rounded-edge ${
+                taskFilter === "pending" ? "bg-chrome text-white" : "bg-paper text-body"
               }`}
             >
               Pending
             </button>
             <button
               onClick={() => setTaskFilter("overdue")}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg ${
+              className={`px-3 py-1 text-meta font-semibold rounded-edge ${
                 taskFilter === "overdue" ? "bg-rose-600 text-white" : "bg-rose-50 text-rose-800"
               }`}
             >
@@ -194,8 +194,8 @@ export const CRMTasksActivitiesView: React.FC = () => {
             </button>
             <button
               onClick={() => setTaskFilter("completed")}
-              className={`px-3 py-1 text-xs font-semibold rounded-lg ${
-                taskFilter === "completed" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700"
+              className={`px-3 py-1 text-meta font-semibold rounded-edge ${
+                taskFilter === "completed" ? "bg-brand-deep text-white" : "bg-paper text-body"
               }`}
             >
               Completed
@@ -206,9 +206,9 @@ export const CRMTasksActivitiesView: React.FC = () => {
 
       {/* Main Content Area */}
       {activeSubTab === "tasks" ? (
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100">
+        <div className="bg-white rounded-panel border border-line shadow-sm overflow-hidden divide-y divide-line">
           {filteredTasks.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-500">No tasks match your current filter.</div>
+            <div className="p-8 text-center text-meta text-ink-dim">No tasks match your current filter.</div>
           ) : (
             filteredTasks.map((t) => {
               const isOverdue = t.status !== "Completed" && t.status !== "Cancelled" && t.dueDate < todayStr;
@@ -216,16 +216,16 @@ export const CRMTasksActivitiesView: React.FC = () => {
                 <div
                   key={t.id}
                   className={`p-4 transition-colors flex items-start justify-between gap-4 ${
-                    isOverdue ? "bg-rose-50/40" : "hover:bg-slate-50"
+                    isOverdue ? "bg-rose-50/40" : "hover:bg-raised"
                   }`}
                 >
                   <div className="flex items-start gap-3">
                     <button
                       onClick={() => toggleTaskComplete(t.id)}
-                      className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${
+                      className={`mt-0.5 w-5 h-5 rounded-edge border flex items-center justify-center transition-colors ${
                         t.status === "Completed"
-                          ? "bg-emerald-600 border-emerald-600 text-white"
-                          : "border-slate-300 bg-white hover:border-emerald-500"
+                          ? "bg-brand-deep border-brand-deep text-white"
+                          : "border-line-strong bg-white hover:border-brand"
                       }`}
                     >
                       {t.status === "Completed" && <CheckCircle2 className="w-3.5 h-3.5" />}
@@ -233,28 +233,28 @@ export const CRMTasksActivitiesView: React.FC = () => {
 
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold text-slate-500">{t.type}</span>
+                        <span className="text-meta font-semibold text-ink-dim">{t.type}</span>
                         {getPriorityBadge(t.priority)}
                         {isOverdue && (
-                          <span className="text-[11px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <span className="text-spec font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full flex items-center gap-1">
                             <Clock className="w-3 h-3" /> Overdue
                           </span>
                         )}
                         {t.accountName && (
-                          <span className="text-xs font-medium text-slate-700">· {t.accountName}</span>
+                          <span className="text-meta font-medium">· {t.accountName}</span>
                         )}
                       </div>
 
-                      <div className={`text-sm font-semibold ${t.status === "Completed" ? "line-through text-slate-400" : "text-slate-900"}`}>
+                      <div className={`text-body font-semibold ${t.status === "Completed" ? "line-through text-ink-faint" : "text-body"}`}>
                         {t.title}
                       </div>
 
-                      {t.notes && <p className="text-xs text-slate-600">{t.notes}</p>}
+                      {t.notes && <p className="text-meta text-ink-dim">{t.notes}</p>}
                     </div>
                   </div>
 
-                  <div className="text-right text-xs shrink-0 text-slate-500 space-y-0.5">
-                    <div className="font-semibold text-slate-800">{t.dueDate} {t.dueTime || ""}</div>
+                  <div className="text-right text-meta shrink-0 text-ink-dim space-y-0.5">
+                    <div className="font-semibold text-body">{t.dueDate} {t.dueTime || ""}</div>
                     <div>Assigned: {t.assignedTo.split(" ")[0]}</div>
                   </div>
                 </div>
@@ -264,22 +264,22 @@ export const CRMTasksActivitiesView: React.FC = () => {
         </div>
       ) : (
         /* Activities Stream */
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden divide-y divide-slate-100">
+        <div className="bg-white rounded-panel border border-line shadow-sm overflow-hidden divide-y divide-line">
           {filteredActivities.length === 0 ? (
-            <div className="p-8 text-center text-xs text-slate-500">No activities logged yet.</div>
+            <div className="p-8 text-center text-meta text-ink-dim">No activities logged yet.</div>
           ) : (
             filteredActivities.map((act) => (
-              <div key={act.id} className="p-4 hover:bg-slate-50 transition-colors space-y-1.5 text-xs">
-                <div className="flex items-center justify-between text-slate-500 text-[11px]">
+              <div key={act.id} className="p-4 hover:bg-raised transition-colors space-y-1.5 text-meta">
+                <div className="flex items-center justify-between text-ink-dim text-spec">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900">{act.accountName || "General Touchpoint"}</span>
-                    {act.opportunityName && <span className="text-slate-400">· {act.opportunityName}</span>}
+                    <span className="font-bold text-body">{act.accountName || "General Touchpoint"}</span>
+                    {act.opportunityName && <span className="text-ink-faint">· {act.opportunityName}</span>}
                   </div>
                   <span>{new Date(act.timestamp).toLocaleString("en-AU", { dateStyle: "medium", timeStyle: "short" })}</span>
                 </div>
-                <div className="text-sm font-bold text-slate-900">{act.title}</div>
-                <p className="text-slate-600 leading-relaxed">{act.description}</p>
-                <div className="text-[11px] text-slate-400">Logged by: {act.performedBy}</div>
+                <div className="text-body font-bold">{act.title}</div>
+                <p className="text-ink-dim leading-relaxed">{act.description}</p>
+                <div className="text-spec text-ink-faint">Logged by: {act.performedBy}</div>
               </div>
             ))
           )}
@@ -288,35 +288,35 @@ export const CRMTasksActivitiesView: React.FC = () => {
 
       {/* New Task Modal */}
       {isNewTaskModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="text-lg font-bold text-slate-900">Create Task</h3>
-              <button onClick={() => setIsNewTaskModalOpen(false)} className="text-slate-400 hover:text-slate-600 text-sm">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <h3 className="text-lg font-bold text-body">Create Task</h3>
+              <button onClick={() => setIsNewTaskModalOpen(false)} className="text-ink-faint hover:text-ink-dim text-body">
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreateTask} className="space-y-3.5 text-xs">
+            <form onSubmit={handleCreateTask} className="space-y-3.5 text-meta">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Task Title *</label>
+                <label className="block font-semibold text-body mb-1">Task Title *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Call Sarah Jenkins to review Dialux contours"
                   value={newTaskForm.title}
                   onChange={(e) => setNewTaskForm({ ...newTaskForm, title: e.target.value })}
-                  className="w-full p-2 border border-slate-300 rounded-lg"
+                  className="w-full p-2 border border-line-strong rounded-edge"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Task Type</label>
+                  <label className="block font-semibold text-body mb-1">Task Type</label>
                   <select
                     value={newTaskForm.type}
                     onChange={(e) => setNewTaskForm({ ...newTaskForm, type: e.target.value as TaskType })}
-                    className="w-full p-2 border border-slate-300 rounded-lg"
+                    className="w-full p-2 border border-line-strong rounded-edge"
                   >
                     <option value="Call">Call</option>
                     <option value="Email">Email</option>
@@ -326,11 +326,11 @@ export const CRMTasksActivitiesView: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Priority</label>
+                  <label className="block font-semibold text-body mb-1">Priority</label>
                   <select
                     value={newTaskForm.priority}
                     onChange={(e) => setNewTaskForm({ ...newTaskForm, priority: e.target.value as TaskPriority })}
-                    className="w-full p-2 border border-slate-300 rounded-lg"
+                    className="w-full p-2 border border-line-strong rounded-edge"
                   >
                     <option value="Urgent">Urgent</option>
                     <option value="High">High</option>
@@ -342,20 +342,20 @@ export const CRMTasksActivitiesView: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Due Date</label>
+                  <label className="block font-semibold text-body mb-1">Due Date</label>
                   <input
                     type="date"
                     value={newTaskForm.dueDate}
                     onChange={(e) => setNewTaskForm({ ...newTaskForm, dueDate: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg"
+                    className="w-full p-2 border border-line-strong rounded-edge"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Related Account</label>
+                  <label className="block font-semibold text-body mb-1">Related Account</label>
                   <select
                     value={newTaskForm.accountId}
                     onChange={(e) => setNewTaskForm({ ...newTaskForm, accountId: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg"
+                    className="w-full p-2 border border-line-strong rounded-edge"
                   >
                     <option value="">None / General</option>
                     {accounts.map((a) => (
@@ -368,27 +368,27 @@ export const CRMTasksActivitiesView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Notes & Context</label>
+                <label className="block font-semibold text-body mb-1">Notes & Context</label>
                 <textarea
                   rows={3}
                   placeholder="Key items to mention or verify..."
                   value={newTaskForm.notes}
                   onChange={(e) => setNewTaskForm({ ...newTaskForm, notes: e.target.value })}
-                  className="w-full p-2 border border-slate-300 rounded-lg"
+                  className="w-full p-2 border border-line-strong rounded-edge"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
                 <button
                   type="button"
                   onClick={() => setIsNewTaskModalOpen(false)}
-                  className="px-4 py-2 text-slate-600 hover:text-slate-800"
+                  className="px-4 py-2 text-ink-dim hover:text-ink"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700"
+                  className="px-4 py-2 font-semibold text-white bg-brand-deep rounded-edge hover:bg-brand-deep"
                 >
                   Save Task
                 </button>

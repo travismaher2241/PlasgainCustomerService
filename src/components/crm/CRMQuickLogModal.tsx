@@ -107,21 +107,21 @@ export const CRMQuickLogModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-chrome/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+        <div className="flex items-center justify-between border-b border-line pb-3">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-emerald-100 text-emerald-800 rounded-lg">
+            <div className="p-1.5 bg-brand-wash text-brand-deep rounded-edge">
               <Phone className="w-4 h-4" />
             </div>
-            <h3 className="text-base font-bold text-slate-900">Quick Log Activity & Next Step</h3>
+            <h3 className="text-base font-bold text-body">Quick Log Activity & Next Step</h3>
           </div>
-          <button onClick={closeQuickLog} className="text-slate-400 hover:text-slate-600">
+          <button onClick={closeQuickLog} className="text-ink-faint hover:text-ink-dim">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3.5 text-xs">
+        <form onSubmit={handleSubmit} className="space-y-3.5 text-meta">
           {/* Type Selector */}
           <div className="grid grid-cols-4 gap-2">
             {[
@@ -136,10 +136,10 @@ export const CRMQuickLogModal: React.FC = () => {
                   type="button"
                   key={item.id}
                   onClick={() => handleTypeChange(item.id as ActivityType)}
-                  className={`py-2 px-2 rounded-lg border font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+                  className={`py-2 px-2 rounded-edge border font-semibold flex items-center justify-center gap-1.5 transition-colors ${
                     type === item.id
-                      ? "border-emerald-600 bg-emerald-50 text-emerald-800"
-                      : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                      ? "border-brand-deep bg-brand-wash text-brand-deep"
+                      : "border-line bg-white text-ink-dim hover:bg-raised"
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />
@@ -151,11 +151,11 @@ export const CRMQuickLogModal: React.FC = () => {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Related Account</label>
+              <label className="block font-semibold text-body mb-1">Related Account</label>
               <select
                 value={selectedAccountId}
                 onChange={(e) => setSelectedAccountId(e.target.value)}
-                className="w-full p-2 border border-slate-300 rounded-lg bg-white"
+                className="w-full p-2 border border-line-strong rounded-edge bg-white"
               >
                 {accounts.map((a) => (
                   <option key={a.id} value={a.id}>
@@ -166,11 +166,11 @@ export const CRMQuickLogModal: React.FC = () => {
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Related Opportunity</label>
+              <label className="block font-semibold text-body mb-1">Related Opportunity</label>
               <select
                 value={selectedOppId}
                 onChange={(e) => setSelectedOppId(e.target.value)}
-                className="w-full p-2 border border-slate-300 rounded-lg bg-white"
+                className="w-full p-2 border border-line-strong rounded-edge bg-white"
               >
                 <option value="">None / General</option>
                 {crmOpportunities
@@ -185,62 +185,62 @@ export const CRMQuickLogModal: React.FC = () => {
           </div>
 
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">Activity Title *</label>
+            <label className="block font-semibold text-body mb-1">Activity Title *</label>
             <input
               type="text"
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full p-2 border border-slate-300 rounded-lg"
+              className="w-full p-2 border border-line-strong rounded-edge"
             />
           </div>
 
           <div>
-            <label className="block font-semibold text-slate-700 mb-1">Key Discussion Points & Summary</label>
+            <label className="block font-semibold text-body mb-1">Key Discussion Points & Summary</label>
             <textarea
               rows={3}
               placeholder="What was agreed? Any technical questions or CCT requirements raised?"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full p-2 border border-slate-300 rounded-lg"
+              className="w-full p-2 border border-line-strong rounded-edge"
             />
           </div>
 
           {/* Follow up toggle */}
-          <div className="p-3 bg-emerald-50/70 border border-emerald-200 rounded-lg space-y-2">
-            <label className="flex items-center gap-2 font-semibold text-emerald-950 cursor-pointer">
+          <div className="p-3 bg-brand-wash border border-brand-edge rounded-edge space-y-2">
+            <label className="flex items-center gap-2 font-semibold text-brand-deep cursor-pointer">
               <input
                 type="checkbox"
                 checked={scheduleFollowUp}
                 onChange={(e) => setScheduleFollowUp(e.target.checked)}
-                className="rounded border-emerald-400 text-emerald-600 focus:ring-emerald-500"
+                className="rounded border-brand text-brand-deep focus:ring-brand"
               />
               Schedule automatic next follow-up task
             </label>
             {scheduleFollowUp && (
               <div className="flex items-center gap-2 pt-1">
-                <span className="text-emerald-800">Due Date:</span>
+                <span className="text-brand-deep">Due Date:</span>
                 <input
                   type="date"
                   value={followUpDate}
                   onChange={(e) => setFollowUpDate(e.target.value)}
-                  className="p-1.5 border border-emerald-300 bg-white rounded-lg text-slate-800 text-xs"
+                  className="p-1.5 border border-brand-edge bg-white rounded-edge text-meta"
                 />
               </div>
             )}
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
             <button
               type="button"
               onClick={closeQuickLog}
-              className="px-4 py-2 text-slate-600 hover:text-slate-800"
+              className="px-4 py-2 text-ink-dim hover:text-ink"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700"
+              className="px-4 py-2 font-semibold text-white bg-brand-deep rounded-edge hover:bg-brand-deep"
             >
               Save Activity
             </button>

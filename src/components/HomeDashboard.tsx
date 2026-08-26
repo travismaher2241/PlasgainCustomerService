@@ -135,7 +135,7 @@ export const HomeDashboard: React.FC = () => {
     overdue: "text-urgent border-urgent bg-urgent-wash",
     soon: "text-soon border-soon bg-soon-wash",
     hold: "text-hold border-hold bg-hold-wash",
-    clear: "text-body-dim border-line-strong"
+    clear: "text-ink-dim border-line-strong"
   };
 
 
@@ -249,7 +249,7 @@ export const HomeDashboard: React.FC = () => {
 
         <div className="relative flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
           <div className="min-w-0">
-            <h1 className="text-head sm:text-display font-semibold text-body">
+            <h1 className="text-head sm:text-display font-semibold">
               {totalNeedingAction === 0 ? (
                 <>You&apos;re <span className="text-brand-deep">clear</span>, Sarah.</>
               ) : (
@@ -259,7 +259,7 @@ export const HomeDashboard: React.FC = () => {
                 </>
               )}
             </h1>
-            <p className="mt-2 text-meta text-body-dim max-w-[60ch]">{situation()}</p>
+            <p className="mt-2 text-meta text-ink-dim max-w-[60ch]">{situation()}</p>
           </div>
 
           {/* Role lens — tabs, not pill toggles */}
@@ -277,7 +277,7 @@ export const HomeDashboard: React.FC = () => {
                 className={`u-eyebrow px-3 py-2 border cursor-pointer transition-colors ${
                   selectedRole === role
                     ? "bg-surface text-body border-line border-b-surface"
-                    : "bg-transparent text-body-faint border-transparent border-b-line hover:text-body"
+                    : "bg-transparent text-ink-faint border-transparent border-b-line hover:text-ink"
                 }`}
               >
                 {label}
@@ -319,7 +319,7 @@ export const HomeDashboard: React.FC = () => {
                   <span
                     className={`u-data text-head leading-none font-medium ${
                       count === 0
-                        ? "text-body-faint"
+                        ? "text-ink-faint"
                         : key === "overdue"
                         ? "text-urgent"
                         : key === "soon"
@@ -329,9 +329,9 @@ export const HomeDashboard: React.FC = () => {
                   >
                     {count}
                   </span>
-                  <span className="u-eyebrow text-body-dim">{label}</span>
+                  <span className="u-eyebrow text-ink-dim">{label}</span>
                 </div>
-                <span className="text-spec text-body-faint truncate">
+                <span className="text-spec text-ink-faint truncate">
                   {count === 0
                     ? "Nothing here"
                     : example
@@ -349,10 +349,10 @@ export const HomeDashboard: React.FC = () => {
       {/* 3. PRIORITY QUEUE — one surface, ruled rows, severity stripe */}
       <section aria-labelledby="queue-heading">
         <div className="flex items-baseline gap-3 mb-3">
-          <h2 id="queue-heading" className="text-lead font-semibold text-body">
+          <h2 id="queue-heading" className="text-lead font-semibold">
             Priority queue
           </h2>
-          <span className="u-data text-spec text-body-faint uppercase tracking-[0.09em]">
+          <span className="u-data text-spec text-ink-faint uppercase tracking-[0.09em]">
             {priorityItems.length} {priorityItems.length === 1 ? "record" : "records"}
           </span>
           {selectedCategoryFilter && (
@@ -388,36 +388,36 @@ export const HomeDashboard: React.FC = () => {
 
                   <div className="py-4 pl-4 pr-4 min-w-0">
                     <div className="flex items-center gap-2.5 flex-wrap">
-                      <h3 className="text-body font-semibold text-body truncate">{opp.project}</h3>
+                      <h3 className="text-body font-semibold truncate">{opp.project}</h3>
                       {label && (
                         <span className={`u-eyebrow px-1.5 py-0.5 border ${CHIP[urgency]}`}>
                           {label}
                         </span>
                       )}
-                      <span className="u-eyebrow px-1.5 py-0.5 border border-line-strong text-body-dim">
+                      <span className="u-eyebrow px-1.5 py-0.5 border border-line-strong text-ink-dim">
                         {opp.stage}
                       </span>
                       {opp.estimatedValue > 0 && (
-                        <span className="u-data text-meta text-body-dim">
+                        <span className="u-data text-meta text-ink-dim">
                           ${opp.estimatedValue.toLocaleString()}
                         </span>
                       )}
                     </div>
 
-                    <p className="mt-1.5 text-meta text-body-dim flex flex-wrap items-baseline gap-x-2">
+                    <p className="mt-1.5 text-meta text-ink-dim flex flex-wrap items-baseline gap-x-2">
                       <span className="font-medium text-body">{opp.customerCompany}</span>
-                      <span className="text-body-faint">·</span>
+                      <span className="text-ink-faint">·</span>
                       <span>{opp.contactName}</span>
                       {opp.location && (
                         <>
-                          <span className="text-body-faint">·</span>
+                          <span className="text-ink-faint">·</span>
                           <span>{opp.location}</span>
                         </>
                       )}
                     </p>
 
                     {opp.nextAction && (
-                      <p className="mt-2.5 pl-3 border-l-2 border-brand-edge text-meta text-body-dim">
+                      <p className="mt-2.5 pl-3 border-l-2 border-brand-edge text-meta text-ink-dim">
                         <span className="font-medium text-body">Next: </span>
                         {opp.nextAction}
                       </p>
@@ -427,7 +427,7 @@ export const HomeDashboard: React.FC = () => {
                   <div className="col-start-2 md:col-start-3 flex items-center gap-1.5 pb-4 md:py-4 pl-4 md:pl-0 pr-4">
                     <button
                       onClick={() => handlePrepCall(opp.id)}
-                      className="px-2.5 py-1.5 rounded-edge text-meta font-medium text-body-dim border border-line-strong hover:text-body hover:border-body-faint transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+                      className="px-2.5 py-1.5 rounded-edge text-meta font-medium text-ink-dim border border-line-strong hover:text-ink hover:border-ink-faint transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
                       title="Prepare AI call script & questions"
                     >
                       <PhoneCall className="w-3 h-3" />
@@ -437,7 +437,7 @@ export const HomeDashboard: React.FC = () => {
                     {canReview ? (
                       <button
                         onClick={() => handleReviewQuote(opp.id)}
-                        className="px-2.5 py-1.5 rounded-edge text-meta font-medium text-body-dim border border-line-strong hover:text-body hover:border-body-faint transition-colors cursor-pointer hidden sm:flex items-center gap-1.5 whitespace-nowrap"
+                        className="px-2.5 py-1.5 rounded-edge text-meta font-medium text-ink-dim border border-line-strong hover:text-ink hover:border-ink-faint transition-colors cursor-pointer hidden sm:flex items-center gap-1.5 whitespace-nowrap"
                         title="Review quote parameters against specs"
                       >
                         <ClipboardCheck className="w-3 h-3" />
@@ -446,7 +446,7 @@ export const HomeDashboard: React.FC = () => {
                     ) : (
                       <button
                         onClick={() => handleFollowUp(opp)}
-                        className="px-2.5 py-1.5 rounded-edge text-meta font-medium text-body-dim border border-line-strong hover:text-body hover:border-body-faint transition-colors cursor-pointer hidden sm:flex items-center gap-1.5 whitespace-nowrap"
+                        className="px-2.5 py-1.5 rounded-edge text-meta font-medium text-ink-dim border border-line-strong hover:text-ink hover:border-ink-faint transition-colors cursor-pointer hidden sm:flex items-center gap-1.5 whitespace-nowrap"
                         title="Log or schedule follow-up"
                       >
                         <Mail className="w-3 h-3" />
@@ -468,8 +468,8 @@ export const HomeDashboard: React.FC = () => {
         ) : (
           <div className="border border-line bg-surface px-5 py-8 text-center">
             <CheckCircle2 className="w-5 h-5 text-brand-deep mx-auto mb-2.5" />
-            <h3 className="text-body font-semibold text-body">Nothing waiting on you</h3>
-            <p className="mt-1 text-meta text-body-dim max-w-md mx-auto">
+            <h3 className="text-body font-semibold">Nothing waiting on you</h3>
+            <p className="mt-1 text-meta text-ink-dim max-w-md mx-auto">
               {selectedCategoryFilter
                 ? "No records in this bucket. Clear the filter to see the full queue."
                 : "No quote deadline falls inside three days and nothing is overdue."}
@@ -491,11 +491,11 @@ export const HomeDashboard: React.FC = () => {
         <div className="flex items-center justify-between">
           <h2
             id="quick-actions-heading"
-            className="text-meta font-bold uppercase tracking-wider text-body"
+            className="text-meta font-bold uppercase tracking-wider"
           >
             Quick Actions
           </h2>
-          <span className="text-spec text-body-faint font-medium">Common operational workflows</span>
+          <span className="text-spec text-ink-faint font-medium">Common operational workflows</span>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2.5">
@@ -508,11 +508,11 @@ export const HomeDashboard: React.FC = () => {
               <div className="p-1.5 rounded-edge bg-brand-wash text-brand-deep group-hover:scale-105 transition-transform">
                 <FilePlus2 className="w-4 h-4" />
               </div>
-              <ArrowRight className="w-3.5 h-3.5 text-body-faint group-hover:text-brand-deep group-hover:translate-x-0.5 transition-all" />
+              <ArrowRight className="w-3.5 h-3.5 text-ink-faint group-hover:text-brand-deep group-hover:translate-x-0.5 transition-all" />
             </div>
             <div className="mt-1">
-              <div className="text-meta font-bold text-body group-hover:text-brand-deep">New Enquiry</div>
-              <div className="text-spec text-body-dim truncate">Analyse customer specifications</div>
+              <div className="text-meta font-bold group-hover:text-brand-deep">New Enquiry</div>
+              <div className="text-spec text-ink-dim truncate">Analyse customer specifications</div>
             </div>
           </button>
 
@@ -525,11 +525,11 @@ export const HomeDashboard: React.FC = () => {
               <div className="p-1.5 rounded-edge bg-blue-100 text-blue-800 group-hover:scale-105 transition-transform">
                 <SearchCode className="w-4 h-4" />
               </div>
-              <ArrowRight className="w-3.5 h-3.5 text-body-faint group-hover:text-brand-deep group-hover:translate-x-0.5 transition-all" />
+              <ArrowRight className="w-3.5 h-3.5 text-ink-faint group-hover:text-brand-deep group-hover:translate-x-0.5 transition-all" />
             </div>
             <div className="mt-1">
-              <div className="text-meta font-bold text-body group-hover:text-brand-deep">Find Product</div>
-              <div className="text-spec text-body-dim truncate">Match solar & commercial luminaires</div>
+              <div className="text-meta font-bold group-hover:text-brand-deep">Find Product</div>
+              <div className="text-spec text-ink-dim truncate">Match solar & commercial luminaires</div>
             </div>
           </button>
 
@@ -542,11 +542,11 @@ export const HomeDashboard: React.FC = () => {
               <div className="p-1.5 rounded-edge bg-purple-100 text-purple-800 group-hover:scale-105 transition-transform">
                 <FileText className="w-4 h-4" />
               </div>
-              <ArrowRight className="w-3.5 h-3.5 text-body-faint group-hover:text-brand-deep group-hover:translate-x-0.5 transition-all" />
+              <ArrowRight className="w-3.5 h-3.5 text-ink-faint group-hover:text-brand-deep group-hover:translate-x-0.5 transition-all" />
             </div>
             <div className="mt-1">
-              <div className="text-meta font-bold text-body group-hover:text-brand-deep">Analyse Tender</div>
-              <div className="text-spec text-body-dim truncate">Extract council RFQ standards</div>
+              <div className="text-meta font-bold group-hover:text-brand-deep">Analyse Tender</div>
+              <div className="text-spec text-ink-dim truncate">Extract council RFQ standards</div>
             </div>
           </button>
 
@@ -559,11 +559,11 @@ export const HomeDashboard: React.FC = () => {
               <div className="p-1.5 rounded-edge bg-amber-100 text-amber-800 group-hover:scale-105 transition-transform">
                 <PhoneCall className="w-4 h-4" />
               </div>
-              <ArrowRight className="w-3.5 h-3.5 text-body-faint group-hover:text-brand-deep group-hover:translate-x-0.5 transition-all" />
+              <ArrowRight className="w-3.5 h-3.5 text-ink-faint group-hover:text-brand-deep group-hover:translate-x-0.5 transition-all" />
             </div>
             <div className="mt-1">
-              <div className="text-meta font-bold text-body group-hover:text-brand-deep">Prepare Call</div>
-              <div className="text-spec text-body-dim truncate">Generate customer talking points</div>
+              <div className="text-meta font-bold group-hover:text-brand-deep">Prepare Call</div>
+              <div className="text-spec text-ink-dim truncate">Generate customer talking points</div>
             </div>
           </button>
 
@@ -578,14 +578,14 @@ export const HomeDashboard: React.FC = () => {
                   <Briefcase className="w-4 h-4" />
                 </div>
                 <ChevronDown
-                  className={`w-3.5 h-3.5 text-body-dim transition-transform duration-200 ${
+                  className={`w-3.5 h-3.5 text-ink-dim transition-transform duration-200 ${
                     isMoreToolsOpen ? "rotate-180" : ""
                   }`}
                 />
               </div>
               <div className="mt-1">
-                <div className="text-meta font-bold text-body">More Tools</div>
-                <div className="text-spec text-body-dim truncate">Catalogues, CRM, Quote Review...</div>
+                <div className="text-meta font-bold">More Tools</div>
+                <div className="text-spec text-ink-dim truncate">Catalogues, CRM, Quote Review...</div>
               </div>
             </button>
 
@@ -597,9 +597,9 @@ export const HomeDashboard: React.FC = () => {
                     setIsMoreToolsOpen(false);
                     navigateToWorkflow("documents");
                   }}
-                  className="w-full px-3.5 py-2 text-left text-meta font-medium text-body hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
+                  className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
                 >
-                  <BookOpen className="w-3.5 h-3.5 text-body-faint" />
+                  <BookOpen className="w-3.5 h-3.5 text-ink-faint" />
                   <span>Product Catalogues & PDFs</span>
                 </button>
                 <button
@@ -607,9 +607,9 @@ export const HomeDashboard: React.FC = () => {
                     setIsMoreToolsOpen(false);
                     navigateToWorkflow("tools", "quote-review");
                   }}
-                  className="w-full px-3.5 py-2 text-left text-meta font-medium text-body hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
+                  className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
                 >
-                  <ClipboardCheck className="w-3.5 h-3.5 text-body-faint" />
+                  <ClipboardCheck className="w-3.5 h-3.5 text-ink-faint" />
                   <span>Review Quote Accuracy</span>
                 </button>
                 <button
@@ -617,9 +617,9 @@ export const HomeDashboard: React.FC = () => {
                     setIsMoreToolsOpen(false);
                     navigateToWorkflow("crm");
                   }}
-                  className="w-full px-3.5 py-2 text-left text-meta font-medium text-body hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
+                  className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
                 >
-                  <KanbanSquare className="w-3.5 h-3.5 text-body-faint" />
+                  <KanbanSquare className="w-3.5 h-3.5 text-ink-faint" />
                   <span>CRM Command Centre</span>
                 </button>
                 <button
@@ -627,9 +627,9 @@ export const HomeDashboard: React.FC = () => {
                     setIsMoreToolsOpen(false);
                     navigateToWorkflow("tools", "customer-research");
                   }}
-                  className="w-full px-3.5 py-2 text-left text-meta font-medium text-body hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
+                  className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
                 >
-                  <Building className="w-3.5 h-3.5 text-body-faint" />
+                  <Building className="w-3.5 h-3.5 text-ink-faint" />
                   <span>Customer Intelligence</span>
                 </button>
                 <button
@@ -637,9 +637,9 @@ export const HomeDashboard: React.FC = () => {
                     setIsMoreToolsOpen(false);
                     navigateToWorkflow("tools", "product-comparison");
                   }}
-                  className="w-full px-3.5 py-2 text-left text-meta font-medium text-body hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
+                  className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
                 >
-                  <Scale className="w-3.5 h-3.5 text-body-faint" />
+                  <Scale className="w-3.5 h-3.5 text-ink-faint" />
                   <span>Product Comparison</span>
                 </button>
               </div>
@@ -653,7 +653,7 @@ export const HomeDashboard: React.FC = () => {
         <div className="flex items-center justify-between">
           <h2
             id="pipeline-overview-heading"
-            className="text-meta font-bold uppercase tracking-wider text-body"
+            className="text-meta font-bold uppercase tracking-wider"
           >
             Pipeline & Workload Overview
           </h2>
@@ -670,43 +670,43 @@ export const HomeDashboard: React.FC = () => {
             onClick={() => navigateToWorkflow("opportunities")}
             className="bg-white p-3.5 rounded-panel border border-line hover:border-line-strong transition-colors cursor-pointer"
           >
-            <div className="text-spec font-semibold text-body-dim">Active Deals</div>
+            <div className="text-spec font-semibold text-ink-dim">Active Deals</div>
             <div className="text-xl font-black text-body mt-0.5">{opportunities.length}</div>
-            <div className="text-spec text-body-faint mt-0.5">Across all stages</div>
+            <div className="text-spec text-ink-faint mt-0.5">Across all stages</div>
           </div>
 
           <div
             onClick={() => navigateToWorkflow("opportunities")}
             className="bg-white p-3.5 rounded-panel border border-line hover:border-line-strong transition-colors cursor-pointer"
           >
-            <div className="text-spec font-semibold text-body-dim">In Technical Review</div>
+            <div className="text-spec font-semibold text-ink-dim">In Technical Review</div>
             <div className="text-xl font-black text-purple-900 mt-0.5">
               {attentionMetrics.techReview.length}
             </div>
-            <div className="text-spec text-body-faint mt-0.5">Dialux / Photometrics</div>
+            <div className="text-spec text-ink-faint mt-0.5">Dialux / Photometrics</div>
           </div>
 
           <div
             onClick={() => navigateToWorkflow("opportunities")}
             className="bg-white p-3.5 rounded-panel border border-line hover:border-line-strong transition-colors cursor-pointer"
           >
-            <div className="text-spec font-semibold text-body-dim">Pending Quotes</div>
+            <div className="text-spec font-semibold text-ink-dim">Pending Quotes</div>
             <div className="text-xl font-black text-rose-900 mt-0.5">
               {attentionMetrics.quoteDueSoon.length}
             </div>
-            <div className="text-spec text-body-faint mt-0.5">Due within 5 business days</div>
+            <div className="text-spec text-ink-faint mt-0.5">Due within 5 business days</div>
           </div>
 
           <div
             onClick={() => navigateToWorkflow("crm")}
             className="bg-white p-3.5 rounded-panel border border-line hover:border-line-strong transition-colors cursor-pointer"
           >
-            <div className="text-spec font-semibold text-body-dim">Sales Intelligence</div>
+            <div className="text-spec font-semibold text-ink-dim">Sales Intelligence</div>
             <div className="text-xl font-black text-brand-deep mt-0.5 flex items-center gap-1">
               <span>98%</span>
               <span className="text-meta font-semibold text-brand-deep">Healthy</span>
             </div>
-            <div className="text-spec text-body-faint mt-0.5">AS/NZS 1158 Guardrails Active</div>
+            <div className="text-spec text-ink-faint mt-0.5">AS/NZS 1158 Guardrails Active</div>
           </div>
         </div>
       </section>

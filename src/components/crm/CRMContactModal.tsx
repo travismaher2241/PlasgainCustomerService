@@ -169,46 +169,46 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 bg-chrome/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
       <div
-        className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden my-8"
+        className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-line overflow-hidden my-8"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+        <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-emerald-100 text-emerald-800 rounded-xl">
+            <div className="p-2 bg-brand-wash text-brand-deep rounded-panel">
               <User className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-900">
+              <h2 className="text-base font-bold text-body">
                 {isEditMode ? `Edit Contact: ${contactToEdit.firstName} ${contactToEdit.lastName}` : "Add Buying Committee Stakeholder"}
               </h2>
-              <p className="text-xs text-slate-500">
-                Account: <span className="font-semibold text-slate-700">{accountName}</span>
+              <p className="text-meta text-ink-dim">
+                Account: <span className="font-semibold text-body">{accountName}</span>
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors"
+            className="p-1.5 text-ink-faint hover:text-ink hover:bg-line rounded-edge transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 text-xs">
+        <form onSubmit={handleSubmit} className="p-6 space-y-5 text-meta">
           {/* Section 1: Name & Role */}
           <div className="space-y-3">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-              <Briefcase className="w-3.5 h-3.5 text-slate-400" />
+            <div className="text-spec font-bold uppercase tracking-wider text-ink-dim flex items-center gap-1.5">
+              <Briefcase className="w-3.5 h-3.5 text-ink-faint" />
               General Details & Position
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-body mb-1">
                   First Name <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -217,12 +217,12 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                   placeholder="e.g. Sarah"
                   value={formData.firstName}
                   onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 bg-white"
+                  className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-body mb-1">
                   Last Name <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -231,14 +231,14 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                   placeholder="e.g. Jenkins"
                   value={formData.lastName}
                   onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 bg-white"
+                  className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-body mb-1">
                   Job Title <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -247,33 +247,33 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                   placeholder="e.g. Senior Lighting Asset Manager"
                   value={formData.jobTitle}
                   onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 bg-white"
+                  className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Department</label>
+                <label className="block font-semibold text-body mb-1">Department</label>
                 <input
                   type="text"
                   placeholder="e.g. Infrastructure & Open Spaces"
                   value={formData.department}
                   onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 bg-white"
+                  className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
                 />
               </div>
             </div>
           </div>
 
           {/* Section 2: Contact Channels */}
-          <div className="space-y-3 pt-3 border-t border-slate-200">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-              <Mail className="w-3.5 h-3.5 text-slate-400" />
+          <div className="space-y-3 pt-3 border-t border-line">
+            <div className="text-spec font-bold uppercase tracking-wider text-ink-dim flex items-center gap-1.5">
+              <Mail className="w-3.5 h-3.5 text-ink-faint" />
               Direct Communication Channels
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="sm:col-span-1">
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-body mb-1">
                   Work Email <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -282,36 +282,36 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                   placeholder={`name@${defaultDomain}`}
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 bg-white"
+                  className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Mobile Phone</label>
+                <label className="block font-semibold text-body mb-1">Mobile Phone</label>
                 <input
                   type="tel"
                   placeholder="e.g. 0412 345 678"
                   value={formData.mobile}
                   onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 bg-white"
+                  className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Direct Office Phone</label>
+                <label className="block font-semibold text-body mb-1">Direct Office Phone</label>
                 <input
                   type="tel"
                   placeholder="e.g. (07) 5555 1234"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 bg-white"
+                  className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
                 />
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Preferred Contact Method</label>
+                <label className="block font-semibold text-body mb-1">Preferred Contact Method</label>
                 <select
                   value={formData.preferredContactMethod}
                   onChange={(e) =>
@@ -320,7 +320,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                       preferredContactMethod: e.target.value as any
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-800"
+                  className="w-full px-3 py-2 border border-line-strong rounded-edge bg-white text-body"
                 >
                   <option value="Email">Email</option>
                   <option value="Mobile">Mobile Call</option>
@@ -330,28 +330,28 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">LinkedIn Profile</label>
+                <label className="block font-semibold text-body mb-1">LinkedIn Profile</label>
                 <input
                   type="url"
                   placeholder="https://linkedin.com/in/..."
                   value={formData.linkedinUrl}
                   onChange={(e) => setFormData({ ...formData, linkedinUrl: e.target.value })}
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 bg-white"
+                  className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
                 />
               </div>
             </div>
           </div>
 
           {/* Section 3: Buying Committee & Influence Intelligence */}
-          <div className="space-y-3 pt-3 border-t border-slate-200">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-              <Award className="w-3.5 h-3.5 text-slate-400" />
+          <div className="space-y-3 pt-3 border-t border-line">
+            <div className="text-spec font-bold uppercase tracking-wider text-ink-dim flex items-center gap-1.5">
+              <Award className="w-3.5 h-3.5 text-ink-faint" />
               Buying Committee & Stakeholder Mapping
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Role in Buying Process</label>
+                <label className="block font-semibold text-body mb-1">Role in Buying Process</label>
                 <select
                   value={formData.roleInBuyingProcess}
                   onChange={(e) =>
@@ -360,7 +360,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                       roleInBuyingProcess: e.target.value as ContactRole
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-800"
+                  className="w-full px-3 py-2 border border-line-strong rounded-edge bg-white text-body"
                 >
                   <option value="Decision Maker">Decision Maker</option>
                   <option value="Champion">Champion (Internal Advocate)</option>
@@ -375,7 +375,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Influence Level</label>
+                <label className="block font-semibold text-body mb-1">Influence Level</label>
                 <select
                   value={formData.influenceLevel}
                   onChange={(e) =>
@@ -384,7 +384,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                       influenceLevel: e.target.value as any
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-800"
+                  className="w-full px-3 py-2 border border-line-strong rounded-edge bg-white text-body"
                 >
                   <option value="High">High (Veto / Direct Approval)</option>
                   <option value="Medium">Medium (Evaluation Committee)</option>
@@ -393,7 +393,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Relationship Status</label>
+                <label className="block font-semibold text-body mb-1">Relationship Status</label>
                 <select
                   value={formData.relationshipStatus}
                   onChange={(e) =>
@@ -402,7 +402,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                       relationshipStatus: e.target.value as any
                     })
                   }
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg bg-white text-slate-800"
+                  className="w-full px-3 py-2 border border-line-strong rounded-edge bg-white text-body"
                 >
                   <option value="Strong">Strong (Trusted Partner)</option>
                   <option value="Warm">Warm (Engaged & Responsive)</option>
@@ -413,12 +413,12 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
             </div>
 
             {/* Decision maker toggle */}
-            <div className="p-3 bg-purple-50/60 border border-purple-200 rounded-xl flex items-center justify-between">
+            <div className="p-3 bg-purple-50/60 border border-purple-200 rounded-panel flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <UserCheck className="w-4 h-4 text-purple-700" />
                 <div>
                   <div className="font-bold text-purple-950">Primary Final Decision Maker</div>
-                  <div className="text-[11px] text-purple-700">
+                  <div className="text-spec text-purple-700">
                     Has formal budgetary authority to sign off on luminaire supply contracts.
                   </div>
                 </div>
@@ -430,20 +430,20 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                   onChange={(e) => setFormData({ ...formData, isDecisionMaker: e.target.checked })}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                <div className="w-11 h-6 bg-line peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-line-strong after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
               </label>
             </div>
           </div>
 
           {/* Section 4: Notes & Tags */}
-          <div className="space-y-3 pt-3 border-t border-slate-200">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-slate-400" />
+          <div className="space-y-3 pt-3 border-t border-line">
+            <div className="text-spec font-bold uppercase tracking-wider text-ink-dim flex items-center gap-1.5">
+              <Tag className="w-3.5 h-3.5 text-ink-faint" />
               Stakeholder Notes & Tags
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
+              <label className="block font-semibold text-body mb-1">
                 Engineering Preferences / Stakeholder Insights
               </label>
               <textarea
@@ -451,12 +451,12 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                 placeholder="e.g. Always requests 3000K wildlife-sensitive luminaires; prefers Dialux .ies files emailed directly."
                 value={formData.notes}
                 onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900 bg-white"
+                className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
               />
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">Tags</label>
+              <label className="block font-semibold text-body mb-1">Tags</label>
               <div className="flex gap-2 mb-2">
                 <input
                   type="text"
@@ -469,12 +469,12 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                       handleAddTag();
                     }
                   }}
-                  className="flex-1 px-3 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+                  className="flex-1 px-3 py-1.5 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand bg-white"
                 />
                 <button
                   type="button"
                   onClick={handleAddTag}
-                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg border border-slate-300"
+                  className="px-3 py-1.5 bg-paper hover:bg-line text-body font-semibold rounded-edge border border-line-strong"
                 >
                   Add Tag
                 </button>
@@ -483,13 +483,13 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                 {formData.tags.map((tag) => (
                   <span
                     key={tag}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200"
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-meta font-semibold bg-brand-wash text-brand-deep border border-brand-edge"
                   >
                     {tag}
                     <button
                       type="button"
                       onClick={() => handleRemoveTag(tag)}
-                      className="text-emerald-600 hover:text-emerald-900 font-bold ml-1"
+                      className="text-brand-deep hover:text-brand-deep font-bold ml-1"
                     >
                       ×
                     </button>
@@ -500,19 +500,19 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
           </div>
 
           {/* Action Buttons & Delete */}
-          <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="pt-4 border-t border-line flex flex-col sm:flex-row items-center justify-between gap-3">
             {isEditMode && onDelete ? (
               <div>
                 {!confirmDelete ? (
                   <button
                     type="button"
                     onClick={() => setConfirmDelete(true)}
-                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1.5 transition-colors text-xs"
+                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-3 py-1.5 rounded-edge font-semibold flex items-center gap-1.5 transition-colors text-meta"
                   >
                     <Trash2 className="w-3.5 h-3.5" /> Delete Contact
                   </button>
                 ) : (
-                  <div className="flex items-center gap-2 bg-rose-50 p-1.5 rounded-lg border border-rose-200 text-xs">
+                  <div className="flex items-center gap-2 bg-rose-50 p-1.5 rounded-edge border border-rose-200 text-meta">
                     <span className="text-rose-800 font-semibold">Confirm delete?</span>
                     <button
                       type="button"
@@ -524,7 +524,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setConfirmDelete(false)}
-                      className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 rounded border border-slate-300"
+                      className="px-2 py-1 bg-white hover:bg-paper text-body rounded border border-line-strong"
                     >
                       Cancel
                     </button>
@@ -539,13 +539,13 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-slate-600 hover:text-slate-800 font-semibold"
+                className="px-4 py-2 text-ink-dim hover:text-ink font-semibold"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                className="px-5 py-2 font-bold text-white bg-brand-deep hover:bg-brand-deep rounded-edge shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
               >
                 <UserCheck className="w-4 h-4" />
                 {isEditMode ? "Save Changes" : "Create Contact"}

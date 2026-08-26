@@ -24,7 +24,7 @@ const ViewLoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center min-h-[350px] w-full" data-testid="view-loading-spinner">
     <div className="flex flex-col items-center gap-3">
       <div className="w-8 h-8 border-3 border-brand-deep border-t-transparent rounded-full animate-spin"></div>
-      <span className="text-meta font-medium text-body-dim">Loading Plasgain workspace...</span>
+      <span className="text-meta font-medium text-ink-dim">Loading Plasgain workspace...</span>
     </div>
   </div>
 );

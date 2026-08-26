@@ -77,48 +77,48 @@ export const GlobalSearchModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-start justify-center pt-20 p-4">
-      <div className="bg-white rounded-xl max-w-2xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[80vh]">
+    <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-start justify-center pt-20 p-4">
+      <div className="bg-white rounded-panel max-w-2xl w-full shadow-2xl border border-line overflow-hidden flex flex-col max-h-[80vh]">
         {/* Search Input */}
-        <div className="p-4 border-b border-slate-200 flex items-center gap-3">
-          <Search className="w-5 h-5 text-slate-400 shrink-0" />
+        <div className="p-4 border-b border-line flex items-center gap-3">
+          <Search className="w-5 h-5 text-ink-faint shrink-0" />
           <input
             type="text"
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search products, deals, documents, standards, or lighting terms..."
-            className="w-full text-sm text-slate-900 focus:outline-none placeholder:text-slate-400 font-sans"
+            className="w-full text-body focus:outline-none placeholder:text-ink-faint font-sans"
           />
           <button
             onClick={() => setIsSearchOpen(false)}
-            className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded cursor-pointer"
+            className="text-meta bg-paper hover:bg-line text-ink-dim px-2 py-1 rounded cursor-pointer"
           >
             ESC
           </button>
         </div>
 
         {/* Results List */}
-        <div className="p-4 overflow-y-auto space-y-4 text-xs">
+        <div className="p-4 overflow-y-auto space-y-4 text-meta">
           {/* Quick Nav actions if query empty */}
           {!query && (
             <div className="space-y-2">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <span className="text-spec font-bold text-ink-faint uppercase tracking-wider block">
                 Quick Shortcuts:
               </span>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => handleSelect(() => navigateToWorkflow("new-enquiry"))}
-                  className="flex items-center gap-2 p-2.5 rounded-lg bg-slate-50 hover:bg-emerald-50 hover:text-emerald-900 text-slate-700 transition-colors text-left cursor-pointer border border-slate-200"
+                  className="flex items-center gap-2 p-2.5 rounded-edge bg-raised hover:bg-brand-wash hover:text-brand-deep text-body transition-colors text-left cursor-pointer border border-line"
                 >
-                  <FilePlus2 className="w-4 h-4 text-emerald-600" />
+                  <FilePlus2 className="w-4 h-4 text-brand-deep" />
                   <span>Analyse New Customer Enquiry</span>
                 </button>
                 <button
                   onClick={() => handleSelect(() => navigateToWorkflow("product-finder"))}
-                  className="flex items-center gap-2 p-2.5 rounded-lg bg-slate-50 hover:bg-emerald-50 hover:text-emerald-900 text-slate-700 transition-colors text-left cursor-pointer border border-slate-200"
+                  className="flex items-center gap-2 p-2.5 rounded-edge bg-raised hover:bg-brand-wash hover:text-brand-deep text-body transition-colors text-left cursor-pointer border border-line"
                 >
-                  <SearchCode className="w-4 h-4 text-emerald-600" />
+                  <SearchCode className="w-4 h-4 text-brand-deep" />
                   <span>Product Finder Wizard</span>
                 </button>
               </div>
@@ -128,7 +128,7 @@ export const GlobalSearchModal: React.FC = () => {
           {/* Products */}
           {filteredProducts.length > 0 && (
             <div className="space-y-1.5">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <span className="text-spec font-bold text-ink-faint uppercase tracking-wider block">
                 Plasgain Products ({filteredProducts.length})
               </span>
               <div className="space-y-1">
@@ -136,13 +136,13 @@ export const GlobalSearchModal: React.FC = () => {
                   <button
                     key={p.id}
                     onClick={() => handleSelect(() => navigateToWorkflow("product-finder"))}
-                    className="w-full flex items-center justify-between p-2 rounded-md hover:bg-slate-50 text-left transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-between p-2 rounded-edge hover:bg-raised text-left transition-colors cursor-pointer"
                   >
                     <div>
-                      <span className="font-bold text-slate-900">{p.name}</span>
-                      <span className="text-slate-500 ml-2">({p.code || p.category})</span>
+                      <span className="font-bold text-body">{p.name}</span>
+                      <span className="text-ink-dim ml-2">({p.code || p.category})</span>
                     </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-400" />
+                    <ArrowRight className="w-3.5 h-3.5 text-ink-faint" />
                   </button>
                 ))}
               </div>
@@ -152,7 +152,7 @@ export const GlobalSearchModal: React.FC = () => {
           {/* Opportunities */}
           {filteredOpportunities.length > 0 && (
             <div className="space-y-1.5">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <span className="text-spec font-bold text-ink-faint uppercase tracking-wider block">
                 Opportunities ({filteredOpportunities.length})
               </span>
               <div className="space-y-1">
@@ -162,13 +162,13 @@ export const GlobalSearchModal: React.FC = () => {
                     onClick={() =>
                       handleSelect(() => navigateToWorkflow("opportunities", undefined, o.id))
                     }
-                    className="w-full flex items-center justify-between p-2 rounded-md hover:bg-slate-50 text-left transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-between p-2 rounded-edge hover:bg-raised text-left transition-colors cursor-pointer"
                   >
                     <div>
-                      <span className="font-bold text-slate-900">{o.project}</span>
-                      <span className="text-slate-500 ml-2">• {o.customerCompany}</span>
+                      <span className="font-bold text-body">{o.project}</span>
+                      <span className="text-ink-dim ml-2">• {o.customerCompany}</span>
                     </div>
-                    <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-700">
+                    <span className="text-spec bg-paper px-2 py-0.5 rounded">
                       {o.stage}
                     </span>
                   </button>
@@ -180,7 +180,7 @@ export const GlobalSearchModal: React.FC = () => {
           {/* Glossary Terms */}
           {filteredGlossary.length > 0 && (
             <div className="space-y-1.5">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+              <span className="text-spec font-bold text-ink-faint uppercase tracking-wider block">
                 Lighting Glossary & Standards ({filteredGlossary.length})
               </span>
               <div className="space-y-1">
@@ -188,13 +188,13 @@ export const GlobalSearchModal: React.FC = () => {
                   <button
                     key={g.term}
                     onClick={() => handleSelect(() => setExplainingTerm(g.term))}
-                    className="w-full flex items-center justify-between p-2 rounded-md hover:bg-slate-50 text-left transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-between p-2 rounded-edge hover:bg-raised text-left transition-colors cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
-                      <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="font-semibold text-slate-900">{g.term}</span>
+                      <BookOpen className="w-3.5 h-3.5 text-brand-deep" />
+                      <span className="font-semibold text-body">{g.term}</span>
                     </div>
-                    <span className="text-slate-400 text-[11px]">Explain &rarr;</span>
+                    <span className="text-ink-faint text-spec">Explain &rarr;</span>
                   </button>
                 ))}
               </div>
@@ -203,7 +203,7 @@ export const GlobalSearchModal: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="p-3 bg-slate-50 border-t border-slate-200 text-[11px] text-slate-400 flex items-center justify-between">
+        <div className="p-3 bg-raised border-t border-line text-spec text-ink-faint flex items-center justify-between">
           <span>Navigate with arrows or click</span>
           <span>Plasgain Copilot Search</span>
         </div>

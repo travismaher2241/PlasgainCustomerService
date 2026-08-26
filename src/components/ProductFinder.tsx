@@ -93,15 +93,15 @@ export const ProductFinder: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">Intelligent Product Finder</h1>
-            <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 border border-emerald-200 uppercase tracking-wide">
+            <h1 className="text-xl font-bold tracking-tight text-body">Intelligent Product Finder</h1>
+            <span className="text-meta font-bold px-2 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge uppercase tracking-wide">
               Application Matcher
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-meta text-ink-dim mt-0.5">
             Guided selection wizard matching Australian Standards (AS/NZS 1158), solar sizing, and pole geometry.
           </p>
         </div>
@@ -109,7 +109,7 @@ export const ProductFinder: React.FC = () => {
         {finderResult && (
           <button
             onClick={() => setFinderResult(null)}
-            className="text-xs font-medium px-3 py-1.5 rounded-md border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors flex items-center gap-1.5 cursor-pointer self-start shadow-2xs"
+            className="text-meta font-medium px-3 py-1.5 rounded-edge border border-line hover:bg-paper transition-colors flex items-center gap-1.5 cursor-pointer self-start shadow-2xs"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset Wizard</span>
@@ -118,9 +118,9 @@ export const ProductFinder: React.FC = () => {
       </div>
 
       {/* Primary Application Step */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
-        <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-          <span className="w-5 h-5 rounded-full bg-emerald-700 text-white text-[11px] flex items-center justify-center font-bold">
+      <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4">
+        <h2 className="text-body font-bold flex items-center gap-2">
+          <span className="w-5 h-5 rounded-full bg-brand-deep text-white text-spec flex items-center justify-center font-bold">
             1
           </span>
           What application are you lighting?
@@ -133,15 +133,15 @@ export const ProductFinder: React.FC = () => {
               <button
                 key={opt.id}
                 onClick={() => setApplication(opt.id)}
-                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
+                className={`p-3.5 rounded-panel border text-left transition-all cursor-pointer flex flex-col justify-between ${
                   isSelected
-                    ? "bg-emerald-50/70 border-emerald-500 ring-2 ring-emerald-600/20"
-                    : "bg-slate-50/70 border-slate-200 hover:border-slate-300 hover:bg-slate-100/60"
+                    ? "bg-brand-wash border-brand ring-2 ring-brand-deep/20"
+                    : "bg-raised border-line hover:border-line-strong hover:bg-paper"
                 }`}
               >
                 <span className="text-2xl mb-2">{opt.icon}</span>
                 <div>
-                  <span className={`text-xs font-bold block ${isSelected ? "text-emerald-950" : "text-slate-800"}`}>
+                  <span className={`text-meta font-bold block ${isSelected ? "text-brand-deep" : "text-body"}`}>
                     {opt.label}
                   </span>
                 </div>
@@ -152,27 +152,27 @@ export const ProductFinder: React.FC = () => {
       </div>
 
       {/* Dynamic Conditional Questions */}
-      <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
+      <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-            <span className="w-5 h-5 rounded-full bg-emerald-700 text-white text-[11px] flex items-center justify-center font-bold">
+          <h2 className="text-body font-bold flex items-center gap-2">
+            <span className="w-5 h-5 rounded-full bg-brand-deep text-white text-spec flex items-center justify-center font-bold">
               2
             </span>
             Application Parameters & Environmental Factors
           </h2>
-          <span className="text-xs text-slate-400 font-medium">Australian Conditions</span>
+          <span className="text-meta text-ink-faint font-medium">Australian Conditions</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Power Availability */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-meta font-semibold mb-1">
               Power Availability
             </label>
             <select
               value={powerAvailability}
               onChange={(e) => setPowerAvailability(e.target.value)}
-              className="w-full text-xs text-slate-900 p-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-emerald-600 bg-white"
+              className="w-full text-meta p-2.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep bg-white"
             >
               <option value="Off-grid Solar required">Off-grid Solar (No mains power)</option>
               <option value="Mains 240V Grid Available">Mains 240V Grid Available (Horizon)</option>
@@ -182,7 +182,7 @@ export const ProductFinder: React.FC = () => {
 
           {/* Location */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-meta font-semibold mb-1">
               Project Location (Solar Zone)
             </label>
             <input
@@ -190,19 +190,19 @@ export const ProductFinder: React.FC = () => {
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="e.g. Ballarat, Victoria"
-              className="w-full text-xs text-slate-900 p-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-emerald-600"
+              className="w-full text-meta p-2.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep"
             />
           </div>
 
           {/* Mounting / Pole Height */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-meta font-semibold mb-1">
               Mounting / Pole Height
             </label>
             <select
               value={mountingHeight}
               onChange={(e) => setMountingHeight(e.target.value)}
-              className="w-full text-xs text-slate-900 p-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-emerald-600 bg-white"
+              className="w-full text-meta p-2.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep bg-white"
             >
               <option value="1000mm - 1200mm Bollard">1000mm - 1200mm (Terra Bollards)</option>
               <option value="3.5m - 4.5m Pedestrian Pole">3.5m - 4.5m (Minor Pathway)</option>
@@ -214,7 +214,7 @@ export const ProductFinder: React.FC = () => {
 
           {/* Area / Width */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-meta font-semibold mb-1">
               Area Dimensions / Path Width
             </label>
             <input
@@ -222,17 +222,17 @@ export const ProductFinder: React.FC = () => {
               value={areaOrWidth}
               onChange={(e) => setAreaOrWidth(e.target.value)}
               placeholder="e.g. 1.2km length, 3m path width"
-              className="w-full text-xs text-slate-900 p-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-emerald-600"
+              className="w-full text-meta p-2.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep"
             />
           </div>
 
           {/* Lighting Class / Lux */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-semibold text-slate-700">Lighting Class / Lux</label>
+              <label className="text-meta font-semibold">Lighting Class / Lux</label>
               <button
                 onClick={() => setExplainingTerm("AS/NZS 1158")}
-                className="text-[11px] text-emerald-700 hover:underline font-medium cursor-pointer"
+                className="text-spec text-brand-deep hover:underline font-medium cursor-pointer"
               >
                 What is Cat P?
               </button>
@@ -240,7 +240,7 @@ export const ProductFinder: React.FC = () => {
             <select
               value={luxOrClass}
               onChange={(e) => setLuxOrClass(e.target.value)}
-              className="w-full text-xs text-slate-900 p-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-emerald-600 bg-white"
+              className="w-full text-meta p-2.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep bg-white"
             >
               <option value="Category P4 (Pedestrian / Cycle path - 1.0 lux avg)">Category P4 (Standard Shared Path — 1.0 lux avg)</option>
               <option value="Category P3 (Suburban Streets / Parks — 1.75 lux avg)">Category P3 (Suburban Streets — 1.75 lux avg)</option>
@@ -254,10 +254,10 @@ export const ProductFinder: React.FC = () => {
           {/* CCT Preference */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-semibold text-slate-700">CCT Preference</label>
+              <label className="text-meta font-semibold">CCT Preference</label>
               <button
                 onClick={() => setExplainingTerm("CCT (Correlated Colour Temperature)")}
-                className="text-[11px] text-emerald-700 hover:underline font-medium cursor-pointer"
+                className="text-spec text-brand-deep hover:underline font-medium cursor-pointer"
               >
                 Explain CCT
               </button>
@@ -265,7 +265,7 @@ export const ProductFinder: React.FC = () => {
             <select
               value={cctPreference}
               onChange={(e) => setCctPreference(e.target.value)}
-              className="w-full text-xs text-slate-900 p-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-emerald-600 bg-white"
+              className="w-full text-meta p-2.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep bg-white"
             >
               <option value="3000K (Warm White / Fauna / Dark Sky - Vic/NSW Council Standard)">
                 3000K (Warm White / Fauna / Council Standard)
@@ -285,10 +285,10 @@ export const ProductFinder: React.FC = () => {
           {/* Battery Autonomy */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-semibold text-slate-700">Battery Autonomy</label>
+              <label className="text-meta font-semibold">Battery Autonomy</label>
               <button
                 onClick={() => setExplainingTerm("Autonomy")}
-                className="text-[11px] text-emerald-700 hover:underline font-medium cursor-pointer"
+                className="text-spec text-brand-deep hover:underline font-medium cursor-pointer"
               >
                 Explain Autonomy
               </button>
@@ -296,7 +296,7 @@ export const ProductFinder: React.FC = () => {
             <select
               value={autonomyDays}
               onChange={(e) => setAutonomyDays(e.target.value)}
-              className="w-full text-xs text-slate-900 p-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-emerald-600 bg-white"
+              className="w-full text-meta p-2.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep bg-white"
             >
               <option value="4 - 6 days (Southern Victoria / Standard Commercial)">4 to 6 nights (Vic/NSW/Tas Standard)</option>
               <option value="3 - 4 days (Northern QLD / All-in-One)">3 to 4 nights (QLD / High Sun)</option>
@@ -307,10 +307,10 @@ export const ProductFinder: React.FC = () => {
           {/* Wind Region */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-semibold text-slate-700">Wind Region (AS1170.2)</label>
+              <label className="text-meta font-semibold">Wind Region (AS1170.2)</label>
               <button
                 onClick={() => setExplainingTerm("Wind Region A / B / C / D")}
-                className="text-[11px] text-emerald-700 hover:underline font-medium cursor-pointer"
+                className="text-spec text-brand-deep hover:underline font-medium cursor-pointer"
               >
                 Explain Wind
               </button>
@@ -318,7 +318,7 @@ export const ProductFinder: React.FC = () => {
             <select
               value={environmentalConditions}
               onChange={(e) => setEnvironmentalConditions(e.target.value)}
-              className="w-full text-xs text-slate-900 p-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-emerald-600 bg-white"
+              className="w-full text-meta p-2.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep bg-white"
             >
               <option value="Region A (Normal Inland - Ballarat, Melbourne, Sydney, Bendigo)">Region A (Normal Inland - VIC/NSW/SA/WA)</option>
               <option value="Region B (Intermediate Coastal - Brisbane, Coastal VIC)">Region B (Intermediate Coastal)</option>
@@ -328,7 +328,7 @@ export const ProductFinder: React.FC = () => {
 
           {/* Quantity */}
           <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1">
+            <label className="block text-meta font-semibold mb-1">
               Estimated Luminaire Quantity
             </label>
             <input
@@ -336,16 +336,16 @@ export const ProductFinder: React.FC = () => {
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               placeholder="e.g. 24 - 36 fittings"
-              className="w-full text-xs text-slate-900 p-2.5 rounded-lg border border-slate-200 focus:outline-none focus:border-emerald-600"
+              className="w-full text-meta p-2.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep"
             />
           </div>
         </div>
 
-        <div className="pt-3 border-t border-slate-100 flex justify-end">
+        <div className="pt-3 border-t border-line flex justify-end">
           <button
             onClick={handleSearch}
             disabled={isLoading}
-            className="bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white font-medium px-6 py-2.5 rounded-md text-xs sm:text-sm transition-all flex items-center gap-2 cursor-pointer shadow-xs"
+            className="bg-brand-deep hover:bg-brand-deep disabled:bg-line-strong text-white font-medium px-6 py-2.5 rounded-edge text-meta sm:text-body transition-all flex items-center gap-2 cursor-pointer shadow-xs"
           >
             {isLoading ? (
               <>
@@ -386,53 +386,53 @@ export const ProductFinder: React.FC = () => {
         return (
           <div className="space-y-6">
             {/* Primary Recommendation */}
-            <div className="bg-white rounded-xl border border-emerald-300 p-6 shadow-sm space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-200">
+            <div className="bg-white rounded-panel border border-brand-edge p-6 shadow-sm space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-bold text-emerald-800 uppercase tracking-wider">
+                    <span className="text-meta font-bold text-brand-deep uppercase tracking-wider">
                       Best Ranked Candidate
                     </span>
-                    <span className="text-xs font-bold px-2.5 py-0.5 rounded bg-emerald-700 text-white">
+                    <span className="text-meta font-bold px-2.5 py-0.5 rounded bg-brand-deep text-white">
                       {primary.matchLevel || "Strong potential match"}
                     </span>
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900">
+                  <h3 className="text-lg font-bold text-body">
                     {primary.productName || "Plasgain Luminaire"} {primary.productCode ? `(${primary.productCode})` : ""}
                   </h3>
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500 font-medium">Grounded in Plasgain Catalog</span>
+                  <span className="text-meta text-ink-dim font-medium">Grounded in Plasgain Catalog</span>
                 </div>
               </div>
 
               {/* Why Suitable */}
-              <div className="text-xs text-slate-800 leading-relaxed bg-emerald-50/50 p-3.5 rounded-lg border border-emerald-200">
-                <strong className="text-emerald-950 font-bold block mb-1">Application Suitability Reasoning:</strong>
+              <div className="text-meta leading-relaxed bg-brand-wash p-3.5 rounded-edge border border-brand-edge">
+                <strong className="text-brand-deep font-bold block mb-1">Application Suitability Reasoning:</strong>
                 {primary.whySuitable || "Engineered specifically for Australian public infrastructure and off-grid performance."}
               </div>
 
               {/* Advantages & Limitations Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-xs space-y-2">
-                  <div className="font-bold text-emerald-900 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <div className="bg-raised p-4 rounded-edge border border-line text-meta space-y-2">
+                  <div className="font-bold text-brand-deep flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-brand-deep" />
                     <span>Key Advantages for this Project</span>
                   </div>
-                  <ul className="space-y-1.5 pl-5 list-disc text-slate-700">
+                  <ul className="space-y-1.5 pl-5 list-disc text-body">
                     {advantages.map((adv: string, i: number) => (
                       <li key={i}>{adv}</li>
                     ))}
                   </ul>
                 </div>
 
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-xs space-y-2">
+                <div className="bg-raised p-4 rounded-edge border border-line text-meta space-y-2">
                   <div className="font-bold text-amber-900 flex items-center gap-1.5">
                     <AlertTriangle className="w-4 h-4 text-amber-600" />
                     <span>Important Engineering Limitations & Shading Rules</span>
                   </div>
-                  <ul className="space-y-1.5 pl-5 list-disc text-slate-700">
+                  <ul className="space-y-1.5 pl-5 list-disc text-body">
                     {limitations.map((lim: string, i: number) => (
                       <li key={i}>{lim}</li>
                     ))}
@@ -443,16 +443,16 @@ export const ProductFinder: React.FC = () => {
               {/* Specifications Summary Matrix */}
               {specs && Object.keys(specs).length > 0 && (
                 <div>
-                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide mb-2">
+                  <h4 className="text-meta font-bold uppercase tracking-wide mb-2">
                     Technical Specifications Summary
                   </h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-meta">
                     {Object.entries(specs).map(([key, val]) => (
-                      <div key={key} className="bg-slate-50 p-2.5 rounded border border-slate-200">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                      <div key={key} className="bg-raised p-2.5 rounded border border-line">
+                        <span className="text-spec font-bold text-ink-faint uppercase block">
                           {key.replace(/([A-Z])/g, " $1")}
                         </span>
-                        <span className="text-slate-900 font-semibold">{String(val)}</span>
+                        <span className="text-body font-semibold">{String(val)}</span>
                       </div>
                     ))}
                   </div>
@@ -461,14 +461,14 @@ export const ProductFinder: React.FC = () => {
 
               {/* Supporting Documents & Citations */}
               {docs && docs.length > 0 && (
-                <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-bold text-slate-700">Supporting Datasheets:</span>
+                <div className="pt-2 border-t border-line flex flex-wrap items-center gap-2">
+                  <span className="text-meta font-bold">Supporting Datasheets:</span>
                   {docs.map((doc: any, idx: number) => (
                     <span
                       key={idx}
-                      className="inline-flex items-center gap-1 text-xs bg-slate-100 text-emerald-900 px-2.5 py-1 rounded border border-slate-200 font-medium"
+                      className="inline-flex items-center gap-1 text-meta bg-paper text-brand-deep px-2.5 py-1 rounded border border-line font-medium"
                     >
-                      <FileText className="w-3.5 h-3.5 text-emerald-700" />
+                      <FileText className="w-3.5 h-3.5 text-brand-deep" />
                       {doc.title || doc.documentTitle} ({doc.version || "2025/2026"} {doc.page ? `- ${doc.page}` : ""})
                     </span>
                   ))}
@@ -478,25 +478,25 @@ export const ProductFinder: React.FC = () => {
 
             {/* Secondary Candidates */}
             {secondaries && secondaries.length > 0 && (
-              <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
-                <h3 className="font-bold text-slate-900 text-sm">Alternative Product Candidates</h3>
+              <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-4">
+                <h3 className="font-bold text-body">Alternative Product Candidates</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {secondaries.map((sec: any, idx: number) => (
-                    <div key={idx} className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-xs space-y-2">
+                    <div key={idx} className="bg-raised p-4 rounded-edge border border-line text-meta space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900 text-sm">
+                        <span className="font-bold text-body">
                           {sec.productName} {sec.productCode ? `(${sec.productCode})` : ""}
                         </span>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-200 text-slate-700">
+                        <span className="text-spec font-semibold px-2 py-0.5 rounded bg-line">
                           {sec.matchLevel || "Possible match"}
                         </span>
                       </div>
-                      <p className="text-slate-700">
-                        <strong className="text-slate-800">When to consider:</strong> {sec.whyConsider || sec.whySuitable || sec.whenToUse || "Alternative project requirements."}
+                      <p className="text-body">
+                        <strong className="text-body">When to consider:</strong> {sec.whyConsider || sec.whySuitable || sec.whenToUse || "Alternative project requirements."}
                       </p>
                       {(sec.tradeOffs || sec.importantLimitations) && (
-                        <p className="text-slate-500 text-[11px]">
-                          <strong className="text-slate-600">Trade-offs & Notes:</strong> {sec.tradeOffs || sec.importantLimitations?.[0] || "Verify mounting and wind loading."}
+                        <p className="text-ink-dim text-spec">
+                          <strong className="text-ink-dim">Trade-offs & Notes:</strong> {sec.tradeOffs || sec.importantLimitations?.[0] || "Verify mounting and wind loading."}
                         </p>
                       )}
                     </div>
@@ -507,9 +507,9 @@ export const ProductFinder: React.FC = () => {
 
             {/* Sales rep guidance */}
             {finderResult.salesRepAdvice && (
-              <div className="bg-[#0F172A] text-slate-100 rounded-xl p-4 text-xs space-y-1 border border-slate-800">
-                <strong className="font-bold text-emerald-400 block text-sm">Sales Pitch Tip:</strong>
-                <p className="text-slate-300 leading-relaxed">{finderResult.salesRepAdvice}</p>
+              <div className="bg-[#0F172A] text-chrome-text rounded-panel p-4 text-meta space-y-1 border border-chrome-line">
+                <strong className="font-bold text-brand-lift block text-body">Sales Pitch Tip:</strong>
+                <p className="text-ink-faint leading-relaxed">{finderResult.salesRepAdvice}</p>
               </div>
             )}
           </div>

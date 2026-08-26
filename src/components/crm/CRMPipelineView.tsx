@@ -137,29 +137,29 @@ export const CRMPipelineView: React.FC = () => {
   const getHealthBadge = (health: DealHealthRating) => {
     switch (health) {
       case "Healthy":
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800">Healthy</span>;
+        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-brand-wash text-brand-deep">Healthy</span>;
       case "Needs Attention":
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800">Needs Attention</span>;
+        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-amber-100 text-amber-800">Needs Attention</span>;
       case "At Risk":
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-800">At Risk</span>;
+        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-rose-100 text-rose-800">At Risk</span>;
       case "Stalled":
-        return <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-800">Stalled</span>;
+        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-purple-100 text-purple-800">Stalled</span>;
     }
   };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
       {/* Top Header & Pipeline Selector */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-line pb-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+            <span className="text-meta font-semibold px-2 py-0.5 rounded bg-paper">
               Pipeline Management
             </span>
             <select
               value={activePipelineId}
               onChange={(e) => setActivePipelineId(e.target.value)}
-              className="text-xs font-bold text-slate-800 bg-white border border-slate-200 rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-emerald-500"
+              className="text-meta font-bold bg-white border border-line rounded-edge px-2.5 py-1 focus:ring-2 focus:ring-brand"
             >
               {pipelines.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -168,24 +168,24 @@ export const CRMPipelineView: React.FC = () => {
               ))}
             </select>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Deals & Opportunities Pipeline</h1>
-          <p className="text-xs text-slate-500">{currentPipeline.description}</p>
+          <h1 className="text-2xl font-bold text-body tracking-tight">Deals & Opportunities Pipeline</h1>
+          <p className="text-meta text-ink-dim">{currentPipeline.description}</p>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
+          <div className="flex items-center bg-paper p-1 rounded-edge border border-line">
             <button
               onClick={() => setViewMode("kanban")}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
-                viewMode === "kanban" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
+              className={`px-3 py-1 text-meta font-semibold rounded-edge transition-colors flex items-center gap-1.5 ${
+                viewMode === "kanban" ? "bg-white text-body shadow-xs" : "text-ink-dim hover:text-ink"
               }`}
             >
               <Kanban className="w-3.5 h-3.5" /> Kanban
             </button>
             <button
               onClick={() => setViewMode("table")}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors flex items-center gap-1.5 ${
-                viewMode === "table" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600 hover:text-slate-900"
+              className={`px-3 py-1 text-meta font-semibold rounded-edge transition-colors flex items-center gap-1.5 ${
+                viewMode === "table" ? "bg-white text-body shadow-xs" : "text-ink-dim hover:text-ink"
               }`}
             >
               <ListFilter className="w-3.5 h-3.5" /> Table
@@ -194,7 +194,7 @@ export const CRMPipelineView: React.FC = () => {
 
           <button
             onClick={() => setIsNewDealModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 shadow-sm transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-meta font-semibold text-white bg-brand-deep rounded-edge hover:bg-brand-deep shadow-sm transition-colors"
           >
             <Plus className="w-4 h-4" /> Add Deal
           </button>
@@ -202,22 +202,22 @@ export const CRMPipelineView: React.FC = () => {
       </div>
 
       {/* Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-panel border border-line shadow-xs">
         <div className="flex items-center gap-2 flex-1 max-w-md">
-          <Search className="w-4 h-4 text-slate-400" />
+          <Search className="w-4 h-4 text-ink-faint" />
           <input
             type="text"
             placeholder="Search deals by project, account, application..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full text-xs bg-transparent focus:outline-none"
+            className="w-full text-meta bg-transparent focus:outline-none"
           />
         </div>
         <div className="flex items-center gap-2">
           <select
             value={healthFilter}
             onChange={(e) => setHealthFilter(e.target.value)}
-            className="text-xs py-1 px-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700"
+            className="text-meta py-1 px-2.5 bg-raised border border-line rounded-edge"
           >
             <option value="all">All Deal Health</option>
             <option value="Healthy">Healthy</option>
@@ -238,23 +238,23 @@ export const CRMPipelineView: React.FC = () => {
             return (
               <div
                 key={stage.id}
-                className="w-80 shrink-0 bg-slate-100/70 rounded-xl p-3 border border-slate-200/80 flex flex-col max-h-[750px]"
+                className="w-80 shrink-0 bg-paper rounded-panel p-3 border border-line flex flex-col max-h-[750px]"
               >
                 {/* Stage Header */}
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-200">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-line">
                   <div>
-                    <div className="text-xs font-bold text-slate-800">{stage.name}</div>
-                    <div className="text-[11px] text-slate-500 font-medium">
+                    <div className="text-meta font-bold">{stage.name}</div>
+                    <div className="text-spec text-ink-dim font-medium">
                       ${stageTotal.toLocaleString()} · {stageDeals.length} deals
                     </div>
                   </div>
-                  <span className="text-[11px] font-bold text-slate-400">{stage.probability}%</span>
+                  <span className="text-spec font-bold text-ink-faint">{stage.probability}%</span>
                 </div>
 
                 {/* Stage Cards Scroll */}
                 <div className="space-y-3 overflow-y-auto flex-1 pr-1">
                   {stageDeals.length === 0 ? (
-                    <div className="p-4 text-center text-[11px] text-slate-400 border border-dashed border-slate-300 rounded-lg">
+                    <div className="p-4 text-center text-spec text-ink-faint border border-dashed border-line-strong rounded-edge">
                       No active deals
                     </div>
                   ) : (
@@ -262,34 +262,34 @@ export const CRMPipelineView: React.FC = () => {
                       <div
                         key={deal.id}
                         onClick={() => setSelectedCrmOpportunityId(deal.id)}
-                        className={`bg-white p-3.5 rounded-xl border transition-all cursor-pointer shadow-xs hover:shadow-md space-y-2.5 ${
+                        className={`bg-white p-3.5 rounded-panel border transition-all cursor-pointer shadow-xs hover:shadow-md space-y-2.5 ${
                           selectedDeal?.id === deal.id
-                            ? "border-emerald-500 ring-2 ring-emerald-500/20"
-                            : "border-slate-200"
+                            ? "border-brand ring-2 ring-brand/20"
+                            : "border-line"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-1">
                           <div className="space-y-0.5">
-                            <span className="text-[11px] text-slate-500 font-semibold">{deal.accountName}</span>
-                            <h4 className="text-xs font-bold text-slate-900 leading-snug">{deal.name}</h4>
+                            <span className="text-spec text-ink-dim font-semibold">{deal.accountName}</span>
+                            <h4 className="text-meta font-bold leading-snug">{deal.name}</h4>
                           </div>
                           {getHealthBadge(deal.dealHealth)}
                         </div>
 
-                        <div className="text-xs font-bold text-emerald-700 flex items-center justify-between">
+                        <div className="text-meta font-bold text-brand-deep flex items-center justify-between">
                           <span>${deal.dealValue.toLocaleString()}</span>
-                          <span className="text-[11px] font-normal text-slate-500">Close: {deal.expectedCloseDate}</span>
+                          <span className="text-spec font-normal text-ink-dim">Close: {deal.expectedCloseDate}</span>
                         </div>
 
                         {deal.dealHealthReasons && deal.dealHealthReasons.length > 0 && deal.dealHealth !== "Healthy" && (
-                          <div className="text-[11px] text-rose-700 bg-rose-50 p-1.5 rounded border border-rose-200/60 leading-tight">
+                          <div className="text-spec text-rose-700 bg-rose-50 p-1.5 rounded border border-rose-200/60 leading-tight">
                             {deal.dealHealthReasons[0]}
                           </div>
                         )}
 
-                        <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-100 flex items-center justify-between">
+                        <div className="text-spec text-ink-dim pt-2 border-t border-line flex items-center justify-between">
                           <span className="truncate max-w-[140px]">Next: {deal.nextAction || "None"}</span>
-                          <span className="font-semibold text-slate-600">{deal.daysInCurrentStage}d in stage</span>
+                          <span className="font-semibold text-ink-dim">{deal.daysInCurrentStage}d in stage</span>
                         </div>
 
                         {/* Quick Move Stage Select */}
@@ -298,7 +298,7 @@ export const CRMPipelineView: React.FC = () => {
                             value={deal.stageId}
                             onClick={(e) => e.stopPropagation()}
                             onChange={(e) => handleStageChange(deal.id, e.target.value)}
-                            className="w-full text-[11px] py-1 px-1.5 bg-slate-50 border border-slate-200 rounded text-slate-700"
+                            className="w-full text-spec py-1 px-1.5 bg-raised border border-line rounded"
                           >
                             {currentPipeline.stages.map((s) => (
                               <option key={s.id} value={s.id}>
@@ -317,10 +317,10 @@ export const CRMPipelineView: React.FC = () => {
         </div>
       ) : (
         /* Table View */
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-panel border border-line shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider">
+            <table className="w-full text-left text-meta">
+              <thead className="bg-raised border-b border-line text-ink-dim font-bold uppercase tracking-wider">
                 <tr>
                   <th className="py-3 px-4">Opportunity & Account</th>
                   <th className="py-3 px-4">Stage</th>
@@ -331,29 +331,29 @@ export const CRMPipelineView: React.FC = () => {
                   <th className="py-3 px-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line">
                 {filteredDeals.map((deal) => (
                   <tr
                     key={deal.id}
                     onClick={() => setSelectedCrmOpportunityId(deal.id)}
-                    className="hover:bg-slate-50 cursor-pointer"
+                    className="hover:bg-raised cursor-pointer"
                   >
                     <td className="py-3 px-4">
-                      <div className="font-bold text-slate-900">{deal.name}</div>
-                      <div className="text-[11px] text-slate-500">{deal.accountName}</div>
+                      <div className="font-bold text-body">{deal.name}</div>
+                      <div className="text-spec text-ink-dim">{deal.accountName}</div>
                     </td>
-                    <td className="py-3 px-4 font-semibold text-slate-700">{deal.stageName}</td>
-                    <td className="py-3 px-4 font-bold text-slate-900">${deal.dealValue.toLocaleString()}</td>
+                    <td className="py-3 px-4 font-semibold text-body">{deal.stageName}</td>
+                    <td className="py-3 px-4 font-bold text-body">${deal.dealValue.toLocaleString()}</td>
                     <td className="py-3 px-4">{getHealthBadge(deal.dealHealth)}</td>
-                    <td className="py-3 px-4 text-slate-600">{deal.nextAction || "None"}</td>
-                    <td className="py-3 px-4 text-slate-500">{deal.expectedCloseDate}</td>
+                    <td className="py-3 px-4 text-ink-dim">{deal.nextAction || "None"}</td>
+                    <td className="py-3 px-4 text-ink-dim">{deal.expectedCloseDate}</td>
                     <td className="py-3 px-4 text-right">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           openQuickLog("call", deal.accountId, deal.id);
                         }}
-                        className="text-xs font-semibold text-emerald-600 hover:text-emerald-700"
+                        className="text-meta font-semibold text-brand-deep hover:text-brand-deep"
                       >
                         Log Activity
                       </button>
@@ -368,34 +368,34 @@ export const CRMPipelineView: React.FC = () => {
 
       {/* Selected Deal Detail Drawer / Modal */}
       {selectedDeal && (
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
+        <div className="bg-white rounded-panel border border-line p-6 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-line pb-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">{selectedDeal.accountName}</span>
+                <span className="text-meta font-bold px-2 py-0.5 rounded bg-paper">{selectedDeal.accountName}</span>
                 {getHealthBadge(selectedDeal.dealHealth)}
-                <span className="text-xs text-slate-500">Owner: {selectedDeal.opportunityOwner}</span>
+                <span className="text-meta text-ink-dim">Owner: {selectedDeal.opportunityOwner}</span>
               </div>
-              <h2 className="text-xl font-bold text-slate-900">{selectedDeal.name}</h2>
-              <p className="text-xs text-slate-600 mt-0.5">{selectedDeal.projectApplication} · {selectedDeal.location}</p>
+              <h2 className="text-xl font-bold text-body">{selectedDeal.name}</h2>
+              <p className="text-meta text-ink-dim mt-0.5">{selectedDeal.projectApplication} · {selectedDeal.location}</p>
             </div>
 
             <div className="flex items-center gap-2">
               <button
                 onClick={() => openQuickLog("call", selectedDeal.accountId, selectedDeal.id)}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
+                className="px-3 py-1.5 text-meta font-semibold bg-white border border-line-strong rounded-edge hover:bg-raised"
               >
                 + Log Call
               </button>
               <button
                 onClick={() => openQuickLog("task", selectedDeal.accountId, selectedDeal.id)}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-slate-50"
+                className="px-3 py-1.5 text-meta font-semibold bg-white border border-line-strong rounded-edge hover:bg-raised"
               >
                 + Task
               </button>
               <button
                 onClick={() => navigateToCRM("accounts", selectedDeal.accountId)}
-                className="px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100"
+                className="px-3 py-1.5 text-meta font-semibold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash"
               >
                 View Account 360°
               </button>
@@ -404,38 +404,38 @@ export const CRMPipelineView: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Column 1: Financials & Probability */}
-            <div className="p-4 bg-slate-50 rounded-xl space-y-3 text-xs">
-              <div className="font-bold text-slate-900 border-b border-slate-200 pb-2">Commercial Summary</div>
+            <div className="p-4 bg-raised rounded-panel space-y-3 text-meta">
+              <div className="font-bold text-body border-b border-line pb-2">Commercial Summary</div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Deal Value:</span>
-                <span className="font-bold text-slate-900 text-sm">${selectedDeal.dealValue.toLocaleString()}</span>
+                <span className="text-ink-dim">Deal Value:</span>
+                <span className="font-bold text-body">${selectedDeal.dealValue.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Weighted Forecast:</span>
-                <span className="font-bold text-emerald-700">${selectedDeal.weightedValue.toLocaleString()}</span>
+                <span className="text-ink-dim">Weighted Forecast:</span>
+                <span className="font-bold text-brand-deep">${selectedDeal.weightedValue.toLocaleString()}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Close Probability:</span>
-                <span className="font-semibold text-slate-800">{selectedDeal.probability}%</span>
+                <span className="text-ink-dim">Close Probability:</span>
+                <span className="font-semibold text-body">{selectedDeal.probability}%</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Target Close Date:</span>
-                <span className="font-semibold text-slate-800">{selectedDeal.expectedCloseDate}</span>
+                <span className="text-ink-dim">Target Close Date:</span>
+                <span className="font-semibold text-body">{selectedDeal.expectedCloseDate}</span>
               </div>
             </div>
 
             {/* Column 2: Products & Luminaires */}
-            <div className="p-4 bg-slate-50 rounded-xl space-y-3 text-xs">
-              <div className="font-bold text-slate-900 border-b border-slate-200 pb-2">Luminaires & Bill of Materials</div>
+            <div className="p-4 bg-raised rounded-panel space-y-3 text-meta">
+              <div className="font-bold text-body border-b border-line pb-2">Luminaires & Bill of Materials</div>
               {selectedDeal.products.length === 0 ? (
-                <div className="text-slate-400 italic">No specific products line-items added yet.</div>
+                <div className="text-ink-faint italic">No specific products line-items added yet.</div>
               ) : (
                 <div className="space-y-2">
                   {selectedDeal.products.map((p, idx) => (
-                    <div key={idx} className="flex justify-between items-start text-slate-700">
+                    <div key={idx} className="flex justify-between items-start text-body">
                       <div>
                         <div className="font-semibold">{p.productName}</div>
-                        <div className="text-[11px] text-slate-500">Qty: {p.quantity}</div>
+                        <div className="text-spec text-ink-dim">Qty: {p.quantity}</div>
                       </div>
                       {p.totalPrice && <span className="font-bold">${p.totalPrice.toLocaleString()}</span>}
                     </div>
@@ -445,16 +445,16 @@ export const CRMPipelineView: React.FC = () => {
             </div>
 
             {/* Column 3: Health & Next Action */}
-            <div className="p-4 bg-slate-50 rounded-xl space-y-3 text-xs">
-              <div className="font-bold text-slate-900 border-b border-slate-200 pb-2">Next Best Action</div>
-              <div className="p-2.5 bg-emerald-100/70 border border-emerald-200 rounded-lg text-emerald-950 font-semibold">
+            <div className="p-4 bg-raised rounded-panel space-y-3 text-meta">
+              <div className="font-bold text-body border-b border-line pb-2">Next Best Action</div>
+              <div className="p-2.5 bg-brand-wash border border-brand-edge rounded-edge text-brand-deep font-semibold">
                 {selectedDeal.nextAction || "No immediate action scheduled."}
               </div>
-              <div className="text-[11px] text-slate-500">
-                Action Due: <span className="font-semibold text-slate-700">{selectedDeal.nextActionDate}</span>
+              <div className="text-spec text-ink-dim">
+                Action Due: <span className="font-semibold text-body">{selectedDeal.nextActionDate}</span>
               </div>
               {selectedDeal.dealHealthReasons && (
-                <div className="text-[11px] text-slate-600 pt-1">
+                <div className="text-spec text-ink-dim pt-1">
                   <strong>Health Diagnosis:</strong> {selectedDeal.dealHealthReasons.join("; ")}
                 </div>
               )}
@@ -465,38 +465,38 @@ export const CRMPipelineView: React.FC = () => {
 
       {/* New Deal Modal */}
       {isNewDealModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
-              <h3 className="text-lg font-bold text-slate-900">Create New Deal</h3>
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <h3 className="text-lg font-bold text-body">Create New Deal</h3>
               <button
                 onClick={() => setIsNewDealModalOpen(false)}
-                className="text-slate-400 hover:text-slate-600 text-sm"
+                className="text-ink-faint hover:text-ink-dim text-body"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreateDeal} className="space-y-3.5 text-xs">
+            <form onSubmit={handleCreateDeal} className="space-y-3.5 text-meta">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Opportunity / Project Name *</label>
+                <label className="block font-semibold text-body mb-1">Opportunity / Project Name *</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Waterfront Esplanade Solar Upgrade"
                   value={newDealForm.name}
                   onChange={(e) => setNewDealForm({ ...newDealForm, name: e.target.value })}
-                  className="w-full p-2 border border-slate-300 rounded-lg"
+                  className="w-full p-2 border border-line-strong rounded-edge"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Account *</label>
+                  <label className="block font-semibold text-body mb-1">Account *</label>
                   <select
                     value={newDealForm.accountId}
                     onChange={(e) => setNewDealForm({ ...newDealForm, accountId: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg"
+                    className="w-full p-2 border border-line-strong rounded-edge"
                   >
                     {accounts.map((a) => (
                       <option key={a.id} value={a.id}>
@@ -506,24 +506,24 @@ export const CRMPipelineView: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Estimated Deal Value ($ AUD) *</label>
+                  <label className="block font-semibold text-body mb-1">Estimated Deal Value ($ AUD) *</label>
                   <input
                     type="number"
                     required
                     value={newDealForm.dealValue}
                     onChange={(e) => setNewDealForm({ ...newDealForm, dealValue: Number(e.target.value) })}
-                    className="w-full p-2 border border-slate-300 rounded-lg"
+                    className="w-full p-2 border border-line-strong rounded-edge"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Initial Stage</label>
+                  <label className="block font-semibold text-body mb-1">Initial Stage</label>
                   <select
                     value={newDealForm.stageId}
                     onChange={(e) => setNewDealForm({ ...newDealForm, stageId: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg"
+                    className="w-full p-2 border border-line-strong rounded-edge"
                   >
                     {currentPipeline.stages.map((s) => (
                       <option key={s.id} value={s.id}>
@@ -533,38 +533,38 @@ export const CRMPipelineView: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Target Close Date</label>
+                  <label className="block font-semibold text-body mb-1">Target Close Date</label>
                   <input
                     type="date"
                     value={newDealForm.expectedCloseDate}
                     onChange={(e) => setNewDealForm({ ...newDealForm, expectedCloseDate: e.target.value })}
-                    className="w-full p-2 border border-slate-300 rounded-lg"
+                    className="w-full p-2 border border-line-strong rounded-edge"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">Project Application</label>
+                <label className="block font-semibold text-body mb-1">Project Application</label>
                 <input
                   type="text"
                   placeholder="e.g. Pedestrian Shared Trail (AS/NZS 1158 Cat P)"
                   value={newDealForm.projectApplication}
                   onChange={(e) => setNewDealForm({ ...newDealForm, projectApplication: e.target.value })}
-                  className="w-full p-2 border border-slate-300 rounded-lg"
+                  className="w-full p-2 border border-line-strong rounded-edge"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-200">
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
                 <button
                   type="button"
                   onClick={() => setIsNewDealModalOpen(false)}
-                  className="px-4 py-2 text-slate-600 hover:text-slate-800"
+                  className="px-4 py-2 text-ink-dim hover:text-ink"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 font-semibold text-white bg-emerald-600 rounded-lg hover:bg-emerald-700"
+                  className="px-4 py-2 font-semibold text-white bg-brand-deep rounded-edge hover:bg-brand-deep"
                 >
                   Save Opportunity
                 </button>
