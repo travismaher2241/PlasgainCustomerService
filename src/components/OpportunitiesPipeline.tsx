@@ -199,8 +199,8 @@ export const OpportunitiesPipeline: React.FC = () => {
                                 opp.readinessScore >= 80
                                   ? "bg-brand-wash text-brand-deep"
                                   : opp.readinessScore >= 50
-                                  ? "bg-amber-100 text-amber-800"
-                                  : "bg-rose-100 text-rose-800"
+                                  ? "bg-soon-wash text-soon"
+                                  : "bg-urgent-wash text-urgent"
                               }`}
                             >
                               {opp.readinessScore}%
@@ -269,9 +269,9 @@ export const OpportunitiesPipeline: React.FC = () => {
                     </span>
                   </div>
                   {selectedOpp.quoteDeadline && (
-                    <div className="flex items-center justify-between py-1 border-b border-line text-amber-800 font-medium">
+                    <div className="flex items-center justify-between py-1 border-b border-line text-soon font-medium">
                       <span className="flex items-center gap-1">
-                        <Clock className="w-3.5 h-3.5 text-amber-600" /> Quote Due:
+                        <Clock className="w-3.5 h-3.5 text-soon" /> Quote Due:
                       </span>
                       <span>{selectedOpp.quoteDeadline}</span>
                     </div>
@@ -281,7 +281,7 @@ export const OpportunitiesPipeline: React.FC = () => {
                 {/* AI Next Best Action Card */}
                 <div className="bg-raised border border-line rounded-edge p-3 text-meta space-y-1.5">
                   <div className="font-bold text-body flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <Sparkles className="w-3.5 h-3.5 text-soon" />
                     <span>Next Action:</span>
                   </div>
                   <p className="text-body">{selectedOpp.nextAction}</p>

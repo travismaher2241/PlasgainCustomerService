@@ -98,14 +98,14 @@ export const CRMLeadsView: React.FC = () => {
   const getScoreBadge = (score: number) => {
     if (score >= 75) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-meta font-bold bg-rose-100 text-rose-800 border border-rose-200">
-          <Flame className="w-3.5 h-3.5 text-rose-600" /> Hot ({score})
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-meta font-bold bg-urgent-wash text-urgent border border-urgent">
+          <Flame className="w-3.5 h-3.5 text-urgent" /> Hot ({score})
         </span>
       );
     }
     if (score >= 50) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-meta font-bold bg-amber-100 text-amber-800 border border-amber-200">
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-meta font-bold bg-soon-wash text-soon border border-soon">
           Warm ({score})
         </span>
       );
@@ -267,17 +267,17 @@ export const CRMLeadsView: React.FC = () => {
             </div>
 
             {/* Score Breakdown (Transparent AI Reasoning) */}
-            <div className="p-4 bg-indigo-50/60 rounded-panel border border-indigo-100 space-y-3">
+            <div className="p-4 bg-hold-wash rounded-panel border border-hold space-y-3">
               <div className="flex items-center justify-between text-meta">
-                <span className="font-bold text-indigo-900 flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-indigo-600" /> Transparent Lead Scoring Model
+                <span className="font-bold text-hold flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-hold" /> Transparent Lead Scoring Model
                 </span>
-                <span className="font-bold text-indigo-700 text-body">{selectedLead.leadScore} / 100</span>
+                <span className="font-bold text-hold text-body">{selectedLead.leadScore} / 100</span>
               </div>
 
               <div className="space-y-1.5 text-meta">
                 {selectedLead.scoringFactors?.map((f, idx) => (
-                  <div key={idx} className="flex items-center justify-between bg-white p-2 rounded-edge border border-indigo-100/70 text-body">
+                  <div key={idx} className="flex items-center justify-between bg-white p-2 rounded-edge border border-hold/70 text-body">
                     <span className="font-medium">{f.factor} ({f.reason})</span>
                     <span className="font-bold text-brand-deep">+{f.scoreDelta} pts</span>
                   </div>

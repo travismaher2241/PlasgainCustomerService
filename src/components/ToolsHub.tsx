@@ -314,7 +314,7 @@ export const ToolsHub: React.FC = () => {
                 {isTenderLoading ? (
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 ) : (
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <Sparkles className="w-3.5 h-3.5 text-soon-on-ink" />
                 )}
                 <span>Analyse Tender Requirements</span>
               </button>
@@ -349,8 +349,8 @@ export const ToolsHub: React.FC = () => {
                               row.status === "Compliant"
                                 ? "bg-brand-wash text-brand-deep"
                                 : row.status === "Clarification Needed"
-                                ? "bg-amber-100 text-amber-800"
-                                : "bg-rose-100 text-rose-800"
+                                ? "bg-soon-wash text-soon"
+                                : "bg-urgent-wash text-urgent"
                             }`}
                           >
                             {row.status}
@@ -363,12 +363,12 @@ export const ToolsHub: React.FC = () => {
               </div>
 
               {tenderResult.riskFlags && (
-                <div className="bg-amber-50 p-3.5 rounded-edge border border-amber-200 text-meta space-y-1.5">
-                  <span className="font-bold text-amber-900 flex items-center gap-1.5">
-                    <AlertTriangle className="w-4 h-4 text-amber-700" />
+                <div className="bg-soon-wash p-3.5 rounded-edge border border-soon text-meta space-y-1.5">
+                  <span className="font-bold text-soon flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-soon" />
                     Key Commercial & Technical Risks to Address:
                   </span>
-                  <ul className="list-disc pl-5 space-y-1 text-amber-950">
+                  <ul className="list-disc pl-5 space-y-1 text-soon">
                     {tenderResult.riskFlags.map((risk: string, idx: number) => (
                       <li key={idx}>{risk}</li>
                     ))}
@@ -426,7 +426,7 @@ export const ToolsHub: React.FC = () => {
                 {isQuoteLoading ? (
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 ) : (
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <Sparkles className="w-3.5 h-3.5 text-soon-on-ink" />
                 )}
                 <span>Run Quote Quality Audit</span>
               </button>
@@ -441,7 +441,7 @@ export const ToolsHub: React.FC = () => {
                   className={`text-meta font-bold px-2.5 py-0.5 rounded-full ${
                     quoteResult.overallVerdict === "Approved to Send"
                       ? "bg-brand-wash text-brand-deep"
-                      : "bg-rose-100 text-rose-800"
+                      : "bg-urgent-wash text-urgent"
                   }`}
                 >
                   {quoteResult.overallVerdict || "Discrepancies Found"}
@@ -449,12 +449,12 @@ export const ToolsHub: React.FC = () => {
               </div>
 
               {quoteResult.potentialProblems && quoteResult.potentialProblems.length > 0 && (
-                <div className="bg-rose-50 p-4 rounded-edge border border-rose-200 text-meta space-y-2">
-                  <span className="font-bold text-rose-900 flex items-center gap-1.5">
-                    <AlertTriangle className="w-4 h-4 text-rose-600" />
+                <div className="bg-urgent-wash p-4 rounded-edge border border-urgent text-meta space-y-2">
+                  <span className="font-bold text-urgent flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-urgent" />
                     Critical Discrepancies Caught (Fix Before Sending):
                   </span>
-                  <ul className="space-y-1.5 pl-5 list-disc text-rose-950">
+                  <ul className="space-y-1.5 pl-5 list-disc text-urgent">
                     {quoteResult.potentialProblems.map((prob: any, idx: number) => (
                       <li key={idx}>
                         {typeof prob === "string"
@@ -467,12 +467,12 @@ export const ToolsHub: React.FC = () => {
               )}
 
               {quoteResult.checkItems && quoteResult.checkItems.length > 0 && (
-                <div className="bg-amber-50 p-4 rounded-edge border border-amber-200 text-meta space-y-2">
-                  <span className="font-bold text-amber-900 flex items-center gap-1.5">
-                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <div className="bg-soon-wash p-4 rounded-edge border border-soon text-meta space-y-2">
+                  <span className="font-bold text-soon flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-soon" />
                     Items to Verify Before Sending:
                   </span>
-                  <ul className="space-y-1.5 pl-5 list-disc text-amber-950">
+                  <ul className="space-y-1.5 pl-5 list-disc text-soon">
                     {quoteResult.checkItems.map((chk: any, idx: number) => (
                       <li key={idx}>
                         {typeof chk === "string"
@@ -560,7 +560,7 @@ export const ToolsHub: React.FC = () => {
                 {isResearchLoading ? (
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 ) : (
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <Sparkles className="w-3.5 h-3.5 text-soon-on-ink" />
                 )}
                 <span>Gather Customer Intelligence</span>
               </button>
@@ -593,7 +593,7 @@ export const ToolsHub: React.FC = () => {
                 {researchResult.salesStrategy && (
                   <div className="bg-brand-wash p-3.5 rounded-edge border border-brand-edge text-brand-deep space-y-1">
                     <span className="font-bold flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-amber-600" /> Recommended Sales Angle:
+                      <Sparkles className="w-4 h-4 text-soon" /> Recommended Sales Angle:
                     </span>
                     <p>{researchResult.salesStrategy}</p>
                   </div>
@@ -635,7 +635,7 @@ export const ToolsHub: React.FC = () => {
                 {isCallPrepLoading ? (
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 ) : (
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <Sparkles className="w-3.5 h-3.5 text-soon-on-ink" />
                 )}
                 <span>Generate Call Brief</span>
               </button>
@@ -661,12 +661,12 @@ export const ToolsHub: React.FC = () => {
                   </ul>
                 </div>
 
-                <div className="bg-amber-50/60 p-3.5 rounded-edge border border-amber-200 space-y-2">
-                  <span className="font-bold text-amber-950 block">Likely Objections & Handling:</span>
+                <div className="bg-soon-wash p-3.5 rounded-edge border border-soon space-y-2">
+                  <span className="font-bold text-soon block">Likely Objections & Handling:</span>
                   <div className="space-y-2">
                     {callPrepResult.objectionHandling?.map((obj: any, i: number) => (
                       <div key={i} className="text-spec">
-                        <strong className="text-amber-900">"{obj.objection}"</strong>
+                        <strong className="text-soon">"{obj.objection}"</strong>
                         <p className="text-body italic mt-0.5">Response: {obj.response}</p>
                       </div>
                     ))}
@@ -711,7 +711,7 @@ export const ToolsHub: React.FC = () => {
                 {isNotesLoading ? (
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 ) : (
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <Sparkles className="w-3.5 h-3.5 text-soon-on-ink" />
                 )}
                 <span>Format for CRM & Tasks</span>
               </button>
@@ -793,7 +793,7 @@ export const ToolsHub: React.FC = () => {
                 {isFollowUpLoading ? (
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 ) : (
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <Sparkles className="w-3.5 h-3.5 text-soon-on-ink" />
                 )}
                 <span>Draft Contextual Follow-Up</span>
               </button>
@@ -882,7 +882,7 @@ export const ToolsHub: React.FC = () => {
                 {isCompareLoading ? (
                   <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                 ) : (
-                  <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                  <Sparkles className="w-3.5 h-3.5 text-soon-on-ink" />
                 )}
                 <span>Generate Technical Comparison</span>
               </button>
@@ -906,9 +906,9 @@ export const ToolsHub: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="bg-amber-50/50 p-4 rounded-edge border border-amber-200 space-y-2">
-                  <span className="font-bold text-amber-950 flex items-center gap-1.5">
-                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <div className="bg-soon-wash p-4 rounded-edge border border-soon space-y-2">
+                  <span className="font-bold text-soon flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-soon" />
                     Claims We Should NOT Make:
                   </span>
                   <p className="text-body leading-relaxed">

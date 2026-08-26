@@ -354,7 +354,7 @@ export const ProductFinder: React.FC = () => {
               </>
             ) : (
               <>
-                <Sparkles className="w-4 h-4 text-amber-300" />
+                <Sparkles className="w-4 h-4 text-soon-on-ink" />
                 <span>Find Best Product Candidates</span>
               </>
             )}
@@ -428,8 +428,8 @@ export const ProductFinder: React.FC = () => {
                 </div>
 
                 <div className="bg-raised p-4 rounded-edge border border-line text-meta space-y-2">
-                  <div className="font-bold text-amber-900 flex items-center gap-1.5">
-                    <AlertTriangle className="w-4 h-4 text-amber-600" />
+                  <div className="font-bold text-soon flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-soon" />
                     <span>Important Engineering Limitations & Shading Rules</span>
                   </div>
                   <ul className="space-y-1.5 pl-5 list-disc text-body">

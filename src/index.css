@@ -64,7 +64,7 @@
      variants; the -on-ink pair is for use inside the rail. */
   /* These are chip text on their OWN wash, so they must clear 4.5:1 against
      that wash — not just against white. Verified at 11px. */
-  --color-urgent: #be3d14; /* 4.79:1 on urgent-wash */
+  --color-urgent: #a83411; /* 5.4:1 on urgent-wash over paper */
   --color-urgent-on-ink: #ff7043;
   --color-urgent-wash: rgba(214, 69, 24, 0.09);
   --color-soon: #8a5c00; /* 5.18:1 on soon-wash */

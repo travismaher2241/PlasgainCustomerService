@@ -286,15 +286,15 @@ export const NewEnquiryWorkspace: React.FC = () => {
     }
     if (field.status === "Inferred") {
       return (
-        <span className="inline-flex items-center gap-1 text-spec font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-700 uppercase tracking-wider">
-          <Info className="w-3 h-3 text-amber-600" />
+        <span className="inline-flex items-center gap-1 text-spec font-bold px-2 py-0.5 rounded bg-soon-wash text-soon uppercase tracking-wider">
+          <Info className="w-3 h-3 text-soon" />
           INFERRED
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 text-spec font-bold px-2 py-0.5 rounded bg-rose-100 text-rose-700 uppercase tracking-wider">
-        <AlertTriangle className="w-3 h-3 text-rose-600" />
+      <span className="inline-flex items-center gap-1 text-spec font-bold px-2 py-0.5 rounded bg-urgent-wash text-urgent uppercase tracking-wider">
+        <AlertTriangle className="w-3 h-3 text-urgent" />
         UNKNOWN
       </span>
     );
@@ -355,7 +355,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-meta text-ink-faint font-semibold flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <Sparkles className="w-3.5 h-3.5 text-soon" />
               <span>Try sample:</span>
             </span>
             <button
@@ -532,7 +532,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
               </>
             ) : (
               <>
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                <Sparkles className="w-3.5 h-3.5 text-soon-on-ink" />
                 <span>Analyse Enquiry</span>
               </>
             )}
@@ -600,8 +600,8 @@ export const NewEnquiryWorkspace: React.FC = () => {
                       currentEnquiryAnalysis.readiness.score >= 80
                         ? "bg-brand-wash text-brand-deep"
                         : currentEnquiryAnalysis.readiness.score >= 50
-                        ? "bg-amber-100 text-amber-800"
-                        : "bg-rose-100 text-rose-800"
+                        ? "bg-soon-wash text-soon"
+                        : "bg-urgent-wash text-urgent"
                     }`}
                   >
                     {currentEnquiryAnalysis.readiness.rating}
@@ -622,8 +622,8 @@ export const NewEnquiryWorkspace: React.FC = () => {
                       currentEnquiryAnalysis.readiness.score >= 80
                         ? "bg-brand-deep"
                         : currentEnquiryAnalysis.readiness.score >= 50
-                        ? "bg-amber-500"
-                        : "bg-rose-500"
+                        ? "bg-soon"
+                        : "bg-urgent"
                     }`}
                     style={{ width: `${currentEnquiryAnalysis.readiness.score}%` }}
                   ></div>
@@ -642,9 +642,9 @@ export const NewEnquiryWorkspace: React.FC = () => {
                     <span>{currentEnquiryAnalysis.readiness.knownItems.length} Confirmed</span>
                   </div>
                 </div>
-                <div className="bg-rose-50/70 p-2.5 rounded-edge border border-rose-100">
-                  <div className="font-bold text-rose-900 flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                <div className="bg-urgent-wash p-2.5 rounded-edge border border-urgent">
+                  <div className="font-bold text-urgent flex items-center gap-1.5">
+                    <AlertTriangle className="w-3.5 h-3.5 text-urgent" />
                     <span>{currentEnquiryAnalysis.readiness.missingItems.length} Missing</span>
                   </div>
                 </div>
@@ -673,17 +673,17 @@ export const NewEnquiryWorkspace: React.FC = () => {
             </div>
 
             {/* Missing Items */}
-            <div className="bg-white rounded-panel border border-rose-200/80 p-5 shadow-xs">
-              <div className="flex items-center gap-2 pb-3 border-b border-rose-100 mb-3">
-                <AlertTriangle className="w-4 h-4 text-rose-600" />
+            <div className="bg-white rounded-panel border border-urgent/80 p-5 shadow-xs">
+              <div className="flex items-center gap-2 pb-3 border-b border-urgent mb-3">
+                <AlertTriangle className="w-4 h-4 text-urgent" />
                 <h3 className="font-bold text-body">
                   Information Still Required Before Quoting
                 </h3>
               </div>
               <ul className="space-y-2">
                 {currentEnquiryAnalysis.readiness.missingItems.map((item, idx) => (
-                  <li key={idx} className="text-meta flex items-start gap-2 bg-rose-50/60 p-2.5 rounded-edge border border-rose-100">
-                    <span className="w-4 h-4 rounded-full bg-rose-200 text-rose-900 flex items-center justify-center text-spec font-bold shrink-0 mt-0.5">
+                  <li key={idx} className="text-meta flex items-start gap-2 bg-urgent-wash p-2.5 rounded-edge border border-urgent">
+                    <span className="w-4 h-4 rounded-full bg-urgent-wash text-urgent flex items-center justify-center text-spec font-bold shrink-0 mt-0.5">
                       !
                     </span>
                     <span className="leading-relaxed">{item}</span>
@@ -707,10 +707,10 @@ export const NewEnquiryWorkspace: React.FC = () => {
                   <span className="w-2 h-2 rounded-full bg-brand"></span> Confirmed
                 </span>
                 <span className="flex items-center gap-1 text-ink-dim font-medium">
-                  <span className="w-2 h-2 rounded-full bg-amber-500"></span> Inferred
+                  <span className="w-2 h-2 rounded-full bg-soon"></span> Inferred
                 </span>
                 <span className="flex items-center gap-1 text-ink-dim font-medium">
-                  <span className="w-2 h-2 rounded-full bg-rose-500"></span> Unknown
+                  <span className="w-2 h-2 rounded-full bg-urgent"></span> Unknown
                 </span>
               </div>
             </div>
@@ -869,8 +869,8 @@ export const NewEnquiryWorkspace: React.FC = () => {
                 )}
 
                 {/* Distinction note: Sales fit vs engineered design */}
-                <div className="bg-amber-50/80 border border-amber-200 p-3 rounded-edge text-meta text-amber-900 flex items-start gap-2">
-                  <ShieldCheck className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                <div className="bg-soon-wash border border-soon p-3 rounded-edge text-meta text-soon flex items-start gap-2">
+                  <ShieldCheck className="w-4 h-4 text-soon shrink-0 mt-0.5" />
                   <div>
                     <strong className="font-bold">Engineering Distinction Notice: </strong>
                     {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.distinctionNotes ||
@@ -990,7 +990,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
           {/* Internal Sales Coach Tip */}
           {currentEnquiryAnalysis.internalSalesCoachTip && (
             <div className="bg-raised rounded-panel border border-line p-4 text-meta flex items-start gap-3">
-              <Lightbulb className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+              <Lightbulb className="w-5 h-5 text-soon shrink-0 mt-0.5" />
               <div>
                 <strong className="font-bold text-body">Plasgain Sales Coach Tip: </strong>
                 <span>{currentEnquiryAnalysis.internalSalesCoachTip}</span>

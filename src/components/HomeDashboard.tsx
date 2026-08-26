@@ -26,9 +26,13 @@ import {
   Briefcase
 } from "lucide-react";
 import { useApp, ToolSubTab } from "../context/AppContext";
+import { Surface, ListRow, Chip, Tone } from "./ui/Surface";
 import { Opportunity } from "../types";
 
 export type UserRole = "customer_service" | "sales" | "sales_manager" | "technical";
+
+const SECONDARY_BTN =
+  "px-2.5 py-1.5 rounded-edge text-meta font-medium text-ink-dim border border-line-strong hover:text-ink hover:border-ink-faint transition-colors cursor-pointer items-center gap-1.5 whitespace-nowrap flex";
 
 export const HomeDashboard: React.FC = () => {
   const {
@@ -124,18 +128,12 @@ export const HomeDashboard: React.FC = () => {
     return "Sorted by deadline, then by what is blocking the quote.";
   };
 
-  const STRIPE: Record<Urgency, string> = {
-    overdue: "bg-urgent",
-    soon: "bg-soon",
-    hold: "bg-hold",
-    clear: "bg-line-strong"
-  };
-
-  const CHIP: Record<Urgency, string> = {
-    overdue: "text-urgent border-urgent bg-urgent-wash",
-    soon: "text-soon border-soon bg-soon-wash",
-    hold: "text-hold border-hold bg-hold-wash",
-    clear: "text-ink-dim border-line-strong"
+  // Urgency is Home's domain language; Tone is the shared visual vocabulary.
+  const TONE: Record<Urgency, Tone> = {
+    overdue: "urgent",
+    soon: "soon",
+    hold: "hold",
+    clear: "neutral"
   };
 
 
@@ -373,100 +371,91 @@ export const HomeDashboard: React.FC = () => {
         </div>
 
         {priorityItems.length > 0 ? (
-          <div className="border border-line bg-surface">
+          <Surface>
             {priorityItems.map((opp) => {
               const urgency = urgencyOf(opp);
               const label = deadlineLabel(opp);
               const canReview = opp.stage === "Quoting" || opp.stage === "Qualifying";
 
               return (
-                <article
+                <ListRow
                   key={opp.id}
-                  className="grid grid-cols-[3px_1fr] md:grid-cols-[3px_1fr_auto] border-b border-line last:border-b-0 hover:bg-raised transition-colors"
+                  tone={TONE[urgency]}
+                  actions={
+                    <>
+                      <button
+                        onClick={() => handlePrepCall(opp.id)}
+                        className={SECONDARY_BTN}
+                        title="Prepare AI call script & questions"
+                      >
+                        <PhoneCall className="w-3 h-3" />
+                        <span>Prep call</span>
+                      </button>
+
+                      {canReview ? (
+                        <button
+                          onClick={() => handleReviewQuote(opp.id)}
+                          className={`${SECONDARY_BTN} hidden sm:flex`}
+                          title="Review quote parameters against specs"
+                        >
+                          <ClipboardCheck className="w-3 h-3" />
+                          <span>Review</span>
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleFollowUp(opp)}
+                          className={`${SECONDARY_BTN} hidden sm:flex`}
+                          title="Log or schedule follow-up"
+                        >
+                          <Mail className="w-3 h-3" />
+                          <span>Follow-up</span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => handleOpenOpportunity(opp.id)}
+                        className="px-3 py-1.5 rounded-edge text-meta font-semibold text-white bg-brand-deep border border-brand-deep hover:bg-brand hover:border-brand transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        Open
+                      </button>
+                    </>
+                  }
                 >
-                  <div className={STRIPE[urgency]} aria-hidden="true"></div>
-
-                  <div className="py-4 pl-4 pr-4 min-w-0">
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                      <h3 className="text-body font-semibold truncate">{opp.project}</h3>
-                      {label && (
-                        <span className={`u-eyebrow px-1.5 py-0.5 border ${CHIP[urgency]}`}>
-                          {label}
-                        </span>
-                      )}
-                      <span className="u-eyebrow px-1.5 py-0.5 border border-line-strong text-ink-dim">
-                        {opp.stage}
+                  <div className="flex items-center gap-2.5 flex-wrap">
+                    <h3 className="text-body font-semibold truncate">{opp.project}</h3>
+                    {label && <Chip tone={TONE[urgency]}>{label}</Chip>}
+                    <Chip>{opp.stage}</Chip>
+                    {opp.estimatedValue > 0 && (
+                      <span className="u-data text-meta text-ink-dim">
+                        ${opp.estimatedValue.toLocaleString()}
                       </span>
-                      {opp.estimatedValue > 0 && (
-                        <span className="u-data text-meta text-ink-dim">
-                          ${opp.estimatedValue.toLocaleString()}
-                        </span>
-                      )}
-                    </div>
+                    )}
+                  </div>
 
-                    <p className="mt-1.5 text-meta text-ink-dim flex flex-wrap items-baseline gap-x-2">
-                      <span className="font-medium text-body">{opp.customerCompany}</span>
-                      <span className="text-ink-faint">·</span>
-                      <span>{opp.contactName}</span>
-                      {opp.location && (
-                        <>
-                          <span className="text-ink-faint">·</span>
-                          <span>{opp.location}</span>
-                        </>
-                      )}
+                  <p className="mt-1.5 text-meta text-ink-dim flex flex-wrap items-baseline gap-x-2">
+                    <span className="font-medium text-ink">{opp.customerCompany}</span>
+                    <span className="text-ink-faint">·</span>
+                    <span>{opp.contactName}</span>
+                    {opp.location && (
+                      <>
+                        <span className="text-ink-faint">·</span>
+                        <span>{opp.location}</span>
+                      </>
+                    )}
+                  </p>
+
+                  {opp.nextAction && (
+                    <p className="mt-2.5 pl-3 border-l-2 border-brand-edge text-meta text-ink-dim">
+                      <span className="font-medium text-ink">Next: </span>
+                      {opp.nextAction}
                     </p>
-
-                    {opp.nextAction && (
-                      <p className="mt-2.5 pl-3 border-l-2 border-brand-edge text-meta text-ink-dim">
-                        <span className="font-medium text-body">Next: </span>
-                        {opp.nextAction}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="col-start-2 md:col-start-3 flex items-center gap-1.5 pb-4 md:py-4 pl-4 md:pl-0 pr-4">
-                    <button
-                      onClick={() => handlePrepCall(opp.id)}
-                      className="px-2.5 py-1.5 rounded-edge text-meta font-medium text-ink-dim border border-line-strong hover:text-ink hover:border-ink-faint transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
-                      title="Prepare AI call script & questions"
-                    >
-                      <PhoneCall className="w-3 h-3" />
-                      <span>Prep call</span>
-                    </button>
-
-                    {canReview ? (
-                      <button
-                        onClick={() => handleReviewQuote(opp.id)}
-                        className="px-2.5 py-1.5 rounded-edge text-meta font-medium text-ink-dim border border-line-strong hover:text-ink hover:border-ink-faint transition-colors cursor-pointer hidden sm:flex items-center gap-1.5 whitespace-nowrap"
-                        title="Review quote parameters against specs"
-                      >
-                        <ClipboardCheck className="w-3 h-3" />
-                        <span>Review</span>
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => handleFollowUp(opp)}
-                        className="px-2.5 py-1.5 rounded-edge text-meta font-medium text-ink-dim border border-line-strong hover:text-ink hover:border-ink-faint transition-colors cursor-pointer hidden sm:flex items-center gap-1.5 whitespace-nowrap"
-                        title="Log or schedule follow-up"
-                      >
-                        <Mail className="w-3 h-3" />
-                        <span>Follow-up</span>
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => handleOpenOpportunity(opp.id)}
-                      className="px-3 py-1.5 rounded-edge text-meta font-semibold text-white bg-brand-deep border border-brand-deep hover:bg-brand hover:border-brand transition-colors cursor-pointer whitespace-nowrap"
-                    >
-                      Open
-                    </button>
-                  </div>
-                </article>
+                  )}
+                </ListRow>
               );
             })}
-          </div>
+          </Surface>
         ) : (
-          <div className="border border-line bg-surface px-5 py-8 text-center">
+          <Surface className="px-5 py-8 text-center">
             <CheckCircle2 className="w-5 h-5 text-brand-deep mx-auto mb-2.5" />
             <h3 className="text-body font-semibold">Nothing waiting on you</h3>
             <p className="mt-1 text-meta text-ink-dim max-w-md mx-auto">
@@ -482,7 +471,7 @@ export const HomeDashboard: React.FC = () => {
                 Clear filter
               </button>
             )}
-          </div>
+          </Surface>
         )}
       </section>
 
@@ -522,7 +511,7 @@ export const HomeDashboard: React.FC = () => {
             className="p-3 rounded-panel bg-white hover:bg-raised border border-line hover:border-brand text-left transition-all cursor-pointer group shadow-2xs flex flex-col justify-between min-h-[74px]"
           >
             <div className="flex items-center justify-between">
-              <div className="p-1.5 rounded-edge bg-blue-100 text-blue-800 group-hover:scale-105 transition-transform">
+              <div className="p-1.5 rounded-edge bg-hold-wash text-hold group-hover:scale-105 transition-transform">
                 <SearchCode className="w-4 h-4" />
               </div>
               <ArrowRight className="w-3.5 h-3.5 text-ink-faint group-hover:text-brand-deep group-hover:translate-x-0.5 transition-all" />
@@ -539,7 +528,7 @@ export const HomeDashboard: React.FC = () => {
             className="p-3 rounded-panel bg-white hover:bg-raised border border-line hover:border-brand text-left transition-all cursor-pointer group shadow-2xs flex flex-col justify-between min-h-[74px]"
           >
             <div className="flex items-center justify-between">
-              <div className="p-1.5 rounded-edge bg-purple-100 text-purple-800 group-hover:scale-105 transition-transform">
+              <div className="p-1.5 rounded-edge bg-hold-wash text-hold group-hover:scale-105 transition-transform">
                 <FileText className="w-4 h-4" />
               </div>
               <ArrowRight className="w-3.5 h-3.5 text-ink-faint group-hover:text-brand-deep group-hover:translate-x-0.5 transition-all" />
@@ -556,7 +545,7 @@ export const HomeDashboard: React.FC = () => {
             className="p-3 rounded-panel bg-white hover:bg-raised border border-line hover:border-brand text-left transition-all cursor-pointer group shadow-2xs flex flex-col justify-between min-h-[74px]"
           >
             <div className="flex items-center justify-between">
-              <div className="p-1.5 rounded-edge bg-amber-100 text-amber-800 group-hover:scale-105 transition-transform">
+              <div className="p-1.5 rounded-edge bg-soon-wash text-soon group-hover:scale-105 transition-transform">
                 <PhoneCall className="w-4 h-4" />
               </div>
               <ArrowRight className="w-3.5 h-3.5 text-ink-faint group-hover:text-brand-deep group-hover:translate-x-0.5 transition-all" />
@@ -680,7 +669,7 @@ export const HomeDashboard: React.FC = () => {
             className="bg-white p-3.5 rounded-panel border border-line hover:border-line-strong transition-colors cursor-pointer"
           >
             <div className="text-spec font-semibold text-ink-dim">In Technical Review</div>
-            <div className="text-xl font-black text-purple-900 mt-0.5">
+            <div className="text-xl font-black text-hold mt-0.5">
               {attentionMetrics.techReview.length}
             </div>
             <div className="text-spec text-ink-faint mt-0.5">Dialux / Photometrics</div>
@@ -691,7 +680,7 @@ export const HomeDashboard: React.FC = () => {
             className="bg-white p-3.5 rounded-panel border border-line hover:border-line-strong transition-colors cursor-pointer"
           >
             <div className="text-spec font-semibold text-ink-dim">Pending Quotes</div>
-            <div className="text-xl font-black text-rose-900 mt-0.5">
+            <div className="text-xl font-black text-urgent mt-0.5">
               {attentionMetrics.quoteDueSoon.length}
             </div>
             <div className="text-spec text-ink-faint mt-0.5">Due within 5 business days</div>

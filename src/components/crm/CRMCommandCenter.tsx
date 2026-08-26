@@ -59,7 +59,7 @@ export const CRMCommandCenter: React.FC = () => {
                 <Sun className="w-3.5 h-3.5" />
                 Today / Focus
                 {nextBestActions.length > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-spec ${activeCRMTab === "today" ? "bg-chrome text-white font-semibold" : "bg-indigo-100 text-indigo-800 font-bold"}`}>
+                  <span className={`px-1.5 py-0.2 rounded-full text-spec ${activeCRMTab === "today" ? "bg-chrome text-white font-semibold" : "bg-line text-ink font-semibold"}`}>
                     {nextBestActions.length}
                   </span>
                 )}
@@ -100,7 +100,7 @@ export const CRMCommandCenter: React.FC = () => {
                 <Flame className="w-3.5 h-3.5" />
                 Leads Hub
                 {hotLeadsCount > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-spec ${activeCRMTab === "leads" ? "bg-chrome text-white font-semibold" : "bg-rose-100 text-rose-800 font-bold"}`}>
+                  <span className={`px-1.5 py-0.2 rounded-full text-spec ${activeCRMTab === "leads" ? "bg-chrome text-white font-semibold" : "bg-line text-ink font-semibold"}`}>
                     {hotLeadsCount}
                   </span>
                 )}
@@ -117,7 +117,7 @@ export const CRMCommandCenter: React.FC = () => {
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Tasks & Log
                 {overdueCount > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-spec ${activeCRMTab === "tasks" ? "bg-chrome text-white font-semibold" : "bg-rose-100 text-rose-800 font-bold"}`}>
+                  <span className={`px-1.5 py-0.2 rounded-full text-spec ${activeCRMTab === "tasks" ? "bg-chrome text-white font-semibold" : "bg-line text-ink font-semibold"}`}>
                     {overdueCount}
                   </span>
                 )}

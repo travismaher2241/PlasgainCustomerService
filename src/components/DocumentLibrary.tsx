@@ -14,6 +14,7 @@ import {
   X
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
+import { Surface, ListRow, Chip } from "./ui/Surface";
 import { KnowledgeDocument } from "../types";
 
 export const DocumentLibrary: React.FC = () => {
@@ -135,78 +136,63 @@ export const DocumentLibrary: React.FC = () => {
         </div>
       </div>
 
-      {/* Catalogues Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {filteredDocs.map((doc) => (
-          <div
-            key={doc.id}
-            className="bg-white rounded-panel border border-line hover:border-brand/60 p-5 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
-          >
-            <div className="space-y-3">
-              {/* Card Header */}
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-edge bg-brand-wash border border-brand-edge text-brand-deep flex items-center justify-center shrink-0 mt-0.5">
-                    <BookOpen className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="text-spec font-bold uppercase tracking-wider text-brand-deep bg-brand-wash px-2 py-0.5 rounded border border-brand-edge">
-                      {doc.category}
-                    </span>
-                    <h3 className="text-base font-bold text-body mt-1 leading-snug">
-                      {doc.title}
-                    </h3>
-                  </div>
-                </div>
+      {/* Catalogues — one ruled surface so titles line up for scanning */}
+      {filteredDocs.length > 0 && (
+        <Surface>
+          {filteredDocs.map((doc) => (
+            <ListRow
+              key={doc.id}
+              tone="brand"
+              actions={
+                <>
+                  <button
+                    onClick={() => setPreviewDoc(doc)}
+                    className="inline-flex items-center gap-1.5 text-meta font-medium text-ink-dim border border-line-strong hover:text-ink hover:border-ink-faint px-2.5 py-1.5 rounded-edge transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>Preview</span>
+                  </button>
+                  <button
+                    onClick={() => handleDownload(doc)}
+                    className="inline-flex items-center gap-1.5 text-meta font-semibold text-white bg-brand-deep border border-brand-deep hover:bg-brand hover:border-brand px-3 py-1.5 rounded-edge transition-colors cursor-pointer whitespace-nowrap"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download</span>
+                  </button>
+                </>
+              }
+            >
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h3 className="text-body font-semibold text-ink">{doc.title}</h3>
+                <Chip tone="brand">{doc.category}</Chip>
+                {doc.version && (
+                  <span className="u-data text-spec text-ink-faint">v{doc.version}</span>
+                )}
+                {doc.fileSize && (
+                  <span className="u-data text-spec text-ink-faint">{doc.fileSize}</span>
+                )}
               </div>
 
-              {/* Summary */}
-              <p className="text-meta text-ink-dim leading-relaxed line-clamp-3">
+              <p className="mt-1.5 text-meta text-ink-dim line-clamp-2 max-w-[80ch]">
                 {doc.summary}
               </p>
 
-              {/* Tags */}
               {doc.tags && doc.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-1">
+                <div className="mt-2 flex flex-wrap gap-1.5">
                   {doc.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="text-spec font-medium bg-paper px-2 py-0.5 rounded border border-line"
+                      className="u-data text-spec text-ink-faint border border-line px-1.5 py-0.5"
                     >
                       {tag}
                     </span>
                   ))}
                 </div>
               )}
-            </div>
-
-            {/* Card Footer */}
-            <div className="mt-5 pt-3.5 border-t border-line flex items-center justify-between text-meta text-ink-dim">
-              <div className="flex items-center gap-3">
-                {doc.fileSize && <span>{doc.fileSize}</span>}
-                {doc.version && <span>• Version {doc.version}</span>}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPreviewDoc(doc)}
-                  className="inline-flex items-center gap-1 hover:text-ink bg-paper hover:bg-line font-medium px-2.5 py-1.5 rounded text-meta transition-colors cursor-pointer"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>Preview</span>
-                </button>
-                <button
-                  onClick={() => handleDownload(doc)}
-                  className="inline-flex items-center gap-1 text-white bg-brand-deep hover:bg-brand-deep font-medium px-3 py-1.5 rounded text-meta transition-colors cursor-pointer shadow-2xs"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Download PDF</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+            </ListRow>
+          ))}
+        </Surface>
+      )}
 
       {filteredDocs.length === 0 && (
         <div className="text-center py-12 bg-white rounded-panel border border-line p-8">

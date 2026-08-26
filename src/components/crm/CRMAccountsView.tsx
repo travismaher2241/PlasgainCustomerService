@@ -131,11 +131,11 @@ export const CRMAccountsView: React.FC = () => {
       case "Strong":
         return <span className="px-2 py-0.5 rounded-full text-meta font-semibold bg-brand-wash text-brand-deep border border-brand-edge">Strong</span>;
       case "Healthy":
-        return <span className="px-2 py-0.5 rounded-full text-meta font-semibold bg-blue-100 text-blue-800 border border-blue-200">Healthy</span>;
+        return <span className="px-2 py-0.5 rounded-full text-meta font-semibold bg-hold-wash text-hold border border-hold">Healthy</span>;
       case "Needs Attention":
-        return <span className="px-2 py-0.5 rounded-full text-meta font-semibold bg-amber-100 text-amber-800 border border-amber-200">Needs Attention</span>;
+        return <span className="px-2 py-0.5 rounded-full text-meta font-semibold bg-soon-wash text-soon border border-soon">Needs Attention</span>;
       case "At Risk":
-        return <span className="px-2 py-0.5 rounded-full text-meta font-semibold bg-rose-100 text-rose-800 border border-rose-200">At Risk</span>;
+        return <span className="px-2 py-0.5 rounded-full text-meta font-semibold bg-urgent-wash text-urgent border border-urgent">At Risk</span>;
     }
   };
 
@@ -355,7 +355,7 @@ export const CRMAccountsView: React.FC = () => {
                     : "border-transparent text-ink-dim hover:text-ink"
                 }`}
               >
-                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                <Sparkles className="w-3.5 h-3.5 text-hold" />
                 AI Intelligence
               </button>
             </div>
@@ -375,12 +375,12 @@ export const CRMAccountsView: React.FC = () => {
 
                   {/* Health Reasons */}
                   {selectedAccount.healthReasons && selectedAccount.healthReasons.length > 0 && (
-                    <div className="p-4 bg-blue-50/60 rounded-edge border border-blue-100">
-                      <div className="text-meta font-bold text-blue-900 mb-1.5 flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
+                    <div className="p-4 bg-hold-wash rounded-edge border border-hold">
+                      <div className="text-meta font-bold text-hold mb-1.5 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-hold" />
                         Relationship Health Diagnosis
                       </div>
-                      <ul className="text-meta text-blue-800 space-y-1 list-disc list-inside">
+                      <ul className="text-meta text-hold space-y-1 list-disc list-inside">
                         {selectedAccount.healthReasons.map((reason, idx) => (
                           <li key={idx}>{reason}</li>
                         ))}
@@ -496,7 +496,7 @@ export const CRMAccountsView: React.FC = () => {
                                   {contact.firstName} {contact.lastName}
                                 </span>
                                 {contact.isDecisionMaker && (
-                                  <span className="px-2 py-0.5 bg-purple-100 text-purple-800 border border-purple-200 rounded-full text-spec font-bold flex items-center gap-1">
+                                  <span className="px-2 py-0.5 bg-hold-wash text-hold border border-hold rounded-full text-spec font-bold flex items-center gap-1">
                                     <UserCheck className="w-2.5 h-2.5" /> Decision Maker
                                   </span>
                                 )}
@@ -558,9 +558,9 @@ export const CRMAccountsView: React.FC = () => {
                                 contact.relationshipStatus === "Strong"
                                   ? "bg-brand-wash text-brand-deep"
                                   : contact.relationshipStatus === "Warm"
-                                  ? "bg-blue-100 text-blue-800"
+                                  ? "bg-hold-wash text-hold"
                                   : contact.relationshipStatus === "Cold"
-                                  ? "bg-rose-100 text-rose-800"
+                                  ? "bg-urgent-wash text-urgent"
                                   : "bg-paper text-body"
                               }`}>
                                 {contact.relationshipStatus}
@@ -681,9 +681,9 @@ export const CRMAccountsView: React.FC = () => {
               {/* Tab 5: AI Intelligence */}
               {activeAccountTab === "ai-summary" && (
                 <div className="space-y-4">
-                  <div className="p-5 bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/50 rounded-panel border border-indigo-100 space-y-4">
-                    <div className="flex items-center gap-2 text-indigo-900 font-bold text-body">
-                      <Sparkles className="w-4 h-4 text-indigo-600" />
+                  <div className="p-5 bg-gradient-to-br from-hold/70 via-white to-hold/50 rounded-panel border border-hold space-y-4">
+                    <div className="flex items-center gap-2 text-hold font-bold text-body">
+                      <Sparkles className="w-4 h-4 text-hold" />
                       Account Intelligence & Executive Summary
                     </div>
 
@@ -693,12 +693,12 @@ export const CRMAccountsView: React.FC = () => {
                     </p>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-meta pt-2">
-                      <div className="p-3.5 bg-white rounded-edge border border-indigo-100/80 shadow-xs space-y-1">
+                      <div className="p-3.5 bg-white rounded-edge border border-hold/80 shadow-xs space-y-1">
                         <div className="font-bold text-body">Current Priority</div>
                         <p className="text-ink-dim">{selectedAccount.aiSummary?.currentPriority || "Follow up on active quotations and technical Dialux submissions."}</p>
                       </div>
 
-                      <div className="p-3.5 bg-white rounded-edge border border-indigo-100/80 shadow-xs space-y-1">
+                      <div className="p-3.5 bg-white rounded-edge border border-hold/80 shadow-xs space-y-1">
                         <div className="font-bold text-brand-deep">Recommended Next Move</div>
                         <p className="text-brand-deep font-medium">
                           {selectedAccount.aiSummary?.recommendedAction || "Schedule a 15-minute engineering check-in with the primary specifier."}

@@ -209,7 +209,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block font-semibold text-body mb-1">
-                  First Name <span className="text-rose-500">*</span>
+                  First Name <span className="text-urgent">*</span>
                 </label>
                 <input
                   type="text"
@@ -223,7 +223,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
 
               <div>
                 <label className="block font-semibold text-body mb-1">
-                  Last Name <span className="text-rose-500">*</span>
+                  Last Name <span className="text-urgent">*</span>
                 </label>
                 <input
                   type="text"
@@ -239,7 +239,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block font-semibold text-body mb-1">
-                  Job Title <span className="text-rose-500">*</span>
+                  Job Title <span className="text-urgent">*</span>
                 </label>
                 <input
                   type="text"
@@ -274,7 +274,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div className="sm:col-span-1">
                 <label className="block font-semibold text-body mb-1">
-                  Work Email <span className="text-rose-500">*</span>
+                  Work Email <span className="text-urgent">*</span>
                 </label>
                 <input
                   type="email"
@@ -413,12 +413,12 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
             </div>
 
             {/* Decision maker toggle */}
-            <div className="p-3 bg-purple-50/60 border border-purple-200 rounded-panel flex items-center justify-between">
+            <div className="p-3 bg-hold-wash border border-hold rounded-panel flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-purple-700" />
+                <UserCheck className="w-4 h-4 text-hold" />
                 <div>
-                  <div className="font-bold text-purple-950">Primary Final Decision Maker</div>
-                  <div className="text-spec text-purple-700">
+                  <div className="font-bold text-hold">Primary Final Decision Maker</div>
+                  <div className="text-spec text-hold">
                     Has formal budgetary authority to sign off on luminaire supply contracts.
                   </div>
                 </div>
@@ -430,7 +430,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                   onChange={(e) => setFormData({ ...formData, isDecisionMaker: e.target.checked })}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-line peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-line-strong after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                <div className="w-11 h-6 bg-line peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-line-strong after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-hold"></div>
               </label>
             </div>
           </div>
@@ -507,17 +507,17 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                   <button
                     type="button"
                     onClick={() => setConfirmDelete(true)}
-                    className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-3 py-1.5 rounded-edge font-semibold flex items-center gap-1.5 transition-colors text-meta"
+                    className="text-urgent hover:text-urgent hover:bg-urgent-wash px-3 py-1.5 rounded-edge font-semibold flex items-center gap-1.5 transition-colors text-meta"
                   >
                     <Trash2 className="w-3.5 h-3.5" /> Delete Contact
                   </button>
                 ) : (
-                  <div className="flex items-center gap-2 bg-rose-50 p-1.5 rounded-edge border border-rose-200 text-meta">
-                    <span className="text-rose-800 font-semibold">Confirm delete?</span>
+                  <div className="flex items-center gap-2 bg-urgent-wash p-1.5 rounded-edge border border-urgent text-meta">
+                    <span className="text-urgent font-semibold">Confirm delete?</span>
                     <button
                       type="button"
                       onClick={handleDelete}
-                      className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded font-bold"
+                      className="px-2 py-1 bg-urgent hover:bg-urgent text-white rounded font-bold"
                     >
                       Yes, Delete
                     </button>

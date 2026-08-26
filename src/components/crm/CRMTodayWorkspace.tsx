@@ -17,6 +17,7 @@ import {
   Plus
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
+import { StatStrip } from "../ui/Surface";
 import { CRMIntelligenceEngine } from "../../utils/crmIntelligence";
 
 export const CRMTodayWorkspace: React.FC = () => {
@@ -100,7 +101,7 @@ export const CRMTodayWorkspace: React.FC = () => {
             onClick={() => openQuickLog("call")}
             className="inline-flex items-center gap-1.5 px-3 py-2 text-meta font-semibold bg-white border border-line-strong rounded-edge hover:bg-raised shadow-sm transition-colors"
           >
-            <Phone className="w-3.5 h-3.5 text-blue-600" />
+            <Phone className="w-3.5 h-3.5 text-hold" />
             + Log Call
           </button>
           <button
@@ -120,71 +121,45 @@ export const CRMTodayWorkspace: React.FC = () => {
         </div>
       </div>
 
-      {/* Top 4 Essential KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-panel border border-line shadow-sm">
-          <div className="flex items-center justify-between text-ink-dim text-meta font-medium mb-1">
-            <span>Open Pipeline</span>
-            <DollarSign className="w-4 h-4 text-brand-deep" />
-          </div>
-          <div className="text-2xl font-bold text-body">
-            ${totalPipelineValue.toLocaleString()}
-          </div>
-          <div className="text-meta text-ink-dim mt-1 flex items-center gap-1">
-            <span className="font-semibold text-brand-deep">${Math.round(weightedPipelineValue).toLocaleString()}</span>
-            <span>weighted forecast</span>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-panel border border-line shadow-sm">
-          <div className="flex items-center justify-between text-ink-dim text-meta font-medium mb-1">
-            <span>Needs Attention</span>
-            <AlertTriangle className="w-4 h-4 text-amber-500" />
-          </div>
-          <div className="text-2xl font-bold text-amber-600">
-            {atRiskDeals.length + overdueTasks.length}
-          </div>
-          <div className="text-meta text-ink-dim mt-1">
-            {atRiskDeals.length} stalled deals · {overdueTasks.length} overdue tasks
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-panel border border-line shadow-sm">
-          <div className="flex items-center justify-between text-ink-dim text-meta font-medium mb-1">
-            <span>Hot Inbound Leads</span>
-            <Flame className="w-4 h-4 text-rose-500" />
-          </div>
-          <div className="text-2xl font-bold text-rose-600">
-            {newHotLeads.length}
-          </div>
-          <div className="text-meta text-ink-dim mt-1">
-            High-intent council & civil projects
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-panel border border-line shadow-sm">
-          <div className="flex items-center justify-between text-ink-dim text-meta font-medium mb-1">
-            <span>Next Best Actions</span>
-            <Sparkles className="w-4 h-4 text-indigo-500" />
-          </div>
-          <div className="text-2xl font-bold text-indigo-600">
-            {nextBestActions.length}
-          </div>
-          <div className="text-meta text-ink-dim mt-1">
-            AI & rule-based priority items
-          </div>
-        </div>
-      </div>
+      {/* Headline figures — one plane, not four cards */}
+      <StatStrip
+        cells={[
+          {
+            value: `$${totalPipelineValue.toLocaleString()}`,
+            label: "Open pipeline",
+            note: `$${Math.round(weightedPipelineValue).toLocaleString()} weighted forecast`,
+            tone: "neutral"
+          },
+          {
+            value: atRiskDeals.length + overdueTasks.length,
+            label: "Needs attention",
+            note: `${atRiskDeals.length} stalled · ${overdueTasks.length} overdue tasks`,
+            tone: "urgent"
+          },
+          {
+            value: newHotLeads.length,
+            label: "Hot inbound leads",
+            note: "High-intent council & civil projects",
+            tone: "soon"
+          },
+          {
+            value: nextBestActions.length,
+            label: "Next best actions",
+            note: "Ranked by deal value and time in stage",
+            tone: "brand"
+          }
+        ]}
+      />
 
       {/* Main Grid: Priority Actions vs Today's Schedule */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left 2 Columns: Next Best Actions & Deals Requiring Attention */}
         <div className="lg:col-span-2 space-y-6">
           {/* Next Best Actions Section */}
-          <div className="bg-white rounded-panel border border-indigo-100 shadow-sm overflow-hidden">
-            <div className="bg-gradient-to-r from-indigo-50/80 via-white to-white px-5 py-4 border-b border-indigo-100 flex items-center justify-between">
+          <div className="bg-white rounded-panel border border-hold shadow-sm overflow-hidden">
+            <div className="bg-gradient-to-r from-hold/80 via-white to-white px-5 py-4 border-b border-hold flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-indigo-600 rounded-edge text-white">
+                <div className="p-1.5 bg-hold rounded-edge text-white">
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <div>
@@ -192,7 +167,7 @@ export const CRMTodayWorkspace: React.FC = () => {
                   <p className="text-meta text-ink-dim">Transparent AI & rule-grounded recommendations</p>
                 </div>
               </div>
-              <span className="text-meta font-medium text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-full">
+              <span className="text-meta font-medium text-hold bg-hold-wash px-2 py-0.5 rounded-full">
                 {nextBestActions.length} Priority Items
               </span>
             </div>
@@ -211,8 +186,8 @@ export const CRMTodayWorkspace: React.FC = () => {
                         <span
                           className={`text-spec font-semibold px-2 py-0.5 rounded-full ${
                             action.urgency === "Immediate"
-                              ? "bg-rose-100 text-rose-800"
-                              : "bg-amber-100 text-amber-800"
+                              ? "bg-urgent-wash text-urgent"
+                              : "bg-soon-wash text-soon"
                           }`}
                         >
                           {action.urgency}
@@ -225,7 +200,7 @@ export const CRMTodayWorkspace: React.FC = () => {
                       <p className="text-body font-semibold">{action.title}</p>
                       <p className="text-meta text-ink-dim">{action.description}</p>
                       <p className="text-spec text-ink-dim italic flex items-center gap-1">
-                        <span className="font-medium text-indigo-600">Why:</span> {action.reason}
+                        <span className="font-medium text-hold">Why:</span> {action.reason}
                       </p>
                     </div>
 
@@ -242,7 +217,7 @@ export const CRMTodayWorkspace: React.FC = () => {
                             navigateToCRM("tasks");
                           }
                         }}
-                        className="px-3 py-1.5 text-meta font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-edge hover:bg-indigo-100 transition-colors flex items-center gap-1"
+                        className="px-3 py-1.5 text-meta font-semibold text-hold bg-hold-wash border border-hold rounded-edge hover:bg-hold-wash transition-colors flex items-center gap-1"
                       >
                         {action.actionLabel}
                         <ArrowRight className="w-3.5 h-3.5" />
@@ -258,7 +233,7 @@ export const CRMTodayWorkspace: React.FC = () => {
           <div className="bg-white rounded-panel border border-line shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-line flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-500" />
+                <AlertTriangle className="w-4 h-4 text-soon" />
                 <h2 className="text-base font-bold text-body">Deals Requiring Attention</h2>
               </div>
               <button
@@ -283,7 +258,7 @@ export const CRMTodayWorkspace: React.FC = () => {
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-meta font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800">
+                        <span className="text-meta font-bold px-2 py-0.5 rounded-full bg-urgent-wash text-urgent">
                           {deal.dealHealth}
                         </span>
                         <span className="text-meta text-ink-dim">{deal.accountName}</span>
@@ -291,7 +266,7 @@ export const CRMTodayWorkspace: React.FC = () => {
                         <span className="text-meta text-ink-dim">{deal.stageName}</span>
                       </div>
                       <div className="text-body font-semibold">{deal.name}</div>
-                      <div className="text-meta text-rose-700">
+                      <div className="text-meta text-urgent">
                         {deal.dealHealthReasons.join(" · ")}
                       </div>
                     </div>
@@ -359,21 +334,21 @@ export const CRMTodayWorkspace: React.FC = () => {
               {/* Overdue */}
               {overdueTasks.length > 0 && (
                 <div className="space-y-2">
-                  <div className="text-spec font-bold uppercase tracking-wider text-rose-700 flex items-center gap-1">
+                  <div className="text-spec font-bold uppercase tracking-wider text-urgent flex items-center gap-1">
                     <Clock className="w-3 h-3" /> Overdue ({overdueTasks.length})
                   </div>
                   {overdueTasks.map((t) => (
-                    <div key={t.id} className="p-3 bg-rose-50/70 border border-rose-200 rounded-edge text-meta space-y-1">
+                    <div key={t.id} className="p-3 bg-urgent-wash border border-urgent rounded-edge text-meta space-y-1">
                       <div className="flex items-start justify-between gap-2">
                         <button
                           onClick={() => toggleTaskComplete(t.id)}
-                          className="mt-0.5 w-4 h-4 rounded border border-rose-400 bg-white flex items-center justify-center hover:bg-rose-100"
+                          className="mt-0.5 w-4 h-4 rounded border border-urgent bg-white flex items-center justify-center hover:bg-urgent-wash"
                         >
-                          {t.status === "Completed" && <CheckCircle2 className="w-3.5 h-3.5 text-rose-600" />}
+                          {t.status === "Completed" && <CheckCircle2 className="w-3.5 h-3.5 text-urgent" />}
                         </button>
-                        <div className="flex-1 font-semibold text-rose-950">{t.title}</div>
+                        <div className="flex-1 font-semibold text-urgent">{t.title}</div>
                       </div>
-                      <div className="text-spec text-rose-700 pl-6">
+                      <div className="text-spec text-urgent pl-6">
                         Due: {t.dueDate} · {t.accountName || "General"}
                       </div>
                     </div>
@@ -415,7 +390,7 @@ export const CRMTodayWorkspace: React.FC = () => {
           <div className="bg-white rounded-panel border border-line shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-line flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Flame className="w-4 h-4 text-rose-500" />
+                <Flame className="w-4 h-4 text-urgent" />
                 <h2 className="text-base font-bold text-body">Inbound Leads</h2>
               </div>
               <button
@@ -434,7 +409,7 @@ export const CRMTodayWorkspace: React.FC = () => {
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-meta font-bold">{l.company}</span>
-                    <span className="text-spec font-bold px-2 py-0.5 bg-rose-100 text-rose-800 rounded-full">
+                    <span className="text-spec font-bold px-2 py-0.5 bg-urgent-wash text-urgent rounded-full">
                       Score: {l.leadScore}
                     </span>
                   </div>

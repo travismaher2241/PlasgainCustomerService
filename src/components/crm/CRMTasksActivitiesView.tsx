@@ -105,11 +105,11 @@ export const CRMTasksActivitiesView: React.FC = () => {
   const getPriorityBadge = (priority: TaskPriority) => {
     switch (priority) {
       case "Urgent":
-        return <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-rose-100 text-rose-800">Urgent</span>;
+        return <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-urgent-wash text-urgent">Urgent</span>;
       case "High":
-        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-amber-100 text-amber-800">High</span>;
+        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-soon-wash text-soon">High</span>;
       case "Medium":
-        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-blue-100 text-blue-800">Medium</span>;
+        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-hold-wash text-hold">Medium</span>;
       case "Low":
         return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-paper">Low</span>;
     }
@@ -187,7 +187,7 @@ export const CRMTasksActivitiesView: React.FC = () => {
             <button
               onClick={() => setTaskFilter("overdue")}
               className={`px-3 py-1 text-meta font-semibold rounded-edge ${
-                taskFilter === "overdue" ? "bg-rose-600 text-white" : "bg-rose-50 text-rose-800"
+                taskFilter === "overdue" ? "bg-urgent text-white" : "bg-urgent-wash text-urgent"
               }`}
             >
               Overdue
@@ -216,7 +216,7 @@ export const CRMTasksActivitiesView: React.FC = () => {
                 <div
                   key={t.id}
                   className={`p-4 transition-colors flex items-start justify-between gap-4 ${
-                    isOverdue ? "bg-rose-50/40" : "hover:bg-raised"
+                    isOverdue ? "bg-urgent-wash" : "hover:bg-raised"
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -236,7 +236,7 @@ export const CRMTasksActivitiesView: React.FC = () => {
                         <span className="text-meta font-semibold text-ink-dim">{t.type}</span>
                         {getPriorityBadge(t.priority)}
                         {isOverdue && (
-                          <span className="text-spec font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <span className="text-spec font-bold text-urgent bg-urgent-wash px-2 py-0.5 rounded-full flex items-center gap-1">
                             <Clock className="w-3 h-3" /> Overdue
                           </span>
                         )}

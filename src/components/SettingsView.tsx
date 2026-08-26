@@ -87,12 +87,12 @@ export const SettingsView: React.FC = () => {
               ? "bg-white border-line"
               : aiHealthy
               ? "bg-white border-line"
-              : "bg-amber-50 border-amber-300"
+              : "bg-soon-wash border-soon"
           }`}
         >
           <div
             className={`flex items-center justify-between ${
-              aiHealthy ? "text-brand-deep" : "text-amber-700"
+              aiHealthy ? "text-brand-deep" : "text-soon"
             }`}
           >
             <span className="text-spec font-bold uppercase tracking-wider">AI Reasoning Engine</span>

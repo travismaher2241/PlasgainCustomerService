@@ -210,8 +210,8 @@ export const AskPlasgain: React.FC = () => {
                   item.response.confidence === "High"
                     ? "bg-brand-wash text-brand-deep"
                     : item.response.confidence === "Medium"
-                    ? "bg-amber-100 text-amber-800"
-                    : "bg-rose-100 text-rose-800"
+                    ? "bg-soon-wash text-soon"
+                    : "bg-urgent-wash text-urgent"
                 }`}
               >
                 {item.response.confidence || "High"} Confidence
@@ -220,10 +220,10 @@ export const AskPlasgain: React.FC = () => {
 
             {/* Conflict Warning if present */}
             {(item.response.conflictWarning || item.response.technicalConfirmationRequired) && (
-              <div className="p-3 rounded-edge bg-amber-50 border border-amber-200 text-meta text-amber-900 flex items-start gap-2.5">
-                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div className="p-3 rounded-edge bg-soon-wash border border-soon text-meta text-soon flex items-start gap-2.5">
+                <AlertTriangle className="w-4 h-4 text-soon shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-bold block text-amber-950">Technical Confirmation Required</span>
+                  <span className="font-bold block text-soon">Technical Confirmation Required</span>
                   <span>{item.response.conflictWarning || "Public Plasgain sources contain conflicting information for this specification. Please confirm the current internal datasheet before quoting."}</span>
                 </div>
               </div>
@@ -237,7 +237,7 @@ export const AskPlasgain: React.FC = () => {
             {/* Learning Snippet */}
             {item.response.learningSnippet && (
               <div className="bg-raised border border-line rounded-edge p-3 text-meta text-ink-dim flex items-start gap-2">
-                <Lightbulb className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <Lightbulb className="w-4 h-4 text-soon shrink-0 mt-0.5" />
                 <div>
                   <strong className="text-body font-semibold">
                     {item.response.learningSnippet.concept || "Key Technical Concept"}:{" "}

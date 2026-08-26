@@ -12,6 +12,7 @@ import {
   Layers
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
+import { StatStrip } from "../ui/Surface";
 
 export const CRMAnalyticsView: React.FC = () => {
   const { crmOpportunities, accounts, leads } = useApp();
@@ -45,44 +46,35 @@ export const CRMAnalyticsView: React.FC = () => {
         </p>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-5 rounded-panel border border-line shadow-sm">
-          <div className="flex items-center justify-between text-meta font-semibold text-ink-dim mb-1">
-            <span>Total Active Pipeline</span>
-            <DollarSign className="w-4 h-4 text-brand-deep" />
-          </div>
-          <div className="text-2xl font-bold text-body">${openValue.toLocaleString()}</div>
-          <div className="text-meta text-ink-dim mt-1">{totalOpenDeals.length} active opportunities</div>
-        </div>
-
-        <div className="bg-white p-5 rounded-panel border border-line shadow-sm">
-          <div className="flex items-center justify-between text-meta font-semibold text-ink-dim mb-1">
-            <span>Weighted Forecast</span>
-            <TrendingUp className="w-4 h-4 text-blue-600" />
-          </div>
-          <div className="text-2xl font-bold text-blue-700">${Math.round(weightedValue).toLocaleString()}</div>
-          <div className="text-meta text-ink-dim mt-1">Probability-adjusted revenue</div>
-        </div>
-
-        <div className="bg-white p-5 rounded-panel border border-line shadow-sm">
-          <div className="flex items-center justify-between text-meta font-semibold text-ink-dim mb-1">
-            <span>Historical Win Rate</span>
-            <Award className="w-4 h-4 text-amber-500" />
-          </div>
-          <div className="text-2xl font-bold text-body">{winRate}%</div>
-          <div className="text-meta text-brand-deep font-medium mt-1">High council tender win rate</div>
-        </div>
-
-        <div className="bg-white p-5 rounded-panel border border-line shadow-sm">
-          <div className="flex items-center justify-between text-meta font-semibold text-ink-dim mb-1">
-            <span>Total Accounts Managed</span>
-            <Layers className="w-4 h-4 text-purple-600" />
-          </div>
-          <div className="text-2xl font-bold text-purple-700">{accounts.length}</div>
-          <div className="text-meta text-ink-dim mt-1">{leads.length} active inbound leads</div>
-        </div>
-      </div>
+      {/* Headline figures — one plane, hairline-separated */}
+      <StatStrip
+        cells={[
+          {
+            value: `$${openValue.toLocaleString()}`,
+            label: "Active pipeline",
+            note: `${totalOpenDeals.length} open opportunities`,
+            tone: "neutral"
+          },
+          {
+            value: `$${Math.round(weightedValue).toLocaleString()}`,
+            label: "Weighted forecast",
+            note: "Probability-adjusted revenue",
+            tone: "brand"
+          },
+          {
+            value: `${winRate}%`,
+            label: "Historical win rate",
+            note: "Council and civil tenders",
+            tone: "neutral"
+          },
+          {
+            value: accounts.length,
+            label: "Accounts managed",
+            note: `${leads.length} active inbound leads`,
+            tone: "neutral"
+          }
+        ]}
+      />
 
       {/* Grid: Application Breakdown vs Pipeline Health Distribution */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -113,7 +105,7 @@ export const CRMAnalyticsView: React.FC = () => {
         {/* Pipeline Stage Health Breakdown */}
         <div className="bg-white p-6 rounded-panel border border-line shadow-sm space-y-4">
           <h3 className="text-body font-bold flex items-center gap-2">
-            <AlertTriangle className="w-4 h-4 text-amber-500" /> Deal Health Status Breakdown
+            <AlertTriangle className="w-4 h-4 text-soon" /> Deal Health Status Breakdown
           </h3>
 
           <div className="space-y-3 pt-2 text-meta">
@@ -124,10 +116,10 @@ export const CRMAnalyticsView: React.FC = () => {
                 status === "Healthy"
                   ? "bg-brand"
                   : status === "Needs Attention"
-                  ? "bg-amber-500"
+                  ? "bg-soon"
                   : status === "At Risk"
-                  ? "bg-rose-500"
-                  : "bg-purple-500";
+                  ? "bg-urgent"
+                  : "bg-hold";
 
               return (
                 <div key={idx} className="space-y-1">

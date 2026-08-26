@@ -139,11 +139,11 @@ export const CRMPipelineView: React.FC = () => {
       case "Healthy":
         return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-brand-wash text-brand-deep">Healthy</span>;
       case "Needs Attention":
-        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-amber-100 text-amber-800">Needs Attention</span>;
+        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-soon-wash text-soon">Needs Attention</span>;
       case "At Risk":
-        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-rose-100 text-rose-800">At Risk</span>;
+        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-urgent-wash text-urgent">At Risk</span>;
       case "Stalled":
-        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-purple-100 text-purple-800">Stalled</span>;
+        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-hold-wash text-hold">Stalled</span>;
     }
   };
 
@@ -282,7 +282,7 @@ export const CRMPipelineView: React.FC = () => {
                         </div>
 
                         {deal.dealHealthReasons && deal.dealHealthReasons.length > 0 && deal.dealHealth !== "Healthy" && (
-                          <div className="text-spec text-rose-700 bg-rose-50 p-1.5 rounded border border-rose-200/60 leading-tight">
+                          <div className="text-spec text-urgent bg-urgent-wash p-1.5 rounded border border-urgent/60 leading-tight">
                             {deal.dealHealthReasons[0]}
                           </div>
                         )}

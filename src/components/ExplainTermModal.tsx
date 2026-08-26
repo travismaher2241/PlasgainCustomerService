@@ -111,7 +111,7 @@ export const ExplainTermModal: React.FC = () => {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-spec font-bold text-amber-300 uppercase tracking-widest px-2 py-0.5 rounded bg-amber-400/10 border border-amber-400/20">
+                <span className="text-spec font-bold text-soon-on-ink uppercase tracking-widest px-2 py-0.5 rounded bg-soon/10 border border-soon/20">
                   Customer Service Explainer
                 </span>
                 {activeExplanation?.australianStandardRef && (
@@ -193,21 +193,21 @@ export const ExplainTermModal: React.FC = () => {
 
               {/* Customer Phrasing Box (Copyable) */}
               {activeExplanation.howToExplainToCustomer && (
-                <div className="bg-gradient-to-r from-amber-50 to-orange-50/40 border border-amber-200 p-4 rounded-panel space-y-2">
+                <div className="bg-gradient-to-r from-soon to-soon/40 border border-soon p-4 rounded-panel space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-meta font-bold text-amber-950 flex items-center gap-1.5">
-                      <Lightbulb className="w-4 h-4 text-amber-600" />
+                    <span className="text-meta font-bold text-soon flex items-center gap-1.5">
+                      <Lightbulb className="w-4 h-4 text-soon" />
                       What to tell the client (Ready Script):
                     </span>
                     <button
                       onClick={() => handleCopy(activeExplanation.howToExplainToCustomer, "customer explanation script")}
-                      className="text-meta text-amber-900 font-bold bg-amber-200/80 hover:bg-amber-300 px-2.5 py-1 rounded-edge flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                      className="text-meta text-soon font-bold bg-soon-wash hover:bg-soon px-2.5 py-1 rounded-edge flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                     >
                       <Copy className="w-3.5 h-3.5" />
                       Copy Script
                     </button>
                   </div>
-                  <p className="italic text-meta bg-white/70 p-3 rounded-edge border border-amber-200/60 leading-relaxed">
+                  <p className="italic text-meta bg-white/70 p-3 rounded-edge border border-soon/60 leading-relaxed">
                     "{activeExplanation.howToExplainToCustomer}"
                   </p>
                 </div>
@@ -236,11 +236,11 @@ export const ExplainTermModal: React.FC = () => {
 
               {/* Common Mistakes / Traps */}
               {activeExplanation.commonMistakesToAvoid && (
-                <div className="bg-rose-50/70 border border-rose-200 p-3.5 rounded-panel text-rose-950 space-y-1">
-                  <span className="text-spec font-bold uppercase tracking-wider text-rose-900 block">
+                <div className="bg-urgent-wash border border-urgent p-3.5 rounded-panel text-urgent space-y-1">
+                  <span className="text-spec font-bold uppercase tracking-wider text-urgent block">
                     Common Quoting Mistake to Avoid
                   </span>
-                  <p className="text-meta text-rose-800 leading-relaxed">
+                  <p className="text-meta text-urgent leading-relaxed">
                     {activeExplanation.commonMistakesToAvoid}
                   </p>
                 </div>
@@ -258,7 +258,7 @@ export const ExplainTermModal: React.FC = () => {
                         key={idx}
                         className="text-spec font-semibold px-2.5 py-1 rounded-edge bg-paper border border-line flex items-center gap-1"
                       >
-                        <Zap className="w-3 h-3 text-amber-500" />
+                        <Zap className="w-3 h-3 text-soon" />
                         {prod}
                       </span>
                     ))}

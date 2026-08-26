@@ -297,9 +297,9 @@ export const LearningCentre: React.FC = () => {
               </div>
 
               {selectedLesson.salesRelevance && (
-                <div className="bg-amber-50/60 p-4 rounded-edge border border-amber-200 text-amber-950 space-y-1">
+                <div className="bg-soon-wash p-4 rounded-edge border border-soon text-soon space-y-1">
                   <strong className="font-bold flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-amber-600" />
+                    <Sparkles className="w-4 h-4 text-soon" />
                     How to Use This in Customer Conversations:
                   </strong>
                   <p>{selectedLesson.salesRelevance}</p>
@@ -345,7 +345,7 @@ export const LearningCentre: React.FC = () => {
                       let optStyle = "bg-raised border-line hover:border-brand-edge";
                       if (isQuizSubmitted) {
                         if (isCorrect) optStyle = "bg-brand-wash border-brand font-semibold text-brand-deep";
-                        else if (isChosen) optStyle = "bg-rose-100 border-rose-400 text-rose-950";
+                        else if (isChosen) optStyle = "bg-urgent-wash border-urgent text-urgent";
                       } else if (isChosen) {
                         optStyle = "bg-brand-wash border-brand ring-2 ring-brand-deep/20";
                       }
@@ -631,7 +631,7 @@ export const LearningCentre: React.FC = () => {
             <div className="bg-white rounded-panel border border-line p-5 shadow-xs flex flex-col justify-between space-y-3">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-spec font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded uppercase">
+                  <span className="text-spec font-bold text-hold bg-hold-wash px-2 py-0.5 rounded uppercase">
                     Coastal / IK10
                   </span>
                   <span className="text-spec text-ink-faint font-medium">Geelong, VIC</span>
@@ -673,7 +673,7 @@ export const LearningCentre: React.FC = () => {
             <div className="bg-white rounded-panel border border-line p-5 shadow-xs flex flex-col justify-between space-y-3">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-spec font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded uppercase">
+                  <span className="text-spec font-bold text-hold bg-hold-wash px-2 py-0.5 rounded uppercase">
                     Industrial Flood
                   </span>
                   <span className="text-spec text-ink-faint font-medium">Dandenong, VIC</span>
