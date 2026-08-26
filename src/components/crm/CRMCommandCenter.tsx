@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import {
   Sun,
   Building2,
@@ -12,12 +12,13 @@ import {
   Phone
 } from "lucide-react";
 import { useApp, CRMSubTab } from "../../context/AppContext";
-import { CRMTodayWorkspace } from "./CRMTodayWorkspace";
-import { CRMAccountsView } from "./CRMAccountsView";
-import { CRMPipelineView } from "./CRMPipelineView";
-import { CRMLeadsView } from "./CRMLeadsView";
-import { CRMTasksActivitiesView } from "./CRMTasksActivitiesView";
-import { CRMAnalyticsView } from "./CRMAnalyticsView";
+
+const CRMTodayWorkspace = lazy(() => import("./CRMTodayWorkspace").then(m => ({ default: m.CRMTodayWorkspace })));
+const CRMAccountsView = lazy(() => import("./CRMAccountsView").then(m => ({ default: m.CRMAccountsView })));
+const CRMPipelineView = lazy(() => import("./CRMPipelineView").then(m => ({ default: m.CRMPipelineView })));
+const CRMLeadsView = lazy(() => import("./CRMLeadsView").then(m => ({ default: m.CRMLeadsView })));
+const CRMTasksActivitiesView = lazy(() => import("./CRMTasksActivitiesView").then(m => ({ default: m.CRMTasksActivitiesView })));
+const CRMAnalyticsView = lazy(() => import("./CRMAnalyticsView").then(m => ({ default: m.CRMAnalyticsView })));
 
 export const CRMCommandCenter: React.FC = () => {
   const {
@@ -151,12 +152,20 @@ export const CRMCommandCenter: React.FC = () => {
 
       {/* Main CRM Tab View Render */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {activeCRMTab === "today" && <CRMTodayWorkspace />}
-        {activeCRMTab === "accounts" && <CRMAccountsView />}
-        {activeCRMTab === "pipeline" && <CRMPipelineView />}
-        {activeCRMTab === "leads" && <CRMLeadsView />}
-        {activeCRMTab === "tasks" && <CRMTasksActivitiesView />}
-        {activeCRMTab === "analytics" && <CRMAnalyticsView />}
+        <Suspense
+          fallback={
+            <div className="flex items-center justify-center min-h-[300px] w-full">
+              <div className="w-7 h-7 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+          }
+        >
+          {activeCRMTab === "today" && <CRMTodayWorkspace />}
+          {activeCRMTab === "accounts" && <CRMAccountsView />}
+          {activeCRMTab === "pipeline" && <CRMPipelineView />}
+          {activeCRMTab === "leads" && <CRMLeadsView />}
+          {activeCRMTab === "tasks" && <CRMTasksActivitiesView />}
+          {activeCRMTab === "analytics" && <CRMAnalyticsView />}
+        </Suspense>
       </main>
     </div>
   );
