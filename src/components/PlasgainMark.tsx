@@ -38,8 +38,11 @@ export const PlasgainLockup: React.FC<PlasgainLockupProps> = ({ showSub = true }
         PLAS<span className="text-brand-lift">GAIN</span>
       </div>
     </div>
+    {/* Tighter tracking than the usual eyebrow: at 0.16em this string measures
+        190px against 196px of rail, so it wraps the moment the mono font falls
+        back to Menlo. 0.09em leaves ~21px of headroom. */}
     {showSub && (
-      <div className="u-eyebrow mt-1.5 text-[0.625rem] tracking-[0.16em] text-chrome-dim">
+      <div className="u-eyebrow mt-1.5 text-[0.625rem] tracking-[0.09em] whitespace-nowrap text-chrome-dim">
         Customer Service Sidekick
       </div>
     )}
