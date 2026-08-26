@@ -1978,14 +1978,15 @@ app.all("/api/*", (req, res) => {
 // VITE MIDDLEWARE SETUP
 // -------------------------------------------------------------
 async function startServer() {
-  if (process.env.NODE_ENV !== "production") {
+  const isProduction = process.env.NODE_ENV === "production" || __filename.includes("dist");
+  if (!isProduction) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+    const distPath = __dirname.endsWith("dist") ? __dirname : path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
