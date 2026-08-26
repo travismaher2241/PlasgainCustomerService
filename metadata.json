@@ -1,0 +1,6 @@
+{
+  "name": "Plasgain Lighting Sales Copilot",
+  "description": "Intelligent sales, product knowledge, enquiry analysis, customer research and learning assistant for Plasgain Lighting Australia.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,294 @@
+import {
+  Account,
+  CRMOpportunity,
+  CRMLead,
+  CRMTask,
+  CRMActivity,
+  NextBestActionItem,
+  DealHealthRating,
+  RelationshipHealth
+} from "../types/crm";
+
+export class CRMIntelligenceEngine {
+  /**
+   * Calculate Next Best Actions across all Accounts, Deals, Leads, and Tasks
+   */
+  static generateNextBestActions(
+    accounts: Account[],
+    deals: CRMOpportunity[],
+    leads: CRMLead[],
+    tasks: CRMTask[],
+    _activities: CRMActivity[]
+  ): NextBestActionItem[] {
+    const actions: NextBestActionItem[] = [];
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    // Rule 1: Quotes Sent without follow-up in > 3 days
+    deals.forEach((deal) => {
+      if (deal.quoteStatus === "Sent" && deal.quoteSentDate) {
+        const daysSinceQuote = this.daysBetween(deal.quoteSentDate, todayStr);
+        if (daysSinceQuote >= 3) {
+          actions.push({
+            id: `nba-quote-${deal.id}`,
+            ruleId: "RULE_QUOTE_FOLLOWUP",
+            title: `Follow up on Quote ${deal.quoteNumber || "Submitted"} ($${(deal.dealValue || 0).toLocaleString()})`,
+            description: `Quote was sent ${daysSinceQuote} days ago to ${deal.primaryContactName || "the client"} with no recent confirmation.`,
+            reason: `High conversion drop-off occurs if quotes remain un-followed for >3 days. Confirm receipt and address technical or commercial queries.`,
+            urgency: daysSinceQuote >= 7 ? "Immediate" : "Today",
+            category: "Quote Follow-up",
+            relatedEntityType: "Opportunity",
+            relatedEntityId: deal.id,
+            relatedEntityName: deal.name,
+            actionLabel: "Draft Follow-Up Email",
+            actionPayload: {
+              type: "send_email",
+              defaultTitle: `Follow-up: Plasgain Proposal ${deal.quoteNumber || ""}`,
+              defaultNotes: `Checking if ${deal.primaryContactName || "client"} had any questions on the luminaire selection and freight.`
+            }
+          });
+        }
+      }
+    });
+
+    // Rule 2: Active Deals with No Next Action or Past Next Action Date
+    deals.forEach((deal) => {
+      if (deal.stageId !== "stage-won" && deal.stageId !== "stage-lost") {
+        if (!deal.nextAction || deal.nextAction.trim() === "" || (deal.nextActionDate && deal.nextActionDate < todayStr)) {
+          actions.push({
+            id: `nba-no-action-${deal.id}`,
+            ruleId: "RULE_MISSING_NEXT_ACTION",
+            title: `Schedule Next Action for "${deal.name}"`,
+            description: deal.nextActionDate && deal.nextActionDate < todayStr
+              ? `Action "${deal.nextAction}" was due on ${deal.nextActionDate} and is overdue.`
+              : `This active deal has no scheduled next step.`,
+            reason: `Every active sales opportunity must have an unambiguous forward momentum date.`,
+            urgency: "Immediate",
+            category: "Missing Action",
+            relatedEntityType: "Opportunity",
+            relatedEntityId: deal.id,
+            relatedEntityName: deal.name,
+            actionLabel: "Set Next Action",
+            actionPayload: {
+              type: "create_task",
+              defaultTitle: `Set next step for ${deal.name}`
+            }
+          });
+        }
+      }
+    });
+
+    // Rule 3: High Value Opportunities ($50k+) with Stalled Stage (> 14 days)
+    deals.forEach((deal) => {
+      if (deal.dealValue >= 50000 && deal.daysInCurrentStage >= 14 && deal.stageId !== "stage-won" && deal.stageId !== "stage-lost") {
+        actions.push({
+          id: `nba-stalled-${deal.id}`,
+          ruleId: "RULE_STALLED_HIGH_VALUE",
+          title: `Re-energise High Value Stalled Deal ($${deal.dealValue.toLocaleString()})`,
+          description: `Opportunity has remained in ${deal.stageName} for ${deal.daysInCurrentStage} days without stage progression.`,
+          reason: `High value infrastructure deals risk losing project budget if not actively championed with council or head contractors.`,
+          urgency: "Today",
+          category: "Stalled Deal",
+          relatedEntityType: "Opportunity",
+          relatedEntityId: deal.id,
+          relatedEntityName: deal.name,
+          actionLabel: "Review & Re-engage",
+          actionPayload: {
+            type: "schedule_meeting",
+            defaultTitle: `Strategy review for ${deal.name}`
+          }
+        });
+      }
+    });
+
+    // Rule 4: Hot Leads (Score >= 75) Awaiting Contact
+    leads.forEach((lead) => {
+      if (lead.leadStatus === "New" || lead.leadStatus === "Attempting Contact" || lead.leadStatus === "Qualifying") {
+        if (lead.leadScore >= 75) {
+          actions.push({
+            id: `nba-hot-lead-${lead.id}`,
+            ruleId: "RULE_HOT_LEAD_RESPONSE",
+            title: `Contact Hot Lead: ${lead.leadName} (${lead.leadScore} Score)`,
+            description: `${lead.company} requested ${lead.enquiryType} with estimated value ~$${lead.estimatedValue.toLocaleString()}.`,
+            reason: `Inbound leads contacted within 24 hours convert at 390% higher rates than aged leads.`,
+            urgency: "Immediate",
+            category: "Customer Waiting",
+            relatedEntityType: "Lead",
+            relatedEntityId: lead.id,
+            relatedEntityName: lead.leadName,
+            actionLabel: "Call Lead Now",
+            actionPayload: {
+              type: "log_call",
+              defaultTitle: `Initial qualification call with ${lead.contactName}`
+            }
+          });
+        }
+      }
+    });
+
+    // Rule 5: Overdue Tasks
+    tasks.forEach((task) => {
+      if (task.status !== "Completed" && task.status !== "Cancelled" && task.dueDate < todayStr) {
+        actions.push({
+          id: `nba-overdue-task-${task.id}`,
+          ruleId: "RULE_OVERDUE_TASK",
+          title: `Complete Overdue Task: "${task.title}"`,
+          description: `Task assigned to ${task.assignedTo} was due on ${task.dueDate}.`,
+          reason: `Overdue commitments directly impact customer confidence and sales cycle speed.`,
+          urgency: "Immediate",
+          category: "Overdue Task",
+          relatedEntityType: "Task",
+          relatedEntityId: task.id,
+          relatedEntityName: task.title,
+          actionLabel: "Mark Complete / Reschedule",
+          actionPayload: {
+            type: "create_task"
+          }
+        });
+      }
+    });
+
+    return actions;
+  }
+
+  /**
+   * Evaluate Deal Health Rating
+   */
+  static evaluateDealHealth(deal: CRMOpportunity, todayStr: string = new Date().toISOString().split("T")[0]): {
+    rating: DealHealthRating;
+    reasons: string[];
+  } {
+    const reasons: string[] = [];
+    let riskPoints = 0;
+
+    // Days in current stage check
+    if (deal.daysInCurrentStage > 20) {
+      riskPoints += 3;
+      reasons.push(`Stalled in current stage (${deal.daysInCurrentStage} days without stage progression)`);
+    } else if (deal.daysInCurrentStage > 10) {
+      riskPoints += 1;
+      reasons.push(`In stage for ${deal.daysInCurrentStage} days`);
+    }
+
+    // Days since last activity
+    if (deal.latestActivityDate) {
+      const daysSinceActivity = this.daysBetween(deal.latestActivityDate, todayStr);
+      if (daysSinceActivity > 14) {
+        riskPoints += 3;
+        reasons.push(`No logged customer interaction for ${daysSinceActivity} days`);
+      } else if (daysSinceActivity > 7) {
+        riskPoints += 1;
+        reasons.push(`Last activity was ${daysSinceActivity} days ago`);
+      }
+    } else {
+      riskPoints += 2;
+      reasons.push("No recorded activity date");
+    }
+
+    // Close date checks
+    if (deal.expectedCloseDate) {
+      if (deal.expectedCloseDate < todayStr) {
+        riskPoints += 3;
+        reasons.push(`Target close date (${deal.expectedCloseDate}) has passed`);
+      } else {
+        const daysToClose = this.daysBetween(todayStr, deal.expectedCloseDate);
+        if (daysToClose <= 5 && deal.stageId !== "stage-negotiation" && deal.stageId !== "stage-won") {
+          riskPoints += 2;
+          reasons.push(`Close date is in ${daysToClose} days but deal is only in ${deal.stageName}`);
+        }
+      }
+    }
+
+    // Next action check
+    if (!deal.nextAction || deal.nextAction.trim() === "") {
+      riskPoints += 2;
+      reasons.push("No scheduled next action");
+    } else if (deal.nextActionDate && deal.nextActionDate < todayStr) {
+      riskPoints += 2;
+      reasons.push(`Next action is overdue (${deal.nextActionDate})`);
+    }
+
+    // Quote status
+    if (deal.quoteStatus === "Sent" && deal.quoteSentDate) {
+      const daysSinceQuote = this.daysBetween(deal.quoteSentDate, todayStr);
+      if (daysSinceQuote > 10) {
+        riskPoints += 2;
+        reasons.push(`Quote submitted ${daysSinceQuote} days ago without formal response`);
+      }
+    }
+
+    if (riskPoints >= 5) {
+      return { rating: "At Risk", reasons };
+    }
+    if (riskPoints >= 3) {
+      return { rating: "Needs Attention", reasons };
+    }
+    if (deal.daysInCurrentStage > 18) {
+      return { rating: "Stalled", reasons };
+    }
+    return {
+      rating: "Healthy",
+      reasons: reasons.length > 0 ? reasons : ["Recent activity logged", "Clear next action scheduled", "Healthy stage velocity"]
+    };
+  }
+
+  /**
+   * Evaluate Account Relationship Health
+   */
+  static evaluateAccountHealth(
+    account: Account,
+    deals: CRMOpportunity[],
+    activities: CRMActivity[],
+    todayStr: string = new Date().toISOString().split("T")[0]
+  ): {
+    health: RelationshipHealth;
+    reasons: string[];
+  } {
+    const reasons: string[] = [];
+    const accountDeals = deals.filter((d) => d.accountId === account.id);
+    const accountActs = activities.filter((a) => a.accountId === account.id);
+
+    const hasAtRiskDeals = accountDeals.some((d) => d.dealHealth === "At Risk" || d.dealHealth === "Stalled");
+    const daysSinceLastInteraction = account.lastInteractionDate ? this.daysBetween(account.lastInteractionDate, todayStr) : 999;
+
+    if (daysSinceLastInteraction > 30) {
+      reasons.push(`No logged interaction for ${daysSinceLastInteraction} days`);
+    }
+    if (hasAtRiskDeals) {
+      reasons.push(`Contains active opportunities marked At Risk or Stalled`);
+    }
+    if (!account.nextAction || (account.nextActionDate && account.nextActionDate < todayStr)) {
+      reasons.push(`Next scheduled follow-up is missing or overdue`);
+    }
+
+    if (daysSinceLastInteraction > 45 || (daysSinceLastInteraction > 21 && hasAtRiskDeals)) {
+      return { health: "At Risk", reasons: reasons.length ? reasons : ["Account is disengaged"] };
+    }
+    if (reasons.length > 0) {
+      return { health: "Needs Attention", reasons };
+    }
+    if (accountDeals.length >= 1 && daysSinceLastInteraction <= 14 && accountActs.length >= 2) {
+      return {
+        health: "Strong",
+        reasons: ["Active ongoing pipeline", "Frequent touchpoints", "Responsive stakeholder communication"]
+      };
+    }
+    return {
+      health: "Healthy",
+      reasons: ["Regular account cadence", "Up-to-date communications"]
+    };
+  }
+
+  /**
+   * Helper: calculate days between two YYYY-MM-DD dates
+   */
+  private static daysBetween(startDate: string, endDate: string): number {
+    try {
+      const d1 = new Date(startDate);
+      const d2 = new Date(endDate);
+      const diffTime = Math.abs(d2.getTime() - d1.getTime());
+      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    } catch {
+      return 0;
+    }
+  }
+}
