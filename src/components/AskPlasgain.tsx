@@ -123,17 +123,17 @@ export const AskPlasgain: React.FC = () => {
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold tracking-tight text-body">Ask Plasgain Knowledge Assistant</h1>
             <span className="text-meta font-bold px-2 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge uppercase tracking-wide">
-              Grounded AI Engine
+              Product Knowledge Base
             </span>
           </div>
           <p className="text-meta text-ink-dim mt-0.5">
-            Instant answers strictly grounded in approved Plasgain product sheets, catalogues, conflict registers, and Australian standards.
+            Instant answers referenced directly from approved Plasgain product sheets, catalogues, conflict registers, and Australian standards.
           </p>
         </div>
 
         <div className="flex items-center gap-1.5 text-meta text-ink-dim bg-paper px-3 py-1.5 rounded-edge border border-line font-medium self-start">
           <ShieldCheck className="w-4 h-4 text-brand-deep" />
-          <span>Strict Anti-Hallucination Grounding</span>
+          <span>Verified Against Official Datasheets</span>
         </div>
       </div>
 
@@ -256,7 +256,7 @@ export const AskPlasgain: React.FC = () => {
             {item.response.citations && item.response.citations.length > 0 && (
               <div className="pt-2 border-t border-line space-y-1.5">
                 <span className="text-spec font-bold text-ink-faint uppercase tracking-wider block">
-                  Approved Grounded Citations:
+                  Approved Datasheet Citations:
                 </span>
                 <div className="space-y-1.5">
                   {item.response.citations.map((c, i) => (

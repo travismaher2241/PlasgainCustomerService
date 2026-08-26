@@ -767,14 +767,14 @@ export const NewEnquiryWorkspace: React.FC = () => {
             <div className="flex items-center justify-between pb-3 border-b border-line">
               <div>
                 <h3 className="font-bold text-body">
-                  Plasgain Product Recommendations & Knowledge Base Grounding
+                  Plasgain Product Recommendations & Technical Matches
                 </h3>
                 <p className="text-meta text-ink-dim">
                   Matched against approved Plasgain product datasheets and Australian standards
                 </p>
               </div>
               <span className="text-spec font-bold px-2.5 py-1 rounded bg-brand-wash text-brand-deep border border-brand-edge uppercase tracking-wider">
-                Grounded in Approved Docs
+                Verified Against Datasheets
               </span>
             </div>
 

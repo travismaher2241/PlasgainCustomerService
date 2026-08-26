@@ -403,13 +403,13 @@ export const ProductFinder: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-meta text-ink-dim font-medium">Grounded in Plasgain Catalog</span>
+                  <span className="text-meta text-ink-dim font-medium">Verified Plasgain Range</span>
                 </div>
               </div>
 
               {/* Why Suitable */}
               <div className="text-meta leading-relaxed bg-brand-wash p-3.5 rounded-edge border border-brand-edge">
-                <strong className="text-brand-deep font-bold block mb-1">Application Suitability Reasoning:</strong>
+                <strong className="text-brand-deep font-bold block mb-1">Application Suitability:</strong>
                 {primary.whySuitable || "Engineered specifically for Australian public infrastructure and off-grid performance."}
               </div>
 

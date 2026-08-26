@@ -698,7 +698,7 @@ export const HomeDashboard: React.FC = () => {
               <span>98%</span>
               <span className="text-meta font-semibold text-brand-deep">Healthy</span>
             </div>
-            <div className="text-spec text-ink-faint mt-0.5">AS/NZS 1158 Guardrails Active</div>
+            <div className="text-spec text-ink-faint mt-0.5">AS/NZS 1158 Standards Checked</div>
           </div>
         </div>
       </section>

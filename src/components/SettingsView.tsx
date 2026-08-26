@@ -1,17 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  SlidersHorizontal,
   ShieldCheck,
-  Cpu,
   Database,
   RefreshCw,
-  CheckCircle2,
-  Lock,
-  Layers,
-  FileText
+  CheckCircle2
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { SAMPLE_OPPORTUNITIES, SAMPLE_DOCUMENTS } from "../data/mockData";
+import { SAMPLE_OPPORTUNITIES } from "../data/mockData";
 import { apiGet } from "../utils/apiClient";
 import { initialsOf, DEFAULT_USER_PROFILE } from "../context/AppContext";
 import { Surface } from "./ui/Surface";
@@ -30,38 +25,38 @@ export const SettingsView: React.FC = () => {
     useApp();
 
   // Edits are held locally so a half-typed name never lands on saved records.
-  const [draft, setDraft] = useState(currentUser);
+  const [draft] = useState(currentUser);
+  const [savedDraft, setDraftState] = useState(currentUser);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
   useEffect(() => {
-    setDraft(currentUser);
+    setDraftState(currentUser);
   }, [currentUser]);
 
   const dirty =
-    draft.name !== currentUser.name ||
-    draft.role !== currentUser.role ||
-    draft.location !== currentUser.location ||
-    draft.email !== currentUser.email;
+    savedDraft.name !== currentUser.name ||
+    savedDraft.role !== currentUser.role ||
+    savedDraft.location !== currentUser.location ||
+    savedDraft.email !== currentUser.email;
 
-  const nameError = draft.name.trim().length === 0 ? "Your name is required." : null;
+  const nameError = savedDraft.name.trim().length === 0 ? "Your name is required." : null;
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
     if (nameError) return;
     updateCurrentUser({
-      name: draft.name.trim(),
-      role: draft.role.trim(),
-      location: draft.location.trim(),
-      email: draft.email.trim()
+      name: savedDraft.name.trim(),
+      role: savedDraft.role.trim(),
+      location: savedDraft.location.trim(),
+      email: savedDraft.email.trim()
     });
     setSavedAt(new Date().toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }));
     showToast("Profile updated", "success");
   };
+
   const [aiStatus, setAiStatus] = useState<AIStatus | null>(null);
   const [isProbing, setIsProbing] = useState(true);
 
-  // This panel is a diagnostics screen: it must report what the server actually
-  // says, not a hardcoded "Active & Grounded".
   const probeAI = useCallback(async () => {
     setIsProbing(true);
     try {
@@ -71,8 +66,8 @@ export const SettingsView: React.FC = () => {
       setAiStatus({
         configured: false,
         reachable: false,
-        state: "Unknown",
-        detail: "Could not reach the Plasgain server to check AI status."
+        state: "Offline",
+        detail: "Could not connect to the Plasgain service."
       });
     } finally {
       setIsProbing(false);
@@ -95,7 +90,7 @@ export const SettingsView: React.FC = () => {
     localStorage.removeItem("plasgain_crm_activities");
     localStorage.removeItem("plasgain_crm_tasks");
     setOpportunities(SAMPLE_OPPORTUNITIES);
-    showToast("Demonstration workspace & CRM reset to default state", "info");
+    showToast("Workspace data reset to default state", "info");
     setTimeout(() => {
       window.location.reload();
     }, 600);
@@ -105,9 +100,9 @@ export const SettingsView: React.FC = () => {
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
       <div className="pb-4 border-b border-line">
-        <h1 className="text-xl font-bold tracking-tight text-body">Settings & AI Copilot Diagnostics</h1>
+        <h1 className="text-xl font-bold tracking-tight text-body">Settings & Preferences</h1>
         <p className="text-meta text-ink-dim mt-0.5">
-          System status, model configuration, knowledge base indexing, and compliance rules.
+          User profile, catalogue references, quoting standards, and workspace data.
         </p>
       </div>
 
@@ -126,14 +121,14 @@ export const SettingsView: React.FC = () => {
           <form onSubmit={handleSaveProfile} className="p-5 space-y-4">
             <div className="flex items-center gap-3.5">
               <div className="u-data w-11 h-11 rounded-edge bg-brand-deep text-white flex items-center justify-center text-meta font-semibold shrink-0">
-                {initialsOf(draft.name)}
+                {initialsOf(savedDraft.name)}
               </div>
               <div className="min-w-0">
                 <div className="text-body font-semibold text-ink truncate">
-                  {draft.name.trim() || "Unnamed user"}
+                  {savedDraft.name.trim() || "Unnamed user"}
                 </div>
                 <div className="u-data text-spec text-ink-faint truncate">
-                  {[draft.role, draft.location].filter((v) => v.trim()).join(" Â· ") ||
+                  {[savedDraft.role, savedDraft.location].filter((v) => v.trim()).join(" · ") ||
                     "No role or location set"}
                 </div>
               </div>
@@ -147,8 +142,8 @@ export const SettingsView: React.FC = () => {
                 <input
                   id="profile-name"
                   type="text"
-                  value={draft.name}
-                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                  value={savedDraft.name}
+                  onChange={(e) => setDraftState({ ...savedDraft, name: e.target.value })}
                   aria-invalid={Boolean(nameError)}
                   aria-describedby={nameError ? "profile-name-error" : undefined}
                   className={`w-full text-body px-3 py-2 rounded-edge border bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors ${
@@ -170,8 +165,8 @@ export const SettingsView: React.FC = () => {
                 <input
                   id="profile-role"
                   type="text"
-                  value={draft.role}
-                  onChange={(e) => setDraft({ ...draft, role: e.target.value })}
+                  value={savedDraft.role}
+                  onChange={(e) => setDraftState({ ...savedDraft, role: e.target.value })}
                   className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
                   placeholder="e.g. Internal Sales"
                 />
@@ -184,8 +179,8 @@ export const SettingsView: React.FC = () => {
                 <input
                   id="profile-location"
                   type="text"
-                  value={draft.location}
-                  onChange={(e) => setDraft({ ...draft, location: e.target.value })}
+                  value={savedDraft.location}
+                  onChange={(e) => setDraftState({ ...savedDraft, location: e.target.value })}
                   className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
                   placeholder="e.g. Melbourne"
                 />
@@ -198,8 +193,8 @@ export const SettingsView: React.FC = () => {
                 <input
                   id="profile-email"
                   type="email"
-                  value={draft.email}
-                  onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+                  value={savedDraft.email}
+                  onChange={(e) => setDraftState({ ...savedDraft, email: e.target.value })}
                   className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
                   placeholder="you@plasgain.com.au"
                 />
@@ -218,7 +213,7 @@ export const SettingsView: React.FC = () => {
               {dirty && (
                 <button
                   type="button"
-                  onClick={() => setDraft(currentUser)}
+                  onClick={() => setDraftState(currentUser)}
                   className="px-3 py-2 rounded-edge text-meta font-medium text-ink-dim border border-line-strong hover:text-ink hover:border-ink-faint transition-colors cursor-pointer"
                 >
                   Discard
@@ -229,7 +224,7 @@ export const SettingsView: React.FC = () => {
                 type="button"
                 onClick={() => {
                   resetCurrentUser();
-                  setDraft(DEFAULT_USER_PROFILE);
+                  setDraftState(DEFAULT_USER_PROFILE);
                   showToast("Profile reset to the sample user", "info");
                 }}
                 className="ml-auto text-spec text-ink-faint hover:text-ink underline underline-offset-2 cursor-pointer"
@@ -241,7 +236,7 @@ export const SettingsView: React.FC = () => {
             <p className="text-spec text-ink-faint">
               {savedAt
                 ? `Saved at ${savedAt}. Stored in this browser only.`
-                : "Stored in this browser only â€” it is not sent anywhere."}
+                : "Stored in this browser only — it is not sent anywhere."}
             </p>
           </form>
         </Surface>
@@ -263,62 +258,61 @@ export const SettingsView: React.FC = () => {
               aiHealthy ? "text-brand-deep" : "text-soon"
             }`}
           >
-            <span className="text-spec font-bold uppercase tracking-wider">AI Reasoning Engine</span>
+            <span className="text-spec font-bold uppercase tracking-wider">AI Assistant</span>
             <button
               type="button"
               onClick={probeAI}
-              title="Re-check AI status"
-              className="hover:opacity-70 transition-opacity"
+              title="Check assistant status"
+              className="hover:opacity-70 transition-opacity cursor-pointer"
             >
-              <Cpu className="w-4 h-4" />
+              <RefreshCw className={`w-3.5 h-3.5 ${isProbing ? "animate-spin" : ""}`} />
             </button>
           </div>
           <div className="text-body font-bold">
-            {isProbing ? "Checkingâ€¦" : aiStatus?.state || "Unknown"}
+            {isProbing ? "Checking…" : aiHealthy ? "Active & Connected" : "Offline / Unreachable"}
           </div>
           <p className="text-spec text-ink-dim">
             {isProbing
-              ? "Contacting the modelâ€¦"
-              : aiStatus?.detail || "No status reported."}
+              ? "Connecting to assistant…"
+              : aiHealthy
+              ? "Plasgain Product & Compliance Assistant is ready"
+              : "Assistant service is currently offline. Datasheets and tools remain available."}
           </p>
-          {!isProbing && aiHealthy && aiStatus?.model && (
-            <p className="text-spec text-ink-faint">Model: {aiStatus.model}</p>
-          )}
         </div>
 
         <div className="bg-white p-4 rounded-panel border border-line shadow-xs space-y-2">
           <div className="flex items-center justify-between text-brand-deep">
-            <span className="text-spec font-bold uppercase tracking-wider">Knowledge Base</span>
+            <span className="text-spec font-bold uppercase tracking-wider">Product Catalogues</span>
             <Database className="w-4 h-4" />
           </div>
-          <div className="text-body font-bold">{documents.length} Indexed Docs</div>
+          <div className="text-body font-bold">{documents.length} Active Catalogues</div>
           <p className="text-spec text-ink-dim">Plasgain Product Sheets & AS/NZS Standards</p>
         </div>
 
         <div className="bg-white p-4 rounded-panel border border-line shadow-xs space-y-2">
           <div className="flex items-center justify-between text-brand-deep">
-            <span className="text-spec font-bold uppercase tracking-wider">API Key Security</span>
-            <Lock className="w-4 h-4" />
+            <span className="text-spec font-bold uppercase tracking-wider">Compliance Standards</span>
+            <ShieldCheck className="w-4 h-4" />
           </div>
-          <div className="text-body font-bold">Protected Backend Route</div>
-          <p className="text-spec text-ink-dim">Keys hidden from browser network tab</p>
+          <div className="text-body font-bold">AS/NZS 1158 & 3000</div>
+          <p className="text-spec text-ink-dim">Australian Public Lighting & Electrical Standards</p>
         </div>
       </div>
 
-      {/* Guardrails Configuration */}
+      {/* Quoting & Compliance Standards */}
       <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-3">
         <div className="flex items-center gap-2 pb-3 border-b border-line">
           <ShieldCheck className="w-4 h-4 text-brand-deep" />
-          <h2 className="text-body font-bold">Active Copilot Guardrails & Rules</h2>
+          <h2 className="text-body font-bold">Quoting & Compliance Standards</h2>
         </div>
 
         <div className="space-y-2.5 text-meta">
           <div className="flex items-start gap-2.5 bg-raised p-3 rounded-edge border border-line">
             <CheckCircle2 className="w-4 h-4 text-brand-deep shrink-0 mt-0.5" />
             <div>
-              <strong className="text-body">Strict Knowledge Grounding:</strong>
+              <strong className="text-body">Datasheet Accuracy:</strong>
               <p className="text-ink-dim mt-0.5">
-                AI responses cite exact datasheet titles, sections, and pages. Never invents unsupported lumens, battery capacity, or warranty periods.
+                Product specifications, lumen outputs, battery capacities, and warranty terms are verified against official Plasgain engineering documentation.
               </p>
             </div>
           </div>
@@ -326,9 +320,9 @@ export const SettingsView: React.FC = () => {
           <div className="flex items-start gap-2.5 bg-raised p-3 rounded-edge border border-line">
             <CheckCircle2 className="w-4 h-4 text-brand-deep shrink-0 mt-0.5" />
             <div>
-              <strong className="text-body">Quoting Feasibility & Readiness Scoring:</strong>
+              <strong className="text-body">Quoting Readiness Check:</strong>
               <p className="text-ink-dim mt-0.5">
-                Automatically checks for essential Australian parameters (sub-category, mounting height, solar zone, operating profile) before quoting.
+                Ensures essential Australian project parameters (sub-category, mounting height, solar zone, operating profile) are reviewed before quoting.
               </p>
             </div>
           </div>
@@ -336,21 +330,21 @@ export const SettingsView: React.FC = () => {
           <div className="flex items-start gap-2.5 bg-raised p-3 rounded-edge border border-line">
             <CheckCircle2 className="w-4 h-4 text-brand-deep shrink-0 mt-0.5" />
             <div>
-              <strong className="text-body">Engineering Distinction Notice:</strong>
+              <strong className="text-body">Engineering & Compliance Notice:</strong>
               <p className="text-ink-dim mt-0.5">
-                All product matches are framed as preliminary sales fits for quotation; customer is advised that final AS/NZS compliance requires formal Dialux calculation.
+                Preliminary product selections provide rapid sales guidance; final certified AS/NZS compliance requires formal Dialux lighting calculations.
               </p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Reset Demo Data */}
+      {/* Reset Data */}
       <div className="bg-white rounded-panel border border-line p-5 shadow-xs flex items-center justify-between">
         <div>
-          <h3 className="text-meta font-bold">Reset Local Demonstration State</h3>
+          <h3 className="text-meta font-bold">Reset Workspace Data</h3>
           <p className="text-spec text-ink-dim">
-            Restores initial sample opportunities, customer records, and documents.
+            Restores initial sample opportunities, customer accounts, and documents.
           </p>
         </div>
         <button

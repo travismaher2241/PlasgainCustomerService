@@ -12,11 +12,11 @@ describe('SettingsView Component', () => {
       </AppProvider>
     );
 
-    expect(screen.getByText(/Settings & AI Copilot Diagnostics/i)).toBeInTheDocument();
-    expect(screen.getByText(/AI Reasoning Engine/i)).toBeInTheDocument();
-    expect(screen.getByText(/Active Copilot Guardrails & Rules/i)).toBeInTheDocument();
-    expect(screen.getByText(/Strict Knowledge Grounding:/i)).toBeInTheDocument();
-    expect(screen.getByText(/Reset Local Demonstration State/i)).toBeInTheDocument();
+    expect(screen.getByText(/Settings & Preferences/i)).toBeInTheDocument();
+    expect(screen.getByText(/AI Assistant/i)).toBeInTheDocument();
+    expect(screen.getByText(/Quoting & Compliance Standards/i)).toBeInTheDocument();
+    expect(screen.getByText(/Datasheet Accuracy:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Reset Workspace Data/i)).toBeInTheDocument();
   });
 
   it('triggers reset sample data action', () => {

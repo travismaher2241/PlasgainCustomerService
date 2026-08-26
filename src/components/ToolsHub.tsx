@@ -153,7 +153,7 @@ export const ToolsHub: React.FC = () => {
     try {
       const data = await safeFetch("/api/tools/customer-research", { companyName, location });
       setResearchResult(data);
-      showToast("Grounded company intelligence gathered", "success");
+      showToast("Company intelligence gathered", "success");
     } catch (err: any) {
       console.error(err);
       showToast(err.message || "Failed to research customer", "error");
@@ -525,9 +525,9 @@ export const ToolsHub: React.FC = () => {
             <div className="flex items-center justify-between">
               <h2 className="text-body font-bold flex items-center gap-2">
                 <Search className="w-4 h-4 text-brand-deep" />
-                Australian Contractor & Council Intelligence (Search Grounded)
+                Australian Contractor & Council Intelligence
               </h2>
-              <span className="text-meta text-ink-dim">Live Google Search Grounding</span>
+              <span className="text-meta text-ink-dim">Live Web Research</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

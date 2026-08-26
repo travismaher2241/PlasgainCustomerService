@@ -163,8 +163,8 @@ export const CRMTodayWorkspace: React.FC = () => {
                   <Sparkles className="w-4 h-4" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-body">Next Best Actions Engine</h2>
-                  <p className="text-meta text-ink-dim">Transparent AI & rule-grounded recommendations</p>
+                  <h2 className="text-base font-bold text-body">Recommended Next Actions</h2>
+                  <p className="text-meta text-ink-dim">Prioritised sales follow-ups and customer activities</p>
                 </div>
               </div>
               <span className="text-meta font-medium text-hold bg-hold-wash px-2 py-0.5 rounded-full">

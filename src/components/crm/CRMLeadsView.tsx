@@ -272,7 +272,7 @@ export const CRMLeadsView: React.FC = () => {
             <div className="p-4 bg-hold-wash rounded-panel border border-hold space-y-3">
               <div className="flex items-center justify-between text-meta">
                 <span className="font-bold text-hold flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-hold" /> Transparent Lead Scoring Model
+                  <Sparkles className="w-4 h-4 text-hold" /> Lead Qualification Breakdown
                 </span>
                 <span className="font-bold text-hold text-body">{selectedLead.leadScore} / 100</span>
               </div>

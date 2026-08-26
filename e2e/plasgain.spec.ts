@@ -37,7 +37,7 @@ test.describe('Plasgain Customer Service & CRM E2E Test Suite', () => {
 
     // Navigate to Settings
     await page.locator('aside button:has-text("Settings")').click();
-    await expect(page.locator('text=Settings & AI Copilot Diagnostics').first()).toBeVisible();
+    await expect(page.locator('text=Settings & Preferences').first()).toBeVisible();
   });
 
   test('2. CRM Command Centre: Tabs, Accounts, Deals, Leads, and Quick Activity Logging', async ({ page, isMobile }) => {
@@ -158,8 +158,8 @@ test.describe('Plasgain Customer Service & CRM E2E Test Suite', () => {
     await page.goto('/');
     await page.locator('aside button:has-text("Settings")').click();
 
-    await expect(page.locator('text=Settings & AI Copilot Diagnostics').first()).toBeVisible();
-    await expect(page.locator('text=Strict Knowledge Grounding:').first()).toBeVisible();
+    await expect(page.locator('text=Settings & Preferences').first()).toBeVisible();
+    await expect(page.locator('text=Quoting & Compliance Standards').first()).toBeVisible();
 
     // Test reload preserves state
     await page.reload();

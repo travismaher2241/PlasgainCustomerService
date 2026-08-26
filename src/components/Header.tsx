@@ -40,7 +40,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
       case "learn":
         return "Learning Centre";
       case "settings":
-        return "Copilot Diagnostics";
+        return "Settings";
       default:
         return "Workspace";
     }
