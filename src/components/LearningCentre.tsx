@@ -17,8 +17,17 @@ import { useApp } from "../context/AppContext";
 import { LessonTopic, GlossaryTerm } from "../types";
 
 export const LearningCentre: React.FC = () => {
-  const { lessons, glossary, setExplainingTerm, showToast } = useApp();
-  const [activeSection, setActiveSection] = useState<"lessons" | "quiz" | "simulator" | "glossary">("lessons");
+  const {
+    lessons,
+    glossary,
+    setExplainingTerm,
+    showToast,
+    setRawEnquiryInput,
+    navigateToWorkflow
+  } = useApp();
+  const [activeSection, setActiveSection] = useState<
+    "lessons" | "quiz" | "simulator" | "scenarios" | "glossary"
+  >("lessons");
   const [selectedLesson, setSelectedLesson] = useState<LessonTopic>(lessons[0]);
   const [glossarySearch, setGlossarySearch] = useState("");
 
@@ -110,12 +119,19 @@ export const LearningCentre: React.FC = () => {
         })
       });
 
-      if (!res.ok) throw new Error("Simulator error");
+      if (!res.ok) {
+        const failure = await res.json().catch(() => null);
+        throw new Error(
+          res.status === 503 && failure?.degraded
+            ? `AI unavailable — ${failure.detail || "the simulator is offline."}`
+            : failure?.error || "Simulator error"
+        );
+      }
       const data = await res.json();
       setSimMessages([...newHistory, { sender: "customer", text: data.reply }]);
     } catch (err: any) {
       console.error(err);
-      showToast("Simulator error", "error");
+      showToast(err?.message || "Simulator error", "error");
     } finally {
       setIsSimLoading(false);
     }
@@ -191,6 +207,18 @@ export const LearningCentre: React.FC = () => {
         >
           <MessageSquare className="w-3.5 h-3.5" />
           <span>Sales Roleplay Simulator</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSection("scenarios")}
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+            activeSection === "scenarios"
+              ? "bg-emerald-800 text-white shadow-xs"
+              : "bg-stone-100 hover:bg-stone-200 text-stone-700"
+          }`}
+        >
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>Training Scenarios</span>
         </button>
 
         <button
@@ -537,6 +565,151 @@ export const LearningCentre: React.FC = () => {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* 5. TRAINING SCENARIOS & EXAMPLES */}
+      {activeSection === "scenarios" && (
+        <div className="space-y-4">
+          <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs">
+            <div className="flex items-center gap-2 mb-1">
+              <Sparkles className="w-4 h-4 text-emerald-700" />
+              <h3 className="font-bold text-stone-900 text-sm">
+                Practical Australian Lighting Practice Scenarios
+              </h3>
+            </div>
+            <p className="text-xs text-stone-500">
+              Load realistic Australian council and commercial contractor enquiries into the AI Analysis Workspace to test specification extraction, standard compliance evaluation (AS/NZS 1158), and luminaire matching.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Scenario 1: Ballarat */}
+            <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs flex flex-col justify-between space-y-3">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded uppercase">
+                    Solar Pathway
+                  </span>
+                  <span className="text-[11px] text-stone-400 font-medium">Ballarat, VIC</span>
+                </div>
+                <h4 className="font-bold text-stone-900 text-sm">
+                  Ballarat 1.2km Shared Path Upgrade
+                </h4>
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  ABC Civil pricing a 1.2km shared path requiring off-grid solar option due to mains trenching costs. 6m poles, dusk-to-dawn operation.
+                </p>
+                <div className="p-2.5 rounded bg-stone-50 border border-stone-200/80 text-[11px] text-stone-700">
+                  <strong className="text-stone-900">Key Learning:</strong> Identifying missing AS/NZS 1158 subcategory (P4), path width, and battery autonomy survival.
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setRawEnquiryInput({
+                    rawContent:
+                      "We are pricing a new 1.2 km shared pathway in Ballarat and require a solar lighting option. The current drawings indicate 6 m poles. Lighting is expected to operate dusk to dawn. Can you recommend a suitable solution and provide budget pricing? Installation is expected around November.",
+                    customer: "Rob Mitchell",
+                    contact: "rob.mitchell@abccivil.com.au",
+                    company: "ABC Civil Pty Ltd",
+                    project: "Ballarat 1.2km Shared Path Upgrade",
+                    location: "Ballarat, Victoria",
+                    source: "Email"
+                  });
+                  showToast("Loaded Ballarat Shared Path enquiry into workspace", "info");
+                  navigateToWorkflow("new-enquiry");
+                }}
+                className="w-full py-2 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <span>Load into AI Workspace</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Scenario 2: Geelong */}
+            <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs flex flex-col justify-between space-y-3">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-blue-800 bg-blue-100 px-2 py-0.5 rounded uppercase">
+                    Coastal / IK10
+                  </span>
+                  <span className="text-[11px] text-stone-400 font-medium">Geelong, VIC</span>
+                </div>
+                <h4 className="font-bold text-stone-900 text-sm">
+                  Eastern Beach Foreshore Bollards
+                </h4>
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  Council expression of interest for 24x solar pathway bollards. Requires IK10 vandal resistance, zero upward light spill, and 3000K warm white.
+                </p>
+                <div className="p-2.5 rounded bg-stone-50 border border-stone-200/80 text-[11px] text-stone-700">
+                  <strong className="text-stone-900">Key Learning:</strong> Protecting coastal fauna with 3000K CCT and dark sky zero upward light spill requirements.
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setRawEnquiryInput({
+                    rawContent:
+                      "Geelong City Council is seeking expressions of interest for 24x solar pathway bollards for the Eastern Beach foreshore path. Must be vandal resistant (IK10 rated), low-glare with zero upward light spill, and 3000K warm white to suit coastal fauna. Need tender documentation and IES files.",
+                    customer: "Sarah Jenkins",
+                    contact: "sjenkins@geelongcity.vic.gov.au",
+                    company: "City of Greater Geelong",
+                    project: "Eastern Beach Foreshore Reserve Path",
+                    location: "Geelong, Victoria",
+                    source: "Council Tender Portal"
+                  });
+                  showToast("Loaded Geelong Foreshore enquiry into workspace", "info");
+                  navigateToWorkflow("new-enquiry");
+                }}
+                className="w-full py-2 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <span>Load into AI Workspace</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Scenario 3: Monash */}
+            <div className="bg-white rounded-xl border border-stone-200 p-5 shadow-xs flex flex-col justify-between space-y-3">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded uppercase">
+                    Industrial Flood
+                  </span>
+                  <span className="text-[11px] text-stone-400 font-medium">Dandenong, VIC</span>
+                </div>
+                <h4 className="font-bold text-stone-900 text-sm">
+                  Dandenong Transport Depot Heavy Yard
+                </h4>
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  Freight transport depot with overloaded electrical substation. High-output solar floodlighting on 10m-12m poles with 5 nights battery autonomy.
+                </p>
+                <div className="p-2.5 rounded bg-stone-50 border border-stone-200/80 text-[11px] text-stone-700">
+                  <strong className="text-stone-900">Key Learning:</strong> Sizing high-mast solar panels and battery storage for heavy vehicle loading areas.
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  setRawEnquiryInput({
+                    rawContent:
+                      "We have a new freight transport yard in Dandenong South. Substation is at capacity so trenching mains power is too expensive. Need high-output off-grid solar floodlighting on 10m-12m poles to illuminate heavy vehicle loading area. Must have at least 5 nights battery autonomy.",
+                    customer: "David Lee",
+                    contact: "dlee@apexelectrical.com.au",
+                    company: "Apex Electrical Contracting",
+                    project: "Monash Industrial Estate Transport Depot",
+                    location: "Dandenong South, Victoria",
+                    source: "Phone Notes"
+                  });
+                  showToast("Loaded Monash Transport Depot enquiry into workspace", "info");
+                  navigateToWorkflow("new-enquiry");
+                }}
+                className="w-full py-2 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+              >
+                <span>Load into AI Workspace</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       )}

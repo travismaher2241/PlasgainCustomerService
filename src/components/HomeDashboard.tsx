@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useMemo } from "react";
 import {
   FilePlus2,
   SearchCode,
@@ -10,432 +10,769 @@ import {
   AlertCircle,
   CheckCircle2,
   ArrowRight,
-  TrendingUp,
-  ShieldCheck,
   Sparkles,
   Layers,
-  MapPin,
-  Calendar,
   Building,
-  UserCheck
+  Calendar,
+  ChevronDown,
+  Mail,
+  Scale,
+  KanbanSquare,
+  ShieldCheck,
+  TrendingUp,
+  Filter,
+  Check,
+  UserCheck,
+  Briefcase
 } from "lucide-react";
-import { useApp } from "../context/AppContext";
+import { useApp, ToolSubTab } from "../context/AppContext";
+import { Opportunity } from "../types";
+
+export type UserRole = "customer_service" | "sales" | "sales_manager" | "technical";
 
 export const HomeDashboard: React.FC = () => {
   const {
     navigateToWorkflow,
+    navigateToCRM,
     opportunities,
     setSelectedOpportunityId,
-    setRawEnquiryInput,
+    openQuickLog,
     showToast
   } = useApp();
 
-  const handleLoadSample = (sampleType: "ballarat" | "geelong" | "monash") => {
-    if (sampleType === "ballarat") {
-      setRawEnquiryInput({
-        rawContent:
-          "We are pricing a new 1.2 km shared pathway in Ballarat and require a solar lighting option. The current drawings indicate 6 m poles. Lighting is expected to operate dusk to dawn. Can you recommend a suitable solution and provide budget pricing? Installation is expected around November.",
-        customer: "Rob Mitchell",
-        contact: "rob.mitchell@abccivil.com.au",
-        company: "ABC Civil Pty Ltd",
-        project: "Ballarat 1.2km Shared Path Upgrade",
-        location: "Ballarat, Victoria",
-        source: "Email"
-      });
-      showToast("Loaded Ballarat 1.2km Shared Path sample enquiry", "info");
-      navigateToWorkflow("new-enquiry");
-    } else if (sampleType === "geelong") {
-      setRawEnquiryInput({
-        rawContent:
-          "Geelong City Council is seeking expressions of interest for 24x solar pathway bollards for the Eastern Beach foreshore path. Must be vandal resistant (IK10 rated), low-glare with zero upward light spill, and 3000K warm white to suit coastal fauna. Need tender documentation and IES files.",
-        customer: "Sarah Jenkins",
-        contact: "sjenkins@geelongcity.vic.gov.au",
-        company: "City of Greater Geelong",
-        project: "Eastern Beach Foreshore Reserve Path",
-        location: "Geelong, Victoria",
-        source: "Council Tender Portal"
-      });
-      showToast("Loaded Geelong Foreshore Bollards sample enquiry", "info");
-      navigateToWorkflow("new-enquiry");
-    } else if (sampleType === "monash") {
-      setRawEnquiryInput({
-        rawContent:
-          "We have a new freight transport yard in Dandenong South. Substation is at capacity so trenching mains power is too expensive. Need high-output off-grid solar floodlighting on 10m-12m poles to illuminate heavy vehicle loading area. Must have at least 5 nights battery autonomy.",
-        customer: "David Lee",
-        contact: "dlee@apexelectrical.com.au",
-        company: "Apex Electrical Contracting",
-        project: "Monash Industrial Estate Transport Depot",
-        location: "Dandenong South, Victoria",
-        source: "Phone Notes"
-      });
-      showToast("Loaded Monash Transport Depot sample enquiry", "info");
-      navigateToWorkflow("new-enquiry");
+  const [selectedRole, setSelectedRole] = useState<UserRole>("customer_service");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
+  const [isMoreToolsOpen, setIsMoreToolsOpen] = useState(false);
+
+  // Time-aware greeting
+  const greeting = useMemo(() => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good morning";
+    if (hour < 17) return "Good afternoon";
+    return "Good evening";
+  }, []);
+
+  // Category counts based on actual opportunities data
+  const attentionMetrics = useMemo(() => {
+    const quoteDueSoon = opportunities.filter(
+      (o) => o.stage === "Quoting" || o.stage === "Qualifying"
+    );
+    const techReview = opportunities.filter((o) => o.stage === "Technical Review");
+    const waitingCustomer = opportunities.filter(
+      (o) => o.stage === "Awaiting Information" || o.status === "Pending Customer"
+    );
+    const newEnquiries = opportunities.filter((o) => o.stage === "New Enquiry");
+    const followUpOverdue = opportunities.filter((o) => o.stage === "Follow-Up");
+
+    return {
+      quoteDueSoon,
+      techReview,
+      waitingCustomer,
+      newEnquiries,
+      followUpOverdue,
+      totalUrgent:
+        quoteDueSoon.length +
+        techReview.length +
+        waitingCustomer.length +
+        newEnquiries.length +
+        followUpOverdue.length
+    };
+  }, [opportunities]);
+
+  // Priority item scoring & filtering based on role and selected attention filter
+  const priorityItems = useMemo(() => {
+    let list = [...opportunities];
+
+    // Filter by interactive category if clicked
+    if (selectedCategoryFilter === "quote-due") {
+      list = attentionMetrics.quoteDueSoon;
+    } else if (selectedCategoryFilter === "tech-review") {
+      list = attentionMetrics.techReview;
+    } else if (selectedCategoryFilter === "waiting-customer") {
+      list = attentionMetrics.waitingCustomer;
+    } else if (selectedCategoryFilter === "new-enquiries") {
+      list = attentionMetrics.newEnquiries;
+    } else if (selectedCategoryFilter === "follow-up") {
+      list = attentionMetrics.followUpOverdue;
+    }
+
+    // Role-specific sorting & weighting
+    return list.sort((a, b) => {
+      if (selectedRole === "customer_service") {
+        // Customer Service prioritises: new enquiries, waiting on info/specs, follow-ups
+        const stageWeight = (stage: string) => {
+          if (stage === "New Enquiry") return 5;
+          if (stage === "Awaiting Information") return 4;
+          if (stage === "Follow-Up") return 3;
+          if (stage === "Quoting") return 2;
+          return 1;
+        };
+        return stageWeight(b.stage) - stageWeight(a.stage);
+      }
+
+      if (selectedRole === "sales") {
+        // Sales prioritises: quote deadlines, hot deals, overdue actions
+        const aDeadline = a.quoteDeadline ? new Date(a.quoteDeadline).getTime() : Infinity;
+        const bDeadline = b.quoteDeadline ? new Date(b.quoteDeadline).getTime() : Infinity;
+        return aDeadline - bDeadline;
+      }
+
+      if (selectedRole === "sales_manager") {
+        // Sales Manager prioritises: highest value, quote deadlines, stalled deals
+        return (b.estimatedValue || 0) - (a.estimatedValue || 0);
+      }
+
+      if (selectedRole === "technical") {
+        // Technical prioritises: Technical Review stages, complex applications
+        const isTechA = a.stage === "Technical Review" ? 10 : 0;
+        const isTechB = b.stage === "Technical Review" ? 10 : 0;
+        return isTechB - isTechA;
+      }
+
+      return 0;
+    }).slice(0, 4);
+  }, [opportunities, selectedCategoryFilter, selectedRole, attentionMetrics]);
+
+  const toggleCategoryFilter = (filterKey: string) => {
+    setSelectedCategoryFilter((prev) => (prev === filterKey ? null : filterKey));
+  };
+
+  const handleOpenOpportunity = (oppId: string) => {
+    setSelectedOpportunityId(oppId);
+    navigateToWorkflow("opportunities", undefined, oppId);
+  };
+
+  const handlePrepCall = (oppId: string) => {
+    setSelectedOpportunityId(oppId);
+    navigateToWorkflow("tools", "call-prep", oppId);
+  };
+
+  const handleReviewQuote = (oppId: string) => {
+    setSelectedOpportunityId(oppId);
+    navigateToWorkflow("tools", "quote-review", oppId);
+  };
+
+  const handleFollowUp = (opp: Opportunity) => {
+    setSelectedOpportunityId(opp.id);
+    openQuickLog("follow_up", undefined, opp.id);
+  };
+
+  // Helper to format due date readable
+  const formatDeadline = (dateStr?: string) => {
+    if (!dateStr) return null;
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+    } catch {
+      return dateStr;
     }
   };
 
-  // Action centre counts
-  const needsFollowUpCount = opportunities.filter((o) => o.stage === "Follow-Up").length;
-  const waitingCustomerCount = opportunities.filter((o) => o.stage === "Awaiting Information").length;
-  const quoteDueSoonCount = opportunities.filter((o) => o.stage === "Quoting" || o.stage === "Qualifying").length;
-  const techReviewCount = opportunities.filter((o) => o.stage === "Technical Review").length;
-  const newEnquiriesCount = opportunities.filter((o) => o.stage === "New Enquiry").length;
-
   return (
-    <div className="space-y-6">
-      {/* Top Greeting & Command Bar - Editorial Slate & Emerald */}
-      <div className="bg-[#0F172A] rounded-xl p-6 sm:p-8 text-white shadow-sm border border-slate-800">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="space-y-1.5">
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-              Internal Sales Workspace
-            </h1>
-            <p className="text-slate-300 text-xs sm:text-sm max-w-2xl leading-relaxed">
-              Analyse messy customer enquiries, match Plasgain solar & commercial luminaires, identify missing parameters, and generate professional responses grounded in official documentation.
+    <div className="space-y-5 max-w-7xl mx-auto">
+      {/* 1. COMPACT GREETING & COMMAND HEADER */}
+      <div className="bg-white rounded-xl border border-slate-200/90 p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg sm:text-xl font-bold tracking-tight text-slate-900">
+                {greeting}, <span className="text-emerald-800">Sarah</span>
+              </h1>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                Customer Service Command Centre
+              </span>
+            </div>
+            <p className="text-xs text-slate-500">
+              {attentionMetrics.totalUrgent > 0
+                ? `You have ${attentionMetrics.totalUrgent} item${attentionMetrics.totalUrgent === 1 ? "" : "s"} requiring immediate action today.`
+                : "All enquiries and quotations are currently up to date."}
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2.5 sm:self-start md:self-center">
-            <button
-              onClick={() => navigateToWorkflow("crm")}
-              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2.5 rounded-md text-xs transition-all shadow-xs flex items-center gap-2 cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4 text-emerald-950" />
-              <span>Open Sales CRM</span>
-            </button>
-            <button
-              onClick={() => navigateToWorkflow("new-enquiry")}
-              className="bg-emerald-700 hover:bg-emerald-600 text-white font-medium px-4 py-2.5 rounded-md text-xs transition-all shadow-xs flex items-center gap-2 cursor-pointer"
-            >
-              <FilePlus2 className="w-4 h-4 text-emerald-200" />
-              <span>Analyse New Enquiry</span>
-            </button>
-            <button
-              onClick={() => navigateToWorkflow("product-finder")}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium px-4 py-2.5 rounded-md text-xs transition-all border border-slate-700 flex items-center gap-2 cursor-pointer"
-            >
-              <SearchCode className="w-4 h-4 text-slate-300" />
-              <span>Product Finder</span>
-            </button>
+          {/* Role Filter Selector */}
+          <div className="flex items-center gap-2 self-start sm:self-center">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider hidden md:inline">
+              View Lens:
+            </span>
+            <div className="inline-flex rounded-lg bg-slate-100 p-0.5 border border-slate-200">
+              <button
+                onClick={() => setSelectedRole("customer_service")}
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                  selectedRole === "customer_service"
+                    ? "bg-white text-emerald-950 font-semibold shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Customer Service
+              </button>
+              <button
+                onClick={() => setSelectedRole("sales")}
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                  selectedRole === "sales"
+                    ? "bg-white text-emerald-950 font-semibold shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Sales
+              </button>
+              <button
+                onClick={() => setSelectedRole("technical")}
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                  selectedRole === "technical"
+                    ? "bg-white text-emerald-950 font-semibold shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Technical
+              </button>
+              <button
+                onClick={() => setSelectedRole("sales_manager")}
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                  selectedRole === "sales_manager"
+                    ? "bg-white text-emerald-950 font-semibold shadow-2xs"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                Manager
+              </button>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* Quick Launcher Actions */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3 mt-6 pt-6 border-t border-slate-800">
+      {/* 2. WHAT NEEDS MY ATTENTION RIGHT NOW (Interactive Category Chips) */}
+      <section aria-labelledby="needs-attention-heading" className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2
+              id="needs-attention-heading"
+              className="text-xs font-bold uppercase tracking-wider text-slate-600 flex items-center gap-1.5"
+            >
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+              Needs Attention
+            </h2>
+            {selectedCategoryFilter && (
+              <button
+                onClick={() => setSelectedCategoryFilter(null)}
+                className="text-[11px] text-emerald-700 hover:underline font-semibold cursor-pointer"
+              >
+                (Clear filter)
+              </button>
+            )}
+          </div>
+          <span className="text-[11px] text-slate-400 font-medium">Tap category to filter priority list</span>
+        </div>
+
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* Quote Due Soon */}
+          {attentionMetrics.quoteDueSoon.length > 0 ? (
+            <button
+              onClick={() => toggleCategoryFilter("quote-due")}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+                selectedCategoryFilter === "quote-due"
+                  ? "bg-rose-100 border-rose-400 text-rose-900 ring-2 ring-rose-300/50"
+                  : "bg-rose-50/80 hover:bg-rose-100/80 border-rose-200 text-rose-800"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-rose-600"></span>
+              <span>Quote due soon</span>
+              <span className="bg-rose-200/80 text-rose-900 px-1.5 py-0.2 rounded-md text-[11px] font-black">
+                {attentionMetrics.quoteDueSoon.length}
+              </span>
+            </button>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100/70 border border-slate-200 text-slate-500 text-xs font-medium">
+              <Check className="w-3 h-3 text-emerald-600" />
+              <span>No quotes due</span>
+            </span>
+          )}
+
+          {/* Technical Review */}
+          {attentionMetrics.techReview.length > 0 ? (
+            <button
+              onClick={() => toggleCategoryFilter("tech-review")}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+                selectedCategoryFilter === "tech-review"
+                  ? "bg-purple-100 border-purple-400 text-purple-900 ring-2 ring-purple-300/50"
+                  : "bg-purple-50/80 hover:bg-purple-100/80 border-purple-200 text-purple-800"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-purple-600"></span>
+              <span>Technical review</span>
+              <span className="bg-purple-200/80 text-purple-900 px-1.5 py-0.2 rounded-md text-[11px] font-black">
+                {attentionMetrics.techReview.length}
+              </span>
+            </button>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100/70 border border-slate-200 text-slate-500 text-xs font-medium">
+              <Check className="w-3 h-3 text-emerald-600" />
+              <span>No tech review backlog</span>
+            </span>
+          )}
+
+          {/* Waiting for Customer */}
+          {attentionMetrics.waitingCustomer.length > 0 ? (
+            <button
+              onClick={() => toggleCategoryFilter("waiting-customer")}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+                selectedCategoryFilter === "waiting-customer"
+                  ? "bg-blue-100 border-blue-400 text-blue-900 ring-2 ring-blue-300/50"
+                  : "bg-blue-50/80 hover:bg-blue-100/80 border-blue-200 text-blue-800"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+              <span>Waiting for customer</span>
+              <span className="bg-blue-200/80 text-blue-900 px-1.5 py-0.2 rounded-md text-[11px] font-black">
+                {attentionMetrics.waitingCustomer.length}
+              </span>
+            </button>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100/70 border border-slate-200 text-slate-500 text-xs font-medium">
+              <Check className="w-3 h-3 text-emerald-600" />
+              <span>No pending specs</span>
+            </span>
+          )}
+
+          {/* New Enquiries */}
+          {attentionMetrics.newEnquiries.length > 0 ? (
+            <button
+              onClick={() => toggleCategoryFilter("new-enquiries")}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+                selectedCategoryFilter === "new-enquiries"
+                  ? "bg-emerald-100 border-emerald-400 text-emerald-950 ring-2 ring-emerald-300/50"
+                  : "bg-emerald-50/80 hover:bg-emerald-100/80 border-emerald-200 text-emerald-800"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-600"></span>
+              <span>New enquiries</span>
+              <span className="bg-emerald-200 text-emerald-950 px-1.5 py-0.2 rounded-md text-[11px] font-black">
+                {attentionMetrics.newEnquiries.length}
+              </span>
+            </button>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100/70 border border-slate-200 text-slate-500 text-xs font-medium">
+              <Check className="w-3 h-3 text-emerald-600" />
+              <span>No new enquiries</span>
+            </span>
+          )}
+
+          {/* Follow-up Overdue */}
+          {attentionMetrics.followUpOverdue.length > 0 ? (
+            <button
+              onClick={() => toggleCategoryFilter("follow-up")}
+              className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${
+                selectedCategoryFilter === "follow-up"
+                  ? "bg-amber-100 border-amber-400 text-amber-950 ring-2 ring-amber-300/50"
+                  : "bg-amber-50/80 hover:bg-amber-100/80 border-amber-200 text-amber-800"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-amber-600"></span>
+              <span>Follow-up due</span>
+              <span className="bg-amber-200 text-amber-950 px-1.5 py-0.2 rounded-md text-[11px] font-black">
+                {attentionMetrics.followUpOverdue.length}
+              </span>
+            </button>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-slate-100/70 border border-slate-200 text-slate-500 text-xs font-medium">
+              <Check className="w-3 h-3 text-emerald-600" />
+              <span>No overdue follow-ups</span>
+            </span>
+          )}
+        </div>
+      </section>
+
+      {/* 3. YOUR PRIORITY ACTIONS (Clean, Actionable Triage Cards) */}
+      <section aria-labelledby="priority-actions-heading" className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <h2
+              id="priority-actions-heading"
+              className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5"
+            >
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+              Your Priority Actions
+            </h2>
+            <span className="text-[11px] font-semibold text-slate-500">
+              ({priorityItems.length} {priorityItems.length === 1 ? "record" : "records"})
+            </span>
+          </div>
+
+          <button
+            onClick={() => navigateToWorkflow("opportunities")}
+            className="text-xs font-semibold text-emerald-800 hover:text-emerald-950 flex items-center gap-1 cursor-pointer transition-colors"
+          >
+            <span>View all pipeline</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {priorityItems.length > 0 ? (
+          <div className="space-y-2.5">
+            {priorityItems.map((opp) => {
+              const deadlineFormatted = formatDeadline(opp.quoteDeadline);
+              const isDueSoon = opp.stage === "Quoting" || opp.stage === "Qualifying";
+              const isWaiting = opp.stage === "Awaiting Information";
+              const isTech = opp.stage === "Technical Review";
+              const isNew = opp.stage === "New Enquiry";
+              const isFollowUp = opp.stage === "Follow-Up";
+
+              return (
+                <div
+                  key={opp.id}
+                  className="bg-white rounded-xl border border-slate-200/90 hover:border-emerald-500/80 p-4 transition-all duration-150 shadow-xs hover:shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 group"
+                >
+                  {/* Left content: Answers What, Who, Why, Due, Next Action */}
+                  <div className="space-y-1.5 min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-slate-900 text-sm tracking-tight group-hover:text-emerald-900 transition-colors truncate">
+                        {opp.project}
+                      </span>
+
+                      {/* Status chip */}
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 ${
+                          isDueSoon
+                            ? "bg-rose-100 text-rose-800 border border-rose-200"
+                            : isWaiting
+                            ? "bg-blue-100 text-blue-800 border border-blue-200"
+                            : isTech
+                            ? "bg-purple-100 text-purple-800 border border-purple-200"
+                            : isNew
+                            ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                            : isFollowUp
+                            ? "bg-amber-100 text-amber-800 border border-amber-200"
+                            : "bg-slate-100 text-slate-700 border border-slate-200"
+                        }`}
+                      >
+                        {opp.stage}
+                        {deadlineFormatted && (
+                          <span className="opacity-90 font-medium">· Due {deadlineFormatted}</span>
+                        )}
+                      </span>
+
+                      {opp.estimatedValue > 0 && (
+                        <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200/50">
+                          ${opp.estimatedValue.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Customer & Company Details */}
+                    <div className="flex items-center gap-2 text-xs text-slate-600 flex-wrap">
+                      <span className="font-medium text-slate-800">{opp.customerCompany}</span>
+                      <span className="text-slate-300">•</span>
+                      <span className="text-slate-600">{opp.contactName}</span>
+                      {opp.location && (
+                        <>
+                          <span className="text-slate-300">•</span>
+                          <span className="text-slate-500">{opp.location}</span>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Next Action */}
+                    {opp.nextAction && (
+                      <div className="text-xs text-slate-700 flex items-baseline gap-1.5 pt-0.5">
+                        <span className="font-bold text-slate-900 shrink-0">Next:</span>
+                        <span className="text-slate-800 line-clamp-1">{opp.nextAction}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Actions: Primary Open + Contextual Secondary */}
+                  <div className="flex items-center gap-2 shrink-0 self-end md:self-center pt-2 md:pt-0 border-t md:border-t-0 border-slate-100 w-full md:w-auto justify-end">
+                    {/* Contextual Action: Prep Call */}
+                    <button
+                      onClick={() => handlePrepCall(opp.id)}
+                      className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer flex items-center gap-1.5"
+                      title="Prepare AI call script & questions"
+                    >
+                      <PhoneCall className="w-3 h-3 text-slate-500" />
+                      <span>Prep Call</span>
+                    </button>
+
+                    {/* Contextual Action: Review Quote or Follow Up */}
+                    {isDueSoon ? (
+                      <button
+                        onClick={() => handleReviewQuote(opp.id)}
+                        className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer hidden sm:flex items-center gap-1.5"
+                        title="Review quote parameters against specs"
+                      >
+                        <ClipboardCheck className="w-3 h-3 text-slate-500" />
+                        <span>Review</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleFollowUp(opp)}
+                        className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer hidden sm:flex items-center gap-1.5"
+                        title="Log or schedule follow-up"
+                      >
+                        <Mail className="w-3 h-3 text-slate-500" />
+                        <span>Follow-up</span>
+                      </button>
+                    )}
+
+                    {/* Primary Action: Open */}
+                    <button
+                      onClick={() => handleOpenOpportunity(opp.id)}
+                      className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 transition-colors cursor-pointer shadow-2xs flex items-center gap-1"
+                    >
+                      <span>Open</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* Calm Empty State */
+          <div className="bg-emerald-50/40 border border-emerald-200/60 rounded-xl p-6 text-center space-y-2">
+            <div className="w-9 h-9 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+            <h3 className="font-bold text-sm text-slate-900">You&apos;re up to date</h3>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              {selectedCategoryFilter
+                ? `No records found under the current "${selectedCategoryFilter}" filter.`
+                : "No urgent priority records requiring triage right now. Use Quick Actions below to start a new task or explore pipeline opportunities."}
+            </p>
+            {selectedCategoryFilter && (
+              <button
+                onClick={() => setSelectedCategoryFilter(null)}
+                className="text-xs text-emerald-800 font-bold hover:underline cursor-pointer pt-1"
+              >
+                Clear filter & show all items
+              </button>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* 4. COMPACT QUICK ACTIONS ROW */}
+      <section aria-labelledby="quick-actions-heading" className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2
+            id="quick-actions-heading"
+            className="text-xs font-bold uppercase tracking-wider text-slate-700"
+          >
+            Quick Actions
+          </h2>
+          <span className="text-[11px] text-slate-400 font-medium">Common operational workflows</span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2.5">
+          {/* Action 1: New Enquiry */}
           <button
             onClick={() => navigateToWorkflow("new-enquiry")}
-            className="flex flex-col items-center justify-center p-3 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-emerald-700/50 text-left transition-all text-slate-200 hover:text-white cursor-pointer group"
+            className="p-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/90 hover:border-emerald-400 text-left transition-all cursor-pointer group shadow-2xs flex flex-col justify-between min-h-[74px]"
           >
-            <FilePlus2 className="w-4 h-4 mb-1.5 text-emerald-400 group-hover:scale-110 transition-transform" />
-            <span className="text-xs font-semibold text-center">New Enquiry</span>
+            <div className="flex items-center justify-between">
+              <div className="p-1.5 rounded-lg bg-emerald-100 text-emerald-800 group-hover:scale-105 transition-transform">
+                <FilePlus2 className="w-4 h-4" />
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all" />
+            </div>
+            <div className="mt-1">
+              <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-950">New Enquiry</div>
+              <div className="text-[10px] text-slate-500 truncate">Analyse customer specifications</div>
+            </div>
           </button>
 
+          {/* Action 2: Find Product */}
           <button
             onClick={() => navigateToWorkflow("product-finder")}
-            className="flex flex-col items-center justify-center p-3 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-emerald-700/50 text-left transition-all text-slate-200 hover:text-white cursor-pointer group"
+            className="p-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/90 hover:border-emerald-400 text-left transition-all cursor-pointer group shadow-2xs flex flex-col justify-between min-h-[74px]"
           >
-            <SearchCode className="w-4 h-4 mb-1.5 text-emerald-400 group-hover:scale-110 transition-transform" />
-            <span className="text-xs font-semibold text-center">Find Product</span>
+            <div className="flex items-center justify-between">
+              <div className="p-1.5 rounded-lg bg-blue-100 text-blue-800 group-hover:scale-105 transition-transform">
+                <SearchCode className="w-4 h-4" />
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all" />
+            </div>
+            <div className="mt-1">
+              <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-950">Find Product</div>
+              <div className="text-[10px] text-slate-500 truncate">Match solar & commercial luminaires</div>
+            </div>
           </button>
 
-          <button
-            onClick={() => navigateToWorkflow("documents")}
-            className="flex flex-col items-center justify-center p-3 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-emerald-700/50 text-left transition-all text-slate-200 hover:text-white cursor-pointer group"
-          >
-            <BookOpen className="w-4 h-4 mb-1.5 text-emerald-400 group-hover:scale-110 transition-transform" />
-            <span className="text-xs font-semibold text-center">Catalogues</span>
-          </button>
-
+          {/* Action 3: Analyse Tender */}
           <button
             onClick={() => navigateToWorkflow("tools", "tender-analyser")}
-            className="flex flex-col items-center justify-center p-3 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-emerald-700/50 text-left transition-all text-slate-200 hover:text-white cursor-pointer group"
+            className="p-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/90 hover:border-emerald-400 text-left transition-all cursor-pointer group shadow-2xs flex flex-col justify-between min-h-[74px]"
           >
-            <FileText className="w-4 h-4 mb-1.5 text-emerald-400 group-hover:scale-110 transition-transform" />
-            <span className="text-xs font-semibold text-center">Analyse Tender</span>
+            <div className="flex items-center justify-between">
+              <div className="p-1.5 rounded-lg bg-purple-100 text-purple-800 group-hover:scale-105 transition-transform">
+                <FileText className="w-4 h-4" />
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all" />
+            </div>
+            <div className="mt-1">
+              <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-950">Analyse Tender</div>
+              <div className="text-[10px] text-slate-500 truncate">Extract council RFQ standards</div>
+            </div>
           </button>
 
+          {/* Action 4: Prepare Call */}
           <button
             onClick={() => navigateToWorkflow("tools", "call-prep", "opp-001")}
-            className="flex flex-col items-center justify-center p-3 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-emerald-700/50 text-left transition-all text-slate-200 hover:text-white cursor-pointer group"
+            className="p-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-200/90 hover:border-emerald-400 text-left transition-all cursor-pointer group shadow-2xs flex flex-col justify-between min-h-[74px]"
           >
-            <PhoneCall className="w-4 h-4 mb-1.5 text-emerald-400 group-hover:scale-110 transition-transform" />
-            <span className="text-xs font-semibold text-center">Prepare Call</span>
+            <div className="flex items-center justify-between">
+              <div className="p-1.5 rounded-lg bg-amber-100 text-amber-800 group-hover:scale-105 transition-transform">
+                <PhoneCall className="w-4 h-4" />
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-emerald-700 group-hover:translate-x-0.5 transition-all" />
+            </div>
+            <div className="mt-1">
+              <div className="text-xs font-bold text-slate-900 group-hover:text-emerald-950">Prepare Call</div>
+              <div className="text-[10px] text-slate-500 truncate">Generate customer talking points</div>
+            </div>
           </button>
 
-          <button
-            onClick={() => navigateToWorkflow("tools", "quote-review")}
-            className="flex flex-col items-center justify-center p-3 rounded-lg bg-slate-900/90 hover:bg-slate-800 border border-slate-800 hover:border-emerald-700/50 text-left transition-all text-slate-200 hover:text-white cursor-pointer group"
-          >
-            <ClipboardCheck className="w-4 h-4 mb-1.5 text-emerald-400 group-hover:scale-110 transition-transform" />
-            <span className="text-xs font-semibold text-center">Review Quote</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Action Centre Section */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2 uppercase tracking-wide">
-            <TrendingUp className="w-4 h-4 text-emerald-600" />
-            Action Centre — What Needs Your Attention
-          </h2>
-          <span className="text-xs text-slate-400 font-medium">Updated live</span>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {/* Card 1 */}
-          <div
-            onClick={() => navigateToWorkflow("opportunities")}
-            className="bg-white p-4 rounded-xl border border-slate-200 hover:border-emerald-400 hover:shadow-xs transition-all cursor-pointer group"
-          >
-            <div className="flex items-center justify-between text-amber-700 mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Needs Follow-Up</span>
-              <Clock className="w-3.5 h-3.5" />
-            </div>
-            <div className="text-2xl font-black text-slate-900 group-hover:text-emerald-700">
-              {needsFollowUpCount}
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1">Active quotes awaiting feedback</p>
-          </div>
-
-          {/* Card 2 */}
-          <div
-            onClick={() => navigateToWorkflow("opportunities")}
-            className="bg-white p-4 rounded-xl border border-slate-200 hover:border-emerald-400 hover:shadow-xs transition-all cursor-pointer group"
-          >
-            <div className="flex items-center justify-between text-blue-700 mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Waiting for Customer</span>
-              <AlertCircle className="w-3.5 h-3.5" />
-            </div>
-            <div className="text-2xl font-black text-slate-900 group-hover:text-emerald-700">
-              {waitingCustomerCount}
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1">Pending missing specs before quoting</p>
-          </div>
-
-          {/* Card 3 */}
-          <div
-            onClick={() => navigateToWorkflow("opportunities")}
-            className="bg-white p-4 rounded-xl border border-slate-200 hover:border-emerald-400 hover:shadow-xs transition-all cursor-pointer group"
-          >
-            <div className="flex items-center justify-between text-rose-700 mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Quote Due Soon</span>
-              <Calendar className="w-3.5 h-3.5" />
-            </div>
-            <div className="text-2xl font-black text-slate-900 group-hover:text-emerald-700">
-              {quoteDueSoonCount}
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1">Deadlines within 5 business days</p>
-          </div>
-
-          {/* Card 4 */}
-          <div
-            onClick={() => navigateToWorkflow("opportunities")}
-            className="bg-white p-4 rounded-xl border border-slate-200 hover:border-emerald-400 hover:shadow-xs transition-all cursor-pointer group"
-          >
-            <div className="flex items-center justify-between text-purple-700 mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider">Technical Review</span>
-              <Layers className="w-3.5 h-3.5" />
-            </div>
-            <div className="text-2xl font-black text-slate-900 group-hover:text-emerald-700">
-              {techReviewCount}
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1">Awaiting Dialux photometric check</p>
-          </div>
-
-          {/* Card 5 */}
-          <div
-            onClick={() => navigateToWorkflow("opportunities")}
-            className="bg-white p-4 rounded-xl border border-slate-200 hover:border-emerald-400 hover:shadow-xs transition-all cursor-pointer group col-span-2 sm:col-span-1"
-          >
-            <div className="flex items-center justify-between text-emerald-700 mb-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider">New Enquiries</span>
-              <CheckCircle2 className="w-3.5 h-3.5" />
-            </div>
-            <div className="text-2xl font-black text-slate-900 group-hover:text-emerald-700">
-              {newEnquiriesCount}
-            </div>
-            <p className="text-[11px] text-slate-500 mt-1">Unprocessed emails & tenders</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Grid: Today's Priorities & Sample Demo Scenarios */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Today's Priorities (2 cols) */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
-            <div>
-              <h3 className="font-bold text-slate-900 text-sm">Today&apos;s Priority Pipeline Actions</h3>
-              <p className="text-xs text-slate-500">Sorted by quotation deadline, opportunity value, and missing info status</p>
-            </div>
+          {/* Action 5: More Tools Dropdown Trigger */}
+          <div className="relative col-span-2 sm:col-span-4 lg:col-span-1">
             <button
-              onClick={() => navigateToWorkflow("opportunities")}
-              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 cursor-pointer"
+              onClick={() => setIsMoreToolsOpen(!isMoreToolsOpen)}
+              className="w-full h-full p-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 hover:border-slate-300 text-left transition-all cursor-pointer group shadow-2xs flex flex-col justify-between min-h-[74px]"
             >
-              <span>View All Pipeline</span>
-              <ArrowRight className="w-3.5 h-3.5" />
+              <div className="flex items-center justify-between">
+                <div className="p-1.5 rounded-lg bg-slate-200 text-slate-700 group-hover:scale-105 transition-transform">
+                  <Briefcase className="w-4 h-4" />
+                </div>
+                <ChevronDown
+                  className={`w-3.5 h-3.5 text-slate-500 transition-transform duration-200 ${
+                    isMoreToolsOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </div>
+              <div className="mt-1">
+                <div className="text-xs font-bold text-slate-800">More Tools</div>
+                <div className="text-[10px] text-slate-500 truncate">Catalogues, CRM, Quote Review...</div>
+              </div>
             </button>
-          </div>
 
-          <div className="space-y-3">
-            {opportunities.slice(0, 4).map((opp) => (
-              <div
-                key={opp.id}
-                className="p-3.5 rounded-lg border border-slate-200 hover:border-emerald-300 bg-slate-50/50 hover:bg-emerald-50/20 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900 text-xs sm:text-sm">{opp.project}</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-700">
-                      {opp.stage}
-                    </span>
-                    {opp.estimatedValue && (
-                      <span className="text-xs font-bold text-emerald-700">
-                        ${opp.estimatedValue.toLocaleString()}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-                    <span className="flex items-center gap-1">
-                      <Building className="w-3 h-3 text-slate-400" />
-                      {opp.customerCompany} ({opp.contactName})
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-slate-400" />
-                      {opp.location}
-                    </span>
-                    {opp.quoteDeadline && (
-                      <span className="flex items-center gap-1 text-amber-800 font-medium">
-                        <Clock className="w-3 h-3 text-amber-600" />
-                        Due: {opp.quoteDeadline}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="text-xs text-slate-700 pt-1">
-                    <span className="font-semibold text-slate-900">Next Action:</span> {opp.nextAction}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                  <button
-                    onClick={() => {
-                      setSelectedOpportunityId(opp.id);
-                      navigateToWorkflow("tools", "call-prep", opp.id);
-                    }}
-                    className="text-xs font-medium px-2.5 py-1.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer border border-slate-200"
-                  >
-                    Prep Call
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedOpportunityId(opp.id);
-                      navigateToWorkflow("opportunities", undefined, opp.id);
-                    }}
-                    className="text-xs font-medium px-3 py-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white transition-colors cursor-pointer shadow-2xs"
-                  >
-                    Open
-                  </button>
-                </div>
+            {/* Dropdown Menu */}
+            {isMoreToolsOpen && (
+              <div className="absolute right-0 bottom-full lg:bottom-auto lg:top-full mb-1 lg:mb-0 lg:mt-1 z-30 w-56 bg-white rounded-xl shadow-lg border border-slate-200 py-1.5 animate-in fade-in zoom-in-95 duration-150">
+                <button
+                  onClick={() => {
+                    setIsMoreToolsOpen(false);
+                    navigateToWorkflow("documents");
+                  }}
+                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-emerald-900 flex items-center gap-2.5 cursor-pointer"
+                >
+                  <BookOpen className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Product Catalogues & PDFs</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setIsMoreToolsOpen(false);
+                    navigateToWorkflow("tools", "quote-review");
+                  }}
+                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-emerald-900 flex items-center gap-2.5 cursor-pointer"
+                >
+                  <ClipboardCheck className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Review Quote Accuracy</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setIsMoreToolsOpen(false);
+                    navigateToWorkflow("crm");
+                  }}
+                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-emerald-900 flex items-center gap-2.5 cursor-pointer"
+                >
+                  <KanbanSquare className="w-3.5 h-3.5 text-slate-400" />
+                  <span>CRM Command Centre</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setIsMoreToolsOpen(false);
+                    navigateToWorkflow("tools", "customer-research");
+                  }}
+                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-emerald-900 flex items-center gap-2.5 cursor-pointer"
+                >
+                  <Building className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Customer Intelligence</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setIsMoreToolsOpen(false);
+                    navigateToWorkflow("tools", "product-comparison");
+                  }}
+                  className="w-full px-3.5 py-2 text-left text-xs font-medium text-slate-700 hover:bg-slate-50 hover:text-emerald-900 flex items-center gap-2.5 cursor-pointer"
+                >
+                  <Scale className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Product Comparison</span>
+                </button>
               </div>
-            ))}
+            )}
           </div>
         </div>
+      </section>
 
-        {/* Quick Sample Enquiries & Testing Suite (1 col) */}
-        <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="p-1.5 bg-emerald-100 text-emerald-800 rounded-md">
-                <Sparkles className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="font-bold text-slate-900 text-sm">Demo Enquiry Scenarios</h3>
-                <p className="text-xs text-slate-500">Test AI analysis with preloaded Australian enquiries</p>
-              </div>
-            </div>
+      {/* 5. WORKLOAD & PIPELINE OVERVIEW (Quiet, Grounded Context) */}
+      <section aria-labelledby="pipeline-overview-heading" className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2
+            id="pipeline-overview-heading"
+            className="text-xs font-bold uppercase tracking-wider text-slate-700"
+          >
+            Pipeline & Workload Overview
+          </h2>
+          <button
+            onClick={() => navigateToWorkflow("crm")}
+            className="text-xs font-semibold text-emerald-800 hover:underline cursor-pointer"
+          >
+            Open Full CRM &rarr;
+          </button>
+        </div>
 
-            <div className="space-y-2.5">
-              {/* Sample 1: Ballarat */}
-              <button
-                onClick={() => handleLoadSample("ballarat")}
-                className="w-full text-left p-3 rounded-lg border border-slate-200 hover:border-emerald-400 bg-slate-50 hover:bg-emerald-50/40 transition-all cursor-pointer group"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-slate-900 group-hover:text-emerald-900">
-                    Ballarat 1.2km Shared Path
-                  </span>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">
-                    Solar / Council
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600 line-clamp-2">
-                  "We are pricing a new 1.2 km shared pathway in Ballarat and require a solar lighting option. 6m poles, dusk-to-dawn..."
-                </p>
-                <span className="text-[11px] text-emerald-700 font-semibold mt-1.5 inline-flex items-center gap-1 group-hover:underline">
-                  Load into Enquiry Workspace &rarr;
-                </span>
-              </button>
-
-              {/* Sample 2: Geelong */}
-              <button
-                onClick={() => handleLoadSample("geelong")}
-                className="w-full text-left p-3 rounded-lg border border-slate-200 hover:border-emerald-400 bg-slate-50 hover:bg-emerald-50/40 transition-all cursor-pointer group"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-slate-900 group-hover:text-emerald-900">
-                    Geelong Foreshore Bollards
-                  </span>
-                  <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
-                    Vandal IK10 / 3000K
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600 line-clamp-2">
-                  "24x solar pathway bollards. Must be vandal resistant (IK10 rated), zero upward spill, 3000K warm white..."
-                </p>
-                <span className="text-[11px] text-emerald-700 font-semibold mt-1.5 inline-flex items-center gap-1 group-hover:underline">
-                  Load into Enquiry Workspace &rarr;
-                </span>
-              </button>
-
-              {/* Sample 3: Monash */}
-              <button
-                onClick={() => handleLoadSample("monash")}
-                className="w-full text-left p-3 rounded-lg border border-slate-200 hover:border-emerald-400 bg-slate-50 hover:bg-emerald-50/40 transition-all cursor-pointer group"
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-bold text-slate-900 group-hover:text-emerald-900">
-                    Dandenong Transport Depot
-                  </span>
-                  <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded">
-                    High Mast Flood
-                  </span>
-                </div>
-                <p className="text-xs text-slate-600 line-clamp-2">
-                  "Substation at capacity. Need high-output off-grid solar floodlighting on 10m-12m poles with 5-night autonomy..."
-                </p>
-                <span className="text-[11px] text-emerald-700 font-semibold mt-1.5 inline-flex items-center gap-1 group-hover:underline">
-                  Load into Enquiry Workspace &rarr;
-                </span>
-              </button>
-            </div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div
+            onClick={() => navigateToWorkflow("opportunities")}
+            className="bg-white p-3.5 rounded-xl border border-slate-200/90 hover:border-slate-300 transition-colors cursor-pointer"
+          >
+            <div className="text-[11px] font-semibold text-slate-500">Active Deals</div>
+            <div className="text-xl font-black text-slate-900 mt-0.5">{opportunities.length}</div>
+            <div className="text-[10px] text-slate-400 mt-0.5">Across all stages</div>
           </div>
 
-          {/* AI Guardrail Principles Card */}
-          <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 text-xs text-slate-600 space-y-2">
-            <div className="flex items-center gap-1.5 font-bold text-slate-900">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              <span>Plasgain Sales Guardrails</span>
+          <div
+            onClick={() => navigateToWorkflow("opportunities")}
+            className="bg-white p-3.5 rounded-xl border border-slate-200/90 hover:border-slate-300 transition-colors cursor-pointer"
+          >
+            <div className="text-[11px] font-semibold text-slate-500">In Technical Review</div>
+            <div className="text-xl font-black text-purple-900 mt-0.5">
+              {attentionMetrics.techReview.length}
             </div>
-            <ul className="space-y-1 text-slate-600 pl-4 list-disc">
-              <li><strong className="text-slate-800">Evidence before assertion:</strong> Grounded in approved datasheets.</li>
-              <li><strong className="text-slate-800">Recommendation, not certification:</strong> Formal compliance requires Dialux engineering.</li>
-              <li><strong className="text-slate-800">Sales usefulness:</strong> Every analysis ends in an actionable next step.</li>
-            </ul>
+            <div className="text-[10px] text-slate-400 mt-0.5">Dialux / Photometrics</div>
+          </div>
+
+          <div
+            onClick={() => navigateToWorkflow("opportunities")}
+            className="bg-white p-3.5 rounded-xl border border-slate-200/90 hover:border-slate-300 transition-colors cursor-pointer"
+          >
+            <div className="text-[11px] font-semibold text-slate-500">Pending Quotes</div>
+            <div className="text-xl font-black text-rose-900 mt-0.5">
+              {attentionMetrics.quoteDueSoon.length}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">Due within 5 business days</div>
+          </div>
+
+          <div
+            onClick={() => navigateToWorkflow("crm")}
+            className="bg-white p-3.5 rounded-xl border border-slate-200/90 hover:border-slate-300 transition-colors cursor-pointer"
+          >
+            <div className="text-[11px] font-semibold text-slate-500">Sales Intelligence</div>
+            <div className="text-xl font-black text-emerald-900 mt-0.5 flex items-center gap-1">
+              <span>98%</span>
+              <span className="text-xs font-semibold text-emerald-700">Healthy</span>
+            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">AS/NZS 1158 Guardrails Active</div>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 };

@@ -120,10 +120,14 @@ export const CRMPipelineView: React.FC = () => {
     const stage = currentPipeline.stages.find((s) => s.id === newStageId);
     if (!stage) return;
 
+    const deal = crmOpportunities.find((d) => d.id === dealId);
+
     updateCrmOpportunity(dealId, {
       stageId: stage.id,
       stageName: stage.name,
       probability: stage.probability,
+      // Probability and weighted value must move together or the forecast drifts.
+      weightedValue: ((deal?.dealValue ?? 0) * stage.probability) / 100,
       daysInCurrentStage: 0,
       latestActivity: `Moved stage to ${stage.name}`,
       latestActivityDate: new Date().toISOString().split("T")[0]

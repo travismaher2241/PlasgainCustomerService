@@ -103,6 +103,11 @@ export const ToolsHub: React.FC = () => {
       throw new Error(res.ok ? "Unexpected response format" : `Server returned ${res.status}: ${text.slice(0, 100)}`);
     }
     const data = await res.json();
+    if (res.status === 503 && data?.degraded) {
+      throw new Error(
+        `AI unavailable — ${data.detail || "no analysis was generated."} ${data.guidance || ""}`.trim()
+      );
+    }
     if (!res.ok) {
       throw new Error(data.error || "Operation failed");
     }

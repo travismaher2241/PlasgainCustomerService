@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { apiPost, toUserMessage } from "../utils/apiClient";
 import {
   MessageSquareQuote,
   Sparkles,
@@ -88,14 +89,7 @@ export const AskPlasgain: React.FC = () => {
     setQuery("");
 
     try {
-      const res = await fetch("/api/ask-plasgain", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: questionText })
-      });
-
-      if (!res.ok) throw new Error("Failed to query knowledge base");
-      const data = await res.json();
+      const data = await apiPost("/api/ask-plasgain", { question: questionText });
 
       setQaHistory((prev) => [
         {
@@ -115,7 +109,7 @@ export const AskPlasgain: React.FC = () => {
       ]);
     } catch (err: any) {
       console.error(err);
-      showToast("Error retrieving product knowledge", "error");
+      showToast(toUserMessage(err), "error");
     } finally {
       setIsLoading(false);
     }

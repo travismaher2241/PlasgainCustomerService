@@ -51,12 +51,19 @@ export const GlobalCopilot: React.FC = () => {
         })
       });
 
-      if (!res.ok) throw new Error("Copilot error");
+      if (!res.ok) {
+        const failure = await res.json().catch(() => null);
+        throw new Error(
+          res.status === 503 && failure?.degraded
+            ? `AI unavailable — ${failure.detail || "the copilot is offline."}`
+            : failure?.error || "Copilot error"
+        );
+      }
       const data = await res.json();
       setMessages([...newMessages, { role: "assistant", content: data.reply }]);
     } catch (err: any) {
       console.error(err);
-      showToast("Copilot communication error", "error");
+      showToast(err?.message || "Copilot communication error", "error");
     } finally {
       setIsLoading(false);
     }

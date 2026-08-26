@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { apiPost, AIUnavailableError, toUserMessage } from "../utils/apiClient";
+import { AIUnavailableNotice } from "./AIUnavailableNotice";
 import {
   Sparkles,
   Send,
@@ -45,6 +47,9 @@ export const NewEnquiryWorkspace: React.FC = () => {
   } = useApp();
 
   const [isLoading, setIsLoading] = useState(false);
+  type PanelError = { detail: string; guidance?: string };
+  const [analysisError, setAnalysisError] = useState<PanelError | null>(null);
+  const [emailError, setEmailError] = useState<PanelError | null>(null);
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
   const [isReplyModalOpen, setIsReplyModalOpen] = useState(false);
   const [generatedEmail, setGeneratedEmail] = useState<{ subject: string; body: string } | null>(null);
@@ -79,28 +84,21 @@ export const NewEnquiryWorkspace: React.FC = () => {
     setIsLoading(true);
 
     try {
-      // Call server Gemini endpoint
-      const response = await fetch("/api/analyse-enquiry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rawEnquiry: rawEnquiryInput.rawContent,
-          metadata: {
-            customer: rawEnquiryInput.customer,
-            company: rawEnquiryInput.company,
-            project: rawEnquiryInput.project,
-            location: rawEnquiryInput.location,
-            source: rawEnquiryInput.source,
-            attachedFiles: simulatedFiles.map((f) => f.name)
-          }
-        })
+      setAnalysisError(null);
+      const data = await apiPost("/api/analyse-enquiry", {
+        rawEnquiry: rawEnquiryInput.rawContent,
+        metadata: {
+          customerName: rawEnquiryInput.customer,
+          customer: rawEnquiryInput.customer,
+          contactName: rawEnquiryInput.customer,
+          company: rawEnquiryInput.company,
+          projectName: rawEnquiryInput.project,
+          project: rawEnquiryInput.project,
+          location: rawEnquiryInput.location,
+          source: rawEnquiryInput.source,
+          attachedFiles: simulatedFiles.map((f) => f.name)
+        }
       });
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.statusText}`);
-      }
-
-      const data = await response.json();
       setCurrentEnquiryAnalysis(data);
 
       // Pre-select first 3 questions
@@ -110,158 +108,20 @@ export const NewEnquiryWorkspace: React.FC = () => {
         );
       }
 
-      showToast("Enquiry analysed successfully with Gemini 2.5", "success");
+      showToast("Enquiry analysed", "success");
     } catch (err) {
       console.error("Analysis error:", err);
-      // Fallback deterministic analysis for demo if backend offline
-      const fallbackAnalysis: EnquiryAnalysisResult = {
-        opportunitySummary: {
-          customer: { value: rawEnquiryInput.customer || "Rob Mitchell", status: "Confirmed" },
-          company: { value: rawEnquiryInput.company || "ABC Civil Pty Ltd", status: "Confirmed" },
-          contactName: { value: rawEnquiryInput.customer || "Rob Mitchell", status: "Confirmed" },
-          project: { value: rawEnquiryInput.project || "Ballarat 1.2km Shared Path Upgrade", status: "Confirmed" },
-          location: { value: rawEnquiryInput.location || "Ballarat, VIC", status: "Confirmed" },
-          application: { value: "Shared Pathway / Pedestrian Trail", status: "Confirmed" },
-          productCategory: { value: "Solar Off-Grid Pathway Lighting", status: "Confirmed" },
-          quantity: { value: "Estimated 24-30 luminaires (1.2km path / 40m-50m spacing)", status: "Inferred" },
-          projectTiming: { value: "November (Approx 4 months)", status: "Confirmed" },
-          quoteDeadline: { value: "Urgent (Within 5 working days)", status: "Inferred" },
-          installationTiming: { value: "November (Approx 4 months)", status: "Confirmed" },
-          powerAvailability: { value: "Solar Only (No trenching budget)", status: "Confirmed" },
-          mountingPoleRequirements: { value: "6.0 Metre Direct Root Base / Flange-Mounted Spigot", status: "Confirmed" },
-          operatingRequirements: { value: "Dusk to Dawn (100% all night requested)", status: "Confirmed" },
-          cct: { value: "3000K or 4000K (Not specified in customer note)", status: "Unknown" },
-          lightingPerformanceRequirements: { value: "Category P4 / P5 AS/NZS 1158.3.1", status: "Inferred" },
-          environmentalRequirements: { value: "Region A / Terrain Category 2 (Inland Ballarat)", status: "Inferred" },
-          standardsMentioned: { value: "AS/NZS 1158.3.1 (Category PP4/PP5 Shared Paths)", status: "Inferred" },
-          commercialRequirements: { value: "Turnkey pricing with columns & ragbolt cages", status: "Confirmed" },
-          otherNotes: { value: "Contractor pricing deadline late October", status: "Confirmed" }
-        },
-        readiness: {
-          score: 65,
-          rating: "Medium",
-          knownItems: [
-            "1.2km total path length identified",
-            "Solar power requirement confirmed (no mains trenching)",
-            "6m pole height specified by preliminary drawings",
-            "Ballarat geographic location (Solar Insolation Zone 4)",
-            "Operating profile: Dusk to dawn",
-            "Delivery / Installation timeframe: November"
-          ],
-          missingItems: [
-            "Council lighting sub-category specification (P4 vs P5 per AS1158.3.1)",
-            "Path width (e.g. 2.5m vs 3.0m) and surround setback",
-            "Pole spacing allowance or fixed footing positions",
-            "Desired CCT (e.g. 3000K warm white vs 4000K neutral)",
-            "PIR sensor dimming tolerance (can lights dim to 30% after midnight to reduce battery size?)"
-          ],
-          summaryExplanation:
-            "Customer has provided core project scope (1.2km Ballarat shared path, 6m poles, solar), but key compliance criteria (lighting sub-category, pole spacing, CCT, and dimming schedule) must be resolved to engineer the correct solar luminaire and battery size."
-        },
-        productRecommendations: {
-          recommendedStartingPoint: {
-            productName: "Solaris Pro Pathway 60W",
-            productCode: "SOL-PRO-PATH-60W",
-            matchLevel: "High",
-            whySuitable:
-              "Engineered specifically for Australian shared pathway upgrades. High-efficiency monocrystalline solar array paired with LiFePO4 battery pack configured for Zone 4 (Victoria) winter solar insolation. Type II-M optics deliver compliant AS1158.3.1 P4 uniformity at 40m pole spacing on 6m poles.",
-            supportingSpecifications: {
-              luminaireOutput: "4,800 Lumens (160 lm/W)",
-              applicationFit: "AS1158.3.1 Category PP4 & PP5 Public Paths",
-              solarAndBattery: "120W Monocrystalline / 540Wh LiFePO4 Battery",
-              cctAvailable: "3000K Warm White / 4000K Neutral White",
-              mountingOptions: "Side entry 60mm spigot / 6m-8m height",
-              controlOptions: "Smart MPPT controller with programmable dusk-to-dawn or PIR sensor dimming"
-            },
-            sourceCitations: [
-              {
-                documentTitle: "Plasgain Solaris Pro Product Specification Sheet v4.2",
-                sectionOrPage: "Page 2, Section 3.1",
-                excerpt:
-                  "Designed for AS/NZS 1158.3.1 Category P4/P5 shared paths up to 3.5m width with 35m-45m spacing at 6m mounting height."
-              },
-              {
-                documentTitle: "Plasgain Solar Sizing Guide & Autonomy Matrix Australia 2024",
-                sectionOrPage: "Zone 4 (VIC/TAS), Table 2",
-                excerpt:
-                  "Victoria Zone 4 requires minimum 5 nights battery autonomy with 120W PV capacity to sustain dusk-to-dawn operation during June solstice."
-              }
-            ],
-            distinctionNotes:
-              "This recommendation represents a preliminary product fit for budgetary quoting. A formal Dialux point-by-point photometric simulation is recommended once path width and footing positions are confirmed."
-          },
-          alternatives: [
-            {
-              productName: "AeroSolar Integrated All-in-One 40W",
-              productCode: "AERO-INT-40W",
-              whenToUse: "When customer requires lower hardware cost and quick installation without external battery box.",
-              tradeOffs: "Compact battery allows maximum 3.5 nights autonomy in Victorian winter vs 5+ nights on Solaris Pro."
-            },
-            {
-              productName: "Eos Commercial Solar Post-Top 50W",
-              productCode: "EOS-POST-50W",
-              whenToUse: "When architectural aesthetic is prioritised by council landscape architects for urban foreshore or park trail.",
-              tradeOffs: "Slightly wider pole footprint and higher capital expenditure per unit."
-            }
-          ]
-        },
-        questionsBeforeWeQuote: [
-          {
-            id: "q1",
-            category: "Compliance",
-            question: "Has the local council or client specified an AS/NZS 1158.3.1 lighting category (e.g. P4 or P5)?",
-            whyItMatters:
-              "Determines required lux level, uniformity ratio, and exact pole spacing to prevent council sign-off rejection.",
-            defaultSelected: true
-          },
-          {
-            id: "q2",
-            category: "Technical",
-            question: "What is the physical width of the shared path and surrounding clearance?",
-            whyItMatters:
-              "Allows Plasgain engineering to run exact Dialux photometric calculation and select appropriate Type II vs Type III optical lenses.",
-            defaultSelected: true
-          },
-          {
-            id: "q3",
-            category: "Efficiency",
-            question: "Can the lighting profile dim to 30% brightness after midnight when pedestrian traffic is minimal (with PIR motion detection back to 100%)?",
-            whyItMatters:
-              "Smart dimming significantly reduces battery pack size and overall system cost by 25-30% while retaining full dusk-to-dawn security.",
-            defaultSelected: true
-          },
-          {
-            id: "q4",
-            category: "Aesthetics",
-            question: "Is there a preference for 3000K warm white (fauna-friendly) or 4000K neutral white?",
-            whyItMatters:
-              "Victoria councils frequently mandate 3000K or lower in reserve corridors to protect native wildlife.",
-            defaultSelected: false
-          },
-          {
-            id: "q5",
-            category: "Scope",
-            question: "Does the quote need to include outreach arms, ragbolt foundation cages, and 6m hot-dip galvanised columns?",
-            whyItMatters:
-              "Ensures turnkey pricing so the contractor has complete foundation and structural costs for their tender submission.",
-            defaultSelected: false
-          }
-        ],
-        nextBestAction: {
-          title: "Send Clarification Email with Preliminary Solaris Pro 60W Budget Pricing",
-          description:
-            "Acknowledge the enquiry promptly, propose the Solaris Pro 60W as the ideal preliminary pathway luminaire, provide indicative per-pole budget pricing ($1,850 - $2,250 ex GST), and request lighting category & dimming preference to lock in the final design.",
-          urgency: "Today",
-          actionType: "request_info",
-          primaryActionLabel: "Draft Customer Clarification Email"
-        },
-        internalSalesCoachTip:
-          "Internal Sales Tip: When contractors ask for dusk-to-dawn in Ballarat, highlight the difference between '100% constant power' and 'Smart Sensor Profile' (100% dusk till 11pm, 30% with motion sensor thereafter). Explaining this saves the customer money and positions Plasgain as technical solar specialists rather than just box droppers."
-      };
-
-      setCurrentEnquiryAnalysis(fallbackAnalysis);
-      setSelectedQuestions(fallbackAnalysis.questionsBeforeWeQuote.slice(0, 3).map((q) => q.question));
-      showToast("Generated analysis using Plasgain Lighting Intelligence", "success");
+      // No local sample analysis: a fabricated matrix presented as "Confirmed"
+      // is how a rep ends up quoting the wrong product to a real customer.
+      setCurrentEnquiryAnalysis(null);
+      setSelectedQuestions([]);
+      if (err instanceof AIUnavailableError) {
+        setAnalysisError({ detail: err.detail, guidance: err.guidance });
+        showToast("AI unavailable — no analysis generated", "error");
+      } else {
+        setAnalysisError({ detail: toUserMessage(err) });
+        showToast(toUserMessage(err), "error");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -274,41 +134,29 @@ export const NewEnquiryWorkspace: React.FC = () => {
     setIsReplyModalOpen(true);
 
     try {
-      const response = await fetch("/api/generate-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customerName: currentEnquiryAnalysis.opportunitySummary.customerName?.value || "Client",
-          projectName: currentEnquiryAnalysis.opportunitySummary.projectLocation?.value || "Lighting Project",
-          recommendedProduct:
-            currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.productName,
-          selectedQuestions: selectedQuestions,
-          additionalNotes: "Indicative budget pricing and Dialux lighting simulation support included."
-        })
+      setEmailError(null);
+      // These key names must match what /api/enquiry/analyze emits
+      // (contactName / project), otherwise every email opens "Hi Client,".
+      const summary = currentEnquiryAnalysis.opportunitySummary;
+      const data = await apiPost("/api/generate-email", {
+        recipientName: summary.contactName?.value || rawEnquiryInput.customer,
+        customerName: summary.contactName?.value || rawEnquiryInput.customer,
+        companyName: summary.company?.value || rawEnquiryInput.company,
+        projectName: summary.project?.value || rawEnquiryInput.project,
+        recommendedProduct:
+          currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.productName,
+        selectedQuestions: selectedQuestions
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to generate email");
-      }
-
-      const data = await response.json();
       setGeneratedEmail(data);
     } catch (err) {
-      console.error("Email generation fallback:", err);
-      // Fallback deterministic email
-      const customer = currentEnquiryAnalysis.opportunitySummary.customerName?.value || "Rob";
-      const project = rawEnquiryInput.project || "Ballarat 1.2km Shared Path Upgrade";
-      const product =
-        currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.productName;
-
-      const questionsList = selectedQuestions
-        .map((q, idx) => `${idx + 1}. ${q}`)
-        .join("\n");
-
-      setGeneratedEmail({
-        subject: `Plasgain Lighting Solution & Budget Sizing: ${project}`,
-        body: `Hi ${customer},\n\nThank you for reaching out to Plasgain Lighting regarding your upcoming ${project}.\n\nBased on your preliminary scope (1.2km path, 6m mounting height, and solar operation), our recommended starting luminaire is the Plasgain ${product}.\n\nThis system is engineered for Victorian winter solar conditions (Zone 4) and offers high-efficiency optics designed to meet AS/NZS 1158.3.1 pathway standards.\n\nTo ensure we provide accurate luminaire counts, solar sizing, and our sharpest project pricing, could you please confirm a few brief details:\n\n${questionsList}\n\nWe can also offer a complimentary point-by-point Dialux photometric simulation once the pathway width is confirmed.\n\nLooking forward to assisting you with this tender.\n\nKind regards,\n\nSarah Reed\nInternal Sales Specialist • Lighting Division\nPlasgain Australia\nDirect: (03) 9800 0000 | sales@plasgain.com.au\nwww.plasgain.com.au`
-      });
+      console.error("Email generation error:", err);
+      // No canned letter: this text goes to a real customer.
+      setGeneratedEmail(null);
+      setEmailError(
+        err instanceof AIUnavailableError
+          ? { detail: err.detail, guidance: err.guidance }
+          : { detail: toUserMessage(err) }
+      );
     } finally {
       setIsGeneratingEmail(false);
     }
@@ -326,22 +174,29 @@ export const NewEnquiryWorkspace: React.FC = () => {
     if (!currentEnquiryAnalysis) return;
 
     const oppSummary = currentEnquiryAnalysis.opportunitySummary;
-    const customerName = oppSummary.customer?.value || rawEnquiryInput.customer || "Rob Mitchell";
-    const companyName = oppSummary.company?.value || rawEnquiryInput.company || "ABC Civil Pty Ltd";
-    const contactEmail = rawEnquiryInput.contact || "client@company.com.au";
-    const projectName = oppSummary.project?.value || rawEnquiryInput.project || "Lighting Project";
-    const locationVal = oppSummary.location?.value || rawEnquiryInput.location || "Victoria, Australia";
-    const applicationVal = oppSummary.application?.value || "Shared Pathway";
-    const quantityNum = parseInt(oppSummary.quantity?.value?.replace(/\D/g, "") || "24", 10) || 24;
-    const recommendedProd = currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.productName || "Intense Light - 50W Solar";
-    const recommendedCode = currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.productCode || "50W-INTENSE";
+    const customerName = oppSummary.contactName?.value || rawEnquiryInput.customer || "";
+    const companyName = oppSummary.company?.value || rawEnquiryInput.company || "";
+    const contactEmail = rawEnquiryInput.contact || "";
+    const projectName = oppSummary.project?.value || rawEnquiryInput.project || "";
+    const locationVal = oppSummary.location?.value || rawEnquiryInput.location || "";
+    const applicationVal = oppSummary.application?.value || "";
+    // Quantity is genuinely unknown until confirmed - 0 keeps it out of forecasts.
+    const parsedQty = parseInt((oppSummary.quantity?.value || "").replace(/\D/g, ""), 10);
+    const quantityNum = Number.isFinite(parsedQty) ? parsedQty : 0;
+    const recommendedProd = currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.productName || "";
+    const recommendedCode = currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.productCode || "";
+
+    if (!customerName || !companyName || !projectName) {
+      showToast("Add contact name, company, and project before saving to pipeline", "warning");
+      return;
+    }
 
     const newOpp = {
       id: `opp-${Date.now()}`,
       customerCompany: companyName,
       contactName: customerName,
       contactEmail: contactEmail,
-      contactPhone: "+61 3 9000 0000",
+      contactPhone: rawEnquiryInput.contact || "",
       project: projectName,
       location: locationVal,
       application: applicationVal,
@@ -359,7 +214,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
       lastActivityDate: "Today",
       nextAction: currentEnquiryAnalysis.nextBestAction?.title || "Send technical clarification email",
       nextActionDate: new Date(Date.now() + 86400000 * 2).toISOString().split("T")[0],
-      readinessScore: currentEnquiryAnalysis.readiness?.score || 65,
+      readinessScore: currentEnquiryAnalysis.readiness?.score ?? 0,
       notes: `Extracted summary: ${currentEnquiryAnalysis.readiness?.summaryExplanation || "New enquiry analyzed by Copilot."}`,
       rawEnquiry: rawEnquiryInput.rawContent,
       analysis: currentEnquiryAnalysis
@@ -498,8 +353,11 @@ export const NewEnquiryWorkspace: React.FC = () => {
               {currentEnquiryAnalysis ? "Original Customer Note & Metadata" : "Input Customer Enquiry"}
             </h2>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 font-medium hidden sm:inline">Pre-fill demo:</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-xs text-slate-400 font-semibold flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span>Try sample:</span>
+            </span>
             <button
               onClick={() => {
                 setRawEnquiryInput({
@@ -512,8 +370,9 @@ export const NewEnquiryWorkspace: React.FC = () => {
                   location: "Ballarat, Victoria",
                   source: "Email"
                 });
+                showToast("Loaded Ballarat Shared Path sample enquiry", "info");
               }}
-              className="text-xs px-2.5 py-1 rounded-md bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 border border-slate-200 font-medium transition-colors cursor-pointer"
+              className="text-xs px-2.5 py-1 rounded-md bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-900 border border-slate-200 hover:border-emerald-300 font-medium transition-colors cursor-pointer"
             >
               Ballarat Shared Path
             </button>
@@ -529,10 +388,29 @@ export const NewEnquiryWorkspace: React.FC = () => {
                   location: "Geelong, Victoria",
                   source: "Council Tender Portal"
                 });
+                showToast("Loaded Geelong Foreshore sample enquiry", "info");
               }}
-              className="text-xs px-2.5 py-1 rounded-md bg-slate-50 hover:bg-slate-100 text-slate-700 hover:text-slate-900 border border-slate-200 font-medium transition-colors cursor-pointer hidden md:inline-block"
+              className="text-xs px-2.5 py-1 rounded-md bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-900 border border-slate-200 hover:border-emerald-300 font-medium transition-colors cursor-pointer"
             >
               Geelong Foreshore
+            </button>
+            <button
+              onClick={() => {
+                setRawEnquiryInput({
+                  rawContent:
+                    "We have a new freight transport yard in Dandenong South. Substation is at capacity so trenching mains power is too expensive. Need high-output off-grid solar floodlighting on 10m-12m poles to illuminate heavy vehicle loading area. Must have at least 5 nights battery autonomy.",
+                  customer: "David Lee",
+                  contact: "dlee@apexelectrical.com.au",
+                  company: "Apex Electrical Contracting",
+                  project: "Monash Industrial Estate Transport Depot",
+                  location: "Dandenong South, Victoria",
+                  source: "Phone Notes"
+                });
+                showToast("Loaded Monash Transport Depot sample enquiry", "info");
+              }}
+              className="text-xs px-2.5 py-1 rounded-md bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-900 border border-slate-200 hover:border-emerald-300 font-medium transition-colors cursor-pointer"
+            >
+              Monash Depot
             </button>
           </div>
         </div>
@@ -661,6 +539,15 @@ export const NewEnquiryWorkspace: React.FC = () => {
           </button>
         </div>
       </div>
+
+      {/* AI unavailable - shown instead of an analysis, never alongside one */}
+      {analysisError && !currentEnquiryAnalysis && (
+        <AIUnavailableNotice
+          detail={analysisError.detail}
+          guidance={analysisError.guidance}
+          onRetry={handleAnalyze}
+        />
+      )}
 
       {/* STRUCTURED WORKSPACE OUTPUT */}
       {currentEnquiryAnalysis && (
@@ -1191,6 +1078,12 @@ export const NewEnquiryWorkspace: React.FC = () => {
                   </div>
                 </div>
               </div>
+            ) : emailError ? (
+              <AIUnavailableNotice
+                detail={emailError.detail}
+                guidance={emailError.guidance}
+                onRetry={handleGenerateReply}
+              />
             ) : null}
           </div>
         </div>

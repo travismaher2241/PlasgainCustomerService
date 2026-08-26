@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { apiPost, AIUnavailableError, toUserMessage } from "../utils/apiClient";
+import { AIUnavailableNotice } from "./AIUnavailableNotice";
 import {
   SearchCode,
   Sparkles,
@@ -39,6 +41,7 @@ export const ProductFinder: React.FC = () => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [finderResult, setFinderResult] = useState<any | null>(null);
+  const [finderError, setFinderError] = useState<{ detail: string; guidance?: string } | null>(null);
 
   const applicationOptions = [
     { id: "Shared path", label: "Shared Path / Rail Trail", icon: "🚲" },
@@ -54,40 +57,34 @@ export const ProductFinder: React.FC = () => {
   const handleSearch = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("/api/product-finder", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          application,
-          location,
-          powerAvailability,
-          mountingHeight,
-          areaOrWidth,
-          luxOrClass,
-          operatingHours,
-          duskToDawn,
-          cctPreference,
-          autonomyDays,
-          quantity,
-          environmentalConditions,
-          installationTimeline
-        })
+      setFinderError(null);
+      const data = await apiPost("/api/product-finder", {
+        application,
+        location,
+        powerAvailability,
+        mountingHeight,
+        areaOrWidth,
+        luxOrClass,
+        operatingHours,
+        duskToDawn,
+        cctPreference,
+        autonomyDays,
+        quantity,
+        environmentalConditions,
+        installationTimeline
       });
-
-      const contentType = res.headers.get("content-type") || "";
-      if (!contentType.includes("application/json")) {
-        const text = await res.text();
-        throw new Error(res.ok ? "Unexpected response format" : `Server returned ${res.status}: ${text.slice(0, 100)}`);
-      }
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || "Failed to match products");
-      }
       setFinderResult(data);
-      showToast("Product candidates matched successfully", "success");
+      showToast("Product candidates matched", "success");
     } catch (err: any) {
       console.error(err);
-      showToast(err.message || "Failed to find products", "error");
+      // Never leave a stale or sample recommendation on screen.
+      setFinderResult(null);
+      setFinderError(
+        err instanceof AIUnavailableError
+          ? { detail: err.detail, guidance: err.guidance }
+          : { detail: toUserMessage(err) }
+      );
+      showToast(toUserMessage(err), "error");
     } finally {
       setIsLoading(false);
     }
@@ -366,6 +363,14 @@ export const ProductFinder: React.FC = () => {
       </div>
 
       {/* RESULTS DISPLAY */}
+      {finderError && !finderResult && (
+        <AIUnavailableNotice
+          detail={finderError.detail}
+          guidance={finderError.guidance}
+          onRetry={handleSearch}
+        />
+      )}
+
       {finderResult && (() => {
         const primary = finderResult.primaryRecommendation || finderResult.recommendedProducts?.[0] || {};
         const secondaries = finderResult.secondaryCandidates || (finderResult.recommendedProducts && finderResult.recommendedProducts.length > 1 ? finderResult.recommendedProducts.slice(1) : []) || [];

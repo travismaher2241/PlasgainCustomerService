@@ -1,3 +1,4 @@
+import dotenv from "dotenv";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -12,22 +13,80 @@ import {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// AI Studio injects secrets directly; locally we read .env.local (as documented
+// in the README) and then .env. Neither overrides a variable already in the env.
+dotenv.config({ path: path.resolve(process.cwd(), ".env.local") });
+dotenv.config({ path: path.resolve(process.cwd(), ".env") });
+
+if (!process.env.GEMINI_API_KEY) {
+  console.warn(
+    "[startup] GEMINI_API_KEY is not set. AI features will return 503 until it is configured " +
+      "(set it in .env.local - see .env.example)."
+  );
+}
+
 const app = express();
 const PORT = 3000;
 
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(express.json({ limit: "10mb" }));
+app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// Malformed JSON must fail as JSON, never as an HTML stack trace.
+app.use((err: any, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err && (err.type === "entity.parse.failed" || err instanceof SyntaxError) && "body" in err) {
+    return res.status(400).json({ error: "Malformed JSON in request body." });
+  }
+  if (err && err.type === "entity.too.large") {
+    return res.status(413).json({ error: "Request body too large." });
+  }
+  return next(err);
+});
+
+// Lightweight in-process rate limiter for the API surface.
+const RATE_LIMIT_WINDOW_MS = 60000;
+const RATE_LIMIT_MAX = 60;
+const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+app.use("/api", (req, res, next) => {
+  const key = req.ip || "unknown";
+  const now = Date.now();
+  const bucket = rateBuckets.get(key);
+  if (!bucket || now > bucket.resetAt) {
+    rateBuckets.set(key, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return next();
+  }
+  if (bucket.count >= RATE_LIMIT_MAX) {
+    return res.status(429).json({ error: "Too many requests. Please retry shortly." });
+  }
+  bucket.count += 1;
+  return next();
+});
+
+// Raised when the AI cannot be reached or is not configured. Callers must surface
+// this to the user rather than substituting invented content.
+export class AIUnavailableError extends Error {
+  public readonly reason: string;
+  constructor(reason: string) {
+    super(reason);
+    this.name = "AIUnavailableError";
+    this.reason = reason;
+  }
+}
+
+export function isAIConfigured(): boolean {
+  return Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.trim());
+}
 
 // Lazy Gemini AI client
 let aiClient: GoogleGenAI | null = null;
 function getAI(): GoogleGenAI {
+  if (!isAIConfigured()) {
+    throw new AIUnavailableError(
+      "GEMINI_API_KEY is not set. Add it to .env.local (see .env.example) and restart the server."
+    );
+  }
   if (!aiClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      console.warn("GEMINI_API_KEY environment variable is not set. Using fallback responses where applicable.");
-    }
     aiClient = new GoogleGenAI({
-      apiKey: apiKey || "dummy-key",
+      apiKey: process.env.GEMINI_API_KEY as string,
       httpOptions: {
         headers: {
           "User-Agent": "aistudio-build",
@@ -38,15 +97,43 @@ function getAI(): GoogleGenAI {
   return aiClient;
 }
 
-// Multi-tier resilient Gemini model caller with automatic failover on 503/429/high-demand errors
+// Every AI-backed route funnels its failures through here. We return 503 with an
+// explicit flag and NO invented business content: wrong specs are worse than none.
+function sendAIUnavailable(res: express.Response, context: string, err: any) {
+  const isConfigError = err instanceof AIUnavailableError;
+  const detail = isConfigError
+    ? err.reason
+    : "The AI service did not return a usable response. Please retry shortly.";
+  if (isConfigError) {
+    console.warn(`[${context}] AI not configured: ${err.reason}`);
+  } else {
+    console.error(`[${context}] AI request failed:`, err?.message || err);
+  }
+  return res.status(503).json({
+    error: "AI unavailable",
+    aiAvailable: false,
+    degraded: true,
+    context,
+    detail,
+    guidance:
+      "No analysis was generated. Do not quote or send anything from this screen until the AI service is restored."
+  });
+}
+
+// Model ladder. Keep DEFAULT_MODEL to a currently released id; the failover list
+// below is what actually protects us when a model id is retired or unavailable.
+const DEFAULT_MODEL = "gemini-2.5-flash";
+const FALLBACK_MODELS = ["gemini-2.0-flash"];
+
+// Multi-tier resilient Gemini model caller with automatic failover
 async function generateContentWithFailover(options: {
   contents: any;
   config?: any;
   preferredModel?: string;
 }): Promise<any> {
   const ai = getAI();
-  const preferred = options.preferredModel || "gemini-3.7-flash";
-  const modelsToTry = [preferred, "gemini-2.5-flash", "gemini-2.0-flash"].filter(
+  const preferred = options.preferredModel || DEFAULT_MODEL;
+  const modelsToTry = [preferred, ...FALLBACK_MODELS].filter(
     (val, idx, arr) => arr.indexOf(val) === idx
   );
 
@@ -62,14 +149,20 @@ async function generateContentWithFailover(options: {
     } catch (err: any) {
       lastError = err;
       const status = err?.status || err?.code || (err?.message?.includes("503") ? 503 : err?.message?.includes("429") ? 429 : 0);
-      const isUnavailableOrThrottled =
+      // A 404/400 means this model id is unusable for this key - that is exactly
+      // when we must try the next model rather than give up.
+      const isRetryableOnNextModel =
         status === 503 ||
         status === 429 ||
+        status === 404 ||
         err?.message?.includes("high demand") ||
         err?.message?.includes("UNAVAILABLE") ||
-        err?.message?.includes("RESOURCE_EXHAUSTED");
+        err?.message?.includes("RESOURCE_EXHAUSTED") ||
+        err?.message?.includes("NOT_FOUND") ||
+        err?.message?.includes("not found") ||
+        err?.message?.includes("is not supported");
 
-      if (isUnavailableOrThrottled) {
+      if (isRetryableOnNextModel) {
         console.warn(`Model ${model} returned ${status || "temporarily unavailable"}. Attempting failover to next model...`);
         continue;
       }
@@ -153,6 +246,52 @@ APPROVED PLASGAIN KNOWLEDGE BASE (PUBLIC V1.0):
 ${PLASGAIN_KNOWLEDGE_BASE_TEXT}
 `;
 
+// ---- Request input coercion -------------------------------------------------
+// Request bodies are untrusted. Anything that reaches string methods must be
+// proven to be a string first, or we crash the route with a 500.
+
+/** Returns a trimmed string, or undefined for any non-string / blank input. */
+function readString(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+/** Like readString, but substitutes a default rather than undefined. */
+function readStringOr(value: unknown, fallback: string): string {
+  return readString(value) ?? fallback;
+}
+
+/** Returns an array only when the input really is one. */
+function readArray<T = any>(value: unknown): T[] {
+  return Array.isArray(value) ? (value as T[]) : [];
+}
+
+/**
+ * Validates required string fields. Sends a 400 and returns null when any are
+ * missing; otherwise returns the trimmed values keyed by field name.
+ */
+function requireStrings(
+  res: express.Response,
+  body: any,
+  fields: { key: string; label: string }[]
+): Record<string, string> | null {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    res.status(400).json({ error: "Request body must be a JSON object." });
+    return null;
+  }
+  const result: Record<string, string> = {};
+  for (const field of fields) {
+    const value = readString(body[field.key]);
+    if (!value) {
+      res.status(400).json({ error: `${field.label} is required and must be a non-empty string.` });
+      return null;
+    }
+    result[field.key] = value;
+  }
+  return result;
+}
+
 // Helper: safe JSON extractor from Gemini response text
 function extractJsonFromText(text: string): any {
   try {
@@ -168,162 +307,6 @@ function extractJsonFromText(text: string): any {
   }
 }
 
-// Resilient Fallback Generator for Enquiry Analysis
-function generateFallbackEnquiryAnalysis(rawText: string, metadata: any = {}) {
-  const lower = (rawText || "").toLowerCase();
-  const isPathway = lower.includes("path") || lower.includes("shared") || lower.includes("trail") || lower.includes("walk");
-  const isRoadway = lower.includes("road") || lower.includes("street") || lower.includes("highway") || lower.includes("v-led");
-  const isCarPark = lower.includes("car") || lower.includes("park") || lower.includes("lot");
-
-  let primaryProduct = "Intense Light - 50W Solar";
-  let why = "Split-system solar luminaire with 7,500 lm output and 896Wh battery, suited for council shared paths and public open spaces.";
-  let limitation = "Requires Dialux calculation to verify spacing and Cat P compliance; spigot diameter is 60mm.";
-  let matchLevel: "Strong potential match" | "Possible match" = "Strong potential match";
-
-  if (isRoadway) {
-    primaryProduct = "Roadway V-LED 70W Solar";
-    why = "Designed for Category V roadway applications with high-output batwing optics and MPPT controller.";
-    limitation = "Requires AS/NZS 1158 Cat V compliance lighting design and structural engineering check on pole height (typically 8m-10m).";
-  } else if (isCarPark) {
-    primaryProduct = "Pro Blade Solar 75/125";
-    why = "High-efficacy commercial solar luminaire engineered for car parks, perimeter security, and open recreational areas.";
-    limitation = "Ensure solar panel orientation faces unshaded north; requires lux calculation for Australian Standards.";
-  }
-
-  return {
-    opportunitySummary: {
-      company: { value: metadata.company || "Client Company", status: metadata.company ? "Confirmed" : "Inferred" },
-      contactName: { value: metadata.customerName || metadata.customer || "Enquiry Contact", status: metadata.customerName ? "Confirmed" : "Inferred" },
-      project: { value: metadata.projectName || metadata.project || "Lighting Project", status: metadata.projectName ? "Confirmed" : "Inferred" },
-      location: { value: metadata.location || "Australia", status: metadata.location ? "Confirmed" : "Inferred" },
-      application: { value: isPathway ? "Shared Pathway / Trail" : isRoadway ? "Roadway / Category V" : isCarPark ? "Car Park & Perimeter" : "General Public Lighting", status: "Inferred" },
-      productCategory: { value: "Solar Lighting / Luminaires", status: "Confirmed" },
-      quantity: { value: lower.match(/\b\d+\s*(?:lights?|luminaires?|poles?|units?)\b/i)?.[0] || "To be confirmed", status: lower.match(/\b\d+\b/) ? "Confirmed" : "Unknown" },
-      projectTiming: { value: "Standard Procurement", status: "Unknown" },
-      quoteDeadline: { value: "Prior to tender close", status: "Unknown" },
-      installationTiming: { value: "To be confirmed with contractor", status: "Unknown" },
-      powerAvailability: { value: "Off-Grid Solar (No Mains Required)", status: "Confirmed" },
-      mountingPoleRequirements: { value: isRoadway ? "8m-10m Direct Burial or Baseplate" : "4m-6m Galvanised / Plaspole", status: "Inferred" },
-      operatingRequirements: { value: "Dusk-to-dawn operation with programmable dimming / PIR profile", status: "Inferred" },
-      cct: { value: lower.includes("3000k") ? "3000K (Warm White / Wildlife Friendly)" : lower.includes("4000k") ? "4000K (Neutral White)" : "3000K / 4000K / 5700K available (Confirm requirement)", status: lower.includes("3000k") || lower.includes("4000k") ? "Confirmed" : "Unknown" },
-      lightingPerformanceRequirements: { value: "Subject to AS/NZS 1158 Dialux Photometric verification", status: "Inferred" },
-      environmentalRequirements: { value: "C3-C5 Coastal Corrosion & Wind Region Assessment required", status: "Unknown" },
-      standardsMentioned: { value: "AS/NZS 1158 (Lighting for roads and public spaces), AS/NZS 4509", status: "Inferred" },
-      commercialRequirements: { value: "Standard Plasgain Terms (Pricing via commercial schedule)", status: "Inferred" },
-      otherNotes: { value: "Grounded in approved Plasgain Public Knowledge Base V1.0.", status: "Confirmed" }
-    },
-    readiness: {
-      score: 72,
-      rating: "Medium",
-      knownItems: [
-        "Core application context identified",
-        "Off-grid solar power architecture determined",
-        "Candidate luminaire models mapped from approved Plasgain catalogue"
-      ],
-      missingItems: [
-        "Exact pole quantity and spacing layout",
-        "Preferred CCT (3000K vs 4000K)",
-        "Mounting height and foundation soil/wind region specification",
-        "Target AS/NZS 1158 subcategory (e.g. PP4, PR3, V3)"
-      ],
-      summaryExplanation: "Good project outline provided. Ready for initial technical proposal and datasheets once CCT, pole mounting height, and Dialux layout parameters are confirmed."
-    },
-    productRecommendations: {
-      recommendedStartingPoint: {
-        productName: primaryProduct,
-        productCode: primaryProduct.includes("Intense") ? "INTENSE-50W-SOLAR" : primaryProduct.includes("Roadway") ? "ROADWAY-VLED-70W" : "PROBLADE-75-125",
-        matchLevel,
-        whySuitable: why,
-        supportingSpecifications: {
-          applicationFit: "Engineered specifically for Australian public infrastructure and off-grid reliability.",
-          luminaireOutput: primaryProduct.includes("Intense") ? "7,500 lm (Philips SMD 3030 LED module, 150 lm/W)" : primaryProduct.includes("Roadway") ? "High lumen output with batwing distribution" : "150+ lm/W efficacy with high-performance optical lens",
-          cctAvailable: "3000K, 4000K, 5700K",
-          solarAndBattery: primaryProduct.includes("Intense") ? "130W / 18V monocrystalline panel, 896Wh LiFePO4 battery (70Ah @ 12.8V)" : "Integrated high-capacity MPPT & LiFePO4 battery pack",
-          mountingOptions: "Side spigot mount (60mm OD), adjustable tilt angle",
-          controlOptions: "Intelligent smart controller with programmable timing & PIR dimming"
-        },
-        importantLimitations: [
-          limitation,
-          "Solar panel requires unshaded Northern aspect in southern hemisphere.",
-          "Wind region engineering must be confirmed with Plasgain structural pole tables."
-        ],
-        informationStillRequired: [
-          "Exact site layout / path width / length for Dialux calculation",
-          "Required sub-category lighting standard (e.g. AS/NZS 1158 Cat P)",
-          "Preferred CCT (3000K fauna-sensitive or 4000K standard)",
-          "Delivery site location & delivery timeframe"
-        ],
-        technicalReviewRequired: "Photometric lighting design (Dialux) verification required to confirm pole spacing and lux compliance.",
-        sourceCitations: [
-          {
-            documentTitle: "Plasgain 50W Solar Intense Light Web Page & 2025 Catalogue",
-            sectionOrPage: "Specifications Table",
-            excerpt: "7,500 lumens, 896Wh battery, 130W solar panel. Off-grid municipal and commercial applications."
-          }
-        ],
-        distinctionNotes: "High reliability split-system solar design with substantial autonomy for cloudy winter days.",
-        conflictWarning: null
-      },
-      alternatives: [
-        {
-          productName: "Pro Blade Solar 75/125",
-          productCode: "PROBLADE-SOLAR",
-          matchLevel: "Possible match",
-          whenToUse: "When higher mounting heights or broader car park distributions are required.",
-          tradeOffs: "Requires specific bracket arrangement and higher wind load verification on pole.",
-          sourceCitation: "Plasgain Solar Lighting Catalogue 2025 - Pro Blade Series"
-        },
-        {
-          productName: "Superlux All-in-One Solar Luminaire",
-          productCode: "SUPERLUX-AIO",
-          matchLevel: "Possible match",
-          whenToUse: "When an integrated all-in-one aesthetic is preferred without an external panel bracket.",
-          tradeOffs: "Fixed panel angle; ensure adequate winter solar insolation at project coordinates.",
-          sourceCitation: "Plasgain Solar Lighting Catalogue 2025 - Superlux Series"
-        }
-      ]
-    },
-    nextBestAction: {
-      title: "Send Technical Datasheet & Clarification Questions",
-      description: "Provide the client with the Intense 50W specification sheet and confirm pole height, CCT, and site layout.",
-      primaryActionLabel: "Draft Clarification Email",
-      actionType: "request_info",
-      urgency: "Today"
-    },
-    questionsBeforeWeQuote: [
-      {
-        id: "q-1",
-        question: "What is the total pathway/area length and width to establish correct pole spacing and quantities?",
-        whyItMatters: "Enables our engineering team to run a Dialux simulation against AS/NZS 1158 Cat P.",
-        category: "Technical",
-        defaultSelected: true
-      },
-      {
-        id: "q-2",
-        question: "Do you require 3000K warm white (fauna / dark-sky friendly) or 4000K neutral white?",
-        whyItMatters: "Councils frequently mandate 3000K along wildlife corridors and shared parklands.",
-        category: "Compliance",
-        defaultSelected: true
-      },
-      {
-        id: "q-3",
-        question: "What mounting pole height is planned (e.g. 4m, 5m, or 6m) and do you need rag-bolt baseplate or direct-burial poles?",
-        whyItMatters: "Determines foundation engineering, pole structural compliance, and photometric beam spread.",
-        category: "Technical",
-        defaultSelected: true
-      },
-      {
-        id: "q-4",
-        question: "What is your target delivery date and site delivery location in Australia?",
-        whyItMatters: "Allows our logistics team to coordinate freight and stock allocation.",
-        category: "Commercial",
-        defaultSelected: false
-      }
-    ],
-    internalSalesCoachTip: "Solar pathway enquiries are won on reliable battery autonomy and photometric verification. Offer a complimentary Dialux lighting design to lock in the Plasgain specification early.",
-    pricingGuardrailNotice: "Pricing data is not currently connected to the app. Please refer to internal commercial schedules."
-  };
-}
 
 // -------------------------------------------------------------
 // API ROUTES & ALIASES
@@ -331,12 +314,67 @@ function generateFallbackEnquiryAnalysis(rawText: string, metadata: any = {}) {
 
 // Health check
 app.get("/api/health", (req, res) => {
+  const aiConfigured = isAIConfigured();
   res.json({
-    status: "ok",
+    status: aiConfigured ? "ok" : "degraded",
     app: "Plasgain Lighting Sales Copilot",
     knowledgeVersion: "Public V1.0",
+    ai: {
+      configured: aiConfigured,
+      model: DEFAULT_MODEL,
+      fallbackModels: FALLBACK_MODELS,
+      state: aiConfigured ? "Configured" : "Not configured",
+      detail: aiConfigured
+        ? "API key present. Call /api/health/ai to verify the model is actually reachable."
+        : "GEMINI_API_KEY is not set. AI features are unavailable until it is configured."
+    },
     timestamp: new Date().toISOString()
   });
+});
+
+// Deeper probe: actually calls the model. Used by the Settings diagnostics panel.
+app.get("/api/health/ai", async (_req, res) => {
+  if (!isAIConfigured()) {
+    return res.status(503).json({
+      configured: false,
+      reachable: false,
+      state: "Not configured",
+      detail: "GEMINI_API_KEY is not set. Add it to .env.local and restart the server."
+    });
+  }
+  try {
+    const response = await generateContentWithFailover({
+      contents: "Reply with the single word: ok",
+      config: { temperature: 0 }
+    });
+    return res.json({
+      configured: true,
+      reachable: true,
+      state: "Active & Grounded",
+      model: DEFAULT_MODEL,
+      detail: (response?.text || "").trim().slice(0, 40) || "Model responded."
+    });
+  } catch (err: any) {
+    // Summarise rather than echoing the provider's raw error payload.
+    const raw = String(err?.message || "");
+    let detail = "The model could not be reached. Check the server logs for details.";
+    if (/API_KEY_INVALID|API key not valid/i.test(raw)) {
+      detail = "The configured GEMINI_API_KEY was rejected. Check the key value in .env.local.";
+    } else if (/PERMISSION_DENIED/i.test(raw)) {
+      detail = "The configured key does not have permission to call this model.";
+    } else if (/RESOURCE_EXHAUSTED|429/.test(raw)) {
+      detail = "The AI quota is exhausted or rate limited. Retry shortly.";
+    } else if (/NOT_FOUND|not found|is not supported/i.test(raw)) {
+      detail = `No configured model was usable (tried: ${[DEFAULT_MODEL, ...FALLBACK_MODELS].join(", ")}).`;
+    }
+    console.error("[health/ai] probe failed:", raw.slice(0, 500));
+    return res.status(503).json({
+      configured: true,
+      reachable: false,
+      state: "Unreachable",
+      detail
+    });
+  }
 });
 
 // 0. KNOWLEDGE VALIDATION TEST SUITE ENDPOINTS
@@ -388,7 +426,7 @@ Return a JSON response with:
 }`;
 
       const response = await generateContentWithFailover({
-        preferredModel: "gemini-3.7-flash",
+        preferredModel: DEFAULT_MODEL,
         contents: userPrompt,
         config: {
           systemInstruction: systemPrompt,
@@ -423,28 +461,7 @@ Return a JSON response with:
         }
       });
     } catch (aiErr: any) {
-      console.warn("AI generation failed for test, using grounded test fallback:", aiErr.message);
-      return res.json({
-        testId: test.id,
-        testNumber: test.testNumber,
-        question: test.question,
-        expectedSummary: test.expectedSummary,
-        aiResponse: {
-          answer: test.expectedSummary,
-          foundInKnowledgeBase: true,
-          confidence: "High",
-          citations: [{ document: "Plasgain Public Knowledge Base V1.0", pageOrSection: test.category, excerpt: test.expectedSummary }],
-          conflictWarning: test.id === "test-06" ? "Public sources conflict between 10W, 30W, and 90W panel ratings." : null,
-          technicalConfirmationRequired: test.id === "test-06" || test.id === "test-07" || test.id === "test-08"
-        },
-        evaluation: {
-          passed: true,
-          matchedKeywords: test.expectedKeywords,
-          missingKeywords: [],
-          category: test.category,
-          forbiddenBehaviorCheck: "Passed (grounded fallback)"
-        }
-      });
+      return sendAIUnavailable(res, "test", aiErr);
     }
   } catch (error: any) {
     console.error("Error running validation test:", error);
@@ -455,15 +472,16 @@ Return a JSON response with:
 // 1. ENQUIRY ANALYSIS ENDPOINT (SUPPORTS BOTH ROUTE PATHS AND SCHEMAS)
 app.post(["/api/enquiry/analyze", "/api/analyse-enquiry", "/api/analyze-enquiry"], async (req, res) => {
   try {
-    const rawContent = req.body.rawContent || req.body.rawEnquiry || req.body.enquiryText || "";
+    const rawContent =
+      readString(req.body?.rawContent) || readString(req.body?.rawEnquiry) || readString(req.body?.enquiryText) || "";
     const meta = req.body.metadata || {};
     const customer = req.body.customer || meta.customerName || meta.customer || "";
     const contact = req.body.contact || meta.contactName || meta.contact || "";
     const company = req.body.company || meta.company || "";
     const project = req.body.project || meta.projectName || meta.project || "";
-    const location = req.body.location || meta.location || "Australia";
+    const location = readString(req.body.location) || readString(meta.location) || "";
     const source = req.body.source || meta.source || "Email / Portal";
-    const attachments = req.body.attachments || [];
+    const attachments = readArray(req.body?.attachments);
 
     if (!rawContent && attachments.length === 0) {
       return res.status(400).json({ error: "Enquiry content or attachment is required." });
@@ -584,7 +602,7 @@ Return JSON conforming to this structure:
 }`;
 
       const response = await generateContentWithFailover({
-        preferredModel: "gemini-3.7-flash",
+        preferredModel: DEFAULT_MODEL,
         contents: userPrompt,
         config: {
           systemInstruction: systemPrompt,
@@ -596,9 +614,7 @@ Return JSON conforming to this structure:
       const result = extractJsonFromText(response.text || "{}");
       return res.json(result);
     } catch (aiErr: any) {
-      console.warn("AI generation failed for enquiry, using resilient grounded fallback:", aiErr.message);
-      const fallback = generateFallbackEnquiryAnalysis(rawContent, { customerName: customer, company, projectName: project, location });
-      return res.json(fallback);
+      return sendAIUnavailable(res, "enquiry", aiErr);
     }
   } catch (error: any) {
     console.error("Error analyzing enquiry:", error);
@@ -609,12 +625,34 @@ Return JSON conforming to this structure:
 // 2. DRAFT CLARIFICATION EMAIL ENDPOINT
 app.post(["/api/enquiry/draft-email", "/api/generate-email", "/api/enquiry/generate-email"], async (req, res) => {
   try {
-    const enquiryData = req.body.enquiryData || req.body.analysis || {};
-    const selectedQuestions = req.body.selectedQuestions || [];
-    const tone = req.body.tone || "Warm & Consultative";
-    const recipientName = req.body.recipientName || req.body.customerName || enquiryData?.opportunitySummary?.contact?.value || enquiryData?.opportunitySummary?.customer?.value || "Valued Client";
-    const companyName = req.body.companyName || req.body.company || enquiryData?.opportunitySummary?.company?.value || "Client Team";
-    const projectName = req.body.projectName || enquiryData?.opportunitySummary?.project?.value || "Lighting Project";
+    const enquiryData = req.body?.enquiryData || req.body?.analysis || {};
+    const summary = enquiryData?.opportunitySummary ?? {};
+    const selectedQuestions = readArray(req.body?.selectedQuestions);
+    const tone = readStringOr(req.body?.tone, "Warm & Consultative");
+
+    const recipientName =
+      readString(req.body?.recipientName) ||
+      readString(req.body?.customerName) ||
+      readString(summary.contactName?.value) ||
+      readString(summary.contact?.value) ||
+      readString(summary.customer?.value);
+    const companyName =
+      readString(req.body?.companyName) ||
+      readString(req.body?.company) ||
+      readString(summary.company?.value);
+    const projectName =
+      readString(req.body?.projectName) ||
+      readString(summary.project?.value);
+
+    // These land in an email addressed to a real customer. Refuse rather than
+    // guess: "Hi Client, regarding Lighting Project" is worse than an error.
+    if (!recipientName || !projectName) {
+      return res.status(400).json({
+        error:
+          "Recipient name and project name are required to draft a customer email. Complete the enquiry details first."
+      });
+    }
+    const resolvedCompany = companyName || "";
 
     try {
       const ai = getAI();
@@ -626,7 +664,7 @@ Tone options: "Professional & Direct", "Warm & Consultative", "Technical & Preci
 
       const userPrompt = `Generate a customer email asking for missing project information before quoting:
 Recipient: ${recipientName}
-Company: ${companyName}
+Company: ${resolvedCompany || "(not supplied)"}
 Project: ${projectName}
 Tone: ${tone}
 
@@ -644,7 +682,7 @@ Return JSON:
 }`;
 
       const response = await generateContentWithFailover({
-        preferredModel: "gemini-3.7-flash",
+        preferredModel: DEFAULT_MODEL,
         contents: userPrompt,
         config: {
           systemInstruction: systemPrompt,
@@ -656,19 +694,7 @@ Return JSON:
       const result = extractJsonFromText(response.text || "{}");
       return res.json(result);
     } catch (aiErr: any) {
-      console.warn("AI generation failed for email, using fallback:", aiErr.message);
-      const questionList = (selectedQuestions && selectedQuestions.length > 0)
-        ? selectedQuestions.map((q: any) => `• ${typeof q === "string" ? q : q.question || q.label}`).join("\n")
-        : "• Total pathway length/area dimensions for Dialux lux calculation\n• Preferred CCT (3000K warm white vs 4000K neutral white)\n• Target mounting height and pole specification";
-
-      return res.json({
-        subject: `Plasgain Lighting - Technical Information & Preliminary Review: ${projectName}`,
-        body: `Hi ${recipientName},\n\nThank you for reaching out to Plasgain Lighting regarding ${projectName}.\n\nWe have reviewed the preliminary project scope and would love to provide you with an exact proposal along with photometric lighting design verification (Dialux calculations).\n\nTo ensure our proposal meets your exact council/site requirements, could you please confirm a few details:\n\n${questionList}\n\nOnce we have these parameters, our technical engineering team will finalize the luminaire selection and provide compliant design schedules.\n\nKind regards,\nPlasgain Lighting Technical Sales Team\nPlasgain Australia`,
-        recommendedAttachmentNames: [
-          "Plasgain_Intense_50W_Solar_Datasheet.pdf",
-          "Plasgain_Solar_Lighting_Catalogue_2025.pdf"
-        ]
-      });
+      return sendAIUnavailable(res, "email", aiErr);
     }
   } catch (error: any) {
     console.error("Error drafting email:", error);
@@ -679,36 +705,38 @@ Return JSON:
 // 3. PRODUCT FINDER ENDPOINT
 app.post(["/api/product-finder", "/api/products/search"], async (req, res) => {
   try {
-    const {
-      query,
-      application,
-      location,
-      powerAvailability,
-      mountingHeight,
-      areaOrWidth,
-      luxOrClass,
-      operatingHours,
-      duskToDawn,
-      cctPreference,
-      autonomyDays,
-      quantity,
-      environmentalConditions,
-      installationTimeline,
-      poleHeight,
-      cct,
-      solarOrMains,
-      windRegion,
-      requirements
-    } = req.body;
+    const body = req.body ?? {};
+    const query = readString(body.query);
+    const application = readString(body.application);
+    const location = readString(body.location);
+    const mountingHeight = readString(body.mountingHeight);
+    const areaOrWidth = readString(body.areaOrWidth);
+    const luxOrClass = readString(body.luxOrClass);
+    const operatingHours = readString(body.operatingHours);
+    const duskToDawn = body.duskToDawn;
+    const cctPreference = readString(body.cctPreference);
+    const autonomyDays = readString(body.autonomyDays);
+    const quantity = readString(body.quantity);
+    const environmentalConditions = readString(body.environmentalConditions);
+    const installationTimeline = readString(body.installationTimeline);
+    const poleHeight = readString(body.poleHeight);
+    const cct = readString(body.cct);
+    const windRegion = readString(body.windRegion);
+    const requirements = readString(body.requirements);
 
-    const appType = application || "Shared path";
-    const isSharedPath = appType.toLowerCase().includes("shared") || appType.toLowerCase().includes("path") || appType.toLowerCase().includes("trail");
-    const isRoadway = appType.toLowerCase().includes("road") || appType.toLowerCase().includes("street");
-    const isCarPark = appType.toLowerCase().includes("car") || appType.toLowerCase().includes("park");
-    const isIndustrial = appType.toLowerCase().includes("industrial") || appType.toLowerCase().includes("yard");
-    const isMine = appType.toLowerCase().includes("mine") || appType.toLowerCase().includes("tower");
-    const isForeshore = appType.toLowerCase().includes("foreshore") || appType.toLowerCase().includes("botanical");
-    const isCCTV = appType.toLowerCase().includes("security") || appType.toLowerCase().includes("cctv");
+    // Power source is a real selection criterion - never assume solar.
+    const powerSource = readString(body.powerAvailability) || readString(body.solarOrMains);
+    if (!application && !query) {
+      return res.status(400).json({
+        error: "An application type or search query is required to find products."
+      });
+    }
+    if (!powerSource) {
+      return res.status(400).json({
+        error: "Power availability (solar, mains, or hybrid) is required to find products."
+      });
+    }
+    const appType = application || query || "Unspecified application";
 
     try {
       const ai = getAI();
@@ -729,7 +757,7 @@ Never invent specifications. Remind that pricing is not connected.`;
       const userPrompt = `USER SEARCH CRITERIA:
 Application: ${application || appType}
 Location: ${location || "Australia"}
-Power: ${powerAvailability || solarOrMains || "Off-grid Solar"}
+Power: ${powerSource}
 Mounting Height: ${mountingHeight || poleHeight || "6m"}
 Area / Path Width: ${areaOrWidth || "Standard"}
 Lighting Class / Lux: ${luxOrClass || "Category P4"}
@@ -786,7 +814,7 @@ Return JSON matching this exact structure:
 }`;
 
       const response = await generateContentWithFailover({
-        preferredModel: "gemini-3.7-flash",
+        preferredModel: DEFAULT_MODEL,
         contents: userPrompt,
         config: {
           systemInstruction: systemPrompt,
@@ -836,183 +864,7 @@ Return JSON matching this exact structure:
 
       return res.json(parsed);
     } catch (aiErr: any) {
-      console.warn("AI generation failed for product finder, using fallback:", aiErr.message);
-
-      // Contextual grounded fallback based on application
-      let primaryName = "Intense Light - 50W Solar";
-      let primaryCode = "INTENSE-50W-SOLAR";
-      let why = "Proven 7,500 lm split-system luminaire with substantial 896Wh LiFePO4 battery, perfectly matched for council shared pathways and public reserves requiring high winter autonomy.";
-      let advantages = [
-        "7,500 lm output delivers Category P3 / P4 lighting levels across 25m-35m spacing.",
-        "Adjustable 260° panel tilt optimizes winter solar harvesting across southern Australian latitudes.",
-        "896Wh LiFePO4 battery provides 4 to 6 days autonomy during overcast periods.",
-        "Available in 3000K warm white to satisfy local council fauna and Dark-Sky mandates."
-      ];
-      let specs = {
-        applicationFit: "Council Shared Paths, Rail Trails, Reserves, Public Walkways",
-        luminaireOutput: "7,500 lm (150 lm/W Philips SMD3030)",
-        solarAndBattery: "130W Mono PV + 896Wh 12.8V LiFePO4 Battery",
-        cctAvailable: "3000K, 4000K, 5700K",
-        mountingOptions: "60mm Spigot, 4.5m - 6.0m Pole Height",
-        batteryAutonomy: "4 - 6 Days (Southern Australian Winter)",
-        warranty: "5-Year Commercial Warranty",
-        complianceStandard: "AS/NZS 1158.3.1 (Pedestrian Cat P)"
-      };
-      let secondaryList = [
-        {
-          productName: "Pro Blade Solar 75/125",
-          productCode: "PROBLADE-SOLAR",
-          matchLevel: "Possible match",
-          whyConsider: "Consider if wide area road coverage or higher mounting heights (7m-9m) are desired.",
-          tradeOffs: "Requires specific bracket arrangement and higher wind load verification on pole."
-        },
-        {
-          productName: "Superlux All-in-One Solar Luminaire",
-          productCode: "SUPERLUX-AIO",
-          matchLevel: "Possible match",
-          whyConsider: "Consider where a streamlined, single-body aesthetic without separate panel bracket is preferred.",
-          tradeOffs: "Fixed panel angle; ensure adequate winter insolation at project location."
-        }
-      ];
-
-      if (isRoadway) {
-        primaryName = "Roadway V-LED 70W Solar";
-        primaryCode = "ROADWAY-VLED-70W";
-        why = "Engineered for minor collector roads and subdivision street lighting, featuring high lumen batwing distribution and large capacity battery reserve for Category V compliance.";
-        advantages = [
-          "Optimized roadway batwing photometric distribution reduces required pole quantities.",
-          "High lumen package engineered for 8m-10m mounting heights.",
-          "Smart MPPT controller with programmable midnight dimming profiles.",
-          "Rugged marine-grade aluminium housing with C4/C5 corrosion protection."
-        ];
-        specs = {
-          applicationFit: "Category V Roadways, Industrial Access Streets, Subdivisions",
-          luminaireOutput: "10,500 lm High-Efficacy Batwing",
-          solarAndBattery: "180W Mono PV + 1200Wh LiFePO4 Battery",
-          cctAvailable: "3000K, 4000K",
-          mountingOptions: "Side entry 60mm spigot, 8m-10m pole height",
-          batteryAutonomy: "5 - 7 Days continuous operation",
-          warranty: "5-Year Commercial Infrastructure Warranty",
-          complianceStandard: "AS/NZS 1158.1.1 (Vehicular Cat V)"
-        };
-      } else if (isCarPark || isIndustrial) {
-        primaryName = "Pro Blade Solar 125W";
-        primaryCode = "PROBLADE-125W-SOLAR";
-        why = "High-output commercial luminaire designed for expansive coverage across logistics yards, commercial car parks, and compound perimeters.";
-        advantages = [
-          "Wide Type III / Type IV optical distributions maximize car bay coverage.",
-          "High efficacy (160 lm/W) reduces required pole count in large open yards.",
-          "Heavy-duty die-cast aluminium housing with IP66 and IK08 impact ratings.",
-          "Integrated microwave/PIR motion sensor capability for security step-dimming."
-        ];
-        specs = {
-          applicationFit: "Commercial Car Parks, Truck Depots, Industrial Logistics Yards",
-          luminaireOutput: "18,750 lm High-Output Array",
-          solarAndBattery: "240W Bifacial Mono PV + 1536Wh LiFePO4",
-          cctAvailable: "4000K, 5000K",
-          mountingOptions: "Adjustable slip-fitter 60mm-76mm, 6m-9m pole height",
-          batteryAutonomy: "4 - 5 Days autonomy",
-          warranty: "5-Year Heavy Industrial Warranty",
-          complianceStandard: "AS/NZS 1158.3.1 (Cat P11 / P12 Car Parks)"
-        };
-      } else if (isMine) {
-        primaryName = "Portable Solar Light Tower";
-        primaryCode = "PLAS-TOWER-SOLAR";
-        why = "Heavy-duty off-grid mobile light tower engineered for rugged mining compounds, civil roadworks, and remote infrastructure sites.";
-        advantages = [
-          "Zero fuel consumption and zero carbon emissions compared to diesel light towers.",
-          "Hydraulic mast extending up to 8.5m with 360° floodlight orientation.",
-          "Forklift pockets and crane lift lugs for rapid civil site deployment.",
-          "Automated dusk-to-dawn timer and emergency override controls."
-        ];
-        specs = {
-          applicationFit: "Mining Compounds, Civil Infrastructure, Temporary Roadworks",
-          luminaireOutput: "4x 100W High-Efficiency LED Floodlights (60,000 lm total)",
-          solarAndBattery: "4x 350W Heavy-Duty Solar Array + 48V 400Ah LiFePO4",
-          cctAvailable: "5000K Daylight Crisp White",
-          mountingOptions: "Towable trailer with 8.5m hydraulic mast",
-          batteryAutonomy: "Up to 36 hours continuous full-power run time",
-          warranty: "3-Year Heavy Duty Site Warranty",
-          complianceStandard: "Mining Site OH&S Lighting Standards"
-        };
-      } else if (isCCTV) {
-        primaryName = "Portable Solar CCTV Tower & Surveillance Luminaire";
-        primaryCode = "PLAS-CCTV-SOLAR-01";
-        why = "Integrated solar security and surveillance platform offering 24/7 continuous recording, high-definition PTZ optics, 4G cellular telemetry, and perimeter illumination.";
-        advantages = [
-          "Continuous 24/7 security power architecture with dedicated telecom battery reserve.",
-          "4G/5G remote cloud viewing with motion intrusion AI alerts.",
-          "Dual-purpose PIR security lighting illuminates suspicious area upon detection.",
-          "Vandal-resistant tamper-evident pole design."
-        ];
-        specs = {
-          applicationFit: "Council Depots, Construction Sites, Asset Security, Event Compounds",
-          luminaireOutput: "5,000 lm Smart Step-Dimming Security LED",
-          solarAndBattery: "200W Commercial Monocrystalline PV + 1200Wh LiFePO4",
-          cctAvailable: "4000K Neutral White",
-          mountingOptions: "6m-8m Direct Burial / Plaspole with Anti-Climb shroud",
-          batteryAutonomy: "7 Days continuous camera & cellular operation",
-          warranty: "3-Year Industrial Electronics Warranty",
-          complianceStandard: "AS/NZS 1158 & Surveillance Security Standards"
-        };
-      }
-
-      const fallbackResult = {
-        primaryRecommendation: {
-          productName: primaryName,
-          productCode: primaryCode,
-          category: "Solar Luminaire",
-          matchLevel: "Strong potential match",
-          whySuitable: why,
-          keyAdvantages: advantages,
-          importantLimitations: [
-            "Solar panel requires unshaded Northern aspect in the Southern Hemisphere.",
-            "Site-specific AS/NZS 1158 compliance requires formal Dialux photometric calculation.",
-            "Pole foundation and rag-bolt cage must be engineered against Australian Wind Region standards."
-          ],
-          specificationsSummary: specs,
-          supportingDocuments: [
-            {
-              title: `Plasgain ${primaryName} Product Datasheet`,
-              version: "2025/2026",
-              page: "p. 1-2"
-            },
-            {
-              title: "Plasgain Solar Lighting Master Catalogue",
-              version: "2025 Edition",
-              page: "Solar Infrastructure Section"
-            }
-          ],
-          informationStillRequired: [
-            "Path / roadway layout drawings to verify exact pole spacing.",
-            "Confirmation of council CCT mandate (3000K vs 4000K).",
-            "Wind region classification (Region A inland vs Region B/C coastal)."
-          ],
-          technicalReviewRequired: "Photometric Dialux calculation and pole wind load check.",
-          conflictWarning: null
-        },
-        secondaryCandidates: secondaryList,
-        recommendedProducts: [
-          {
-            productName: primaryName,
-            productCode: primaryCode,
-            category: "Solar Luminaire",
-            matchLevel: "Strong potential match",
-            whySuitable: why,
-            supportingSpecifications: specs,
-            importantLimitations: [
-              "Solar panel requires unshaded Northern exposure.",
-              "AS/NZS 1158 compliance requires Dialux photometric design."
-            ],
-            informationStillRequired: ["Exact site layout for Dialux calculation"],
-            technicalReviewRequired: "Photometric Dialux calculation."
-          }
-        ],
-        unsupportedCriteria: [],
-        salesRepAdvice: `${primaryName} is the most dependable candidate for ${appType}. Recommend proposing a complimentary Dialux lighting layout to secure council specification approval.`
-      };
-
-      return res.json(fallbackResult);
+      return sendAIUnavailable(res, "product finder", aiErr);
     }
   } catch (error: any) {
     console.error("Error in product finder:", error);
@@ -1023,10 +875,11 @@ Return JSON matching this exact structure:
 // 4. ASK PLASGAIN (RAG / PRODUCT KNOWLEDGE ASSISTANT)
 app.post(["/api/ask-plasgain", "/api/knowledge/ask"], async (req, res) => {
   try {
-    const { question, chatHistory, currentDocContext } = req.body;
-    if (!question) {
-      return res.status(400).json({ error: "Question is required." });
-    }
+    const valid = requireStrings(res, req.body, [{ key: "question", label: "Question" }]);
+    if (!valid) return;
+    const question = valid.question;
+    const chatHistory = readArray(req.body?.chatHistory);
+    const currentDocContext = readString(req.body?.currentDocContext);
 
     try {
       const ai = getAI();
@@ -1073,7 +926,7 @@ Return a JSON response with:
 }`;
 
       const response = await generateContentWithFailover({
-        preferredModel: "gemini-3.7-flash",
+        preferredModel: DEFAULT_MODEL,
         contents: userPrompt,
         config: {
           systemInstruction: systemPrompt,
@@ -1085,69 +938,7 @@ Return a JSON response with:
       const result = extractJsonFromText(response.text || "{}");
       return res.json(result);
     } catch (aiErr: any) {
-      console.warn("AI generation failed for Ask Plasgain, using grounded KB fallback:", aiErr.message);
-      const qLower = question.toLowerCase();
-
-      if (qLower.includes("price") || qLower.includes("cost") || qLower.includes("quote")) {
-        return res.json({
-          answer: "Pricing data is not currently connected to the app. Please refer to current internal commercial price schedules or request pricing from the commercial team.",
-          foundInKnowledgeBase: true,
-          confidence: "High",
-          citations: [{ document: "Plasgain Knowledge Base Guardrails", pageOrSection: "Pricing Guardrail", excerpt: "Pricing data is not connected." }],
-          conflictWarning: null,
-          technicalConfirmationRequired: false,
-          suggestedFollowUpQuestions: ["What are the technical specs of Intense 50W?", "What is the recommended mounting height?"]
-        });
-      }
-
-      if (qLower.includes("intense") || qLower.includes("50w")) {
-        return res.json({
-          answer: "According to the approved Plasgain Intense 50W documentation:\n\n- **Luminous Output:** 7,500 lumens (Philips SMD 3030 LED module at 150 lm/W lamp efficiency).\n- **Battery Capacity:** 896Wh capacity with 10A PWM IP68 waterproof controller; rated 70Ah at 12.8V LiFePO4.\n- **Solar Panel:** 130W / 18V monocrystalline PV array with approx. 260° horizontal rotation.\n- **Mounting:** 60mm spigot mount; recommended 4m to 6m mounting height.\n\n*Source: Plasgain 50W Solar Intense Light Web Page & 2025 Solar Lighting Catalogue.*",
-          foundInKnowledgeBase: true,
-          confidence: "High",
-          citations: [
-            {
-              document: "Plasgain 50W Solar Intense Light Web Page",
-              pageOrSection: "Specifications Table",
-              excerpt: "Luminous flux: 7,500 lm. Battery: 896Wh; 70Ah / 12.8V. Solar panel: 130W / 18V."
-            }
-          ],
-          conflictWarning: null,
-          technicalConfirmationRequired: false,
-          learningSnippet: {
-            concept: "Split-System Solar Luminaire Autonomy",
-            explanation: "896Wh battery capacity allows the luminaire to maintain multi-night operation when paired with programmable PIR motion dimming profiles.",
-            whyItMattersToCustomer: "Protects against winter dark-sky outages along council trails while keeping the pole structure light."
-          },
-          suggestedFollowUpQuestions: [
-            "What spigot diameter is required for Intense 50W?",
-            "Can Intense 50W be supplied in 3000K for fauna-sensitive areas?",
-            "How does Intense 50W compare to Pro Blade 75/125?"
-          ]
-        });
-      }
-
-      if (qLower.includes("deltalux")) {
-        return res.json({
-          answer: "Technical confirmation required: Public Plasgain sources contain conflicting information for this specification. Please confirm the current internal datasheet before quoting.\n\nDiscrepancy Details: The Deltalux solar panel is cited as 10W (spec table), 30W (features text), and 90W (catalogue). Wattage is listed as both 10W and 30W, and battery capacity varies between 54Wh and 288Wh across documents.",
-          foundInKnowledgeBase: true,
-          confidence: "High",
-          citations: [{ document: "Plasgain Conflict Register CR-01", pageOrSection: "Deltalux Specifications", excerpt: "Conflicting panel (10W vs 30W vs 90W) and battery (54Wh vs 288Wh)." }],
-          conflictWarning: "Public Plasgain sources contain conflicting specifications for Deltalux.",
-          technicalConfirmationRequired: true,
-          suggestedFollowUpQuestions: ["What alternatives exist to Deltalux for pathway lighting?"]
-        });
-      }
-
-      return res.json({
-        answer: `Regarding "${question}":\n\nPlasgain manufactures and distributes commercial solar luminaires, Plaspole composite and galvanised poles, and smart lighting systems across Australia. All lighting applications requiring AS/NZS 1158 compliance must be verified with project-specific Dialux calculations.\n\n*Source: Plasgain Public Knowledge Base V1.0.*`,
-        foundInKnowledgeBase: true,
-        confidence: "Medium",
-        citations: [{ document: "Plasgain Solar Lighting Catalogue 2025", pageOrSection: "General Specifications", excerpt: "Commercial solar lighting systems for Australian roads and public spaces." }],
-        conflictWarning: null,
-        technicalConfirmationRequired: false,
-        suggestedFollowUpQuestions: ["What is the Intense 50W output?", "What is Roadway V-LED 70W recommended for?"]
-      });
+      return sendAIUnavailable(res, "Ask Plasgain", aiErr);
     }
   } catch (error: any) {
     console.error("Error in Ask Plasgain:", error);
@@ -1158,9 +949,14 @@ Return a JSON response with:
 // 5. DOCUMENT & TENDER / RFQ ANALYSER
 app.post(["/api/document/analyze", "/api/tools/tender-analyze"], async (req, res) => {
   try {
-    const { documentName, projectName, documentText, tenderText, mode, customPrompt } = req.body;
-    const resolvedDocName = documentName || projectName || "Tender Document Specification";
-    const resolvedDocText = documentText || tenderText || "Sample Council Tender Specification";
+    const resolvedDocText = readString(req.body?.documentText) || readString(req.body?.tenderText);
+    if (!resolvedDocText) {
+      return res.status(400).json({ error: "Document text is required and must be a non-empty string." });
+    }
+    const resolvedDocName =
+      readString(req.body?.documentName) || readString(req.body?.projectName) || "Untitled document";
+    const mode = readString(req.body?.mode);
+    const customPrompt = readString(req.body?.customPrompt);
 
     try {
       const ai = getAI();
@@ -1211,7 +1007,7 @@ Return JSON matching:
 }`;
 
       const response = await generateContentWithFailover({
-        preferredModel: "gemini-3.7-flash",
+        preferredModel: DEFAULT_MODEL,
         contents: prompt,
         config: {
           systemInstruction: systemPrompt,
@@ -1223,53 +1019,7 @@ Return JSON matching:
       const result = extractJsonFromText(response.text || "{}");
       return res.json(result);
     } catch (aiErr: any) {
-      console.warn("AI generation failed for document analysis, using fallback:", aiErr.message);
-      return res.json({
-        projectDetails: {
-          projectName: resolvedDocName,
-          client: "Council / Civil Contractor",
-          location: "Australia",
-          tenderNumber: "TND-2026-PL",
-          closingDate: "Within 14 days",
-          projectTiming: "Q3-Q4 Construction"
-        },
-        lightingScope: "Off-grid solar pathway and public space illumination with compliant pole structures.",
-        quantitiesIdentified: [
-          { item: "Solar Pathway Luminaires", quantity: "24-30 units (Est.)", notes: "Intense 50W or Pro Blade 75/125 candidate" },
-          { item: "Galvanised / Plaspole Mounting Poles", quantity: "24-30 units", notes: "4.5m - 6.0m mounting height with rag-bolt assemblies" }
-        ],
-        technicalRequirements: [
-          {
-            parameter: "Optical Performance & Lux Levels",
-            tenderRequirement: "AS/NZS 1158 Cat P Lighting Compliance",
-            potentialPlasgainSolution: "Intense 50W Solar Luminaire (7,500 lm)",
-            evidence: "Philips SMD 3030 LED module at 150 lm/W with precision pathway lens",
-            status: "Needs Confirmation",
-            action: "Run Dialux photometric simulation to verify spacing"
-          },
-          {
-            parameter: "Colour Temperature (CCT)",
-            tenderRequirement: "3000K Warm White for wildlife sensitive corridor",
-            potentialPlasgainSolution: "Intense 50W available in 3000K / 4000K / 5700K",
-            evidence: "Datasheet confirms 3000K warm white option",
-            status: "Appears Compliant",
-            action: "Specify 3000K ordering code on bill of materials"
-          }
-        ],
-        commercialRequirements: [
-          { item: "Warranty Terms", requirement: "Minimum 5-year luminaire & battery warranty", status: "Confirmed", action: "Attach Plasgain Standard Warranty Schedule" },
-          { item: "Pricing & Freight", requirement: "Delivered to site (FIS/DAP)", status: "Check Required", action: "Obtain commercial freight quote for regional delivery" }
-        ],
-        criticalRisksAndGaps: [
-          "Soil type and foundation specs not fully detailed; verify with rag-bolt engineering chart.",
-          "Winter solar insolation at high latitudes must be checked against 896Wh battery autonomy."
-        ],
-        recommendedNextActions: [
-          "Prepare formal Dialux lighting calculation report for consultant submission.",
-          "Generate Plasgain technical compliance matrix and product datasheets."
-        ],
-        tenderReadinessScore: 84
-      });
+      return sendAIUnavailable(res, "document analysis", aiErr);
     }
   } catch (error: any) {
     console.error("Error analyzing document:", error);
@@ -1280,9 +1030,14 @@ Return JSON matching:
 // 6. QUOTE REVIEW AGAINST ORIGINAL REQUIREMENTS
 app.post(["/api/quote/review", "/api/tools/quote-review"], async (req, res) => {
   try {
-    const { originalEnquiry, enquiryDetails, proposedQuote, quoteItems } = req.body;
-    const resolvedEnquiry = originalEnquiry || enquiryDetails || "Customer requested 30x 6m solar pathway lights in Ballarat, 3000K CCT, dusk-to-dawn, delivered to site by November.";
-    const resolvedQuote = proposedQuote || quoteItems || "Quote #PL-8924: 30x Intense Light - 50W Solar, 3000K, 6m Galvanised Poles with rag-bolt assemblies. Ex-works Melbourne.";
+    const resolvedEnquiry = readString(req.body?.originalEnquiry) || readString(req.body?.enquiryDetails);
+    const resolvedQuote = readString(req.body?.proposedQuote) || readString(req.body?.quoteItems);
+    if (!resolvedEnquiry) {
+      return res.status(400).json({ error: "Original enquiry text is required and must be a non-empty string." });
+    }
+    if (!resolvedQuote) {
+      return res.status(400).json({ error: "Proposed quote text is required and must be a non-empty string." });
+    }
 
     try {
       const ai = getAI();
@@ -1316,7 +1071,7 @@ Return JSON:
 }`;
 
       const response = await generateContentWithFailover({
-        preferredModel: "gemini-3.7-flash",
+        preferredModel: DEFAULT_MODEL,
         contents: prompt,
         config: {
           systemInstruction: systemPrompt,
@@ -1328,35 +1083,7 @@ Return JSON:
       const result = extractJsonFromText(response.text || "{}");
       return res.json(result);
     } catch (aiErr: any) {
-      console.warn("AI generation failed for quote review, using fallback:", aiErr.message);
-      return res.json({
-        matched: [
-          { item: "Quantity & Luminaire", details: "30x Intense 50W Solar Luminaires matched" },
-          { item: "Colour Temperature", details: "3000K Warm White correctly specified" },
-          { item: "Pole Height", details: "6.0m Mounting Height matches specification" }
-        ],
-        checkItems: [
-          {
-            item: "Delivery Terms (Incoterms)",
-            warning: "Customer requested delivery to site (FIS/DAP), but quote states Ex-Works Melbourne.",
-            recommendedFix: "Add line item for dedicated freight to site."
-          }
-        ],
-        potentialProblems: [
-          {
-            item: "Dialux Photometric Report",
-            issue: "Customer requested AS/NZS 1158 Cat P proof before final sign-off.",
-            impact: "Quote may be delayed by council engineer if lighting layout is omitted.",
-            actionRequired: "Attach approved Dialux lighting calculation report."
-          }
-        ],
-        beforeSendingChecklist: [
-          "Confirm freight cost and site delivery address",
-          "Attach Intense 50W Solar product specification sheet",
-          "Ensure quote validity date (30 days standard) is clearly displayed"
-        ],
-        overallVerdict: "Ready to Send with Minor Checks"
-      });
+      return sendAIUnavailable(res, "quote review", aiErr);
     }
   } catch (error: any) {
     console.error("Error in quote review:", error);
@@ -1367,10 +1094,12 @@ Return JSON:
 // 7. CUSTOMER INTELLIGENCE & RESEARCH
 app.post(["/api/customer/research", "/api/tools/customer-research"], async (req, res) => {
   try {
-    const { companyName, location, website, currentOpportunity } = req.body;
-    if (!companyName) {
-      return res.status(400).json({ error: "Company name is required." });
-    }
+    const valid = requireStrings(res, req.body, [{ key: "companyName", label: "Company name" }]);
+    if (!valid) return;
+    const companyName = valid.companyName;
+    const location = readString(req.body?.location);
+    const website = readString(req.body?.website);
+    const currentOpportunity = readString(req.body?.currentOpportunity);
 
     try {
       const ai = getAI();
@@ -1405,7 +1134,7 @@ Format as JSON:
 }`;
 
       const response = await generateContentWithFailover({
-        preferredModel: "gemini-3.7-flash",
+        preferredModel: DEFAULT_MODEL,
         contents: prompt,
         config: {
           tools: [{ googleSearch: {} }],
@@ -1424,29 +1153,7 @@ Format as JSON:
       result.sources = webSources;
       return res.json(result);
     } catch (aiErr: any) {
-      console.warn("AI generation failed for customer research, using fallback:", aiErr.message);
-      return res.json({
-        companySnapshot: `${companyName} is an active Australian contractor involved in regional civil infrastructure, road upgrades, and commercial development.`,
-        tierAndSpecialty: "Tier 2 / Regional Civil & Electrical Infrastructure",
-        relevantMarkets: ["Council Shared Paths", "Subdivisions & Car Parks", "Regional Road Upgrades", "Mine / Industrial Compounds"],
-        recentProjects: [
-          { name: "Regional Transport Corridor", location: location || "Australia", sector: "Civil Infrastructure", lightingRelevance: "Solar pathway & safety lighting" }
-        ],
-        potentialLightingOpportunities: [
-          "Off-grid solar lighting for shared trail connections without trenching mains power",
-          "Plaspole composite poles for corrosion-prone or coastal environments"
-        ],
-        targetRolesToEngage: [
-          { role: "Senior Estimator / Electrical PM", whyEngage: "Pricing and lead time during tender bid phase", valueProposition: "Fast turnkey luminaire + pole packages with complete photometric Dialux design" },
-          { role: "Project Engineer / Asset Manager", whyEngage: "Product approval and specification sign-off", valueProposition: "Zero ongoing power bills, robust LiFePO4 battery reliability, and Australian compliance" }
-        ],
-        conversationStarters: [
-          `"We noticed your upcoming civil packages in ${location || 'the region'}—are you seeing councils push for solar lighting on shared paths to eliminate trenching costs?"`,
-          `"Plasgain can run your Dialux photometric calculations complimentary to ensure compliance with AS/NZS 1158."`
-        ],
-        researchConfidence: "Medium",
-        sources: []
-      });
+      return sendAIUnavailable(res, "customer research", aiErr);
     }
   } catch (error: any) {
     console.error("Error in customer research:", error);
@@ -1457,10 +1164,20 @@ Format as JSON:
 // 8. CALL PREP & QUICK 1-MINUTE BRIEF
 app.post(["/api/call/prep", "/api/tools/call-prep"], async (req, res) => {
   try {
-    const { customer, contactName, company, customerCompany, project, lastInteraction, stage, notes, opportunity } = req.body;
-    const resolvedCustomer = customer || contactName || opportunity?.contactName || "Rob Mitchell";
-    const resolvedCompany = company || customerCompany || opportunity?.customerCompany || "ABC Civil Pty Ltd";
-    const resolvedProject = project || opportunity?.project || "Ballarat Shared Path Upgrade";
+    const opportunity = req.body?.opportunity;
+    const resolvedCustomer =
+      readString(req.body?.customer) || readString(req.body?.contactName) || readString(opportunity?.contactName);
+    const resolvedCompany =
+      readString(req.body?.company) || readString(req.body?.customerCompany) || readString(opportunity?.customerCompany);
+    const resolvedProject = readString(req.body?.project) || readString(opportunity?.project);
+    if (!resolvedCustomer || !resolvedCompany || !resolvedProject) {
+      return res.status(400).json({
+        error: "Contact name, company, and project are required to prepare a call brief."
+      });
+    }
+    const lastInteraction = readString(req.body?.lastInteraction);
+    const stage = readString(req.body?.stage);
+    const notes = readString(req.body?.notes);
 
     try {
       const ai = getAI();
@@ -1491,7 +1208,7 @@ Return JSON:
 }`;
 
       const response = await generateContentWithFailover({
-        preferredModel: "gemini-3.7-flash",
+        preferredModel: DEFAULT_MODEL,
         contents: prompt,
         config: {
           systemInstruction: systemPrompt,
@@ -1503,30 +1220,7 @@ Return JSON:
       const result = extractJsonFromText(response.text || "{}");
       return res.json(result);
     } catch (aiErr: any) {
-      console.warn("AI generation failed for call prep, using fallback:", aiErr.message);
-      return res.json({
-        customerSnapshot: `${resolvedCustomer} (${resolvedCompany}) - Estimator / Project Lead`,
-        currentOpportunity: `${resolvedProject} - Seeking compliant solar lighting`,
-        lastInteractionSummary: lastInteraction || "Reviewed preliminary project requirements",
-        waitingOn: "Confirmation of path layout width/length and council CCT specification (3000K vs 4000K)",
-        questionsToAsk: [
-          "What is the exact pathway length and width so we can lock in the Dialux spacing for AS/NZS 1158?",
-          "Does the council require 3000K fauna-friendly warm white along this corridor?",
-          "What is your target delivery timeline on site?"
-        ],
-        possibleObjections: [
-          {
-            objection: "Will solar lights stay illuminated through cloudy winter weeks in Victoria/Tasmania?",
-            howToHandle: "Explain that Intense 50W uses an 896Wh LiFePO4 battery pack with MPPT smart dimming, providing multi-night autonomy through overcast periods."
-          },
-          {
-            objection: "We need budget numbers today before submitting our tender.",
-            howToHandle: "Explain our standard pricing tier structure and promise formal commercial quotation within 4 hours once pole height is confirmed."
-          }
-        ],
-        goalOfThisCall: "Secure site layout drawings to run Dialux lighting simulation and submit formal quotation.",
-        estimatedDuration: "3-5 mins"
-      });
+      return sendAIUnavailable(res, "call prep", aiErr);
     }
   } catch (error: any) {
     console.error("Error in call prep:", error);
@@ -1537,10 +1231,11 @@ Return JSON:
 // 9. CALL NOTES -> STRUCTURED CRM PARSER
 app.post(["/api/call/process-notes", "/api/tools/call-log-parser", "/api/tools/call-notes", "/api/call-notes"], async (req, res) => {
   try {
-    const { rawNotes, customerCompany, project } = req.body;
-    if (!rawNotes) {
-      return res.status(400).json({ error: "Raw notes are required." });
-    }
+    const valid = requireStrings(res, req.body, [{ key: "rawNotes", label: "Raw notes" }]);
+    if (!valid) return;
+    const rawNotes = valid.rawNotes;
+    const customerCompany = readString(req.body?.customerCompany);
+    const project = readString(req.body?.project);
 
     try {
       const ai = getAI();
@@ -1570,7 +1265,7 @@ Return JSON:
 }`;
 
       const response = await generateContentWithFailover({
-        preferredModel: "gemini-3.7-flash",
+        preferredModel: DEFAULT_MODEL,
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -1581,22 +1276,7 @@ Return JSON:
       const result = extractJsonFromText(response.text || "{}");
       return res.json(result);
     } catch (aiErr: any) {
-      console.warn("AI generation failed for call notes, using fallback:", aiErr.message);
-      return res.json({
-        account: customerCompany || "Civil Contractor Client",
-        contact: "Project Manager",
-        opportunity: "Solar Lighting Package",
-        project: project || "Public Infrastructure Upgrade",
-        quantity: "Approx. 20-30 units",
-        requirements: ["Solar pathway luminaires", "Galvanised or Plaspole poles", "Dialux AS/NZS 1158 report"],
-        concerns: ["Winter battery performance", "Delivery lead times"],
-        decisionProcess: "Council engineer approval required before PO release",
-        timeline: "Construction starting next quarter",
-        quoteDeadline: "This Friday 5:00 PM",
-        nextAction: "Generate Dialux simulation and send formal quote with Intense 50W datasheet",
-        followUpDate: "In 2 business days",
-        formattedCrmSummary: `SUMMARY:\nDiscussed project lighting requirements with ${customerCompany || 'client'}. Client needs off-grid solar solution to avoid trenching costs. Recommended Intense 50W (896Wh battery, 7,500 lm) with 6m poles.\n\nACTION ITEMS:\n1. Run Dialux lighting design.\n2. Submit formal commercial quote.`
-      });
+      return sendAIUnavailable(res, "call notes", aiErr);
     }
   } catch (error: any) {
     console.error("Error in process notes:", error);
@@ -1607,12 +1287,23 @@ Return JSON:
 // 10. FOLLOW-UP ASSISTANT
 app.post(["/api/follow-up/suggest", "/api/tools/follow-up", "/api/tools/followup"], async (req, res) => {
   try {
-    const { customer, customerName, company, project, lastContactDate, daysSinceLastActivity, stage, context, specificContext } = req.body;
-    const resolvedCustomer = customer || customerName || "David";
-    const resolvedCompany = company || "Apex Electrical";
-    const resolvedProject = project || "Shared Path Lighting";
-    const resolvedLastContact = lastContactDate || (daysSinceLastActivity ? `${daysSinceLastActivity} days ago` : "4 days ago");
-    const resolvedContext = context || specificContext || "Quote sent for Intense 50W solar luminaires. Awaiting client feedback.";
+    const resolvedCustomer = readString(req.body?.customer) || readString(req.body?.customerName);
+    const resolvedCompany = readString(req.body?.company);
+    const resolvedProject = readString(req.body?.project);
+    if (!resolvedCustomer || !resolvedCompany || !resolvedProject) {
+      return res.status(400).json({
+        error: "Customer, company, and project are required to suggest a follow-up."
+      });
+    }
+    const daysSinceLastActivity = req.body?.daysSinceLastActivity;
+    const resolvedLastContact =
+      readString(req.body?.lastContactDate) ||
+      (typeof daysSinceLastActivity === "number" && Number.isFinite(daysSinceLastActivity)
+        ? `${daysSinceLastActivity} days ago`
+        : "not recorded");
+    const stage = readString(req.body?.stage);
+    const resolvedContext =
+      readString(req.body?.context) || readString(req.body?.specificContext) || "No additional context supplied.";
 
     try {
       const ai = getAI();
@@ -1638,7 +1329,7 @@ Return JSON:
 }`;
 
       const response = await generateContentWithFailover({
-        preferredModel: "gemini-3.7-flash",
+        preferredModel: DEFAULT_MODEL,
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -1649,17 +1340,7 @@ Return JSON:
       const result = extractJsonFromText(response.text || "{}");
       return res.json(result);
     } catch (aiErr: any) {
-      console.warn("AI generation failed for follow-up, using fallback:", aiErr.message);
-      return res.json({
-        whyFollowUpNow: "The quote was issued recently and consultant review cycles typically finalise within 1-2 weeks.",
-        whatToAsk: [
-          "Did the consultant or council lighting engineer have any questions regarding the Dialux photometric calculations?",
-          "Are there any specific foundation or baseplate details needed for the footing schedule?"
-        ],
-        suggestedMessage: `Hi ${resolvedCustomer},\n\nHope you're having a productive week.\n\nOur engineering team was reviewing the ${resolvedProject} schedule today and wanted to ensure you had all necessary photometric compliance data and foundation drawings for your consultant submission.\n\nIf the electrical consultant needs us to adjust the pole spacing or beam distribution on the Dialux model, we can turn that around quickly for you.\n\nLet us know how we can best support your submission.\n\nBest regards,\nPlasgain Lighting Technical Team`,
-        channelRecommended: "Email + Spec Sheet",
-        urgencyScore: "Medium"
-      });
+      return sendAIUnavailable(res, "follow-up", aiErr);
     }
   } catch (error: any) {
     console.error("Error in follow-up assistant:", error);
@@ -1670,9 +1351,12 @@ Return JSON:
 // 11. PRODUCT COMPARISON
 app.post(["/api/product/compare", "/api/tools/compare", "/api/tools/product-compare", "/api/product-compare"], async (req, res) => {
   try {
-    const { productA, product1Name, productB, product2Name, applicationContext } = req.body;
-    const resolvedProductA = productA || product1Name || "Intense Light - 50W Solar";
-    const resolvedProductB = productB || product2Name || "Pro Blade Solar 75/125";
+    const resolvedProductA = readString(req.body?.productA) || readString(req.body?.product1Name);
+    const resolvedProductB = readString(req.body?.productB) || readString(req.body?.product2Name);
+    if (!resolvedProductA || !resolvedProductB) {
+      return res.status(400).json({ error: "Two product names are required to run a comparison." });
+    }
+    const applicationContext = readString(req.body?.applicationContext);
 
     try {
       const ai = getAI();
@@ -1699,7 +1383,7 @@ Return JSON:
 }`;
 
       const response = await generateContentWithFailover({
-        preferredModel: "gemini-3.7-flash",
+        preferredModel: DEFAULT_MODEL,
         contents: prompt,
         config: {
           systemInstruction: systemPrompt,
@@ -1711,27 +1395,7 @@ Return JSON:
       const result = extractJsonFromText(response.text || "{}");
       return res.json(result);
     } catch (aiErr: any) {
-      console.warn("AI generation failed for comparison, using fallback:", aiErr.message);
-      return res.json({
-        comparisonTable: [
-          { parameter: "Luminous Flux (Output)", productA: "7,500 lumens", productB: "High lumen output commercial array", notes: "Intense 50W uses Philips SMD 3030 at 150 lm/W" },
-          { parameter: "Solar Panel", productA: "130W / 18V Monocrystalline", productB: "High-efficiency commercial PV", notes: "Intense features 260° horizontal rotation" },
-          { parameter: "Battery Capacity", productA: "896Wh LiFePO4 (70Ah @ 12.8V)", productB: "Integrated LiFePO4 pack", notes: "Substantial multi-night autonomy for winter" },
-          { parameter: "Mounting Spigot", productA: "60mm OD spigot", productB: "Standard commercial spigot mount", notes: "Fits standard Plasgain 4m-6m poles" }
-        ],
-        wherePlasgainHasAdvantage: [
-          "High battery capacity (896Wh) ensures dependable autonomy through cloudy winter periods",
-          "Precision pathway optics minimize light spill into adjacent residential properties",
-          "Australian engineering support and Dialux lighting calculations provided"
-        ],
-        whereCompetitorHasAdvantage: [
-          "Check competitor's local stock status if immediate next-day dispatch is demanded"
-        ],
-        equivalentOrSimilar: ["Standard 60mm spigot mounting", "LiFePO4 battery chemistry safety"],
-        unknownParameters: ["Competitor optical distribution type and photometric IES file availability"],
-        claimsWeShouldNotMake: ["Do not guarantee 100% cloud cover autonomy without running a site solar insolation check."],
-        salesRepPitchTip: "Focus on Plasgain's 896Wh battery capacity and offer a complimentary Dialux simulation to lock in specification."
-      });
+      return sendAIUnavailable(res, "comparison", aiErr);
     }
   } catch (error: any) {
     console.error("Error comparing products:", error);
@@ -1742,7 +1406,15 @@ Return JSON:
 // 12. LEARNING CENTRE: QUIZ EVALUATION & GENERATION
 app.post(["/api/learn/quiz-evaluate", "/api/learn/evaluate"], async (req, res) => {
   try {
-    const { question, scenario, userAnswer, topic } = req.body;
+    const valid = requireStrings(res, req.body, [
+      { key: "question", label: "Quiz question" },
+      { key: "userAnswer", label: "Your answer" }
+    ]);
+    if (!valid) return;
+    const question = valid.question;
+    const userAnswer = valid.userAnswer;
+    const scenario = readString(req.body?.scenario);
+    const topic = readString(req.body?.topic);
     try {
       const ai = getAI();
       const systemPrompt = `${MASTER_PLASGAIN_SYSTEM_INSTRUCTION}
@@ -1767,7 +1439,7 @@ Return JSON:
 }`;
 
       const response = await generateContentWithFailover({
-        preferredModel: "gemini-3.7-flash",
+        preferredModel: DEFAULT_MODEL,
         contents: prompt,
         config: {
           systemInstruction: systemPrompt,
@@ -1779,22 +1451,7 @@ Return JSON:
       const result = extractJsonFromText(response.text || "{}");
       return res.json(result);
     } catch (aiErr: any) {
-      console.warn("AI generation failed for quiz eval, using fallback:", aiErr.message);
-      return res.json({
-        score: 88,
-        rating: "Good",
-        whatWasCorrect: [
-          "Identified core technical requirements (mounting height, CCT, pathway dimensions)",
-          "Recognised the need for photometric verification"
-        ],
-        whatWasMissed: [
-          "Remembering to state that project-specific compliance requires Dialux calculations",
-          "Checking solar shading and pole wind-region foundation engineering"
-        ],
-        modelAnswer: "Key questions: 1) Path dimensions & layout; 2) Council CCT requirement (3000K fauna-safe vs 4000K); 3) Mounting pole height & foundation type; 4) Target AS/NZS 1158 sub-category (e.g. PP4); 5) Project location and delivery timeframe.",
-        coachFeedback: "Strong answer! Always remember to offer a complimentary Dialux simulation to lock in the Plasgain specification early.",
-        recommendedFollowUpLesson: "AS/NZS 1158 Photometric Design & Dialux Basics"
-      });
+      return sendAIUnavailable(res, "quiz eval", aiErr);
     }
   } catch (error: any) {
     console.error("Error evaluating quiz:", error);
@@ -1805,7 +1462,13 @@ Return JSON:
 // 13. SALES ROLEPLAY INTERACTION
 app.post(["/api/learn/roleplay", "/api/roleplay"], async (req, res) => {
   try {
-    const { customerType, difficulty, scenario, conversationHistory, latestUserMessage } = req.body;
+    const valid = requireStrings(res, req.body, [{ key: "latestUserMessage", label: "Your message" }]);
+    if (!valid) return;
+    const latestUserMessage = valid.latestUserMessage;
+    const customerType = readString(req.body?.customerType);
+    const difficulty = readString(req.body?.difficulty);
+    const scenario = readString(req.body?.scenario);
+    const conversationHistory = readArray(req.body?.conversationHistory);
     try {
       const ai = getAI();
       const prompt = `You are roleplaying as a customer talking to a Plasgain Lighting Internal Sales Representative in Australia.
@@ -1839,7 +1502,7 @@ Return JSON:
 }`;
 
       const response = await generateContentWithFailover({
-        preferredModel: "gemini-3.7-flash",
+        preferredModel: DEFAULT_MODEL,
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -1850,18 +1513,7 @@ Return JSON:
       const result = extractJsonFromText(response.text || "{}");
       return res.json(result);
     } catch (aiErr: any) {
-      console.warn("AI generation failed for roleplay, using fallback:", aiErr.message);
-      return res.json({
-        customerResponse: "Look, that makes sense regarding the battery size, but how do I know the council inspector won't knock it back on the lux levels? Have you got an engineering report to back that up?",
-        coachEvaluation: {
-          whatWorked: "Clear explanation of the Intense 50W battery autonomy and split-system advantages.",
-          whatCouldImprove: "Offer the Dialux calculation report immediately to address compliance hesitation.",
-          technicalAccuracyScore: 90,
-          salesTechniqueScore: 85,
-          betterAlternativeResponse: "We back every quote with a full Dialux photometric report certified to AS/NZS 1158 Cat P. If you send through the site layout, we will generate the compliance report for council submission at no charge."
-        },
-        isScenarioFinished: false
-      });
+      return sendAIUnavailable(res, "roleplay", aiErr);
     }
   } catch (error: any) {
     console.error("Error in roleplay:", error);
@@ -1872,10 +1524,10 @@ Return JSON:
 // 14. EXPLAIN TERMINOLOGY ("EXPLAIN SIMPLY")
 app.post(["/api/explain-term", "/api/knowledge/explain-term"], async (req, res) => {
   try {
-    const { term, context } = req.body;
-    if (!term) {
-      return res.status(400).json({ error: "Term is required." });
-    }
+    const valid = requireStrings(res, req.body, [{ key: "term", label: "Term" }]);
+    if (!valid) return;
+    const term = valid.term;
+    const context = readString(req.body?.context);
 
     try {
       const ai = getAI();
@@ -1896,7 +1548,7 @@ Return JSON:
 }`;
 
       const response = await generateContentWithFailover({
-        preferredModel: "gemini-3.7-flash",
+        preferredModel: DEFAULT_MODEL,
         contents: prompt,
         config: {
           systemInstruction: systemPrompt,
@@ -1908,15 +1560,7 @@ Return JSON:
       const result = extractJsonFromText(response.text || "{}");
       return res.json(result);
     } catch (aiErr: any) {
-      console.warn("AI generation failed for explain-term, using fallback:", aiErr.message);
-      return res.json({
-        term: term || "CCT (Correlated Colour Temperature)",
-        definition: "A measurement in Kelvin (K) indicating the warmth or coolness of light emitted by a luminaire.",
-        whyItMatters: "Councils and environmental bodies frequently specify 3000K warm white to protect nocturnal wildlife and reduce blue light scattering, whereas commercial car parks typically use 4000K or 5700K.",
-        howItAffectsPlasgainCustomer: "Plasgain luminaires (such as Intense 50W and Pro Blade) offer selectable or factory-configured CCTs (3000K, 4000K, 5700K) to satisfy exact tender specifications.",
-        practicalExample: "A shared path through a nature reserve will require 3000K, while an industrial estate access road uses 4000K.",
-        keyRuleOfThumb: "Always check council lighting guidelines for CCT restrictions before quoting."
-      });
+      return sendAIUnavailable(res, "explain-term", aiErr);
     }
   } catch (error: any) {
     console.error("Error explaining term:", error);
@@ -1927,9 +1571,15 @@ Return JSON:
 // 15. GLOBAL COPILOT ASSISTANT (FLOATING ASK COPILOT)
 app.post(["/api/copilot/chat", "/api/chat"], async (req, res) => {
   try {
-    const { message, activeScreen, screenContext, activeContextData, chatHistory, history } = req.body;
-    const resolvedScreen = activeScreen || screenContext || "Home";
-    const resolvedHistory = chatHistory || history || [];
+    const valid = requireStrings(res, req.body, [{ key: "message", label: "Message" }]);
+    if (!valid) return;
+    const message = valid.message;
+    const activeContextData = req.body?.activeContextData;
+    const resolvedScreen =
+      readString(req.body?.activeScreen) || readString(req.body?.screenContext) || "Home";
+    const resolvedHistory = readArray(req.body?.chatHistory).length
+      ? readArray(req.body?.chatHistory)
+      : readArray(req.body?.history);
 
     try {
       const ai = getAI();
@@ -1945,7 +1595,7 @@ Keep answers concise, actionable, and grounded in approved Plasgain knowledge.`;
 CHAT HISTORY: ${JSON.stringify(resolvedHistory)}`;
 
       const response = await generateContentWithFailover({
-        preferredModel: "gemini-3.7-flash",
+        preferredModel: DEFAULT_MODEL,
         contents: userPrompt,
         config: {
           systemInstruction: systemPrompt,
@@ -1955,10 +1605,7 @@ CHAT HISTORY: ${JSON.stringify(resolvedHistory)}`;
 
       return res.json({ reply: response.text || "I'm here to help with Plasgain enquiries, products, or technical questions." });
     } catch (aiErr: any) {
-      console.warn("AI generation failed for copilot chat, using fallback:", aiErr.message);
-      return res.json({
-        reply: "I am Plasgain Lighting's Sales Copilot. I can assist you with product selection (Intense 50W, Pro Blade, Roadway V-LED), enquiry analysis, Dialux compliance requirements, and drafting client clarification emails."
-      });
+      return sendAIUnavailable(res, "copilot chat", aiErr);
     }
   } catch (error: any) {
     console.error("Error in copilot chat:", error);

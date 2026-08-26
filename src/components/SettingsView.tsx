@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   SlidersHorizontal,
   ShieldCheck,
@@ -12,9 +12,46 @@ import {
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { SAMPLE_OPPORTUNITIES, SAMPLE_DOCUMENTS } from "../data/mockData";
+import { apiGet } from "../utils/apiClient";
+
+/** Live AI status, probed from the server rather than asserted. */
+interface AIStatus {
+  configured: boolean;
+  reachable: boolean;
+  state: string;
+  detail: string;
+  model?: string;
+}
 
 export const SettingsView: React.FC = () => {
   const { setOpportunities, documents, showToast } = useApp();
+  const [aiStatus, setAiStatus] = useState<AIStatus | null>(null);
+  const [isProbing, setIsProbing] = useState(true);
+
+  // This panel is a diagnostics screen: it must report what the server actually
+  // says, not a hardcoded "Active & Grounded".
+  const probeAI = useCallback(async () => {
+    setIsProbing(true);
+    try {
+      const data = await apiGet<AIStatus>("/api/health/ai");
+      setAiStatus(data);
+    } catch {
+      setAiStatus({
+        configured: false,
+        reachable: false,
+        state: "Unknown",
+        detail: "Could not reach the Plasgain server to check AI status."
+      });
+    } finally {
+      setIsProbing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    probeAI();
+  }, [probeAI]);
+
+  const aiHealthy = Boolean(aiStatus?.configured && aiStatus?.reachable);
 
   const handleResetData = () => {
     localStorage.removeItem("plasgain_opportunities");
@@ -44,13 +81,41 @@ export const SettingsView: React.FC = () => {
 
       {/* System Status Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-emerald-700">
+        <div
+          className={`p-4 rounded-xl border shadow-xs space-y-2 ${
+            isProbing
+              ? "bg-white border-slate-200"
+              : aiHealthy
+              ? "bg-white border-slate-200"
+              : "bg-amber-50 border-amber-300"
+          }`}
+        >
+          <div
+            className={`flex items-center justify-between ${
+              aiHealthy ? "text-emerald-700" : "text-amber-700"
+            }`}
+          >
             <span className="text-[10px] font-bold uppercase tracking-wider">AI Reasoning Engine</span>
-            <Cpu className="w-4 h-4" />
+            <button
+              type="button"
+              onClick={probeAI}
+              title="Re-check AI status"
+              className="hover:opacity-70 transition-opacity"
+            >
+              <Cpu className="w-4 h-4" />
+            </button>
           </div>
-          <div className="text-sm font-bold text-slate-900">Active & Grounded</div>
-          <p className="text-[11px] text-slate-500">Server-Side Integration with JSON Schemas</p>
+          <div className="text-sm font-bold text-slate-900">
+            {isProbing ? "Checking…" : aiStatus?.state || "Unknown"}
+          </div>
+          <p className="text-[11px] text-slate-500">
+            {isProbing
+              ? "Contacting the model…"
+              : aiStatus?.detail || "No status reported."}
+          </p>
+          {!isProbing && aiHealthy && aiStatus?.model && (
+            <p className="text-[11px] text-slate-400">Model: {aiStatus.model}</p>
+          )}
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs space-y-2">
