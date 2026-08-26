@@ -1,1 +1,154 @@
 @import "tailwindcss";
+
+/* ============================================================================
+   PLASGAIN DESIGN TOKENS
+
+   Everything visual resolves here. Components reference tokens, never raw
+   Tailwind palette values — that is what stopped the app drifting into 560
+   unrelated `emerald` classes and two competing neutral families.
+
+   Two rules worth knowing before you change anything:
+
+   1. Brand green means "Plasgain / live / you can act on this". It never means
+      "healthy". Status has its own warm ramp below, deliberately held away from
+      the brand hue, so the accent keeps its meaning.
+
+   2. The brand green is a DARK-GROUND colour. #00A65C on white is only 3.18:1,
+      which fails AA for body text — that is why the old build drifted to a muddy
+      emerald-700. Use `brand` on ink, and `brand-deep` (5.95:1 with white) for
+      filled controls on light surfaces.
+   ========================================================================== */
+
+@theme {
+  /* --- Typefaces ------------------------------------------------------- */
+  --font-ui: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+
+  /* --- Brand ----------------------------------------------------------- */
+  /* Sampled from the Plasgain logo. Replace if the brand guide differs. */
+  --color-brand: #00a65c;
+  --color-brand-lift: #2bd183; /* emphasis on ink */
+  --color-brand-deep: #00733f; /* filled controls on light — AA with white */
+  --color-brand-wash: rgba(0, 166, 92, 0.1);
+  --color-brand-edge: rgba(0, 115, 63, 0.28);
+
+  /* --- Chrome ---------------------------------------------------------- */
+  /* The rail and its furniture. Fixed ink: this is the logo ground and it
+     does not follow the body surface. */
+  --color-chrome: #080a09;
+  --color-chrome-raised: #111614;
+  --color-chrome-line: #212a26;
+  --color-chrome-text: #eaefec;
+  --color-chrome-dim: #8a948f;
+
+  /* --- Surfaces -------------------------------------------------------- */
+  /* Neutrals carry a faint green bias so they read as chosen, not inherited. */
+  --color-paper: #f4f6f5;
+  --color-surface: #ffffff;
+  --color-raised: #fafbfa;
+  --color-line: #e1e6e3;
+  --color-line-strong: #c7cfca;
+  --color-body: #0d1211;
+  --color-body-dim: #58625e;
+  /* 4.77:1 on paper, 5.21:1 on white — the lightest this can go and still
+     clear AA for small text. Do not lighten it. */
+  --color-body-faint: #656f6a;
+
+  /* --- Status ---------------------------------------------------------- */
+  /* Warm ramp, separate from the accent. Values are the light-surface
+     variants; the -on-ink pair is for use inside the rail. */
+  /* These are chip text on their OWN wash, so they must clear 4.5:1 against
+     that wash — not just against white. Verified at 11px. */
+  --color-urgent: #be3d14; /* 4.79:1 on urgent-wash */
+  --color-urgent-on-ink: #ff7043;
+  --color-urgent-wash: rgba(214, 69, 24, 0.09);
+  --color-soon: #8a5c00; /* 5.18:1 on soon-wash */
+  --color-soon-on-ink: #f5a623;
+  --color-soon-wash: rgba(169, 114, 10, 0.1);
+  --color-hold: #4f677a;
+  --color-hold-on-ink: #7e9aad;
+  --color-hold-wash: rgba(79, 103, 122, 0.1);
+
+  /* --- Type scale ------------------------------------------------------ */
+  /* 11 / 13 / 15 / 19 / 25 / 33. Size carries hierarchy so weight doesn't
+     have to — the old build used font-bold 289 times to fake it. */
+  --text-spec: 0.6875rem;
+  --text-spec--line-height: 1.45;
+  --text-meta: 0.8125rem;
+  --text-meta--line-height: 1.5;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.5;
+  --text-lead: 1.1875rem;
+  --text-lead--line-height: 1.3;
+  --text-head: 1.5625rem;
+  --text-head--line-height: 1.2;
+  --text-display: 2.0625rem;
+  --text-display--line-height: 1.08;
+
+  /* --- Geometry -------------------------------------------------------- */
+  /* Squarer than stock. rounded-lg on everything was a generic-design tell. */
+  --radius-edge: 3px;
+  --radius-panel: 5px;
+
+  --shadow-panel: 0 1px 2px rgba(16, 26, 22, 0.06),
+    0 10px 28px -18px rgba(16, 26, 22, 0.28);
+  --shadow-lift: 0 2px 6px rgba(16, 26, 22, 0.08),
+    0 18px 44px -22px rgba(16, 26, 22, 0.34);
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background: var(--color-paper);
+    color: var(--color-body);
+    font-family: var(--font-ui);
+    font-size: var(--text-body);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+    letter-spacing: -0.015em;
+  }
+
+  /* Keyboard focus must always be visible. */
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-brand-deep);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Numerals, specs, codes and dates. Tabular so columns of figures line up.
+     This is the app's signature: specs should read as instrument data. */
+  .u-data {
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Small uppercase labels. Uppercase needs tracking to stay legible. */
+  .u-eyebrow {
+    font-family: var(--font-data);
+    font-size: var(--text-spec);
+    text-transform: uppercase;
+    letter-spacing: 0.11em;
+    font-weight: 500;
+  }
+}

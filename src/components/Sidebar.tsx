@@ -8,10 +8,10 @@ import {
   Wrench,
   GraduationCap,
   SlidersHorizontal,
-  Sun,
   X
 } from "lucide-react";
 import { useApp, NavTab } from "../context/AppContext";
+import { PlasgainLockup } from "./PlasgainMark";
 
 interface SidebarProps {
   mobileOpen?: boolean;
@@ -26,13 +26,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
     label: string;
     icon: React.ComponentType<{ className?: string }>;
     badge?: number | string;
-    badgeColor?: string;
   }[] = [
     { id: "home", label: "Home", icon: Home },
-    { id: "crm", label: "CRM Command Centre", icon: KanbanSquare, badge: "CRM", badgeColor: "bg-emerald-400 text-emerald-950" },
-    { id: "new-enquiry", label: "New Enquiry", icon: FilePlus2, badge: "AI", badgeColor: "bg-emerald-400 text-emerald-950" },
+    { id: "crm", label: "CRM Command Centre", icon: KanbanSquare },
+    { id: "new-enquiry", label: "New Enquiry", icon: FilePlus2, badge: "AI" },
     { id: "product-finder", label: "Product Finder", icon: SearchCode },
-    { id: "opportunities", label: "Opportunities", icon: KanbanSquare, badge: opportunities.length, badgeColor: "bg-emerald-800/80 text-emerald-100" },
+    { id: "opportunities", label: "Opportunities", icon: KanbanSquare, badge: opportunities.length },
     { id: "documents", label: "Product Catalogues", icon: BookOpen },
     { id: "tools", label: "Tools", icon: Wrench },
     { id: "learn", label: "Learn", icon: GraduationCap },
@@ -48,42 +47,30 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
 
   return (
     <aside
-      className={`w-64 bg-[#064E3B] text-emerald-50 flex flex-col shrink-0 h-screen sticky top-0 transition-transform duration-200 z-50 ${
-        mobileOpen
-          ? "fixed inset-y-0 left-0 translate-x-0"
-          : "hidden md:flex"
+      className={`w-58 bg-chrome border-r border-chrome-line flex flex-col shrink-0 h-screen sticky top-0 transition-transform duration-200 z-50 ${
+        mobileOpen ? "fixed inset-y-0 left-0 translate-x-0" : "hidden md:flex"
       }`}
     >
-      {/* Brand Header */}
-      <div className="p-6 mb-1 flex items-start justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-700/80 flex items-center justify-center text-amber-300 font-black shadow-xs">
-              <Sun className="w-5 h-5" />
-            </div>
-            <div className="text-xl font-bold tracking-tight text-white">PLASGAIN</div>
-          </div>
-          <div id="sidebar-brand-subtitle" className="text-[10px] font-bold tracking-wider uppercase mt-1 text-emerald-200">
-            CUSTOMER SERVICE <span className="text-amber-300">SIDEKICK</span>
-          </div>
-        </div>
+      {/* Brand lockup */}
+      <div className="px-4.5 pt-5.5 pb-6 flex items-start justify-between">
+        <PlasgainLockup />
 
         {setMobileOpen && (
           <button
             onClick={() => setMobileOpen(false)}
-            className="md:hidden text-emerald-300 hover:text-white p-1"
+            className="md:hidden text-chrome-dim hover:text-chrome-text p-1 cursor-pointer"
+            title="Close menu"
           >
             <X className="w-5 h-5" />
           </button>
         )}
       </div>
 
-      {/* Navigation List */}
-      <div className="flex-1 flex flex-col gap-1 px-3 overflow-y-auto">
-        <div className="px-3 pb-2 pt-1">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400/60">
-            Workspace
-          </span>
+      {/* Navigation */}
+      <nav className="flex-1 flex flex-col gap-px px-2.5 overflow-y-auto">
+        {/* chrome-dim, not body-faint: this label sits on ink, not on paper. */}
+        <div className="u-eyebrow px-2 pb-2 text-[0.625rem] tracking-[0.16em] text-chrome-dim">
+          Workspace
         </div>
 
         {navItems.map((item) => {
@@ -93,25 +80,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
             <button
               key={item.id}
               onClick={() => handleSelect(item.id)}
-              className={`flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all text-left cursor-pointer ${
+              aria-current={isActive ? "page" : undefined}
+              className={`group flex items-center gap-2.5 px-2 py-2 rounded-edge text-meta text-left cursor-pointer border-l-2 transition-colors ${
                 isActive
-                  ? "bg-emerald-900/60 text-white shadow-xs font-semibold"
-                  : "text-emerald-100/80 hover:bg-emerald-800/40 hover:text-white"
+                  ? "bg-chrome-raised text-chrome-text border-l-brand font-semibold"
+                  : "text-chrome-dim border-l-transparent font-medium hover:bg-chrome-raised hover:text-chrome-text"
               }`}
             >
-              <div className="flex items-center gap-3">
-                {isActive ? (
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
-                ) : (
-                  <Icon className="w-4 h-4 text-emerald-300/70 shrink-0" />
-                )}
-                <span>{item.label}</span>
-              </div>
+              <Icon
+                className={`w-4 h-4 shrink-0 transition-colors ${
+                  isActive ? "text-brand-lift" : "text-chrome-dim group-hover:text-chrome-text"
+                }`}
+              />
+              <span className="truncate">{item.label}</span>
 
               {item.badge !== undefined && (
                 <span
-                  className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                    item.badgeColor || "bg-emerald-800 text-emerald-200"
+                  className={`u-data ml-auto text-[0.625rem] leading-none px-1.5 py-1 rounded-[2px] ${
+                    typeof item.badge === "string"
+                      ? "text-brand-lift tracking-[0.06em]"
+                      : "bg-chrome-line text-chrome-text"
                   }`}
                 >
                   {item.badge}
@@ -120,17 +108,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
             </button>
           );
         })}
-      </div>
+      </nav>
 
-      {/* User Profile Footer */}
-      <div className="p-4 border-t border-emerald-800/50 bg-[#043d2e]">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-emerald-700 flex items-center justify-center font-bold text-xs text-white shrink-0">
-            SR
+      {/* Who is signed in */}
+      <div className="mt-auto mx-4.5 py-3.5 border-t border-chrome-line flex items-center gap-2.5">
+        <div className="u-data w-7.5 h-7.5 rounded-[2px] bg-brand-deep text-white flex items-center justify-center text-spec font-semibold shrink-0">
+          SR
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-meta font-semibold text-chrome-text truncate leading-tight">
+            Sarah Reed
           </div>
-          <div className="text-xs min-w-0 flex-1">
-            <div className="font-semibold text-white truncate">Sarah Reed</div>
-            <div className="text-[11px] text-emerald-300/70 truncate">Internal Sales • Melbourne HQ</div>
+          <div className="u-data text-[0.625rem] text-chrome-dim truncate">
+            Internal Sales · Melbourne
           </div>
         </div>
       </div>

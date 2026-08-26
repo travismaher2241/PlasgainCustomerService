@@ -23,8 +23,8 @@ const GlobalSearchModal = lazy(() => import("./components/GlobalSearchModal").th
 const ViewLoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center min-h-[350px] w-full" data-testid="view-loading-spinner">
     <div className="flex flex-col items-center gap-3">
-      <div className="w-8 h-8 border-3 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
-      <span className="text-xs font-semibold text-slate-500">Loading Plasgain workspace...</span>
+      <div className="w-8 h-8 border-3 border-brand-deep border-t-transparent rounded-full animate-spin"></div>
+      <span className="text-meta font-medium text-body-dim">Loading Plasgain workspace...</span>
     </div>
   </div>
 );
@@ -34,13 +34,11 @@ const MainLayout: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="flex h-screen w-full bg-[#F8FAFC] font-sans text-slate-900 overflow-hidden antialiased selection:bg-emerald-700 selection:text-white">
-      {/* Editorial Emerald Sidebar */}
+    <div className="flex h-screen w-full bg-paper font-ui text-body overflow-hidden selection:bg-brand-deep selection:text-white">
+      {/* Ink rail — holds the logo ground */}
       <Sidebar mobileOpen={mobileMenuOpen} setMobileOpen={setMobileMenuOpen} />
 
-      {/* Main App Container */}
-      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden bg-[#F8FAFC]">
-        {/* Editorial Top Header */}
+      <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden bg-paper">
         <Header onToggleMobileMenu={() => setMobileMenuOpen(true)} />
 
         {/* Dynamic Main Workspace Stage */}
@@ -73,21 +71,11 @@ const MainLayout: React.FC = () => {
       {/* Toast Notification */}
       {toast && (
         <div className="fixed bottom-5 left-5 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200">
-          <div
-            className={`flex items-center gap-2.5 px-4 py-3 rounded-lg shadow-lg border text-xs font-semibold ${
-              toast.type === "success"
-                ? "bg-slate-900 text-white border-slate-800"
-                : toast.type === "warning"
-                ? "bg-amber-900 text-white border-amber-800"
-                : toast.type === "error"
-                ? "bg-rose-900 text-white border-rose-800"
-                : "bg-slate-800 text-white border-slate-700"
-            }`}
-          >
-            {toast.type === "success" && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
-            {toast.type === "warning" && <AlertCircle className="w-4 h-4 text-amber-400" />}
-            {toast.type === "error" && <XCircle className="w-4 h-4 text-rose-400" />}
-            {toast.type === "info" && <Info className="w-4 h-4 text-blue-400" />}
+          <div className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-edge shadow-lift border border-chrome-line bg-chrome text-chrome-text text-meta font-medium">
+            {toast.type === "success" && <CheckCircle2 className="w-4 h-4 text-brand-lift shrink-0" />}
+            {toast.type === "warning" && <AlertCircle className="w-4 h-4 text-soon-on-ink shrink-0" />}
+            {toast.type === "error" && <XCircle className="w-4 h-4 text-urgent-on-ink shrink-0" />}
+            {toast.type === "info" && <Info className="w-4 h-4 text-hold-on-ink shrink-0" />}
             <span>{toast.message}</span>
           </div>
         </div>

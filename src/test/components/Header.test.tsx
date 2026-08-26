@@ -12,9 +12,9 @@ describe('Header Component', () => {
       </AppProvider>
     );
 
-    expect(screen.getByText(/Dashboard Overview/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Dashboard$/i)).toBeInTheDocument();
     expect(screen.getByText(/Search specs & docs/i)).toBeInTheDocument();
-    expect(screen.getByText('Lighting Terms')).toBeInTheDocument();
+    expect(screen.getByText(/Lighting terms/i)).toBeInTheDocument();
     expect(screen.getByText('Ask Copilot')).toBeInTheDocument();
   });
 

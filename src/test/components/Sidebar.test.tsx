@@ -12,7 +12,10 @@ describe('Sidebar Component', () => {
       </AppProvider>
     );
 
-    expect(screen.getByText(/PLASGAIN/i)).toBeInTheDocument();
+    // The wordmark is split so GAIN can carry the brand green: PLAS<span>GAIN</span>.
+    expect(
+      screen.getByText((_t, el) => el?.textContent?.replace(/s/g, "") === "PLASGAIN" && el.children.length === 1)
+    ).toBeInTheDocument();
     expect(screen.getByText('Home')).toBeInTheDocument();
     expect(screen.getByText('CRM Command Centre')).toBeInTheDocument();
     expect(screen.getByText('New Enquiry')).toBeInTheDocument();
