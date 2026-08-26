@@ -46,7 +46,8 @@ export const CRMAccountsView: React.FC = () => {
     updateContact,
     deleteContact,
     openQuickLog,
-    navigateToCRM
+    navigateToCRM,
+    currentUser
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -67,7 +68,7 @@ export const CRMAccountsView: React.FC = () => {
     industry: "Government & Public Infrastructure",
     customerSegment: "Local Government / Council" as const,
     territory: "QLD/NT" as const,
-    accountOwner: "Marcus Vance",
+    accountOwner: currentUser.name,
     mainPhone: "",
     generalEmail: "",
     website: "",

@@ -10,7 +10,7 @@ import {
   SlidersHorizontal,
   X
 } from "lucide-react";
-import { useApp, NavTab } from "../context/AppContext";
+import { useApp, NavTab, initialsOf } from "../context/AppContext";
 import { PlasgainLockup } from "./PlasgainMark";
 
 interface SidebarProps {
@@ -19,7 +19,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) => {
-  const { activeTab, setActiveTab, opportunities } = useApp();
+  const { activeTab, setActiveTab, opportunities, currentUser } = useApp();
 
   const navItems: {
     id: NavTab;
@@ -113,14 +113,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
       {/* Who is signed in */}
       <div className="mt-auto mx-4.5 py-3.5 border-t border-chrome-line flex items-center gap-2.5">
         <div className="u-data w-7.5 h-7.5 rounded-[2px] bg-brand-deep text-white flex items-center justify-center text-spec font-semibold shrink-0">
-          SR
+          {initialsOf(currentUser.name)}
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-meta font-semibold text-chrome-text truncate leading-tight">
-            Sarah Reed
+            {currentUser.name.trim() || "Unnamed user"}
           </div>
           <div className="u-data text-[0.625rem] text-chrome-dim truncate">
-            Internal Sales · Melbourne
+            {[currentUser.role, currentUser.location].filter((v) => v.trim()).join(" · ") ||
+              "No role set"}
           </div>
         </div>
       </div>

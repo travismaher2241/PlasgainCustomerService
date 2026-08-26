@@ -13,6 +13,8 @@ import {
 import { useApp } from "../context/AppContext";
 import { SAMPLE_OPPORTUNITIES, SAMPLE_DOCUMENTS } from "../data/mockData";
 import { apiGet } from "../utils/apiClient";
+import { initialsOf, DEFAULT_USER_PROFILE } from "../context/AppContext";
+import { Surface } from "./ui/Surface";
 
 /** Live AI status, probed from the server rather than asserted. */
 interface AIStatus {
@@ -24,7 +26,37 @@ interface AIStatus {
 }
 
 export const SettingsView: React.FC = () => {
-  const { setOpportunities, documents, showToast } = useApp();
+  const { setOpportunities, documents, showToast, currentUser, updateCurrentUser, resetCurrentUser } =
+    useApp();
+
+  // Edits are held locally so a half-typed name never lands on saved records.
+  const [draft, setDraft] = useState(currentUser);
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  useEffect(() => {
+    setDraft(currentUser);
+  }, [currentUser]);
+
+  const dirty =
+    draft.name !== currentUser.name ||
+    draft.role !== currentUser.role ||
+    draft.location !== currentUser.location ||
+    draft.email !== currentUser.email;
+
+  const nameError = draft.name.trim().length === 0 ? "Your name is required." : null;
+
+  const handleSaveProfile = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (nameError) return;
+    updateCurrentUser({
+      name: draft.name.trim(),
+      role: draft.role.trim(),
+      location: draft.location.trim(),
+      email: draft.email.trim()
+    });
+    setSavedAt(new Date().toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }));
+    showToast("Profile updated", "success");
+  };
   const [aiStatus, setAiStatus] = useState<AIStatus | null>(null);
   const [isProbing, setIsProbing] = useState(true);
 
@@ -78,6 +110,142 @@ export const SettingsView: React.FC = () => {
           System status, model configuration, knowledge base indexing, and compliance rules.
         </p>
       </div>
+
+      {/* Your details */}
+      <section aria-labelledby="profile-heading">
+        <div className="flex items-baseline gap-3 mb-3">
+          <h2 id="profile-heading" className="text-lead font-semibold text-ink">
+            Your details
+          </h2>
+          <span className="u-data text-spec text-ink-faint uppercase tracking-[0.09em]">
+            Stamped on records you create
+          </span>
+        </div>
+
+        <Surface>
+          <form onSubmit={handleSaveProfile} className="p-5 space-y-4">
+            <div className="flex items-center gap-3.5">
+              <div className="u-data w-11 h-11 rounded-edge bg-brand-deep text-white flex items-center justify-center text-meta font-semibold shrink-0">
+                {initialsOf(draft.name)}
+              </div>
+              <div className="min-w-0">
+                <div className="text-body font-semibold text-ink truncate">
+                  {draft.name.trim() || "Unnamed user"}
+                </div>
+                <div className="u-data text-spec text-ink-faint truncate">
+                  {[draft.role, draft.location].filter((v) => v.trim()).join(" · ") ||
+                    "No role or location set"}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <label htmlFor="profile-name" className="u-eyebrow text-ink-dim block mb-1.5">
+                  Name
+                </label>
+                <input
+                  id="profile-name"
+                  type="text"
+                  value={draft.name}
+                  onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                  aria-invalid={Boolean(nameError)}
+                  aria-describedby={nameError ? "profile-name-error" : undefined}
+                  className={`w-full text-body px-3 py-2 rounded-edge border bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors ${
+                    nameError ? "border-urgent" : "border-line"
+                  }`}
+                  placeholder="Your full name"
+                />
+                {nameError && (
+                  <p id="profile-name-error" className="mt-1 text-spec text-urgent">
+                    {nameError}
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="profile-role" className="u-eyebrow text-ink-dim block mb-1.5">
+                  Role
+                </label>
+                <input
+                  id="profile-role"
+                  type="text"
+                  value={draft.role}
+                  onChange={(e) => setDraft({ ...draft, role: e.target.value })}
+                  className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
+                  placeholder="e.g. Internal Sales"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="profile-location" className="u-eyebrow text-ink-dim block mb-1.5">
+                  Location
+                </label>
+                <input
+                  id="profile-location"
+                  type="text"
+                  value={draft.location}
+                  onChange={(e) => setDraft({ ...draft, location: e.target.value })}
+                  className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
+                  placeholder="e.g. Melbourne"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="profile-email" className="u-eyebrow text-ink-dim block mb-1.5">
+                  Email
+                </label>
+                <input
+                  id="profile-email"
+                  type="email"
+                  value={draft.email}
+                  onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+                  className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
+                  placeholder="you@plasgain.com.au"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 pt-1">
+              <button
+                type="submit"
+                disabled={!dirty || Boolean(nameError)}
+                className="px-3.5 py-2 rounded-edge text-meta font-semibold text-white bg-brand-deep border border-brand-deep hover:bg-brand hover:border-brand disabled:bg-line disabled:border-line disabled:text-ink-dim disabled:cursor-not-allowed transition-colors cursor-pointer"
+              >
+                Save details
+              </button>
+
+              {dirty && (
+                <button
+                  type="button"
+                  onClick={() => setDraft(currentUser)}
+                  className="px-3 py-2 rounded-edge text-meta font-medium text-ink-dim border border-line-strong hover:text-ink hover:border-ink-faint transition-colors cursor-pointer"
+                >
+                  Discard
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  resetCurrentUser();
+                  setDraft(DEFAULT_USER_PROFILE);
+                  showToast("Profile reset to the sample user", "info");
+                }}
+                className="ml-auto text-spec text-ink-faint hover:text-ink underline underline-offset-2 cursor-pointer"
+              >
+                Reset to sample user
+              </button>
+            </div>
+
+            <p className="text-spec text-ink-faint">
+              {savedAt
+                ? `Saved at ${savedAt}. Stored in this browser only.`
+                : "Stored in this browser only — it is not sent anywhere."}
+            </p>
+          </form>
+        </Surface>
+      </section>
 
       {/* System Status Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

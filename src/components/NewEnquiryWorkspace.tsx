@@ -43,7 +43,8 @@ export const NewEnquiryWorkspace: React.FC = () => {
     addCrmOpportunity,
     setExplainingTerm,
     showToast,
-    navigateToWorkflow
+    navigateToWorkflow,
+    currentUser
   } = useApp();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -232,7 +233,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
       primaryContactId: "con-1",
       primaryContactName: newOpp.contactName,
       primaryContactEmail: newOpp.contactEmail,
-      opportunityOwner: "Marcus Vance",
+      opportunityOwner: currentUser.name,
       pipelineId: "pipe-solar",
       stageId: "stage-new",
       stageName: "New Enquiry / Lead",

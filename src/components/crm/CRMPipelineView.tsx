@@ -35,7 +35,8 @@ export const CRMPipelineView: React.FC = () => {
     setActivePipelineId,
     accounts,
     openQuickLog,
-    navigateToCRM
+    navigateToCRM,
+    currentUser
   } = useApp();
 
   const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
@@ -85,7 +86,7 @@ export const CRMPipelineView: React.FC = () => {
       accountName: account.name,
       primaryContactId: `con-${Date.now()}`,
       primaryContactName: newDealForm.primaryContactName || "Project Engineer",
-      opportunityOwner: "Marcus Vance",
+      opportunityOwner: currentUser.name,
       pipelineId: activePipelineId,
       stageId: stage.id,
       stageName: stage.name,

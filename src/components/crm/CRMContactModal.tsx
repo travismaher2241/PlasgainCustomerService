@@ -15,6 +15,7 @@ import {
   Tag
 } from "lucide-react";
 import { CRMContact, ContactRole } from "../../types/crm";
+import { useApp } from "../../context/AppContext";
 
 interface CRMContactModalProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
   accountWebsite,
   accountOwner
 }) => {
+  const { currentUser } = useApp();
   const isEditMode = !!contactToEdit;
 
   // Derive domain from website or company name
@@ -134,7 +136,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
       isDecisionMaker: formData.isDecisionMaker,
       influenceLevel: formData.influenceLevel,
       relationshipStatus: formData.relationshipStatus,
-      contactOwner: accountOwner || "Marcus Vance",
+      contactOwner: accountOwner || currentUser.name,
       linkedinUrl: formData.linkedinUrl.trim() || undefined,
       notes: formData.notes.trim() || undefined,
       tags: formData.tags

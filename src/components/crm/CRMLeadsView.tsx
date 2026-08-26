@@ -20,7 +20,9 @@ import { useApp } from "../../context/AppContext";
 import { CRMLead, LeadStatus } from "../../types/crm";
 
 export const CRMLeadsView: React.FC = () => {
-  const { leads, updateLead, addLead, convertLead, accounts, openQuickLog, navigateToCRM } = useApp();
+  const { leads, updateLead, addLead, convertLead, accounts, openQuickLog, navigateToCRM,
+    currentUser
+  } = useApp();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -66,7 +68,7 @@ export const CRMLeadsView: React.FC = () => {
       enquiryType: newLeadForm.enquiryType,
       productInterest: ["Intense 50W Solar"],
       estimatedValue: Number(newLeadForm.estimatedValue),
-      assignedSalesperson: "Marcus Vance",
+      assignedSalesperson: currentUser.name,
       leadStatus: "New",
       leadScore: 65,
       leadScoreRating: "Warm",

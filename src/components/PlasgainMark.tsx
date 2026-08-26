@@ -25,7 +25,7 @@ export const PlasgainMark: React.FC<PlasgainMarkProps> = ({ className }) => (
 );
 
 interface PlasgainLockupProps {
-  /** Renders the "Sidekick" sub-label beneath the wordmark. */
+  /** Renders the "Customer Service Sidekick" sub-label beneath the wordmark. */
   showSub?: boolean;
 }
 
@@ -40,7 +40,7 @@ export const PlasgainLockup: React.FC<PlasgainLockupProps> = ({ showSub = true }
     </div>
     {showSub && (
       <div className="u-eyebrow mt-1.5 text-[0.625rem] tracking-[0.16em] text-chrome-dim">
-        Sidekick
+        Customer Service Sidekick
       </div>
     )}
   </div>

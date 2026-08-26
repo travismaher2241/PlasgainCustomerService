@@ -21,7 +21,8 @@ export const CRMQuickLogModal: React.FC = () => {
     crmOpportunities,
     contacts,
     logActivity,
-    addTask
+    addTask,
+    currentUser
   } = useApp();
 
   if (!quickLogModal || !quickLogModal.isOpen) return null;
@@ -79,7 +80,7 @@ export const CRMQuickLogModal: React.FC = () => {
       opportunityName: targetOpp?.name,
       contactId: targetContact?.id,
       contactName: targetContact ? `${targetContact.firstName} ${targetContact.lastName}` : undefined,
-      performedBy: "Marcus Vance",
+      performedBy: currentUser.name,
       metadata: {
         outcome
       }
@@ -97,8 +98,8 @@ export const CRMQuickLogModal: React.FC = () => {
         accountName: targetAccount?.name,
         opportunityId: targetOpp?.id,
         opportunityName: targetOpp?.name,
-        assignedTo: "Marcus Vance",
-        createdBy: "Marcus Vance",
+        assignedTo: currentUser.name,
+        createdBy: currentUser.name,
         notes: `Automated follow-up created from activity log.`
       });
     }

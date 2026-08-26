@@ -27,7 +27,8 @@ export const CRMTasksActivitiesView: React.FC = () => {
     updateTask,
     accounts,
     crmOpportunities,
-    openQuickLog
+    openQuickLog,
+    currentUser
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<"tasks" | "activities">("tasks");
@@ -84,8 +85,8 @@ export const CRMTasksActivitiesView: React.FC = () => {
       dueTime: newTaskForm.dueTime,
       accountId: acc?.id,
       accountName: acc?.name,
-      assignedTo: "Marcus Vance",
-      createdBy: "Marcus Vance",
+      assignedTo: currentUser.name,
+      createdBy: currentUser.name,
       notes: newTaskForm.notes,
       isOverdue: newTaskForm.dueDate < todayStr
     });

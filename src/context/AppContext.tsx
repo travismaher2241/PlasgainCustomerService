@@ -65,7 +65,35 @@ export type ToolSubTab =
   | "follow-up"
   | "product-comparison";
 
+/** Who is signed in. Editable in Settings; persisted per browser. */
+export interface UserProfile {
+  name: string;
+  role: string;
+  location: string;
+  email: string;
+}
+
+export const DEFAULT_USER_PROFILE: UserProfile = {
+  name: "Sarah Reed",
+  role: "Internal Sales",
+  location: "Melbourne",
+  email: ""
+};
+
+/** Two letters from the name, for the avatar. Falls back to "?" when empty. */
+export function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 interface AppContextType {
+  /** The signed-in user. Stamped on records this person creates. */
+  currentUser: UserProfile;
+  updateCurrentUser: (updates: Partial<UserProfile>) => void;
+  resetCurrentUser: () => void;
+
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
   activeCRMTab: CRMSubTab;
@@ -195,6 +223,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeCRMTab, setActiveCRMTab] = useState<CRMSubTab>("today");
   const [activeToolTab, setActiveToolTab] = useState<ToolSubTab>("tender-analyser");
 
+  const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
+    try {
+      const saved = localStorage.getItem("plasgain_user_profile");
+      return saved ? { ...DEFAULT_USER_PROFILE, ...JSON.parse(saved) } : DEFAULT_USER_PROFILE;
+    } catch {
+      return DEFAULT_USER_PROFILE;
+    }
+  });
+
+  const updateCurrentUser = (updates: Partial<UserProfile>) => {
+    setCurrentUser((prev) => ({ ...prev, ...updates }));
+  };
+
+  const resetCurrentUser = () => setCurrentUser(DEFAULT_USER_PROFILE);
+
   // Load Relational CRM Data from LocalStorage or Defaults
   const [accounts, setAccounts] = useState<Account[]>(() => {
     const saved = localStorage.getItem("plasgain_crm_accounts");
@@ -297,6 +340,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [toast, setToast] = useState<{ message: string; type: "success" | "info" | "warning" | "error" } | null>(null);
 
   // Sync to local storage
+  useEffect(() => {
+    localStorage.setItem("plasgain_user_profile", JSON.stringify(currentUser));
+  }, [currentUser]);
+
   useEffect(() => {
     localStorage.setItem("plasgain_crm_accounts", JSON.stringify(accounts));
   }, [accounts]);
@@ -418,7 +465,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           industry: "Government & Public Infrastructure",
           customerSegment: lead.company.toLowerCase().includes("council") ? "Local Government / Council" : "Civil Contractor",
           territory: "QLD/NT",
-          accountOwner: lead.assignedSalesperson || "Marcus Vance",
+          accountOwner: lead.assignedSalesperson || currentUser.name,
           leadSource: lead.source,
           createdDate: new Date().toISOString().split("T")[0],
           lastInteractionDate: new Date().toISOString().split("T")[0],
@@ -455,7 +502,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isDecisionMaker: true,
       influenceLevel: "High",
       relationshipStatus: "Warm",
-      contactOwner: lead.assignedSalesperson || "Marcus Vance",
+      contactOwner: lead.assignedSalesperson || currentUser.name,
       tags: ["Converted Lead"],
       notes: `Ingested from lead ${lead.leadName}`
     };
@@ -472,7 +519,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       primaryContactName: lead.contactName,
       primaryContactEmail: lead.contactEmail,
       primaryContactPhone: lead.contactPhone,
-      opportunityOwner: lead.assignedSalesperson || "Marcus Vance",
+      opportunityOwner: lead.assignedSalesperson || currentUser.name,
       pipelineId: "pipe-major-projects",
       stageId: "stage-discovery",
       stageName: "Discovery & Qualification",
@@ -493,7 +540,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       customerNeed: lead.notes,
       keyRequirements: ["Verify AS/NZS 1158 compliance", "Confirm mounting height"],
       source: lead.source,
-      latestActivity: `Lead converted to opportunity by ${lead.assignedSalesperson || "Marcus Vance"}`,
+      latestActivity: `Lead converted to opportunity by ${lead.assignedSalesperson || currentUser.name}`,
       latestActivityDate: new Date().toISOString().split("T")[0],
       nextAction: lead.nextAction || "Contact customer to begin discovery phase",
       nextActionDate: lead.nextActionDate || new Date().toISOString().split("T")[0],
@@ -523,7 +570,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       contactName: lead.contactName,
       opportunityId: oppId,
       opportunityName: lead.leadName,
-      performedBy: "Marcus Vance"
+      performedBy: currentUser.name
     });
 
     showToast(`Lead successfully converted to Account, Contact, and Deal!`, "success");
@@ -672,6 +719,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider
       value={{
+        currentUser,
+        updateCurrentUser,
+        resetCurrentUser,
         activeTab,
         setActiveTab,
         activeCRMTab,

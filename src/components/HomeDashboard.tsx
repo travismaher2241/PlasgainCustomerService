@@ -41,8 +41,11 @@ export const HomeDashboard: React.FC = () => {
     opportunities,
     setSelectedOpportunityId,
     openQuickLog,
-    showToast
+    showToast,
+    currentUser
   } = useApp();
+
+  const firstName = currentUser.name.trim().split(/\s+/)[0] || "";
 
   const [selectedRole, setSelectedRole] = useState<UserRole>("customer_service");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
@@ -249,7 +252,7 @@ export const HomeDashboard: React.FC = () => {
           <div className="min-w-0">
             <h1 className="text-head sm:text-display font-semibold">
               {totalNeedingAction === 0 ? (
-                <>You&apos;re <span className="text-brand-deep">clear</span>, Sarah.</>
+                <>You&apos;re <span className="text-brand-deep">clear</span>{firstName ? `, ${firstName}` : ""}.</>
               ) : (
                 <>
                   {totalNeedingAction} thing{totalNeedingAction === 1 ? "" : "s"} need you{" "}
