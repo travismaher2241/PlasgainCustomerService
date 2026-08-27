@@ -25,7 +25,7 @@ describe('Main App Component', () => {
     fireEvent.click(toolsNav);
 
     expect(await screen.findByText(/Engineering & Sales Calculators/i, {}, { timeout: 5000 })).toBeInTheDocument();
-    expect(await screen.findByText(/Solar Autonomy & Battery Sizing/i, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText(/AI Drawing & Plan Deciphering/i, {}, { timeout: 5000 })).toBeInTheDocument();
 
     // Click New Enquiry
     const enquiryNav = screen.getByText('New Enquiry');

@@ -622,6 +622,130 @@ Return JSON conforming to this structure:
   }
 });
 
+// 1B. AI DRAWING & PLAN DECIPHERING (BOM TAKE-OFF) ENDPOINT
+app.post(["/api/analyse-drawing", "/api/drawing/takeoff", "/api/analyze-drawing", "/api/drawing-takeoff"], async (req, res) => {
+  try {
+    const fileData = readString(req.body?.fileData) || "";
+    const mimeType = readString(req.body?.mimeType) || "application/pdf";
+    const fileName = readString(req.body?.fileName) || "Engineering_Plan.pdf";
+    const drawingNotes = readString(req.body?.drawingNotes) || readString(req.body?.notes) || "";
+    const project = readString(req.body?.project) || "";
+    const customer = readString(req.body?.customer) || "";
+
+    if (!fileData && !drawingNotes && !req.body?.fileName && !project && !customer) {
+      return res.status(400).json({ error: "Drawing file data, notes, or project information are required." });
+    }
+
+    try {
+      const ai = getAI();
+      const systemPrompt = `${MASTER_PLASGAIN_SYSTEM_INSTRUCTION}
+
+AI DRAWING & PLAN DECIPHERING (BOM TAKE-OFF) INSTRUCTIONS:
+You are an expert Australian Civil & Electrical Estimator and Lighting Engineer for Plasgain.
+Examine the provided engineering drawing/plan/PDF/image and extract a comprehensive Bill of Materials (BOM) Take-off.
+
+Inspect and decipher:
+1. Drawing Legends, Title Blocks & Schedules: Extract sheet title, drawing number, scale, revision, and recognized Australian Standards (AS/NZS 1158.1.1, AS/NZS 1158.3.1, AS 4702, AS/NZS 3000, AS 1170.2).
+2. Pole Quantities & Sizing:
+   - Identify total pole quantities, mounting heights (e.g. 4.5m, 6m, 8m, 12m), base type (ragbolt baseplate vs direct burial root), outreach arm configurations (single/double).
+   - Match to Plasgain products: "Plaspole Recycled Composite" (Class 1 non-corrosive, non-conductive), "Galvanised Steel", or "SafePole Slip-Base".
+3. Luminaires & Solar Fittings:
+   - Identify luminaire symbols, fitting codes, category (Category P/PR pathway vs Category V roadway).
+   - Identify power type: Standalone Solar All-in-One, Split Solar System, or 240V Mains.
+   - Match to approved Plasgain luminaires: "Plasgain Pro Blade 75 / 125", "Plasgain Intense 50W", "Plasgain Superlux 60W / 120W", "Plasgain Roadway V-LED 70W".
+4. Cable Covers & Civil Trenching:
+   - Estimate linear metres of underground cabling / trench runs.
+   - Recommend matching Plasgain Polymeric Cable Cover slabs/strips (AS 4702 Category 1 mechanical impact protection, 1000mm length x 150mm/200mm/300mm), co-extruded warning tape (AS/NZS 2648.1), and electrical pit enclosures.
+5. Engineering, Environmental & Shading Notes:
+   - Identify any tree canopy shading risks near solar arrays.
+   - Identify soil conditions affecting direct burial depth or ragbolt footing sizing.
+   - Note compliance requirements (e.g. 3000K wildlife buffer, P4 lighting category).
+
+Return valid JSON conforming strictly to this schema:
+{
+  "drawingMetadata": {
+    "sheetTitle": string,
+    "drawingNumber": string,
+    "scale": string,
+    "revision": string,
+    "standardsIdentified": string[]
+  },
+  "legendAndSchedules": [
+    {
+      "symbol": string,
+      "description": string,
+      "scheduleRef": string
+    }
+  ],
+  "billOfMaterials": [
+    {
+      "id": string,
+      "category": string,
+      "itemDescription": string,
+      "quantity": number,
+      "unit": "ea" | "m" | "rolls" | "sets" | "packs",
+      "recommendedProductCode": string,
+      "drawingReference": string,
+      "unitPrice": number,
+      "totalPrice": number,
+      "confidence": "High" | "Medium" | "Low",
+      "notes": string
+    }
+  ],
+  "engineeringAndSiteNotes": [
+    {
+      "type": "warning" | "compliance" | "info",
+      "title": string,
+      "description": string
+    }
+  ],
+  "summary": string,
+  "totalEstimatedValue": number
+}`;
+
+      const userTextPrompt = `Decipher this engineering drawing and produce an itemized Bill of Materials (BOM) Take-off for Plasgain quotation:
+File Name: ${fileName}
+Project Name: ${project || "Civil / Public Lighting Project"}
+Customer / Authority: ${customer || "Council / Civil Contractor"}
+Engineer Notes / Context: ${drawingNotes || "Extract all lighting poles, solar luminaires, and underground civil cable covers from the sheet layout and schedule."}
+`;
+
+      const contents: any[] = [];
+      if (fileData && fileData.trim().length > 0) {
+        const base64Clean = fileData.replace(/^data:[^;]+;base64,/, "");
+        contents.push({
+          inlineData: {
+            mimeType: mimeType || "application/pdf",
+            data: base64Clean
+          }
+        });
+      }
+      contents.push({ text: userTextPrompt });
+
+      const response = await generateContentWithFailover({
+        preferredModel: DEFAULT_MODEL,
+        contents,
+        config: {
+          systemInstruction: systemPrompt,
+          responseMimeType: "application/json",
+          temperature: 0.2
+        }
+      });
+
+      const result = extractJsonFromText(response.text || "{}");
+      if (result && (!result.billOfMaterials || !Array.isArray(result.billOfMaterials))) {
+        result.billOfMaterials = [];
+      }
+      return res.json(result);
+    } catch (aiErr: any) {
+      return sendAIUnavailable(res, "drawing-takeoff", aiErr);
+    }
+  } catch (error: any) {
+    console.error("Error analyzing drawing:", error);
+    res.status(500).json({ error: error.message || "Failed to analyze drawing" });
+  }
+});
+
 // 2. DRAFT CLARIFICATION EMAIL ENDPOINT
 app.post(["/api/enquiry/draft-email", "/api/generate-email", "/api/enquiry/generate-email"], async (req, res) => {
   try {

@@ -289,3 +289,40 @@ export interface ConflictRecord {
   details: string;
   actionRequired: string;
 }
+
+export interface BOMItem {
+  id: string;
+  category: "Solar Luminaire & Fitting" | "Pole & Structural Foundation" | "Civil & Trenching Protection" | "Civil & Electrical Warning" | "Electrical Pit & Access" | "Control & Sensor Accessory" | string;
+  itemDescription: string;
+  quantity: number;
+  unit: "ea" | "m" | "rolls" | "sets" | "packs" | string;
+  recommendedProductCode: string;
+  drawingReference: string;
+  unitPrice: number;
+  totalPrice: number;
+  confidence: "High" | "Medium" | "Low" | string;
+  notes?: string;
+}
+
+export interface DrawingTakeoffResult {
+  drawingMetadata: {
+    sheetTitle: string;
+    drawingNumber: string;
+    scale?: string;
+    revision?: string;
+    standardsIdentified?: string[];
+  };
+  legendAndSchedules: Array<{
+    symbol: string;
+    description: string;
+    scheduleRef?: string;
+  }>;
+  billOfMaterials: BOMItem[];
+  engineeringAndSiteNotes: Array<{
+    type: "warning" | "compliance" | "info" | string;
+    title: string;
+    description: string;
+  }>;
+  summary: string;
+  totalEstimatedValue: number;
+}

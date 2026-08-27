@@ -60,6 +60,16 @@ const AI_ROUTES: { name: string; path: string; body: Record<string, unknown> }[]
     body: { documentText: 'Tender for Solar Lighting: 30 units, 6m mounting height, 3000K.' }
   },
   {
+    name: 'analyse-drawing',
+    path: '/api/analyse-drawing',
+    body: {
+      fileName: 'Ballarat_Pathway_Plan.pdf',
+      mimeType: 'application/pdf',
+      drawingNotes: 'Extract 24 solar poles and trenching',
+      project: 'Ballarat 1.2km Shared Path'
+    }
+  },
+  {
     name: 'quote/review',
     path: '/api/quote/review',
     body: {

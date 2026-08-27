@@ -24,10 +24,12 @@ import {
   HelpCircle,
   Clock,
   Send,
-  AlertCircle
+  AlertCircle,
+  FileSpreadsheet
 } from "lucide-react";
 import { useApp, ToolSubTab } from "../context/AppContext";
 import { CONFLICT_REGISTER_DATA } from "../data/knowledgeBaseRaw";
+import { PlanTakeoffWorkspace } from "./PlanTakeoffWorkspace";
 
 export const ToolsHub: React.FC = () => {
   const {
@@ -306,6 +308,7 @@ export const ToolsHub: React.FC = () => {
   const [product2, setProduct2] = useState("Solaris 80W");
 
   const subTools: { id: ToolSubTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { id: "plan-takeoff", label: "AI Drawing & Plan Takeoff (BOM)", icon: FileSpreadsheet },
     { id: "solar-autonomy", label: "Solar Autonomy & Battery Sizing", icon: Sparkles },
     { id: "wind-pole-sizing", label: "Wind Region & Pole Sizing", icon: ShieldCheck },
     { id: "cable-cover-calc", label: "Polymeric Cable Cover (AS 4702)", icon: Layers },
@@ -332,7 +335,7 @@ export const ToolsHub: React.FC = () => {
             </span>
           </div>
           <p className="text-meta text-ink-dim mt-0.5">
-            Grounded Australian solar engineering sizing, wind structural selectors, civil cable cover calculations, and specification conflict resolution.
+            Grounded Australian solar engineering sizing, AI plan take-offs, wind structural selectors, civil cable cover calculations, and specification conflict resolution.
           </p>
         </div>
       </div>
@@ -358,6 +361,9 @@ export const ToolsHub: React.FC = () => {
           );
         })}
       </div>
+
+      {/* TOOL 0: AI Drawing & Plan Takeoff (BOM) */}
+      {activeToolTab === "plan-takeoff" && <PlanTakeoffWorkspace />}
 
       {/* TOOL 1: Solar Autonomy & Battery Sizing Calculator */}
       {activeToolTab === "solar-autonomy" && (

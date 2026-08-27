@@ -55,6 +55,7 @@ export type CRMSubTab =
   | "analytics";
 
 export type ToolSubTab =
+  | "plan-takeoff"
   | "solar-autonomy"
   | "wind-pole-sizing"
   | "cable-cover-calc"
@@ -219,7 +220,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeTab, setActiveTab] = useState<NavTab>("home");
   const [activeCRMTab, setActiveCRMTab] = useState<CRMSubTab>("today");
-  const [activeToolTab, setActiveToolTab] = useState<ToolSubTab>("solar-autonomy");
+  const [activeToolTab, setActiveToolTab] = useState<ToolSubTab>("plan-takeoff");
 
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     try {

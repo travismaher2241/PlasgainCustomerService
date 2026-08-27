@@ -515,6 +515,15 @@ export const NewEnquiryWorkspace: React.FC = () => {
                 accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg"
               />
             </label>
+            <button
+              type="button"
+              onClick={() => navigateToWorkflow("tools", "plan-takeoff")}
+              className="inline-flex items-center gap-1.5 text-meta text-brand-deep hover:bg-brand-wash px-3 py-1.5 rounded-edge border border-brand-edge font-bold transition-colors cursor-pointer"
+              title="Open dedicated engineering drawing & plan takeoff tool"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-brand-deep" />
+              <span>Decipher Plan / BOM Take-off &rarr;</span>
+            </button>
             {simulatedFiles.length > 0 && (
               <span className="text-meta text-brand-deep font-semibold bg-brand-wash px-2 py-0.5 rounded border border-brand-edge">
                 {simulatedFiles.length} file(s) attached
