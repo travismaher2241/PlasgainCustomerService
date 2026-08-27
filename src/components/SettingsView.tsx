@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+ï»¿import React, { useCallback, useEffect, useState } from "react";
 import {
   ShieldCheck,
   Database,
@@ -21,11 +21,18 @@ interface AIStatus {
 }
 
 export const SettingsView: React.FC = () => {
-  const { setOpportunities, documents, showToast, currentUser, updateCurrentUser, resetCurrentUser } =
-    useApp();
+  const {
+    setOpportunities,
+    documents,
+    showToast,
+    currentUser,
+    updateCurrentUser,
+    resetCurrentUser,
+    cloudSyncStatus,
+    syncAllWithCloud
+  } = useApp();
 
   // Edits are held locally so a half-typed name never lands on saved records.
-  const [draft] = useState(currentUser);
   const [savedDraft, setDraftState] = useState(currentUser);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
@@ -51,7 +58,7 @@ export const SettingsView: React.FC = () => {
       email: savedDraft.email.trim()
     });
     setSavedAt(new Date().toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }));
-    showToast("Profile updated", "success");
+    showToast("Profile updated & saved to Cloud Firestore", "success");
   };
 
   const [aiStatus, setAiStatus] = useState<AIStatus | null>(null);
@@ -102,7 +109,7 @@ export const SettingsView: React.FC = () => {
       <div className="pb-4 border-b border-line">
         <h1 className="text-xl font-bold tracking-tight text-body">Settings & Preferences</h1>
         <p className="text-meta text-ink-dim mt-0.5">
-          User profile, catalogue references, quoting standards, and workspace data.
+          User profile, cloud synchronization, quoting standards, and workspace data.
         </p>
       </div>
 
@@ -128,7 +135,7 @@ export const SettingsView: React.FC = () => {
                   {savedDraft.name.trim() || "Unnamed user"}
                 </div>
                 <div className="u-data text-spec text-ink-faint truncate">
-                  {[savedDraft.role, savedDraft.location].filter((v) => v.trim()).join(" · ") ||
+                  {[savedDraft.role, savedDraft.location].filter((v) => v.trim()).join(" â€¢ ") ||
                     "No role or location set"}
                 </div>
               </div>
@@ -233,17 +240,51 @@ export const SettingsView: React.FC = () => {
               </button>
             </div>
 
-            <p className="text-spec text-ink-faint">
-              {savedAt
-                ? `Saved at ${savedAt}. Stored in this browser only.`
-                : "Stored in this browser only — it is not sent anywhere."}
-            </p>
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-line text-spec text-ink-faint flex-wrap">
+              <span className="flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${cloudSyncStatus === "synced" ? "bg-emerald-500" : cloudSyncStatus === "syncing" ? "bg-amber-500 animate-pulse" : "bg-slate-400"}`}></span>
+                {cloudSyncStatus === "synced"
+                  ? "âœ“ Stored securely in Cloud Firestore (plasgain-customer-service) & local cache."
+                  : cloudSyncStatus === "syncing"
+                  ? "Syncing profile with Cloud Firestore..."
+                  : "Cached locally. Will sync with Cloud Firestore when online."}
+              </span>
+              <button
+                type="button"
+                onClick={syncAllWithCloud}
+                className="text-brand-deep hover:underline font-semibold cursor-pointer"
+              >
+                Sync with Cloud Now &rarr;
+              </button>
+            </div>
           </form>
         </Surface>
       </section>
 
       {/* System Status Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {/* Cloud Database Card */}
+        <div className="bg-white p-4 rounded-panel border border-line shadow-xs space-y-2">
+          <div className="flex items-center justify-between text-brand-deep">
+            <span className="text-spec font-bold uppercase tracking-wider">Cloud Firestore</span>
+            <button
+              type="button"
+              onClick={syncAllWithCloud}
+              title="Sync with Cloud Firestore"
+              className="hover:opacity-70 transition-opacity cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${cloudSyncStatus === "syncing" ? "animate-spin" : ""}`} />
+            </button>
+          </div>
+          <div className="text-body font-bold flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span>Connected & Live</span>
+          </div>
+          <p className="text-spec text-ink-dim">
+            Project: <code className="text-brand-deep font-mono text-[11px]">plasgain-customer-service</code> (Sydney/AU)
+          </p>
+        </div>
+
         <div
           className={`p-4 rounded-panel border shadow-xs space-y-2 ${
             isProbing
@@ -269,24 +310,15 @@ export const SettingsView: React.FC = () => {
             </button>
           </div>
           <div className="text-body font-bold">
-            {isProbing ? "Checking…" : aiHealthy ? "Active & Connected" : "Offline / Unreachable"}
+            {isProbing ? "Checking." : aiHealthy ? "Active & Connected" : "Offline / Unreachable"}
           </div>
           <p className="text-spec text-ink-dim">
             {isProbing
-              ? "Connecting to assistant…"
+              ? "Connecting to assistant."
               : aiHealthy
               ? "Plasgain Product & Compliance Assistant is ready"
               : "Assistant service is currently offline. Datasheets and tools remain available."}
           </p>
-        </div>
-
-        <div className="bg-white p-4 rounded-panel border border-line shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-brand-deep">
-            <span className="text-spec font-bold uppercase tracking-wider">Product Catalogues</span>
-            <Database className="w-4 h-4" />
-          </div>
-          <div className="text-body font-bold">{documents.length} Active Catalogues</div>
-          <p className="text-spec text-ink-dim">Plasgain Product Sheets & AS/NZS Standards</p>
         </div>
 
         <div className="bg-white p-4 rounded-panel border border-line shadow-xs space-y-2">

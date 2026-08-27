@@ -3,6 +3,28 @@
     "title": "Mark Read Test",
     "message": "Testing read state",
     "type": "info",
+    "id": "notif-1787802191611-40",
+    "isRead": true,
+    "isArchived": true,
+    "createdAt": "2026-08-27T03:43:11.611Z"
+  },
+  {
+    "title": "Test Alert",
+    "message": "This is an automated test alert",
+    "type": "action_required",
+    "linkTo": {
+      "view": "pipeline",
+      "id": "crm-opp-1"
+    },
+    "id": "notif-1787802191610-510",
+    "isRead": true,
+    "isArchived": false,
+    "createdAt": "2026-08-27T03:43:11.610Z"
+  },
+  {
+    "title": "Mark Read Test",
+    "message": "Testing read state",
+    "type": "info",
     "id": "notif-1787799266830-498",
     "isRead": true,
     "isArchived": true,

@@ -37,6 +37,13 @@ import {
   INITIAL_TASKS
 } from "../data/crmMockData";
 import { CRMIntelligenceEngine } from "../utils/crmIntelligence";
+import {
+  saveDocToCloud,
+  loadDocFromCloud,
+  loadCollectionFromCloud,
+  syncBatchToCloud,
+  deleteDocFromCloud
+} from "../utils/firebase";
 
 export type NavTab =
   | "home"
@@ -215,6 +222,10 @@ interface AppContextType {
   toast: { message: string; type: "success" | "info" | "warning" | "error" } | null;
   showToast: (message: string, type?: "success" | "info" | "warning" | "error") => void;
 
+  // Cloud Firestore Sync
+  cloudSyncStatus: "synced" | "syncing" | "offline" | "error";
+  syncAllWithCloud: () => Promise<void>;
+
   // Navigate helper
   navigateToWorkflow: (tab: NavTab, toolSub?: ToolSubTab, oppId?: string) => void;
   navigateToCRM: (subTab: CRMSubTab, entityId?: string) => void;
@@ -227,6 +238,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeCRMTab, setActiveCRMTab] = useState<CRMSubTab>("today");
   const [activeToolTab, setActiveToolTab] = useState<ToolSubTab>("plan-takeoff");
 
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<"synced" | "syncing" | "offline" | "error">("syncing");
+
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     try {
       const saved = localStorage.getItem("plasgain_user_profile");
@@ -237,10 +250,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const updateCurrentUser = (updates: Partial<UserProfile>) => {
-    setCurrentUser((prev) => ({ ...prev, ...updates }));
+    setCurrentUser((prev) => {
+      const next = { ...prev, ...updates };
+      saveDocToCloud("settings", "user_profile", next);
+      return next;
+    });
   };
 
-  const resetCurrentUser = () => setCurrentUser(DEFAULT_USER_PROFILE);
+  const resetCurrentUser = () => {
+    setCurrentUser(DEFAULT_USER_PROFILE);
+    saveDocToCloud("settings", "user_profile", DEFAULT_USER_PROFILE);
+  };
 
   // Load Relational CRM Data from LocalStorage or Defaults
   const [accounts, setAccounts] = useState<Account[]>(() => {
@@ -574,6 +594,113 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem("plasgain_documents", JSON.stringify(documents));
   }, [documents]);
 
+  // Automatic Cloud Firestore Initialization & Bidirectional Sync
+  useEffect(() => {
+    let isMounted = true;
+    async function initCloudSync() {
+      try {
+        setCloudSyncStatus("syncing");
+
+        // 1. User Profile
+        const cloudUser = await loadDocFromCloud<UserProfile>("settings", "user_profile");
+        if (cloudUser && isMounted) {
+          setCurrentUser((prev) => ({ ...prev, ...cloudUser }));
+        } else {
+          await saveDocToCloud("settings", "user_profile", currentUser);
+        }
+
+        // 2. Accounts
+        const cloudAccounts = await loadCollectionFromCloud<Account>("crm_accounts");
+        if (cloudAccounts.length > 0 && isMounted) {
+          setAccounts(cloudAccounts);
+        } else {
+          await syncBatchToCloud("crm_accounts", INITIAL_ACCOUNTS);
+        }
+
+        // 3. Contacts
+        const cloudContacts = await loadCollectionFromCloud<CRMContact>("crm_contacts");
+        if (cloudContacts.length > 0 && isMounted) {
+          setContacts(cloudContacts);
+        } else {
+          await syncBatchToCloud("crm_contacts", INITIAL_CONTACTS);
+        }
+
+        // 4. Leads
+        const cloudLeads = await loadCollectionFromCloud<CRMLead>("crm_leads");
+        if (cloudLeads.length > 0 && isMounted) {
+          setLeads(cloudLeads);
+        } else {
+          await syncBatchToCloud("crm_leads", INITIAL_LEADS);
+        }
+
+        // 5. CRM Deals
+        const cloudDeals = await loadCollectionFromCloud<CRMOpportunity>("crm_deals");
+        if (cloudDeals.length > 0 && isMounted) {
+          setCrmOpportunities(cloudDeals);
+        } else {
+          await syncBatchToCloud("crm_deals", INITIAL_OPPORTUNITIES);
+        }
+
+        // 6. Activities
+        const cloudActivities = await loadCollectionFromCloud<CRMActivity>("crm_activities");
+        if (cloudActivities.length > 0 && isMounted) {
+          setActivities(cloudActivities);
+        } else {
+          await syncBatchToCloud("crm_activities", INITIAL_ACTIVITIES);
+        }
+
+        // 7. Tasks
+        const cloudTasks = await loadCollectionFromCloud<CRMTask>("crm_tasks");
+        if (cloudTasks.length > 0 && isMounted) {
+          setTasks(cloudTasks);
+        } else {
+          await syncBatchToCloud("crm_tasks", INITIAL_TASKS);
+        }
+
+        // 8. Opportunities (Legacy)
+        const cloudOpps = await loadCollectionFromCloud<Opportunity>("opportunities");
+        if (cloudOpps.length > 0 && isMounted) {
+          setOpportunities(cloudOpps);
+        } else {
+          await syncBatchToCloud("opportunities", SAMPLE_OPPORTUNITIES);
+        }
+
+        if (isMounted) setCloudSyncStatus("synced");
+      } catch (err) {
+        console.warn("[Firebase] Initial cloud sync warning:", err);
+        if (isMounted) setCloudSyncStatus("offline");
+      }
+    }
+
+    initCloudSync();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const syncAllWithCloud = async () => {
+    setCloudSyncStatus("syncing");
+    try {
+      await Promise.all([
+        saveDocToCloud("settings", "user_profile", currentUser),
+        syncBatchToCloud("crm_accounts", accounts),
+        syncBatchToCloud("crm_contacts", contacts),
+        syncBatchToCloud("crm_leads", leads),
+        syncBatchToCloud("crm_deals", crmOpportunities),
+        syncBatchToCloud("crm_activities", activities),
+        syncBatchToCloud("crm_tasks", tasks),
+        syncBatchToCloud("opportunities", opportunities)
+      ]);
+      setCloudSyncStatus("synced");
+      showToast("All workspace data synchronized with Cloud Firestore!", "success");
+    } catch (err) {
+      console.error("Manual cloud sync error:", err);
+      setCloudSyncStatus("error");
+      showToast("Cloud sync failed. Local cache preserved.", "error");
+    }
+  };
+
   const showToast = (message: string, type: "success" | "info" | "warning" | "error" = "info") => {
     setToast({ message, type });
     setTimeout(() => {
@@ -602,41 +729,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addAccount = (account: Account) => {
     setAccounts((prev) => [account, ...prev]);
+    saveDocToCloud("crm_accounts", account.id, account);
     showToast(`Account "${account.name}" created`, "success");
   };
 
   const updateAccount = (id: string, updates: Partial<Account>) => {
     setAccounts((prev) =>
-      prev.map((acc) => (acc.id === id ? { ...acc, ...updates } : acc))
+      prev.map((acc) => {
+        if (acc.id === id) {
+          const updated = { ...acc, ...updates };
+          saveDocToCloud("crm_accounts", id, updated);
+          return updated;
+        }
+        return acc;
+      })
     );
     showToast("Account updated", "success");
   };
 
   const addContact = (contact: CRMContact) => {
     setContacts((prev) => [contact, ...prev]);
+    saveDocToCloud("crm_contacts", contact.id, contact);
     showToast(`Contact "${contact.firstName} ${contact.lastName}" added`, "success");
   };
 
   const updateContact = (id: string, updates: Partial<CRMContact>) => {
     setContacts((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...updates } : c))
+      prev.map((c) => {
+        if (c.id === id) {
+          const updated = { ...c, ...updates };
+          saveDocToCloud("crm_contacts", id, updated);
+          return updated;
+        }
+        return c;
+      })
     );
     showToast("Contact updated", "success");
   };
 
   const deleteContact = (id: string) => {
     setContacts((prev) => prev.filter((c) => c.id !== id));
+    deleteDocFromCloud("crm_contacts", id);
     showToast("Contact removed", "info");
   };
 
   const addLead = (lead: CRMLead) => {
     setLeads((prev) => [lead, ...prev]);
+    saveDocToCloud("crm_leads", lead.id, lead);
     showToast(`Lead "${lead.leadName}" added`, "success");
   };
 
   const updateLead = (id: string, updates: Partial<CRMLead>) => {
     setLeads((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, ...updates } : l))
+      prev.map((l) => {
+        if (l.id === id) {
+          const updated = { ...l, ...updates };
+          saveDocToCloud("crm_leads", id, updated);
+          return updated;
+        }
+        return l;
+      })
     );
     showToast("Lead updated", "success");
   };
@@ -780,6 +932,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addCrmOpportunity = (opp: CRMOpportunity) => {
     setCrmOpportunities((prev) => [opp, ...prev]);
+    saveDocToCloud("crm_deals", opp.id, opp);
     showToast(`Opportunity "${opp.name}" added to pipeline`, "success");
   };
 
@@ -792,6 +945,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const healthEval = CRMIntelligenceEngine.evaluateDealHealth(updated);
           updated.dealHealth = healthEval.rating;
           updated.dealHealthReasons = healthEval.reasons;
+          saveDocToCloud("crm_deals", id, updated);
           return updated;
         }
         return opp;
@@ -807,30 +961,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       timestamp: new Date().toISOString()
     };
     setActivities((prev) => [newAct, ...prev]);
+    saveDocToCloud("crm_activities", newAct.id, newAct);
 
     // Update last interaction on related account
     if (activityData.accountId) {
       setAccounts((prev) =>
-        prev.map((acc) =>
-          acc.id === activityData.accountId
-            ? { ...acc, lastInteractionDate: new Date().toISOString().split("T")[0] }
-            : acc
-        )
+        prev.map((acc) => {
+          if (acc.id === activityData.accountId) {
+            const updated = { ...acc, lastInteractionDate: new Date().toISOString().split("T")[0] };
+            saveDocToCloud("crm_accounts", acc.id, updated);
+            return updated;
+          }
+          return acc;
+        })
       );
     }
 
     // Update last activity on related opportunity
     if (activityData.opportunityId) {
       setCrmOpportunities((prev) =>
-        prev.map((opp) =>
-          opp.id === activityData.opportunityId
-            ? {
-                ...opp,
-                latestActivity: activityData.title,
-                latestActivityDate: new Date().toISOString().split("T")[0]
-              }
-            : opp
-        )
+        prev.map((opp) => {
+          if (opp.id === activityData.opportunityId) {
+            const updated = {
+              ...opp,
+              latestActivity: activityData.title,
+              latestActivityDate: new Date().toISOString().split("T")[0]
+            };
+            saveDocToCloud("crm_deals", opp.id, updated);
+            return updated;
+          }
+          return opp;
+        })
       );
     }
 
@@ -843,12 +1004,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: `task-${Date.now()}`
     };
     setTasks((prev) => [newTask, ...prev]);
+    saveDocToCloud("crm_tasks", newTask.id, newTask);
     showToast(`Task "${taskData.title}" created`, "success");
   };
 
   const updateTask = (id: string, updates: Partial<CRMTask>) => {
     setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, ...updates } : t))
+      prev.map((t) => {
+        if (t.id === id) {
+          const updated = { ...t, ...updates };
+          saveDocToCloud("crm_tasks", id, updated);
+          return updated;
+        }
+        return t;
+      })
     );
     showToast("Task updated", "success");
   };
@@ -858,11 +1027,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       prev.map((t) => {
         if (t.id === id) {
           const isDone = t.status === "Completed";
-          return {
+          const updated = {
             ...t,
-            status: isDone ? "To Do" : "Completed",
+            status: (isDone ? "To Do" : "Completed") as "To Do" | "In Progress" | "Completed",
             completedAt: isDone ? undefined : new Date().toISOString()
           };
+          saveDocToCloud("crm_tasks", id, updated);
+          return updated;
         }
         return t;
       })
@@ -877,17 +1048,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Legacy sync
   const addOpportunity = (opp: Opportunity) => {
     setOpportunities((prev) => [opp, ...prev]);
+    saveDocToCloud("opportunities", opp.id, opp);
     showToast(`Opportunity "${opp.project}" saved`, "success");
   };
 
   const updateOpportunity = (id: string, updates: Partial<Opportunity>) => {
     setOpportunities((prev) =>
-      prev.map((opp) => (opp.id === id ? { ...opp, ...updates } : opp))
+      prev.map((opp) => {
+        if (opp.id === id) {
+          const updated = { ...opp, ...updates };
+          saveDocToCloud("opportunities", id, updated);
+          return updated;
+        }
+        return opp;
+      })
     );
   };
 
   const addDocument = (doc: KnowledgeDocument) => {
     setDocuments((prev) => [doc, ...prev]);
+    saveDocToCloud("knowledge_documents", doc.id, doc);
     showToast(`Document "${doc.title}" added to knowledge base`, "success");
   };
 
@@ -923,6 +1103,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentUser,
         updateCurrentUser,
         resetCurrentUser,
+        cloudSyncStatus,
+        syncAllWithCloud,
         activeTab,
         setActiveTab,
         activeCRMTab,
