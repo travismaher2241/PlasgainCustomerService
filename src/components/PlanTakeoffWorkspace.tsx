@@ -130,7 +130,7 @@ const SAMPLE_PLANS: SamplePlan[] = [
         {
           type: "compliance",
           title: "AS/NZS 1158.3.1 Category P4 Spacing",
-          description: "Pole spacing averages 48m on 6m mounting height. Requires Dialux photometric confirmation to ensure 0.5 lux minimum horizontal illuminance."
+          description: "Pole spacing averages 48m on 6m mounting height. Requires Dialux photometric confirmation to ensure 0.85 lux average (0.17 lux point minimum) horizontal illuminance."
         },
         {
           type: "info",

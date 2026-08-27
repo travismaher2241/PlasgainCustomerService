@@ -39,21 +39,21 @@ export const COMPREHENSIVE_LIGHTING_ENCYCLOPEDIA: Record<string, LightingTermExp
     plainEnglish: "The overarching Australian and New Zealand standard for the design and compliance of road, public space, pedestrian, and pathway lighting.",
     whyItMattersInSales: "Municipal councils, developers, and road authorities mandate AS/NZS 1158 compliance before certifying and taking ownership of new civil infrastructure. Simply stating lumens is never enough—a certified photometric calculation report is required.",
     howToExplainToCustomer: "AS/NZS 1158 is the Australian national benchmark for public safety. Our lighting designs are modelled in Dialux to prove your project meets the exact lux and uniformity targets required for council sign-off.",
-    practicalExample: "Category P4 is standard for local residential streets and connected shared cycleways (average 2.5 lux minimum), while Category V3 applies to major multi-lane thoroughfares.",
+    practicalExample: "Category P4 is standard for council shared cycleways and local trails (maintained horizontal illuminance of 0.85 lux average, 0.17 lux point minimum), while Category V3 applies to major multi-lane arterial thoroughfares (approx 0.75 cd/m² / 10 lux).",
     commonMistakesToAvoid: "Never guarantee compliance on pole spacing alone without running a project-specific Dialux photometric calculation.",
     relatedPlasgainProducts: ["enLighten Zorro 2", "Roadway V-LED 70W", "Intense 50W", "Plaspole 4.5m/6m/8m"],
-    australianStandardRef: "AS/NZS 1158.1.1 (Cat V) & AS/NZS 1158.3.1 (Cat P)"
+    australianStandardRef: "AS/NZS 1158.1.1:2022 (Cat V) & AS/NZS 1158.3.1:2020 (Cat P)"
   },
   "as/nzs 1158.3.1": {
     term: "AS/NZS 1158.3.1 (Category P Lighting)",
     category: "Lighting Standards",
-    plainEnglish: "The specific sub-part of the Australian public lighting standard governing pedestrian pathways, cycle routes, parks, and local roads (Categories P1 through P5, and PP1 through PP5).",
-    whyItMattersInSales: "Category P is the primary specification for 90% of council park, pathway, and suburban lighting tenders. Knowing whether a project is P3 (high pedestrian activity) or P4/P5 (medium to low) dictates pole spacing and luminaire wattage.",
+    plainEnglish: "The specific sub-part of the Australian public lighting standard governing pedestrian pathways, cycle routes, parks, and local roads (Categories P1 through P5, and PR1 through PR4).",
+    whyItMattersInSales: "Category P is the primary specification for 90% of council park, pathway, and suburban lighting tenders. Knowing whether a project is P1 (7.0 lx avg), P2 (3.5 lx avg), P3 (1.75 lx avg), P4 (0.85 lx avg), or P5 (0.45 lx avg) dictates pole spacing, battery sizing, and luminaire wattage.",
     howToExplainToCustomer: "Category P establishes minimum light levels and uniformity so pedestrians, cyclists, and mobility scooter users can see obstacles and recognize oncoming faces safely at night.",
-    practicalExample: "A 1.2km shared regional bike path typically targets Category P4 (average horizontal illuminance of 2.5 lux, minimum point 0.5 lux).",
-    commonMistakesToAvoid: "Over-lighting a quiet nature trail to P1 levels causes excessive glare and power draw; under-lighting a busy commuter corridor to P5 will fail council compliance audit.",
+    practicalExample: "A 1.2km shared regional bike path typically targets Category P4 (maintained horizontal average 0.85 lux, minimum point 0.17 lux, uniformity U_o <= 10).",
+    commonMistakesToAvoid: "Over-lighting a quiet nature trail to P1 levels (7.0 lx) causes excessive glare and power draw; under-lighting a busy commuter corridor to P5 (0.45 lx) will fail council compliance audit.",
     relatedPlasgainProducts: ["Intense 50W", "Pro Blade 75/125", "Sonaray Solar Blade", "enLighten Zorro 2 15W-30W"],
-    australianStandardRef: "AS/NZS 1158.3.1:2020 Category P"
+    australianStandardRef: "AS/NZS 1158.3.1:2020 Category P Table 2.1"
   },
   "cri (colour rendering index)": {
     term: "CRI (Colour Rendering Index)",

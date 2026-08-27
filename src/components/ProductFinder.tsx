@@ -26,6 +26,11 @@ import {
   X
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
+import {
+  LIGHTING_STANDARDS_CATEGORIES,
+  getLightingCategory,
+  DATASET_METADATA
+} from "../data/lightingStandards";
 
 export const ProductFinder: React.FC = () => {
   const {
@@ -47,7 +52,9 @@ export const ProductFinder: React.FC = () => {
   const [powerAvailability, setPowerAvailability] = useState("Off-grid Solar required");
   const [mountingHeight, setMountingHeight] = useState("6 metres standard");
   const [areaOrWidth, setAreaOrWidth] = useState("1.2 km length, 3m path width");
-  const [luxOrClass, setLuxOrClass] = useState("Category P4 (Pedestrian / Cycle path - 1.0 lux avg)");
+  const [selectedCategoryId, setSelectedCategoryId] = useState("P4");
+  const selectedCategory = getLightingCategory(selectedCategoryId) || getLightingCategory("P4")!;
+  const luxOrClass = `${selectedCategory.displayName} (${selectedCategory.maintainedIlluminanceLux} lux avg / ${selectedCategory.minimumIlluminanceLux} lux min)`;
   const [operatingHours, setOperatingHours] = useState("Dusk to dawn");
   const [duskToDawn, setDuskToDawn] = useState(true);
   const [cctPreference, setCctPreference] = useState("3000K (Warm White / Fauna / Dark Sky - Vic/NSW Council Standard)");
@@ -391,8 +398,9 @@ TILT=NONE
           {/* Lighting Class / Lux */}
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-meta font-semibold">Lighting Class / Lux</label>
+              <label className="text-meta font-semibold">Lighting Class / Standards Lux Target</label>
               <button
+                type="button"
                 onClick={() => setExplainingTerm("AS/NZS 1158")}
                 className="text-spec text-brand-deep hover:underline font-medium cursor-pointer"
               >
@@ -400,17 +408,22 @@ TILT=NONE
               </button>
             </div>
             <select
-              value={luxOrClass}
-              onChange={(e) => setLuxOrClass(e.target.value)}
-              className="w-full text-meta p-2.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep bg-white"
+              value={selectedCategoryId}
+              onChange={(e) => setSelectedCategoryId(e.target.value)}
+              className="w-full text-meta p-2.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep bg-white font-medium"
             >
-              <option value="Category P4 (Pedestrian / Cycle path - 1.0 lux avg)">Category P4 (Standard Shared Path — 1.0 lux avg)</option>
-              <option value="Category P3 (Suburban Streets / Parks — 1.75 lux avg)">Category P3 (Suburban Streets — 1.75 lux avg)</option>
-              <option value="Category P2 (Urban Transport Links — 3.5 lux avg)">Category P2 (Urban Rail Corridor — 3.5 lux avg)</option>
-              <option value="Category P1 (High Activity Commercial — 7.0 lux avg)">Category P1 (High Activity Pedestrian — 7.0 lux avg)</option>
-              <option value="Category V5 / V3 (Vehicular Roadway)">Category V (Vehicular Roadway / Highway)</option>
-              <option value="General Area Floodlighting (10-30 lux)">General Area Floodlighting (10-30 lux)</option>
+              {LIGHTING_STANDARDS_CATEGORIES.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.category}: {cat.displayName.includes("—") ? cat.displayName.split("—")[1].trim() : cat.displayName} ({cat.maintainedIlluminanceLux} lx avg / {cat.minimumIlluminanceLux} lx min)
+                </option>
+              ))}
             </select>
+            <div className="flex items-center gap-1.5 text-[11px] text-ink-dim mt-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-brand-deep shrink-0" />
+              <span>
+                Target: <strong>{selectedCategory.maintainedIlluminanceLux} lx avg</strong> ({selectedCategory.minimumIlluminanceLux} lx min point) · {selectedCategory.standardReference} (Rev {selectedCategory.datasetRevision})
+              </span>
+            </div>
           </div>
 
           {/* CCT Preference */}

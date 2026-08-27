@@ -23,6 +23,11 @@ import {
 import { useApp, ToolSubTab } from "../context/AppContext";
 import { PlanTakeoffWorkspace } from "./PlanTakeoffWorkspace";
 import { OpportunityProductLine } from "../types/crm";
+import {
+  LIGHTING_STANDARDS_CATEGORIES,
+  getLightingCategory,
+  DATASET_METADATA
+} from "../data/lightingStandards";
 
 export const ToolsHub: React.FC = () => {
   const {
@@ -118,39 +123,40 @@ export const ToolsHub: React.FC = () => {
   // Tool 2: AS/NZS 1158 Pathway Pole Spacing & Lux Estimator
   // -------------------------------------------------------------
   const [pathwayWidth, setPathwayWidth] = useState<number>(3.0);
-  const [subCategory, setSubCategory] = useState<"P1" | "P2" | "P3" | "P4" | "PR1" | "PR2" | "PR3" | "PR4">("P3");
+  const [subCategory, setSubCategory] = useState<string>("P4");
   const [poleHeightM, setPoleHeightM] = useState<number>(5.0);
   const [luminaireOutputLm, setLuminaireOutputLm] = useState<number>(4500);
 
+  const selectedCat = getLightingCategory(subCategory) || getLightingCategory("P4")!;
+
   const spacingCalculations = useMemo(() => {
-    let baseSpacing = 32;
-    if (subCategory === "P1" || subCategory === "PR1") baseSpacing = 20;
-    else if (subCategory === "P2" || subCategory === "PR2") baseSpacing = 26;
-    else if (subCategory === "P3" || subCategory === "PR3") baseSpacing = 32;
-    else if (subCategory === "P4" || subCategory === "PR4") baseSpacing = 40;
+    let baseSpacing = 40;
+    if (selectedCat.id === "P1" || selectedCat.id === "PR1") baseSpacing = 20;
+    else if (selectedCat.id === "P2" || selectedCat.id === "PR2") baseSpacing = 26;
+    else if (selectedCat.id === "P3" || selectedCat.id === "PR3") baseSpacing = 32;
+    else if (selectedCat.id === "P4" || selectedCat.id === "PR4") baseSpacing = 40;
+    else if (selectedCat.id === "P5") baseSpacing = 48;
 
     const heightFactor = poleHeightM / 5.0;
     const lumenFactor = luminaireOutputLm / 4000;
     const recommendedSpacing = Math.round(baseSpacing * Math.sqrt(lumenFactor) * (0.8 + 0.2 * heightFactor));
     const polesPerKm = Math.ceil(1000 / recommendedSpacing);
 
-    const isP1 = subCategory === "P1" || subCategory === "PR1";
-    const isP2 = subCategory === "P2" || subCategory === "PR2";
-    const isP3 = subCategory === "P3" || subCategory === "PR3";
-
     return {
       recommendedSpacing,
       polesPerKm,
-      illuminanceEav: isP1 ? "2.0 Lux" : isP2 ? "1.0 Lux" : isP3 ? "0.5 Lux" : "0.2 Lux",
-      uniformityUo: "0.20 Min",
+      illuminanceEav: `${selectedCat.maintainedIlluminanceLux} Lux (avg)`,
+      illuminanceEmin: `${selectedCat.minimumIlluminanceLux} Lux (min point)`,
+      uniformityUo: selectedCat.uniformityRequirement,
       recommendedLuminaireCode: luminaireOutputLm >= 6000 ? "PB-100W-3K" : luminaireOutputLm >= 4000 ? "PB-75W-3K" : "PB-50W-3K",
       recommendedLuminaireName: luminaireOutputLm >= 6000 ? "Plasgain Pro Blade 100W Solar Luminaire (3000K)" : luminaireOutputLm >= 4000 ? "Plasgain Pro Blade 75W Solar Luminaire (3000K)" : "Plasgain Pro Blade 50W Solar Luminaire (3000K)",
       recommendedPoleCode: `PLASPOLE-${poleHeightM}M-DB-GRN`,
       recommendedPoleName: `Plaspole ${poleHeightM}m Recycled Composite Light Pole (Direct Burial)`,
       luminaireUnitPrice: luminaireOutputLm >= 6000 ? 1950 : luminaireOutputLm >= 4000 ? 1650 : 1350,
-      poleUnitPrice: poleHeightM >= 6 ? 1200 : poleHeightM >= 5 ? 980 : 820
+      poleUnitPrice: poleHeightM >= 6 ? 1200 : poleHeightM >= 5 ? 980 : 820,
+      provenance: `${selectedCat.displayName} · ${selectedCat.standardReference} (Rev ${selectedCat.datasetRevision})`
     };
-  }, [pathwayWidth, subCategory, poleHeightM, luminaireOutputLm]);
+  }, [pathwayWidth, selectedCat, poleHeightM, luminaireOutputLm]);
 
   // -------------------------------------------------------------
   // Tool 3: Wind Region (AS 1170.2) & Foundation Hardware Estimator
@@ -621,18 +627,25 @@ export const ToolsHub: React.FC = () => {
 
             <div>
               <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                Pathway Category (AS/NZS 1158.3.1)
+                Pathway Category (AS/NZS 1158.3.1:2020)
               </label>
               <select
                 value={subCategory}
-                onChange={(e) => setSubCategory(e.target.value as any)}
+                onChange={(e) => setSubCategory(e.target.value)}
                 className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
               >
-                <option value="P1">P1 / PR1 (High Pedestrian Activity / Connecting Arterials - 2.0 Lux)</option>
-                <option value="P2">P2 / PR2 (High Activity Promenades / Commercial Strips - 1.0 Lux)</option>
-                <option value="P3">P3 / PR3 (Standard Shared Path / Council Cycleway - 0.5 Lux)</option>
-                <option value="P4">P4 / PR4 (Minor Parkland / Rural Pathways - 0.2 Lux)</option>
+                {LIGHTING_STANDARDS_CATEGORIES.filter((c) => c.family.includes("Category P") || c.family.includes("Category PR")).map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.category}: {cat.displayName.includes("—") ? cat.displayName.split("—")[1].trim() : cat.displayName} ({cat.maintainedIlluminanceLux} lx avg / {cat.minimumIlluminanceLux} lx min)
+                  </option>
+                ))}
               </select>
+              <div className="flex items-center gap-1.5 text-[11px] text-ink-dim mt-1.5">
+                <ShieldCheck className="w-3.5 h-3.5 text-brand-deep shrink-0" />
+                <span>
+                  Target: <strong>{selectedCat.maintainedIlluminanceLux} lx avg</strong> ({selectedCat.minimumIlluminanceLux} lx min point) · {selectedCat.standardReference} (Rev {selectedCat.datasetRevision})
+                </span>
+              </div>
             </div>
 
             <div>
@@ -670,7 +683,8 @@ export const ToolsHub: React.FC = () => {
             <div className="bg-gradient-to-br from-brand-wash to-white p-6 rounded-panel border border-brand-edge shadow-xs space-y-4">
               <div>
                 <span className="text-spec font-bold text-brand-deep uppercase">Estimated Engineering Spacing</span>
-                <h2 className="text-xl font-bold text-body">AS/NZS 1158 Category {subCategory} Compliance Estimation</h2>
+                <h2 className="text-xl font-bold text-body">{selectedCat.displayName}</h2>
+                <div className="text-[11px] text-ink-dim mt-0.5">{selectedCat.subTitle}</div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
@@ -695,7 +709,7 @@ export const ToolsHub: React.FC = () => {
                   <div className="text-2xl font-bold text-brand mt-1">
                     {spacingCalculations.illuminanceEav}
                   </div>
-                  <div className="text-[11px] text-ink-dim">Uniformity (Uo) {spacingCalculations.uniformityUo}</div>
+                  <div className="text-[11px] text-ink-dim">Min: {spacingCalculations.illuminanceEmin} · {spacingCalculations.uniformityUo}</div>
                 </div>
               </div>
 
