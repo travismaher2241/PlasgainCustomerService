@@ -28,7 +28,8 @@ import {
   Tag,
   Check,
   Package,
-  RefreshCw
+  RefreshCw,
+  Phone
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { CRMOpportunity, DealHealthRating, OpportunityProductLine } from "../../types/crm";
@@ -327,50 +328,87 @@ export const CRMPipelineView: React.FC = () => {
                 </div>
 
                 <div className="space-y-3 overflow-y-auto flex-1 pr-1">
-                  {stageDeals.map((deal) => (
-                    <div
-                      key={deal.id}
-                      onClick={() => setSelectedCrmOpportunityId(deal.id)}
-                      className={`p-3.5 bg-white rounded-edge border transition-all cursor-pointer shadow-2xs hover:shadow-xs hover:border-brand-edge ${
-                        selectedCrmOpportunityId === deal.id ? "ring-2 ring-brand border-brand" : "border-line"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2 mb-1.5">
-                        <span className="text-spec font-bold text-ink-dim truncate">{deal.accountName}</span>
-                        {getHealthBadge(deal.dealHealth)}
-                      </div>
+                  {stageDeals.map((deal) => {
+                    const currentStageIdx = currentPipeline.stages.findIndex((s) => s.id === deal.stageId);
+                    const hasNextStage = currentStageIdx >= 0 && currentStageIdx < currentPipeline.stages.length - 1;
+                    const nextStageObj = hasNextStage ? currentPipeline.stages[currentStageIdx + 1] : null;
 
-                      <h4 className="font-bold text-body text-meta line-clamp-2 mb-2">{deal.name}</h4>
-
-                      <div className="flex items-center justify-between pt-2 border-t border-line text-spec">
-                        <span className="font-bold text-body">${deal.dealValue.toLocaleString()}</span>
-                        <span className="text-ink-dim">{deal.expectedCloseDate}</span>
-                      </div>
-
-                      {deal.nextAction && (
-                        <div className="mt-2 text-[11px] text-brand-deep bg-brand-wash px-2 py-1 rounded truncate">
-                          Next: {deal.nextAction}
+                    return (
+                      <div
+                        key={deal.id}
+                        onClick={() => setSelectedCrmOpportunityId(deal.id)}
+                        className={`p-3.5 bg-white rounded-edge border transition-all cursor-pointer shadow-2xs hover:shadow-xs hover:border-brand-edge ${
+                          selectedCrmOpportunityId === deal.id ? "ring-2 ring-brand border-brand" : "border-line"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                          <span className="text-spec font-bold text-ink-dim truncate">{deal.accountName}</span>
+                          {getHealthBadge(deal.dealHealth)}
                         </div>
-                      )}
 
-                      {/* Quick stage mover */}
-                      <div className="mt-2.5 pt-2 border-t border-line/60 flex items-center justify-between text-spec">
-                        <span className="text-ink-dim text-[11px]">Move stage:</span>
-                        <select
-                          value={deal.stageId}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => handleStageChange(deal.id, e.target.value)}
-                          className="text-[11px] font-semibold bg-raised border border-line rounded px-1.5 py-0.5 focus:outline-none"
-                        >
-                          {currentPipeline.stages.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.name}
-                            </option>
-                          ))}
-                        </select>
+                        <h4 className="font-bold text-body text-meta line-clamp-2 mb-2">{deal.name}</h4>
+
+                        <div className="flex items-center justify-between pt-2 border-t border-line text-spec">
+                          <span className="font-bold text-body">${deal.dealValue.toLocaleString()}</span>
+                          <span className="text-ink-dim">{deal.expectedCloseDate}</span>
+                        </div>
+
+                        {deal.nextAction && (
+                          <div className="mt-2 text-[11px] text-brand-deep bg-brand-wash px-2 py-1 rounded truncate">
+                            Next: {deal.nextAction}
+                          </div>
+                        )}
+
+                        {/* OPT-04: 1-Click Action Bar on Kanban Card */}
+                        <div className="mt-2.5 pt-2 border-t border-line/60 flex items-center justify-between gap-1 text-spec">
+                          <div className="flex items-center gap-1">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openQuickLog("call", deal.accountId, deal.id);
+                              }}
+                              className="p-1 text-ink-dim hover:text-brand-deep hover:bg-brand-wash rounded cursor-pointer transition-colors"
+                              title="Quick log customer call"
+                            >
+                              <Phone className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openQuickLog("email", deal.accountId, deal.id);
+                              }}
+                              className="p-1 text-ink-dim hover:text-brand-deep hover:bg-brand-wash rounded cursor-pointer transition-colors"
+                              title="Log customer touchpoint"
+                            >
+                              <Mail className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          {hasNextStage && nextStageObj ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleStageChange(deal.id, nextStageObj.id);
+                                showToast(`Advanced "${deal.name}" to ${nextStageObj.name}!`, "success");
+                              }}
+                              className="px-2 py-0.5 text-[11px] font-bold text-brand-deep bg-brand-wash hover:bg-brand-wash/80 border border-brand-edge rounded flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                              title={`Advance to ${nextStageObj.name}`}
+                            >
+                              <span>Advance</span>
+                              <ArrowRight className="w-3 h-3" />
+                            </button>
+                          ) : (
+                            <span className="text-[10px] font-bold text-brand-deep bg-brand-wash px-1.5 py-0.5 rounded border border-brand-edge">
+                              Active Stage
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             );

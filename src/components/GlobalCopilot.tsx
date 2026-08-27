@@ -188,27 +188,119 @@ export const GlobalCopilot: React.FC = () => {
         )}
       </div>
 
-      {/* Quick Prompts */}
-      <div className="px-3 py-1.5 bg-paper border-t border-line flex gap-1.5 overflow-x-auto text-spec">
-        <button
-          onClick={() => handleSend("What is the active quote reference, contact person and deal value for this project?")}
-          className="whitespace-nowrap bg-white px-2 py-0.5 rounded border border-line text-body hover:text-brand-deep cursor-pointer"
-        >
-          Quote Details?
-        </button>
-        <button
-          onClick={() => handleSend("What are the key technical questions before we finalize this luminaire quote?")}
-          className="whitespace-nowrap bg-white px-2 py-0.5 rounded border border-line text-body hover:text-brand-deep cursor-pointer"
-        >
-          Key Questions?
-        </button>
-        <button
-          onClick={() => handleSend("Explain AS/NZS 1158 Cat P pathway compliance criteria.")}
-          className="whitespace-nowrap bg-white px-2 py-0.5 rounded border border-line text-body hover:text-brand-deep cursor-pointer"
-        >
-          Cat P?
-        </button>
-      </div>
+      {/* OPT-02: Dynamic Contextual Quick Prompt Chips */}
+      {(() => {
+        let chips: Array<{ label: string; prompt: string }> = [];
+
+        if (currentDeal) {
+          chips = [
+            {
+              label: "🌿 Dark-Sky Clause",
+              prompt: `Draft a 3000K fauna-friendly / dark-sky compliance clause for deal "${currentDeal.name}" to satisfy council tender specifications.`
+            },
+            {
+              label: "🔋 5-Day Autonomy Check",
+              prompt: `Analyze battery reserve and autonomy for 5 consecutive overcast days for the products quoted in "${currentDeal.name}".`
+            },
+            {
+              label: "💡 Value-Eng Option (-15%)",
+              prompt: `Suggest value-engineering alternatives or luminaire spacing adjustments to reduce total quote cost by 15% for "${currentDeal.name}".`
+            }
+          ];
+        } else if (currentAccount) {
+          chips = [
+            {
+              label: "📊 Account Summary",
+              prompt: `Summarize buying history, open tenders, and key relationship contacts for account "${currentAccount.name}".`
+            },
+            {
+              label: "✉️ Executive Touchpoint",
+              prompt: `Draft a consultative follow-up email to the primary decision-makers at "${currentAccount.name}".`
+            },
+            {
+              label: "🥊 Competitor Intel",
+              prompt: `List all recorded competitor pricing and alternative specs quoted against "${currentAccount.name}".`
+            }
+          ];
+        } else if (activeTab === "enquiry") {
+          chips = [
+            {
+              label: "🔍 Extract Pole & Wind Spec",
+              prompt: "Extract the required luminaire mounting height, outreach arm length, and AS 1170.2 wind region from this enquiry."
+            },
+            {
+              label: "⚠️ Missing Tender Info",
+              prompt: "What critical technical or site specifications are missing from this enquiry before we can issue a formal quote?"
+            },
+            {
+              label: "📜 AS 1158 Sub-Category",
+              prompt: "Which AS/NZS 1158 category (P1 to P4 / PR1 to PR4) applies to this pathway or roadway installation?"
+            }
+          ];
+        } else if (activeTab === "tools") {
+          chips = [
+            {
+              label: "🛡️ Polymeric vs Concrete",
+              prompt: "Explain the OH&S manual handling and freight advantages of Plasgain polymeric cable cover vs pre-cast concrete slabs."
+            },
+            {
+              label: "📏 Cat P Spacing Rule",
+              prompt: "What is the recommended pole spacing and luminaire wattage to achieve 0.85 lux average on a 3m wide shared path?"
+            },
+            {
+              label: "🌪️ Cyclonic Footing Sizing",
+              prompt: "What footing depth and ragbolt cage size is required for an 8m pole in Wind Region C Cyclonic?"
+            }
+          ];
+        } else if (activeTab === "takeoff") {
+          chips = [
+            {
+              label: "📦 High-Margin Add-ons",
+              prompt: "What accessories (e.g. anti-glare louvres, bird spikes, foundation collars) should we bundle with this plan takeoff?"
+            },
+            {
+              label: "🔧 Spigot & Outreach Check",
+              prompt: "Verify standard spigot diameter (60mm vs 76mm) and mounting outreach considerations for this luminaire layout."
+            }
+          ];
+        } else {
+          chips = [
+            {
+              label: "📄 Active Quote Status",
+              prompt: "What is the active quote reference, contact person, and deal value for our most urgent deals?"
+            },
+            {
+              label: "📜 AS/NZS 1158 Lighting Class",
+              prompt: "Explain the difference between Category P1, P2, P3, and P4 public lighting categories."
+            },
+            {
+              label: "🚚 Standard Lead Times",
+              prompt: "What are our standard manufacturing and dispatch lead times for solar luminaires and composite poles?"
+            }
+          ];
+        }
+
+        return (
+          <div className="px-3 py-2 bg-paper border-t border-line flex flex-col gap-1 text-spec">
+            <div className="flex items-center justify-between text-[11px] font-bold text-ink-dim uppercase">
+              <span>Suggested Prompts ({currentDeal ? "Deal Context" : currentAccount ? "Account Context" : activeTab.toUpperCase()})</span>
+            </div>
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5 no-scrollbar">
+              {chips.map((chip, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => handleSend(chip.prompt)}
+                  className="whitespace-nowrap bg-white px-2.5 py-1 rounded-edge border border-line-strong text-body hover:text-brand-deep hover:border-brand hover:bg-brand-wash/30 font-semibold text-[11px] transition-all cursor-pointer shadow-2xs shrink-0"
+                  title={chip.prompt}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Input Form */}
       <form

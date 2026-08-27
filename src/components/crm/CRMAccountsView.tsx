@@ -51,7 +51,8 @@ export const CRMAccountsView: React.FC = () => {
     currentUser,
     competitorPricingRecords,
     addCompetitorPricing,
-    updateCompetitorPricing
+    updateCompetitorPricing,
+    showToast
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -59,15 +60,33 @@ export const CRMAccountsView: React.FC = () => {
   const [healthFilter, setHealthFilter] = useState("all");
   const [activeAccountTab, setActiveAccountTab] = useState<"overview" | "contacts" | "deals" | "timeline" | "quotes" | "competitor-pricing" | "ai-summary">("overview");
 
-  
-  // Grounded AI Account Intelligence State
+  // OPT-03: AI Account Summary Multi-Account Cache
+  const [accountAiCache, setAccountAiCache] = useState<Record<string, AccountIntelligenceSummary>>(() => {
+    try {
+      const saved = localStorage.getItem("plasgain_ai_account_cache");
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
   const [aiSummary, setAiSummary] = useState<AccountIntelligenceSummary | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [isCachedSummary, setIsCachedSummary] = useState(false);
 
-  const handleFetchAiSummary = async (acc: Account) => {
+  const handleFetchAiSummary = async (acc: Account, forceRefresh = false) => {
+    // Check cache first if not forcing refresh
+    if (!forceRefresh && accountAiCache[acc.id]) {
+      setAiSummary(accountAiCache[acc.id]);
+      setIsCachedSummary(true);
+      setIsAiLoading(false);
+      return;
+    }
+
     setIsAiLoading(true);
     setAiError(null);
+    setIsCachedSummary(false);
     try {
       const accActivities = activities.filter((a) => a.accountId === acc.id);
       const accDeals = crmOpportunities.filter((d) => d.accountId === acc.id);
@@ -93,17 +112,44 @@ export const CRMAccountsView: React.FC = () => {
 
       const data = await res.json();
       setAiSummary(data.summary);
+      
+      // Update cache
+      setAccountAiCache((prev) => {
+        const updated = { ...prev, [acc.id]: data.summary };
+        try {
+          localStorage.setItem("plasgain_ai_account_cache", JSON.stringify(updated));
+        } catch (e) {
+          console.error("Cache save error:", e);
+        }
+        return updated;
+      });
+
+      if (forceRefresh) {
+        showToast("Refreshed AI Account Intelligence synthesis!", "success");
+      }
     } catch (err: any) {
       console.error("AI summary error:", err);
-      setAiError(err.message || "AI service is currently unavailable");
+      // Fallback to cache if available
+      if (accountAiCache[acc.id]) {
+        setAiSummary(accountAiCache[acc.id]);
+        setIsCachedSummary(true);
+        showToast("Live AI synthesis failed — showing cached analysis", "warning");
+      } else {
+        setAiError(err.message || "AI service is currently unavailable");
+      }
     } finally {
       setIsAiLoading(false);
     }
   };
 
   useEffect(() => {
-    if (activeAccountTab === "ai-summary" && selectedAccount && !aiSummary && !isAiLoading) {
-      handleFetchAiSummary(selectedAccount);
+    if (activeAccountTab === "ai-summary" && selectedAccount) {
+      if (accountAiCache[selectedAccount.id]) {
+        setAiSummary(accountAiCache[selectedAccount.id]);
+        setIsCachedSummary(true);
+      } else if (!isAiLoading) {
+        handleFetchAiSummary(selectedAccount, false);
+      }
     }
   }, [activeAccountTab, selectedAccountId]);
 
@@ -856,16 +902,22 @@ export const CRMAccountsView: React.FC = () => {
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        {aiSummary?.generatedAt && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {isCachedSummary && !isAiLoading && (
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge">
+                            Cached Synthesis ({aiSummary?.generatedAt ? new Date(aiSummary.generatedAt).toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" }) : "Saved"})
+                          </span>
+                        )}
+                        {aiSummary?.generatedAt && !isCachedSummary && (
                           <span className="text-spec text-ink-faint">
-                            Generated: {new Date(aiSummary.generatedAt).toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" })}
+                            Live Synthesis: {new Date(aiSummary.generatedAt).toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" })}
                           </span>
                         )}
                         <button
-                          onClick={() => handleFetchAiSummary(selectedAccount)}
+                          onClick={() => handleFetchAiSummary(selectedAccount, true)}
                           disabled={isAiLoading}
                           className="px-3 py-1.5 text-meta font-bold bg-brand-wash text-brand-deep border border-brand-edge rounded-edge hover:bg-brand-wash disabled:opacity-50 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                          title="Force live re-analysis against latest CRM notes and deals"
                         >
                           <Sparkles className="w-3.5 h-3.5" />
                           <span>{isAiLoading ? "Synthesising..." : "Refresh Summary"}</span>

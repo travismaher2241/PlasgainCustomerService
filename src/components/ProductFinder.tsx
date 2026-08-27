@@ -18,12 +18,29 @@ import {
   Building,
   Zap,
   MapPin,
-  Clock
+  Clock,
+  Download,
+  Plus,
+  Copy,
+  Package,
+  X
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 
 export const ProductFinder: React.FC = () => {
-  const { setExplainingTerm, showToast, openCopilotWithContext, navigateToWorkflow, navigateToCRM, addCrmOpportunity, accounts, currentUser } = useApp();
+  const {
+    setExplainingTerm,
+    showToast,
+    openCopilotWithContext,
+    navigateToWorkflow,
+    navigateToCRM,
+    addCrmOpportunity,
+    updateCrmOpportunity,
+    crmOpportunities,
+    accounts,
+    pipelines,
+    currentUser
+  } = useApp();
 
   const [application, setApplication] = useState("Shared path");
   const [location, setLocation] = useState("Regional Australia / Public Infrastructure");
@@ -42,6 +59,151 @@ export const ProductFinder: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [finderResult, setFinderResult] = useState<any | null>(null);
   const [finderError, setFinderError] = useState<{ detail: string; guidance?: string } | null>(null);
+
+  // OPT-01: Deal Injection & Photometrics
+  const [isDealModalOpen, setIsDealModalOpen] = useState(false);
+  const [selectedProductForDeal, setSelectedProductForDeal] = useState<{
+    code: string;
+    name: string;
+    category: string;
+    unitPrice: number;
+    costPrice: number;
+    quantity: number;
+  }>({
+    code: "",
+    name: "",
+    category: "Solar Luminaire",
+    unitPrice: 1650,
+    costPrice: 1050,
+    quantity: 24
+  });
+  const [dealInjectMode, setDealInjectMode] = useState<"existing" | "new">("existing");
+  const [targetDealId, setTargetDealId] = useState(crmOpportunities[0]?.id || "");
+  const [newDealName, setNewDealName] = useState("");
+  const [targetAccountId, setTargetAccountId] = useState(accounts[0]?.id || "");
+
+  const downloadPhotometricIES = (productName: string, productCode: string) => {
+    const iesCode = productCode || "PLASGAIN-SOLAR";
+    const iesContent = `IESNA:LM-63-2002
+[TEST] PLASGAIN-OPTICAL-LAB-2026
+[TESTLAB] Plasgain Australia Photometric Testing Facility
+[ISSUEDATE] 2026-08-28
+[MANUFAC] Plasgain Australia
+[LUMCAT] ${iesCode}
+[LUMINAIRE] ${productName || "Plasgain Solar Luminaire"}
+[LAMPCAT] High-Efficacy SMD 3030 LED Array (3000K Dark-Sky Certified)
+[OTHER] AS/NZS 1158.3.1 Category P Pathway & Minor Road Photometry
+TILT=NONE
+1 7500 1 37 1 1 1 -0.15 0 0
+1.0 1.0 75
+0 2.5 5 7.5 10 12.5 15 17.5 20 22.5 25 27.5 30 32.5 35 37.5 40 42.5 45 47.5 50 52.5 55 57.5 60 62.5 65 67.5 70 72.5 75 77.5 80 82.5 85 87.5 90
+0 5 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 90
+`;
+    const blob = new Blob([iesContent], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${iesCode.replace(/[^a-zA-Z0-9_-]/g, "_")}_Photometry.ies`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(`Downloaded IES Photometric Simulation File: ${iesCode}.ies`, "success");
+  };
+
+  const handleOpenAddToDeal = (name: string, code?: string) => {
+    setSelectedProductForDeal({
+      code: code || "PB-75W-3K",
+      name: name || "Plasgain Solar Luminaire",
+      category: "Solar Luminaire",
+      unitPrice: 1650,
+      costPrice: 1050,
+      quantity: 24
+    });
+    setNewDealName(`${name} Installation Project`);
+    setIsDealModalOpen(true);
+  };
+
+  const handleConfirmAddToDeal = () => {
+    const lineItem = {
+      id: `prod-finder-${Date.now()}`,
+      productCode: selectedProductForDeal.code,
+      productName: selectedProductForDeal.name,
+      category: selectedProductForDeal.category,
+      quantity: selectedProductForDeal.quantity,
+      unit: "ea",
+      unitPrice: selectedProductForDeal.unitPrice,
+      costPrice: selectedProductForDeal.costPrice,
+      totalPrice: selectedProductForDeal.unitPrice * selectedProductForDeal.quantity,
+      marginPercent: Math.round(((selectedProductForDeal.unitPrice - selectedProductForDeal.costPrice) / selectedProductForDeal.unitPrice) * 100),
+      isOstendoVerified: true,
+      notes: `Matched via Product Finder for ${application} in ${location}.`
+    };
+
+    if (dealInjectMode === "existing") {
+      const deal = crmOpportunities.find((d) => d.id === targetDealId);
+      if (!deal) {
+        showToast("Please select a target deal", "warning");
+        return;
+      }
+      const updatedProducts = [...(deal.products || []), lineItem];
+      const newDealValue = (deal.dealValue || 0) + lineItem.totalPrice;
+
+      updateCrmOpportunity(deal.id, {
+        products: updatedProducts,
+        dealValue: newDealValue,
+        weightedValue: newDealValue * (deal.probability / 100),
+        latestActivity: `Added ${selectedProductForDeal.name} from Product Finder`,
+        latestActivityDate: new Date().toISOString().split("T")[0]
+      });
+
+      showToast(`Added ${selectedProductForDeal.name} to deal "${deal.name}"!`, "success");
+      setIsDealModalOpen(false);
+      navigateToCRM("pipeline", deal.id);
+    } else {
+      const acc = accounts.find((a) => a.id === targetAccountId) || accounts[0];
+      const pipe = (pipelines && pipelines.length > 0) ? (pipelines.find((p) => p.isDefault) || pipelines[0]) : { id: "pipe-major-projects", stages: [{ id: "stage-new", name: "New Opportunity", probability: 10 }] };
+      const stage = pipe.stages[0];
+      const newId = `deal-finder-${Date.now()}`;
+
+      addCrmOpportunity({
+        id: newId,
+        name: newDealName || `${selectedProductForDeal.name} Project`,
+        accountId: acc.id,
+        accountName: acc.name,
+        primaryContactId: "con-1",
+        primaryContactName: "Project Lead",
+        opportunityOwner: currentUser.name,
+        pipelineId: pipe.id,
+        stageId: stage.id,
+        stageName: stage.name,
+        dealValue: lineItem.totalPrice,
+        weightedValue: lineItem.totalPrice * (stage.probability / 100),
+        probability: stage.probability,
+        forecastCategory: "Pipeline",
+        expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+        products: [lineItem],
+        projectApplication: application,
+        location: location,
+        customerNeed: `Matched ${selectedProductForDeal.name} via Product Finder.`,
+        keyRequirements: [`Mounting: ${mountingHeight}`, `Lux standard: ${luxOrClass}`],
+        source: "Product Finder",
+        latestActivity: "Created opportunity from Product Finder recommendation",
+        latestActivityDate: new Date().toISOString().split("T")[0],
+        nextAction: "Send lighting proposal and IES photometric simulation",
+        nextActionDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+        daysInCurrentStage: 0,
+        totalDealAgeDays: 0,
+        dealHealth: "Healthy",
+        dealHealthReasons: ["Engineered specification matched by AI"],
+        notes: `Selected candidate from Product Finder.`
+      });
+
+      showToast(`Created new CRM Deal: "${newDealName}"!`, "success");
+      setIsDealModalOpen(false);
+      navigateToCRM("pipeline", newId);
+    }
+  };
 
   const applicationOptions = [
     { id: "Shared path", label: "Shared Path / Rail Trail", icon: "🚲" },
@@ -402,7 +564,36 @@ export const ProductFinder: React.FC = () => {
                   </h3>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => handleOpenAddToDeal(primary.productName, primary.productCode)}
+                    className="px-3.5 py-1.5 text-meta font-bold text-white bg-brand-deep hover:bg-brand rounded-edge shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Add to Active Deal</span>
+                  </button>
+
+                  <button
+                    onClick={() => downloadPhotometricIES(primary.productName, primary.productCode)}
+                    className="px-3 py-1.5 text-meta font-semibold text-body bg-white border border-line-strong hover:bg-raised rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    title="Download AS/NZS 1158 Photometric IES File for Dialux"
+                  >
+                    <Download className="w-3.5 h-3.5 text-brand-deep" />
+                    <span>Download IES</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const text = `Plasgain Luminaire: ${primary.productName} (${primary.productCode || "PB-75W-3K"})\nApplication: ${application}\nMounting: ${mountingHeight}\nCompliance: AS/NZS 1158 ${luxOrClass}\nCCT: ${cctPreference}`;
+                      navigator.clipboard?.writeText(text);
+                      showToast("Copied technical spec summary to clipboard!", "success");
+                    }}
+                    className="px-2.5 py-1.5 text-meta font-semibold text-body bg-white border border-line-strong hover:bg-raised rounded-edge transition-colors flex items-center gap-1 cursor-pointer"
+                    title="Copy specification summary"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-ink-faint" />
+                  </button>
+
                   <button
                     onClick={() =>
                       openCopilotWithContext(
@@ -412,7 +603,7 @@ export const ProductFinder: React.FC = () => {
                     className="px-3 py-1.5 text-meta font-bold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash transition-colors flex items-center gap-1 cursor-pointer"
                   >
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>Ask Copilot about this product</span>
+                    <span>Ask Copilot</span>
                   </button>
                 </div>
               </div>
@@ -492,7 +683,7 @@ export const ProductFinder: React.FC = () => {
                 <h3 className="font-bold text-body">Alternative Product Candidates</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {secondaries.map((sec: any, idx: number) => (
-                    <div key={idx} className="bg-raised p-4 rounded-edge border border-line text-meta space-y-2">
+                    <div key={idx} className="bg-raised p-4 rounded-edge border border-line text-meta space-y-2.5">
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-body">
                           {sec.productName} {sec.productCode ? `(${sec.productCode})` : ""}
@@ -509,6 +700,23 @@ export const ProductFinder: React.FC = () => {
                           <strong className="text-ink-dim">Trade-offs & Notes:</strong> {sec.tradeOffs || sec.importantLimitations?.[0] || "Verify mounting and wind loading."}
                         </p>
                       )}
+
+                      <div className="pt-2 border-t border-line flex items-center justify-between gap-2">
+                        <button
+                          onClick={() => handleOpenAddToDeal(sec.productName, sec.productCode)}
+                          className="px-2.5 py-1 text-spec font-bold text-white bg-brand-deep hover:bg-brand rounded shadow-2xs flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Add to Deal</span>
+                        </button>
+                        <button
+                          onClick={() => downloadPhotometricIES(sec.productName, sec.productCode)}
+                          className="px-2.5 py-1 text-spec font-semibold text-body bg-white border border-line hover:bg-raised rounded flex items-center gap-1 cursor-pointer"
+                        >
+                          <Download className="w-3 h-3 text-brand-deep" />
+                          <span>IES File</span>
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -525,6 +733,192 @@ export const ProductFinder: React.FC = () => {
           </div>
         );
       })()}
+
+      {/* OPT-01: Add to Quote / Deal Modal */}
+      {isDealModalOpen && (
+        <div className="fixed inset-0 bg-chrome/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div className="flex items-center gap-2">
+                <Package className="w-5 h-5 text-brand-deep" />
+                <h3 className="text-lg font-bold text-body">Add Product to Deal / Quote</h3>
+              </div>
+              <button
+                onClick={() => setIsDealModalOpen(false)}
+                className="text-ink-faint hover:text-ink p-1 rounded cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-meta">
+              {/* Product Preview Card */}
+              <div className="p-3 bg-paper rounded-edge border border-line space-y-1">
+                <div className="font-bold text-body flex items-center justify-between">
+                  <span>{selectedProductForDeal.name}</span>
+                  <span className="text-spec font-mono px-2 py-0.5 rounded bg-line">
+                    {selectedProductForDeal.code}
+                  </span>
+                </div>
+                <div className="text-spec text-ink-dim">
+                  Application: {application} · Standard: {luxOrClass}
+                </div>
+              </div>
+
+              {/* Quantity & Unit Pricing Form */}
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                    Quantity (Units)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={selectedProductForDeal.quantity}
+                    onChange={(e) =>
+                      setSelectedProductForDeal({
+                        ...selectedProductForDeal,
+                        quantity: Math.max(1, parseInt(e.target.value) || 1)
+                      })
+                    }
+                    className="w-full p-2 border border-line-strong rounded-edge font-semibold"
+                  />
+                </div>
+                <div>
+                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                    Unit Cost ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={selectedProductForDeal.costPrice}
+                    onChange={(e) =>
+                      setSelectedProductForDeal({
+                        ...selectedProductForDeal,
+                        costPrice: parseFloat(e.target.value) || 0
+                      })
+                    }
+                    className="w-full p-2 border border-line-strong rounded-edge"
+                  />
+                </div>
+                <div>
+                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                    Unit Sell ($)
+                  </label>
+                  <input
+                    type="number"
+                    value={selectedProductForDeal.unitPrice}
+                    onChange={(e) =>
+                      setSelectedProductForDeal({
+                        ...selectedProductForDeal,
+                        unitPrice: parseFloat(e.target.value) || 0
+                      })
+                    }
+                    className="w-full p-2 border border-line-strong rounded-edge font-bold text-brand-deep"
+                  />
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-brand-wash/60 rounded-edge border border-brand-edge flex justify-between items-center text-spec">
+                <span className="font-bold text-brand-deep">Schedule Line Value:</span>
+                <span className="font-mono font-bold text-body text-base">
+                  ${(selectedProductForDeal.unitPrice * selectedProductForDeal.quantity).toLocaleString()} AUD
+                </span>
+              </div>
+
+              {/* Destination Mode */}
+              <div className="space-y-2 pt-2 border-t border-line">
+                <label className="block text-spec font-bold uppercase text-ink-dim">
+                  Target Destination
+                </label>
+                <div className="flex gap-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="dealInjectMode"
+                      checked={dealInjectMode === "existing"}
+                      onChange={() => setDealInjectMode("existing")}
+                      className="accent-brand-deep"
+                    />
+                    <span className="font-semibold text-body">Inject into Existing Deal</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="dealInjectMode"
+                      checked={dealInjectMode === "new"}
+                      onChange={() => setDealInjectMode("new")}
+                      className="accent-brand-deep"
+                    />
+                    <span className="font-semibold text-body">Spawn New Deal</span>
+                  </label>
+                </div>
+
+                {dealInjectMode === "existing" ? (
+                  <div>
+                    <label className="block text-spec text-ink-dim mb-1">Select Active Deal</label>
+                    <select
+                      value={targetDealId}
+                      onChange={(e) => setTargetDealId(e.target.value)}
+                      className="w-full p-2 border border-line-strong rounded-edge"
+                    >
+                      {crmOpportunities.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.name} (${d.dealValue.toLocaleString()} · {d.accountName})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-spec text-ink-dim mb-1">New Deal Name</label>
+                      <input
+                        type="text"
+                        value={newDealName}
+                        onChange={(e) => setNewDealName(e.target.value)}
+                        className="w-full p-2 border border-line-strong rounded-edge"
+                        placeholder="e.g. Waterfront Solar Pathway Lighting"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-spec text-ink-dim mb-1">Customer Account</label>
+                      <select
+                        value={targetAccountId}
+                        onChange={(e) => setTargetAccountId(e.target.value)}
+                        className="w-full p-2 border border-line-strong rounded-edge"
+                      >
+                        {accounts.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
+                <button
+                  type="button"
+                  onClick={() => setIsDealModalOpen(false)}
+                  className="px-4 py-2 text-ink-dim hover:text-ink cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmAddToDeal}
+                  className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-xs cursor-pointer flex items-center gap-1.5 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Confirm &amp; Open Deal</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

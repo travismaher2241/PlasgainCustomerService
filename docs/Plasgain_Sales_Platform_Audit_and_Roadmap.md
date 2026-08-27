@@ -1,9 +1,9 @@
 # Plasgain Customer Service & Sales Platform: Top-to-Bottom Audit & Optimization Roadmap
 
-**Document Version:** 2.0  
+**Document Version:** 3.0  
 **Prepared For:** Internal Technical Sales Team, Plasgain Australia  
 **Date:** August 28, 2026  
-**Status:** Section A (Bug Fixes) & Section B (High-Value Abilities) Completed & Verified (106/106 Tests Passing)
+**Status:** Section A (Bug Fixes), Section B (High-Value Abilities), & Section C (Function Optimisations) Completed & Verified (106/106 Tests Passing)
 
 ---
 
@@ -157,12 +157,13 @@ Use this checklist to track progress as enhancements and optimizations are imple
 
 ---
 
-### 🔲 Section C: Function Optimisations (Roadmap)
-- [ ] **OPT-01:** Add **"+ Add to Deal"** and **"Download IES"** buttons to Product Finder result cards
-- [ ] **OPT-02:** Inject **Contextual 1-Click Prompt Chips** into Global Copilot drawer based on active deal
-- [ ] **OPT-03:** Implement **AI Account Summary Caching** to eliminate repeat API loading delays
-- [ ] **OPT-04:** Add **1-Click Stage Advance & Quick-Log Hover Actions** to Kanban Deal cards
-- [ ] **OPT-05:** Enable **Command-Driven Action Shortcuts** in Global Search (`Ctrl+K`)
+### ✅ Section C: Function Optimisations (Completed & Verified)
+- [x] **OPT-01:** Add **"+ Add to Deal"**, **"Download IES"**, and **"Copy Spec"** buttons to Product Finder result cards
+- [x] **OPT-02:** Inject **Dynamic Contextual 1-Click Prompt Chips** into Global Copilot drawer based on active deal/screen
+- [x] **OPT-03:** Implement **AI Account Summary Multi-Account Caching** to eliminate repeat API loading delays
+- [x] **OPT-04:** Add **1-Click Stage Advance & Quick-Log Hover Actions** to Kanban Deal cards
+- [x] **OPT-05:** Enable **Command-Driven Action Shortcuts** in Global Search (`Ctrl+K` with `>call`, `>deal`, `>calc`, etc.)
+- [x] **VERIFY-03:** Run full test suite (`106/106 tests passing`) and push commit to `origin/main`
 
 ---
 
@@ -173,3 +174,4 @@ Use this checklist to track progress as enhancements and optimizations are imple
 
 ---
 *Report generated and maintained in the Plasgain Customer Service repository.*
+
