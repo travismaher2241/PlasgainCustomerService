@@ -75,6 +75,49 @@ export interface UserProfile {
   email: string;
 }
 
+
+export function crmOpportunityToOpportunity(crmOpp: CRMOpportunity): Opportunity {
+  const stageMap: Record<string, any> = {
+    "stage-new": "New Enquiry",
+    "stage-discovery": "Qualifying",
+    "stage-solution": "Technical Review",
+    "stage-quote": "Quoting",
+    "stage-review": "Follow-Up",
+    "stage-negotiation": "Negotiation",
+    "stage-won": "Closed Won",
+    "stage-lost": "Closed Lost"
+  };
+
+  const totalQty = crmOpp.products?.reduce((acc, p) => acc + (p.quantity || 0), 0) || 0;
+
+  return {
+    id: crmOpp.id,
+    customerCompany: crmOpp.accountName,
+    contactName: crmOpp.primaryContactName,
+    contactEmail: crmOpp.primaryContactEmail,
+    contactPhone: crmOpp.primaryContactPhone,
+    project: crmOpp.name,
+    location: crmOpp.location,
+    application: crmOpp.projectApplication,
+    stage: stageMap[crmOpp.stageId] || crmOpp.stageName || "Qualifying",
+    status: crmOpp.stageId === "stage-won" ? "Closed" : crmOpp.stageId === "stage-lost" ? "Closed" : "Active",
+    estimatedQuantity: totalQty > 0 ? totalQty : 1,
+    estimatedValue: crmOpp.dealValue,
+    productsConsidered: crmOpp.products?.map((p) => p.productName) || [],
+    quoteDeadline: crmOpp.expectedCloseDate,
+    lastActivity: crmOpp.latestActivity,
+    lastActivityDate: crmOpp.latestActivityDate,
+    nextAction: crmOpp.nextAction,
+    nextActionDate: crmOpp.nextActionDate,
+    readinessScore: crmOpp.probability || 65,
+    notes: crmOpp.notes,
+    quoteNumber: crmOpp.quoteNumber,
+    ostendoQuoteRef: crmOpp.ostendoQuoteRef,
+    rawEnquiry: crmOpp.rawEnquiryText,
+    analysis: crmOpp.analysis
+  };
+}
+
 export const DEFAULT_USER_PROFILE: UserProfile = {
   name: "Sarah Reed",
   role: "Internal Sales",
@@ -153,6 +196,10 @@ interface AppContextType {
   // Intelligence & Next Best Actions
   nextBestActions: NextBestActionItem[];
   notifications: CRMNotification[];
+  unreadNotificationsCount: number;
+  markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
+  archiveNotification: (id: string) => Promise<void>;
   dismissNotification: (id: string) => void;
 
   // Competitor Pricing Intelligence (Shared Server-Backed)
@@ -263,10 +310,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Load Relational CRM Data from LocalStorage or Defaults
-  const [accounts, setAccounts] = useState<Account[]>(() => {
+
+  const [crmOpportunities, setCrmOpportunities] = useState<CRMOpportunity[]>(() => {
+    const saved = localStorage.getItem("plasgain_crm_deals");
+    return saved ? JSON.parse(saved) : INITIAL_OPPORTUNITIES;
+  });
+
+  const [rawAccounts, setRawAccounts] = useState<Account[]>(() => {
     const saved = localStorage.getItem("plasgain_crm_accounts");
     return saved ? JSON.parse(saved) : INITIAL_ACCOUNTS;
   });
+
+  // Dynamically compute account metrics from real CRM deals
+  const accounts = useMemo(() => {
+    return rawAccounts.map((acc) => {
+      const accDeals = crmOpportunities.filter((d) => d.accountId === acc.id);
+      const activeDeals = accDeals.filter((d) => d.stageId !== "stage-won" && d.stageId !== "stage-lost");
+      const wonDeals = accDeals.filter((d) => d.stageId === "stage-won");
+      const openPipelineValue = activeDeals.reduce((sum, d) => sum + (d.dealValue || 0), 0);
+      const totalDealsWon = wonDeals.reduce((sum, d) => sum + (d.dealValue || 0), 0) + (acc.metrics?.totalDealsWon && wonDeals.length === 0 ? acc.metrics.totalDealsWon : 0);
+
+      return {
+        ...acc,
+        metrics: {
+          openPipelineValue,
+          totalDealsWon,
+          activeDealsCount: activeDeals.length,
+          totalEnquiries: accDeals.length + (acc.metrics?.totalEnquiries && accDeals.length === 0 ? acc.metrics.totalEnquiries : 0)
+        }
+      };
+    });
+  }, [rawAccounts, crmOpportunities]);
+
+  const setAccounts = setRawAccounts;
 
   const [contacts, setContacts] = useState<CRMContact[]>(() => {
     const saved = localStorage.getItem("plasgain_crm_contacts");
@@ -276,11 +352,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [leads, setLeads] = useState<CRMLead[]>(() => {
     const saved = localStorage.getItem("plasgain_crm_leads");
     return saved ? JSON.parse(saved) : INITIAL_LEADS;
-  });
-
-  const [crmOpportunities, setCrmOpportunities] = useState<CRMOpportunity[]>(() => {
-    const saved = localStorage.getItem("plasgain_crm_deals");
-    return saved ? JSON.parse(saved) : INITIAL_OPPORTUNITIES;
   });
 
   const [activities, setActivities] = useState<CRMActivity[]>(() => {
@@ -299,11 +370,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>("acc-001");
   const [selectedCrmOpportunityId, setSelectedCrmOpportunityId] = useState<string | null>("opp-001");
 
-  // Legacy Opportunities compatibility
-  const [opportunities, setOpportunities] = useState<Opportunity[]>(() => {
-    const saved = localStorage.getItem("plasgain_opportunities");
-    return saved ? JSON.parse(saved) : SAMPLE_OPPORTUNITIES;
-  });
+  // Unified opportunities derived dynamically from single CRM source of truth
+  const opportunities = useMemo(() => {
+    return crmOpportunities.map(crmOpportunityToOpportunity);
+  }, [crmOpportunities]);
+
+  const setOpportunities = (_newOpps?: any) => {
+    // Compatibility stub - mutations must go through crmOpportunities
+  };
 
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>("opp-001");
 
@@ -343,6 +417,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   
   // Server-backed Notifications
   const [serverNotifications, setServerNotifications] = useState<CRMNotification[]>([]);
+  const unreadNotificationsCount = useMemo(() => {
+    return (serverNotifications || []).filter((n) => !n.isRead && !n.isArchived).length;
+  }, [serverNotifications]);
   const [copilotCustomContext, setCopilotCustomContext] = useState<string | null>(null);
 
   const fetchNotifications = async () => {
@@ -438,7 +515,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.addEventListener("focus", handleFocus);
 
     // Modest polling interval (20 seconds) for team sync
-    const intervalId = setInterval(() => { fetchCompetitorData(); fetchNotifications(); }, 20000);
+    const intervalId = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+      fetchCompetitorData();
+      fetchNotifications();
+    }, 20000);
 
     return () => {
       window.removeEventListener("focus", handleFocus);
@@ -534,7 +615,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return competitorAlerts.filter((a) => !a.isRead).length;
   }, [competitorAlerts]);
 
-  const [notifications, setNotifications] = useState<CRMNotification[]>([
+  // Fallback initial notifications
+  const [localNotifications, setLocalNotifications] = useState<CRMNotification[]>([
+
     {
       id: "notif-1",
       title: "Quote Follow-Up Overdue",
@@ -1042,7 +1125,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const dismissNotification = (id: string) => {
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    archiveNotification(id);
   };
 
   // Legacy sync
@@ -1149,7 +1232,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activePipelineId,
         setActivePipelineId,
         nextBestActions,
-        notifications,
+        notifications: serverNotifications.length > 0 ? serverNotifications : localNotifications,
+        unreadNotificationsCount,
+        markNotificationRead,
+        markAllNotificationsRead,
+        archiveNotification,
         dismissNotification,
         competitorPricingRecords,
         competitorAlerts,

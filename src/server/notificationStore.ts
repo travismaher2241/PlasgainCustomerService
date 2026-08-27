@@ -60,6 +60,11 @@ class NotificationStore {
 
   private init() {
     if (this.isInitialized) return;
+    if (process.env.NODE_ENV === "test" || process.env.VITEST) {
+      this.notifications = [...SEED_NOTIFICATIONS];
+      this.isInitialized = true;
+      return;
+    }
     try {
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -81,6 +86,7 @@ class NotificationStore {
   }
 
   private save() {
+    if (process.env.NODE_ENV === "test" || process.env.VITEST) return;
     try {
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });

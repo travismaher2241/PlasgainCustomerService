@@ -82,20 +82,23 @@ function escapeCsvField(val: string | number | undefined | null): string {
  */
 export function resolveProductsForDeal(productNamesOrCodes: string[]): PlasgainProduct[] {
   if (!productNamesOrCodes || productNamesOrCodes.length === 0) {
-    return [SAMPLE_PRODUCTS[0], SAMPLE_PRODUCTS[1]];
+    return [];
   }
 
   const resolved: PlasgainProduct[] = [];
   const addedIds = new Set<string>();
 
   for (const raw of productNamesOrCodes) {
-    const rawLower = (raw || "").toLowerCase();
+    const rawLower = (raw || "").trim().toLowerCase();
+    if (!rawLower) continue;
+
     const matched = SAMPLE_PRODUCTS.find(
       (p) =>
         p.code.toLowerCase() === rawLower ||
         p.name.toLowerCase() === rawLower ||
         p.name.toLowerCase().includes(rawLower) ||
-        p.code.toLowerCase().includes(rawLower)
+        p.code.toLowerCase().includes(rawLower) ||
+        rawLower.includes(p.code.toLowerCase())
     );
 
     if (matched && !addedIds.has(matched.id)) {
@@ -104,11 +107,32 @@ export function resolveProductsForDeal(productNamesOrCodes: string[]): PlasgainP
     }
   }
 
-  if (resolved.length === 0) {
-    return [SAMPLE_PRODUCTS[0]];
+  return resolved;
+}
+
+export function findUnmatchedProducts(productNamesOrCodes: string[]): string[] {
+  if (!productNamesOrCodes || productNamesOrCodes.length === 0) return [];
+  const unmatched: string[] = [];
+
+  for (const raw of productNamesOrCodes) {
+    const rawLower = (raw || "").trim().toLowerCase();
+    if (!rawLower) continue;
+
+    const matched = SAMPLE_PRODUCTS.find(
+      (p) =>
+        p.code.toLowerCase() === rawLower ||
+        p.name.toLowerCase() === rawLower ||
+        p.name.toLowerCase().includes(rawLower) ||
+        p.code.toLowerCase().includes(rawLower) ||
+        rawLower.includes(p.code.toLowerCase())
+    );
+
+    if (!matched) {
+      unmatched.push(raw);
+    }
   }
 
-  return resolved;
+  return unmatched;
 }
 
 /**
@@ -185,11 +209,17 @@ export function downloadOstendoCSV(csvContent: string, filename: string): void {
 export function generateCustomerFollowUpEmail(options: {
   cadence: "day7" | "day14" | "urgent";
   contactName?: string;
+  contactEmail?: string;
   companyName?: string;
   projectName?: string;
   quoteRef?: string;
   productsList?: string[];
   senderName?: string;
+  senderEmail?: string;
+  senderPhone?: string;
+  companyAbn?: string;
+  leadTime?: string;
+  warranty?: string;
   customNote?: string;
 }): { subject: string; body: string; mailtoUrl: string } {
   const contact = options.contactName?.trim() || "there";
@@ -197,6 +227,10 @@ export function generateCustomerFollowUpEmail(options: {
   const project = options.projectName?.trim() || "your public lighting project";
   const quoteRef = options.quoteRef?.trim() || "our recent quote";
   const sender = options.senderName?.trim() || "Plasgain Customer Service";
+  const senderEmail = options.senderEmail?.trim() || "sales@plasgain.com.au";
+  const senderPhone = options.senderPhone?.trim() || "1300 000 000";
+  const leadTimeStr = options.leadTime?.trim() || "approximately 2–3 weeks from order confirmation";
+  const warrantyStr = options.warranty?.trim() || "Plasgain Manufacturer Warranty";
   const productsStr =
     options.productsList && options.productsList.length > 0
       ? options.productsList.slice(0, 3).join(", ")
@@ -223,7 +257,7 @@ ${options.customNote ? `${options.customNote}
 
 ${sender}
 Plasgain Customer Service & Engineering
-sales@plasgain.com.au | 1300 000 000`;
+${senderEmail} | ${senderPhone}`;
   } else if (options.cadence === "day14") {
     subject = `Technical Review & Engineering Support - ${project} ${options.quoteRef ? `[${quoteRef}]` : ""}`;
     body = `Hi ${contact},
@@ -232,7 +266,7 @@ Following up on our quote for ${project}${options.quoteRef ? ` (Ref: ${quoteRef}
 
 As you finalize plans for ${company}, we would be glad to offer complementary Dialux photometric engineering support or provide an AS/NZS 1158 Category P compliance statement for your submission.
 
-Current production lead times for ${productsStr} are running at approximately 2–3 weeks from order confirmation. If your project schedule has shifted or you need adjusted delivery staging, we can hold allocation accordingly.
+Current production lead times for ${productsStr} are running at ${leadTimeStr}. If your project schedule has shifted or you need adjusted delivery staging, we can hold allocation accordingly.
 
 Would you be open to a quick 5-minute call this week to align on next steps?
 
@@ -242,7 +276,7 @@ ${options.customNote ? `${options.customNote}
 
 ${sender}
 Plasgain Customer Service & Engineering
-sales@plasgain.com.au | 1300 000 000`;
+${senderEmail} | ${senderPhone}`;
   } else {
     // Urgent / Tender Closing
     subject = `Tender Closing Check-in: ${project} ${options.quoteRef ? `[${quoteRef}]` : ""}`;
@@ -263,10 +297,11 @@ ${options.customNote ? `${options.customNote}
 
 ${sender}
 Plasgain Customer Service & Engineering
-sales@plasgain.com.au | 1300 000 000`;
+${senderEmail} | ${senderPhone}`;
   }
 
-  const mailtoUrl = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const recipient = options.contactEmail?.trim() || "";
+  const mailtoUrl = `mailto:${encodeURIComponent(recipient)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
   return { subject, body, mailtoUrl };
 }

@@ -15,6 +15,7 @@ import { useApp } from "../context/AppContext";
 import { PlasgainProduct } from "../types";
 import {
   resolveProductsForDeal,
+  findUnmatchedProducts,
   downloadTenderPackageHTML
 } from "../utils/datasheetExporter";
 
@@ -36,6 +37,10 @@ export const DatasheetPackageModal: React.FC<DatasheetPackageModalProps> = ({
   initialProductNames = []
 }) => {
   const { showToast, currentUser } = useApp();
+
+  const unmatchedProductStrings = useMemo(() => {
+    return findUnmatchedProducts(initialProductNames);
+  }, [initialProductNames]);
 
   const allResolvedProducts = useMemo(() => {
     return resolveProductsForDeal(initialProductNames);

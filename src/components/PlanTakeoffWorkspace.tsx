@@ -219,7 +219,9 @@ export const PlanTakeoffWorkspace: React.FC = () => {
     addCrmOpportunity,
     navigateToCRM,
     currentUser,
-    crmOpportunities
+    crmOpportunities,
+    accounts,
+    pipelines
   } = useApp();
 
   const [uploadedFile, setUploadedFile] = useState<{
@@ -248,11 +250,39 @@ export const PlanTakeoffWorkspace: React.FC = () => {
   const [isDatasheetModalOpen, setIsDatasheetModalOpen] = useState(false);
   const [ostendoQuoteRef, setOstendoQuoteRef] = useState("");
   const [exportValidationErrors, setExportValidationErrors] = useState<string[]>([]);
+  const [isTakeoffSaveModalOpen, setIsTakeoffSaveModalOpen] = useState(false);
+  const [takeoffSaveFormData, setTakeoffSaveFormData] = useState({
+    projectName: "",
+    accountId: "",
+    accountName: "",
+    pipelineId: "pipe-major-projects",
+    stageId: "stage-new",
+    dealValue: 0
+  });
 
-  // File Input Handler
+    // File Input Handler with Strict Validation (F-04)
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
+      const validMimes = ["application/pdf", "image/png", "image/jpeg", "image/jpg", "image/webp"];
+      const ext = file.name.split(".").pop()?.toLowerCase();
+      const isValidType = validMimes.includes(file.type) || ["pdf", "png", "jpg", "jpeg", "webp"].includes(ext || "");
+
+      if (!isValidType) {
+        showToast(`Unsupported file type "${file.name}". Please upload a PDF, PNG, or JPG drawing.`, "error");
+        return;
+      }
+
+      if (file.size > 25 * 1024 * 1024) {
+        showToast(`File "${file.name}" exceeds the maximum 25 MB limit.`, "error");
+        return;
+      }
+
+      // Immediately clear prior plan take-off result to prevent misleading BOM displays
+      setTakeoffResult(null);
+      setAnalysisError(null);
+      setExportValidationErrors([]);
+
       const reader = new FileReader();
       reader.onload = () => {
         const dataUrl = reader.result as string;
@@ -263,7 +293,8 @@ export const PlanTakeoffWorkspace: React.FC = () => {
           dataUrl
         });
         setSelectedPlanId("custom");
-        showToast(`Loaded "${file.name}" for plan deciphering`, "info");
+        setProjectName(file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "));
+        showToast(`Loaded "${file.name}". Click "Decipher Plan" to run AI vision analysis.`, "info");
       };
       reader.readAsDataURL(file);
     }
@@ -308,12 +339,14 @@ export const PlanTakeoffWorkspace: React.FC = () => {
       }
     } catch (err) {
       console.error("Drawing analysis error:", err);
+      setTakeoffResult(null);
       if (err instanceof AIUnavailableError) {
         setAnalysisError({ detail: err.detail, guidance: err.guidance });
-        showToast("AI Vision unavailable — using grounded blueprint template", "error");
+        showToast(`AI Vision unavailable: ${err.detail}`, "error");
       } else {
-        setAnalysisError({ detail: toUserMessage(err) });
-        showToast(toUserMessage(err), "error");
+        const msg = toUserMessage(err);
+        setAnalysisError({ detail: msg, guidance: "Do not quote from this screen until analysis completes." });
+        showToast(msg, "error");
       }
     } finally {
       setIsAnalysing(false);
@@ -370,60 +403,87 @@ export const PlanTakeoffWorkspace: React.FC = () => {
     showToast("Added custom item to take-off schedule", "success");
   };
 
-  // Save Product Take-off to CRM Command Centre Deal (Products and quantities only)
-  const handleSaveToCRM = () => {
-    if (!takeoffResult) return;
+  const handleOpenTakeoffSaveModal = () => {
+    if (!takeoffResult || !takeoffResult.billOfMaterials || takeoffResult.billOfMaterials.length === 0) {
+      showToast("No verified product take-off items to save to CRM", "warning");
+      return;
+    }
 
-    const newDealId = `crm-opp-${Date.now()}`;
-    const productLines = takeoffResult.billOfMaterials.map((item) => ({
-      id: `prod-${item.id}`,
-      productCode: item.recommendedProductCode,
-      productName: item.itemDescription,
-      category: item.category,
-      quantity: item.quantity,
-      notes: item.drawingReference ? `Drawing Ref: ${item.drawingReference}` : ""
-    }));
+    const matchedAcc = accounts.find(
+      (a) =>
+        customerName &&
+        (a.name.toLowerCase().includes(customerName.toLowerCase()) ||
+          customerName.toLowerCase().includes(a.name.toLowerCase()))
+    ) || accounts[0];
 
-    addCrmOpportunity({
-      id: newDealId,
-      name: `${projectName} (Plan Take-off)`,
-      accountId: "acc-1",
-      accountName: customerName || "Ballarat City Council",
-      primaryContactId: "con-1",
-      primaryContactName: "Rob Mitchell",
-      primaryContactEmail: "rmitchell@ballarat.vic.gov.au",
+    setTakeoffSaveFormData({
+      projectName: projectName || "Engineering Plan Take-off Project",
+      accountId: matchedAcc?.id || accounts[0]?.id || "",
+      accountName: matchedAcc?.name || customerName || "Council / Contractor",
+      pipelineId: pipelines[0]?.id || "pipe-major-projects",
+      stageId: pipelines[0]?.stages[2]?.id || "stage-solution",
+      dealValue: 0
+    });
+
+    setIsTakeoffSaveModalOpen(true);
+  };
+
+  const handleConfirmTakeoffSave = () => {
+    if (!takeoffResult || !takeoffResult.billOfMaterials) return;
+    const acc = accounts.find((a) => a.id === takeoffSaveFormData.accountId);
+    const pipe = pipelines.find((p) => p.id === takeoffSaveFormData.pipelineId) || pipelines[0];
+    const stage = pipe.stages.find((s) => s.id === takeoffSaveFormData.stageId) || pipe.stages[0];
+
+    const dealId = `opp-takeoff-${Date.now()}`;
+    const newDeal = {
+      id: dealId,
+      name: takeoffSaveFormData.projectName,
+      accountId: acc?.id || "acc-001",
+      accountName: acc?.name || takeoffSaveFormData.accountName,
+      primaryContactId: "con-001",
+      primaryContactName: "Engineering / Project Estimator",
       opportunityOwner: currentUser.name,
-      pipelineId: "pipe-solar",
-      stageId: "stage-quote",
-      stageName: "Quoting / Proposal",
-      dealValue: 50000,
-      probability: 60,
-      weightedValue: 30000,
-      forecastCategory: "Likely",
-      expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      products: productLines,
-      projectApplication: "Public Lighting & Civil Infrastructure",
-      location: "Victoria",
-      customerNeed: `Engineering plan take-off extracted from ${takeoffResult.drawingMetadata.drawingNumber} (${takeoffResult.drawingMetadata.sheetTitle})`,
+      pipelineId: pipe.id,
+      stageId: stage.id,
+      stageName: stage.name,
+      dealValue: Number(takeoffSaveFormData.dealValue) || 0,
+      weightedValue: (Number(takeoffSaveFormData.dealValue) || 0) * (stage.probability / 100),
+      probability: stage.probability,
+      forecastCategory: "Pipeline" as const,
+      expectedCloseDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      products: takeoffResult.billOfMaterials.map((bom, idx) => ({
+        id: `prod-${idx + 1}`,
+        productCode: bom.recommendedProductCode || "",
+        productName: bom.itemDescription,
+        category: bom.category,
+        quantity: bom.quantity,
+        unit: bom.unit || "ea",
+        notes: `Drawing Ref: ${bom.drawingReference || "N/A"} | ${bom.notes || ""}`
+      })),
+      projectApplication: `Plan Take-off: ${takeoffResult.drawingMetadata?.sheetTitle || "Engineering Plan"}`,
+      location: "Australia",
+      customerNeed: takeoffResult.summary || "Product schedule deciphered from engineering plan.",
       keyRequirements: [
-        `Poles & Luminaires: ${takeoffResult.billOfMaterials.filter(b => b.category.includes("Luminaire") || b.category.includes("Pole")).reduce((a,c) => a + c.quantity, 0)} Units`,
-        `Standards: ${(takeoffResult.drawingMetadata.standardsIdentified || []).join(", ") || "AS/NZS 1158"}`,
-        `Take-off Date: ${new Date().toLocaleDateString("en-AU")}`
+        `Drawing: ${takeoffResult.drawingMetadata?.drawingNumber || "N/A"}`,
+        `Standards: ${(takeoffResult.drawingMetadata?.standardsIdentified || []).join(", ") || "AS/NZS 1158"}`
       ],
-      source: "AI Plan Deciphering / Take-off",
-      latestActivity: `Product Take-off generated with ${takeoffResult.billOfMaterials.length} line items`,
+      source: "AI Plan & Drawing Deciphering",
+      ostendoQuoteRef: ostendoQuoteRef || undefined,
+      latestActivity: `Plan take-off verified (${takeoffResult.billOfMaterials.length} items)`,
       latestActivityDate: new Date().toISOString().split("T")[0],
-      nextAction: "Generate quotation in Ostendo ERP and prepare Dialux verification report",
+      nextAction: "Draft Ostendo quotation from verified product take-off schedule",
       nextActionDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       daysInCurrentStage: 0,
       totalDealAgeDays: 0,
-      dealHealth: "Healthy",
-      dealHealthReasons: ["Detailed product schedule verified against engineering plan"],
-      notes: `Drawing Metadata: ${takeoffResult.drawingMetadata.drawingNumber} (${takeoffResult.drawingMetadata.sheetTitle}). Official pricing processed in Ostendo ERP.`
-    });
+      dealHealth: "Healthy" as const,
+      dealHealthReasons: ["Technical take-off verified from engineering drawing"],
+      notes: `Drawing: ${takeoffResult.drawingMetadata?.drawingNumber || "N/A"} (${takeoffResult.drawingMetadata?.revision || "Rev A"}). ${takeoffResult.summary}`
+    };
 
-    showToast("Saved Product Take-off to CRM Deals Pipeline!", "success");
-    navigateToCRM("pipeline", newDealId);
+    addCrmOpportunity(newDeal);
+    setIsTakeoffSaveModalOpen(false);
+    showToast(`Saved take-off as CRM Opportunity: "${newDeal.name}"`, "success");
+    navigateToCRM("pipeline", dealId);
   };
 
     // Download Ostendo CSV (Strict product-only, validated)
@@ -850,7 +910,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
               </button>
 
               <button
-                onClick={handleSaveToCRM}
+                onClick={handleOpenTakeoffSaveModal}
                 className="px-3.5 py-1.5 bg-brand-wash hover:bg-brand-wash/80 text-brand-deep text-meta font-bold rounded-edge border border-brand-edge shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
                 title="Push products & quantities to CRM Command Centre Deal"
               >
@@ -1012,6 +1072,123 @@ export const PlanTakeoffWorkspace: React.FC = () => {
         />
       )}
 
+
+      {/* Save Take-off to CRM Confirmation Modal (F-02, F-06) */}
+      {isTakeoffSaveModalOpen && (
+        <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-panel max-w-lg w-full shadow-2xl border border-line p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-edge bg-brand-wash text-brand-deep flex items-center justify-center font-bold">
+                  <Save className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-body">Save Take-off to CRM Pipeline</h3>
+                  <p className="text-spec text-ink-dim">Match account and carry {takeoffResult?.billOfMaterials?.length || 0} product items</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsTakeoffSaveModalOpen(false)}
+                className="text-ink-faint hover:text-ink p-1 rounded"
+              >
+                &times;
+              </button>
+            </div>
+
+            <div className="space-y-3 text-meta">
+              <div>
+                <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
+                  Project Title
+                </label>
+                <input
+                  type="text"
+                  value={takeoffSaveFormData.projectName}
+                  onChange={(e) => setTakeoffSaveFormData({ ...takeoffSaveFormData, projectName: e.target.value })}
+                  className="w-full p-2 text-meta rounded-edge border border-line focus:outline-none focus:border-brand-deep font-semibold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
+                    Target Account
+                  </label>
+                  <select
+                    value={takeoffSaveFormData.accountId}
+                    onChange={(e) => {
+                      const acc = accounts.find((a) => a.id === e.target.value);
+                      setTakeoffSaveFormData({
+                        ...takeoffSaveFormData,
+                        accountId: e.target.value,
+                        accountName: acc?.name || ""
+                      });
+                    }}
+                    className="w-full p-2 text-meta rounded-edge border border-line bg-white focus:outline-none"
+                  >
+                    {accounts.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name} ({a.territory})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
+                    Pipeline Stage
+                  </label>
+                  <select
+                    value={takeoffSaveFormData.stageId}
+                    onChange={(e) => setTakeoffSaveFormData({ ...takeoffSaveFormData, stageId: e.target.value })}
+                    className="w-full p-2 text-meta rounded-edge border border-line bg-white focus:outline-none"
+                  >
+                    {pipelines[0]?.stages.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name} ({s.probability}%)
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
+                  Indicative Deal Value ($AUD)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="Enter estimated deal value or leave 0"
+                  value={takeoffSaveFormData.dealValue || ""}
+                  onChange={(e) => setTakeoffSaveFormData({ ...takeoffSaveFormData, dealValue: parseInt(e.target.value, 10) || 0 })}
+                  className="w-full p-2 text-meta rounded-edge border border-line focus:outline-none focus:border-brand-deep font-mono"
+                />
+              </div>
+
+              <div className="p-2.5 bg-paper rounded-edge border border-line text-spec text-ink-dim">
+                <span className="font-bold text-body">Product Units Preserved: </span>
+                Quantities and units ({takeoffResult?.billOfMaterials?.map(b => `${b.quantity} ${b.unit}`).join(", ")}) will be carried to Ostendo CSV export.
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
+              <button
+                onClick={() => setIsTakeoffSaveModalOpen(false)}
+                className="px-3 py-2 text-meta font-medium text-ink-dim hover:text-ink"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmTakeoffSave}
+                className="px-4 py-2 bg-brand-deep hover:bg-brand-deep text-white font-bold text-meta rounded-edge shadow-xs cursor-pointer flex items-center gap-1.5"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Confirm &amp; Save Deal</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

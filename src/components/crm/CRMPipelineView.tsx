@@ -54,6 +54,17 @@ export const CRMPipelineView: React.FC = () => {
   } = useApp();
 
   const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
+  const [sortColumn, setSortColumn] = useState<string>("dealValue");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("desc");
+    }
+  };
   const [searchQuery, setSearchQuery] = useState("");
   const [healthFilter, setHealthFilter] = useState("all");
   const [isNewDealModalOpen, setIsNewDealModalOpen] = useState(false);
@@ -74,6 +85,20 @@ export const CRMPipelineView: React.FC = () => {
     return matchesPipeline && matchesSearch && matchesHealth;
   });
 
+  // Sorted deals for table view
+  const sortedDeals = [...filteredDeals].sort((a, b) => {
+    let aVal: any = (a as any)[sortColumn] || "";
+    let bVal: any = (b as any)[sortColumn] || "";
+    if (typeof aVal === "string") aVal = aVal.toLowerCase();
+    if (typeof bVal === "string") bVal = bVal.toLowerCase();
+
+    if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
+    if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
+    return 0;
+  });
+
+  const totalTableValue = filteredDeals.reduce((sum, d) => sum + (d.dealValue || 0), 0);
+  const totalTableWeighted = filteredDeals.reduce((sum, d) => sum + (d.weightedValue || 0), 0);
   const selectedDeal = crmOpportunities.find((d) => d.id === selectedCrmOpportunityId);
 
   // New Deal Form State
@@ -326,19 +351,33 @@ export const CRMPipelineView: React.FC = () => {
           <div className="overflow-x-auto">
             <table className="w-full text-meta">
               <thead>
-                <tr className="bg-raised border-b border-line text-spec font-bold text-ink-dim uppercase">
-                  <th className="text-left py-3 px-4">Opportunity</th>
-                  <th className="text-left py-3 px-3">Account</th>
-                  <th className="text-left py-3 px-3">Stage</th>
-                  <th className="text-right py-3 px-3">Value</th>
-                  <th className="text-right py-3 px-3">Weighted</th>
-                  <th className="text-left py-3 px-3">Close Date</th>
-                  <th className="text-center py-3 px-3">Health</th>
+                <tr className="bg-raised border-b border-line text-spec font-bold text-ink-dim uppercase select-none">
+                  <th onClick={() => handleSort("name")} className="text-left py-3 px-4 cursor-pointer hover:text-brand-deep">
+                    Opportunity {sortColumn === "name" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                  </th>
+                  <th onClick={() => handleSort("accountName")} className="text-left py-3 px-3 cursor-pointer hover:text-brand-deep">
+                    Account {sortColumn === "accountName" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                  </th>
+                  <th onClick={() => handleSort("stageName")} className="text-left py-3 px-3 cursor-pointer hover:text-brand-deep">
+                    Stage {sortColumn === "stageName" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                  </th>
+                  <th onClick={() => handleSort("dealValue")} className="text-right py-3 px-3 cursor-pointer hover:text-brand-deep">
+                    Value {sortColumn === "dealValue" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                  </th>
+                  <th onClick={() => handleSort("weightedValue")} className="text-right py-3 px-3 cursor-pointer hover:text-brand-deep">
+                    Weighted {sortColumn === "weightedValue" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                  </th>
+                  <th onClick={() => handleSort("expectedCloseDate")} className="text-left py-3 px-3 cursor-pointer hover:text-brand-deep">
+                    Close Date {sortColumn === "expectedCloseDate" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                  </th>
+                  <th onClick={() => handleSort("dealHealth")} className="text-center py-3 px-3 cursor-pointer hover:text-brand-deep">
+                    Health {sortColumn === "dealHealth" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                  </th>
                   <th className="text-left py-3 px-4">Next Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {filteredDeals.map((deal) => (
+                {sortedDeals.map((deal) => (
                   <tr
                     key={deal.id}
                     onClick={() => setSelectedCrmOpportunityId(deal.id)}
@@ -361,6 +400,20 @@ export const CRMPipelineView: React.FC = () => {
                   </tr>
                 ))}
               </tbody>
+              <tfoot className="bg-raised/70 border-t-2 border-line font-bold text-body">
+                <tr>
+                  <td className="py-3 px-4" colSpan={3}>
+                    Total Pipeline ({filteredDeals.length} Deals)
+                  </td>
+                  <td className="py-3 px-3 text-right text-brand-deep font-bold">
+                    ${totalTableValue.toLocaleString()}
+                  </td>
+                  <td className="py-3 px-3 text-right text-brand-deep font-bold">
+                    ${totalTableWeighted.toLocaleString()}
+                  </td>
+                  <td colSpan={3}></td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </div>
@@ -471,7 +524,7 @@ export const CRMPipelineView: React.FC = () => {
                       itemCode: p.productCode,
                       description: p.productName,
                       quantity: p.quantity,
-                      unit: "ea",
+                      unit: p.unit || "ea",
                       lineNotes: p.notes,
                       quoteRef: selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber
                     }));
@@ -499,7 +552,7 @@ export const CRMPipelineView: React.FC = () => {
                       itemCode: p.productCode,
                       description: p.productName,
                       quantity: p.quantity,
-                      unit: "ea",
+                      unit: p.unit || "ea",
                       lineNotes: p.notes,
                       quoteRef: selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber
                     }));

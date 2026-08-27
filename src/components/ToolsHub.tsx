@@ -31,28 +31,56 @@ export const ToolsHub: React.FC = () => {
   const [concreteThicknessMm, setConcreteThicknessMm] = useState<number>(50);
 
   const cableCoverCalculations = useMemo(() => {
-    // Plasgain polymeric cover specs (AS 4702 compliant)
-    // 150mm wide x 5mm thick x 20m roll = ~18 kg/roll
-    // 300mm wide x 6mm thick x 20m roll = ~38 kg/roll
+    // Voltage-driven thickness and weight per AS 4702 specification:
+    // LV (240V/415V): 5mm thickness. 150mm: 18 kg/roll | 300mm: 36 kg/roll
+    // HV 11kV: 6mm thickness. 150mm: 22 kg/roll | 300mm: 44 kg/roll
+    // HV 22kV/33kV: 10mm heavy duty. 150mm: 36 kg/roll | 300mm: 72 kg/roll
+    // Comms / Fibre: 4mm standard. 150mm: 14 kg/roll | 300mm: 28 kg/roll
+    let thicknessMm = 5;
+    let weightPerRoll150 = 18;
+    let weightPerRoll300 = 36;
+    let productName = "AS 4702 5mm Polymeric Cable Cover (LV 240V/415V)";
+
+    if (cableVoltage === "HV_11kV") {
+      thicknessMm = 6;
+      weightPerRoll150 = 22;
+      weightPerRoll300 = 44;
+      productName = "AS 4702 6mm Heavy Duty Polymeric Cover (HV 11kV)";
+    } else if (cableVoltage === "HV_22kV_33kV") {
+      thicknessMm = 10;
+      weightPerRoll150 = 36;
+      weightPerRoll300 = 72;
+      productName = "AS 4702 10mm Extra Heavy Duty Mechanical Protection (HV 22kV/33kV)";
+    } else if (cableVoltage === "COMMS_FIBRE") {
+      thicknessMm = 4;
+      weightPerRoll150 = 14;
+      weightPerRoll300 = 28;
+      productName = "AS 4702 4mm Telecommunications Polymeric Warning Cover";
+    }
+
     const rollsNeeded150 = Math.ceil((trenchLengthMeters * (trenchWidthMm / 150)) / 20);
     const rollsNeeded300 = Math.ceil(trenchLengthMeters / 20);
-
-    const polymericTotalWeightKg = (trenchWidthMm <= 150 ? rollsNeeded150 * 18 : rollsNeeded300 * 38);
+    const totalRolls = trenchWidthMm <= 150 ? rollsNeeded150 : rollsNeeded300;
+    const polymericTotalWeightKg = trenchWidthMm <= 150 ? rollsNeeded150 * weightPerRoll150 : rollsNeeded300 * weightPerRoll300;
 
     // Traditional precast concrete slabs (approx 2400 kg/m3)
-    // Volume in m3 = length * width * thickness
     const concreteVolumeM3 = trenchLengthMeters * (trenchWidthMm / 1000) * (concreteThicknessMm / 1000);
     const concreteWeightKg = concreteVolumeM3 * 2400;
-    const concreteSlabsCount = Math.ceil(trenchLengthMeters / 1.0); // 1m slab units
-    const weightSavedKg = concreteWeightKg - polymericTotalWeightKg;
-    const weightReductionPercent = Math.round((weightSavedKg / concreteWeightKg) * 100);
+    const concreteSlabsCount = Math.ceil(trenchLengthMeters / 1.0);
+    const weightSavedKg = Math.max(0, concreteWeightKg - polymericTotalWeightKg);
+    const weightReductionPercent = Math.round((weightSavedKg / (concreteWeightKg || 1)) * 100);
 
-    // Embodied CO2 estimate: ~0.15 kg CO2e/kg for concrete vs ~0.08 kg for recycled poly
+    // Embodied carbon calculation basis:
+    // Precast concrete ~0.14 kg CO2e/kg (Australian National Greenhouse Accounts)
+    // High-density recycled polymeric cover ~0.08 kg CO2e/kg
     const concreteCo2Kg = concreteWeightKg * 0.14;
     const polyCo2Kg = polymericTotalWeightKg * 0.08;
     const co2SavedKg = Math.round(concreteCo2Kg - polyCo2Kg);
 
     return {
+      thicknessMm,
+      productName,
+      totalRolls,
       rollsNeeded150,
       rollsNeeded300,
       polymericTotalWeightKg,
@@ -68,16 +96,17 @@ export const ToolsHub: React.FC = () => {
   // Tool: AS/NZS 1158 Pathway Pole Spacing & Lux Estimator
   // -------------------------------------------------------------
   const [pathwayWidth, setPathwayWidth] = useState<number>(3.0);
-  const [subCategory, setSubCategory] = useState<"PR2" | "PR3" | "PR4">("PR3");
+  const [subCategory, setSubCategory] = useState<"P1" | "P2" | "P3" | "P4">("P3");
   const [poleHeightM, setPoleHeightM] = useState<number>(5.0);
   const [luminaireOutputLm, setLuminaireOutputLm] = useState<number>(4500);
 
   const spacingCalculations = useMemo(() => {
     // Standard AS/NZS 1158.3.1 PR Category spacing approximation
-    let baseSpacing = 30;
-    if (subCategory === "PR2") baseSpacing = 24;
-    if (subCategory === "PR3") baseSpacing = 32;
-    if (subCategory === "PR4") baseSpacing = 40;
+    let baseSpacing = 32;
+    if (subCategory === "P1") baseSpacing = 20;
+    if (subCategory === "P2") baseSpacing = 26;
+    if (subCategory === "P3") baseSpacing = 32;
+    if (subCategory === "P4") baseSpacing = 40;
 
     // Height and lumens modifier
     const heightFactor = poleHeightM / 5.0;
@@ -88,7 +117,7 @@ export const ToolsHub: React.FC = () => {
     return {
       recommendedSpacing,
       polesPerKm,
-      illuminanceEav: subCategory === "PR2" ? "2.0 Lux" : subCategory === "PR3" ? "1.0 Lux" : "0.5 Lux",
+      illuminanceEav: subCategory === "P1" ? "2.0 Lux" : subCategory === "P2" ? "1.0 Lux" : subCategory === "P3" ? "0.5 Lux" : "0.2 Lux",
       uniformityUo: "0.20 Min"
     };
   }, [pathwayWidth, subCategory, poleHeightM, luminaireOutputLm]);

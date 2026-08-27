@@ -27,6 +27,7 @@ export interface CustomerFollowUpModalProps {
   initialProjectName?: string;
   initialQuoteRef?: string;
   initialProducts?: string[];
+  initialContactEmail?: string;
 }
 
 export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
@@ -38,7 +39,8 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
   initialCompanyName = "",
   initialProjectName = "",
   initialQuoteRef = "",
-  initialProducts = []
+  initialProducts = [],
+  initialContactEmail = ""
 }) => {
   const {
     showToast,
@@ -52,7 +54,11 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
   const [contactName, setContactName] = useState(initialContactName);
   const [companyName, setCompanyName] = useState(initialCompanyName);
   const [projectName, setProjectName] = useState(initialProjectName);
-  const [quoteRef, setQuoteRef] = useState(initialQuoteRef);
+  const deal = crmOpportunities.find((d) => d.id === dealId);
+  const [contactEmail, setContactEmail] = useState(initialContactEmail || deal?.primaryContactEmail || "");
+  const [quoteRef, setQuoteRef] = useState(initialQuoteRef || deal?.ostendoQuoteRef || deal?.quoteNumber || "");
+  const [leadTime, setLeadTime] = useState("2–3 weeks from order confirmation");
+  const [warranty, setWarranty] = useState("5-Year Plasgain System Warranty");
   const [customNote, setCustomNote] = useState("");
   const [isLogged, setIsLogged] = useState(false);
 
@@ -68,11 +74,17 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
     return generateCustomerFollowUpEmail({
       cadence,
       contactName,
+      contactEmail,
       companyName,
       projectName,
       quoteRef,
       productsList: initialProducts,
       senderName: currentUser.name || "Plasgain Customer Service",
+      senderEmail: (currentUser as any).email || "sales@plasgain.com.au",
+      senderPhone: (currentUser as any).phone || "1300 000 000",
+      companyAbn: "12 345 678 910",
+      leadTime,
+      warranty,
       customNote
     });
   }, [cadence, contactName, companyName, projectName, quoteRef, initialProducts, currentUser, customNote]);

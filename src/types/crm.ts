@@ -188,6 +188,7 @@ export interface OpportunityProductLine {
   productName: string;
   category: string;
   quantity: number;
+  unit?: string;
   unitPrice?: number;
   totalPrice?: number;
   notes?: string;
@@ -373,6 +374,7 @@ export interface CompetitorPricingRecord {
   competitorName: string;
   competitorProduct: string;
   price: number;
+  plasgainQuotedPrice?: number;
   currency: string;
   priceBasis: CompetitorPriceBasis;
   gstStatus: CompetitorGstStatus;

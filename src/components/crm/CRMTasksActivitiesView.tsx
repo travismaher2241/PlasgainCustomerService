@@ -33,6 +33,7 @@ export const CRMTasksActivitiesView: React.FC = () => {
 
   const [activeSubTab, setActiveSubTab] = useState<"tasks" | "activities">("tasks");
   const [taskFilter, setTaskFilter] = useState<"all" | "pending" | "overdue" | "completed">("pending");
+  const [assigneeFilter, setAssigneeFilter] = useState<"mine" | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
 

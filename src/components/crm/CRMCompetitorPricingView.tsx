@@ -30,6 +30,7 @@ export const CRMCompetitorPricingView: React.FC = () => {
     addCompetitorPricing,
     updateCompetitorPricing,
     accounts,
+    crmOpportunities,
     navigateToCRM,
     currentUser,
     showToast
@@ -46,9 +47,12 @@ export const CRMCompetitorPricingView: React.FC = () => {
   const [editingRecord, setEditingRecord] = useState<CompetitorPricingRecord | null>(null);
   const [formState, setFormState] = useState({
     accountId: accounts[0]?.id || "",
+    opportunityId: "",
+    opportunityName: "",
     competitorName: "",
     competitorProduct: "",
     price: 1850,
+    plasgainQuotedPrice: "" as string | number,
     currency: "AUD",
     priceBasis: "Per Unit" as CompetitorPriceBasis,
     gstStatus: "Ex GST" as CompetitorGstStatus,
@@ -88,9 +92,12 @@ export const CRMCompetitorPricingView: React.FC = () => {
     setEditingRecord(null);
     setFormState({
       accountId: accounts[0]?.id || "",
+      opportunityId: "",
+      opportunityName: "",
       competitorName: "",
       competitorProduct: "",
       price: 1850,
+      plasgainQuotedPrice: "",
       currency: "AUD",
       priceBasis: "Per Unit",
       gstStatus: "Ex GST",

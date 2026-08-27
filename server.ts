@@ -102,6 +102,27 @@ function getAI(): GoogleGenAI {
 // Every AI-backed route funnels its failures through here. We return 503 with an
 // explicit flag and NO invented business content: wrong specs are worse than none.
 function sendAIUnavailable(res: express.Response, context: string, err: any) {
+  const errMsg = err?.message || String(err || "");
+  const isInputError =
+    errMsg.includes("Unsupported MIME type") ||
+    errMsg.includes("INVALID_ARGUMENT") ||
+    errMsg.includes("Request contains an invalid argument") ||
+    errMsg.includes("Invalid mime type");
+
+  if (isInputError) {
+    console.warn(`[${context}] Bad Request / Invalid Input: ${errMsg}`);
+    return res.status(400).json({
+      error: "Invalid input or unsupported document type",
+      aiAvailable: true,
+      degraded: false,
+      context,
+      detail: errMsg.includes("Unsupported MIME type")
+        ? "The uploaded file format is not supported. Please upload a standard engineering PDF, PNG, or JPG document."
+        : "Invalid request payload. Please verify the document format.",
+      guidance: "Please upload an engineering PDF or high-resolution PNG/JPG drawing under 25 MB."
+    });
+  }
+
   const isConfigError = err instanceof AIUnavailableError;
   const detail = isConfigError
     ? err.reason

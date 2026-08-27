@@ -279,6 +279,74 @@ export class CRMIntelligenceEngine {
   }
 
   /**
+   * Dynamically calculate lead score and breakdown factors from lead data
+   */
+  static calculateLeadScore(lead: Partial<CRMLead>): {
+    score: number;
+    rating: "Hot" | "Warm" | "Developing" | "Low Priority";
+    factors: Array<{ factor: string; scoreDelta: number; reason: string }>;
+  } {
+    const factors: Array<{ factor: string; scoreDelta: number; reason: string }> = [];
+    let score = 20; // baseline
+
+    // 1. Target authority / organization type
+    const companyLower = (lead.company || "").toLowerCase();
+    if (companyLower.includes("council") || companyLower.includes("shire") || companyLower.includes("city") || companyLower.includes("government")) {
+      score += 30;
+      factors.push({ factor: "Council Authority Target", scoreDelta: +30, reason: "Local government infrastructure project" });
+    } else if (companyLower.includes("civil") || companyLower.includes("contract") || companyLower.includes("infrastructure") || companyLower.includes("downer") || companyLower.includes("lendlease")) {
+      score += 25;
+      factors.push({ factor: "Civil Head Contractor", scoreDelta: +25, reason: "Tier-1/Tier-2 civil infrastructure delivery" });
+    } else if (lead.company) {
+      score += 15;
+      factors.push({ factor: "Verified Commercial Entity", scoreDelta: +15, reason: "Established commercial enterprise" });
+    }
+
+    // 2. Estimated Value band
+    const val = lead.estimatedValue || 0;
+    if (val >= 50000) {
+      score += 25;
+      factors.push({ factor: "High Value Opportunity ($50k+)", scoreDelta: +25, reason: `Estimated tender value ${val.toLocaleString()}` });
+    } else if (val >= 20000) {
+      score += 15;
+      factors.push({ factor: "Commercial Value Band ($20k+)", scoreDelta: +15, reason: `Estimated value ${val.toLocaleString()}` });
+    } else if (val > 0) {
+      score += 8;
+      factors.push({ factor: "Defined Budget", scoreDelta: +8, reason: `Estimated budget ${val.toLocaleString()}` });
+    }
+
+    // 3. Urgency & Timeline
+    if (lead.urgency === "Immediate") {
+      score += 15;
+      factors.push({ factor: "Immediate Timeline", scoreDelta: +15, reason: "Active funding / urgent procurement" });
+    } else if (lead.urgency === "Within 1 Month") {
+      score += 10;
+      factors.push({ factor: "Near-Term Timeline", scoreDelta: +10, reason: "Project closing within 30 days" });
+    }
+
+    // 4. Completeness of contact info
+    const hasEmail = Boolean(lead.contactEmail && lead.contactEmail.includes("@"));
+    const hasPhone = Boolean(lead.contactPhone && lead.contactPhone.length >= 8);
+    if (hasEmail && hasPhone) {
+      score += 10;
+      factors.push({ factor: "Complete Contact Details", scoreDelta: +10, reason: "Direct email & telephone provided" });
+    } else if (hasEmail || hasPhone) {
+      score += 5;
+      factors.push({ factor: "Partial Contact Info", scoreDelta: +5, reason: "Single communication channel provided" });
+    }
+
+    // Sanity clamp 0-100
+    score = Math.min(100, Math.max(0, score));
+
+    let rating: "Hot" | "Warm" | "Developing" | "Low Priority" = "Developing";
+    if (score >= 80) rating = "Hot";
+    else if (score >= 60) rating = "Warm";
+    else if (score < 40) rating = "Low Priority";
+
+    return { score, rating, factors };
+  }
+
+  /**
    * Helper: calculate days between two YYYY-MM-DD dates
    */
   private static daysBetween(startDate: string, endDate: string): number {

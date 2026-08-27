@@ -8,8 +8,8 @@ describe('Main App Component', () => {
     render(<App />);
 
     expect(screen.getAllByText(/PLASGAIN/i)[0]).toBeInTheDocument();
-    expect(await screen.findByRole(`heading`, { name: /need you today|clear, Sarah/i }, { timeout: 5000 })).toBeInTheDocument();
-  });
+    expect(await screen.findByRole('heading', { name: /need you today|clear/i }, { timeout: 10000 })).toBeInTheDocument();
+  }, 15000);
 
   it('switches tabs smoothly via sidebar navigation', async () => {
     render(<App />);

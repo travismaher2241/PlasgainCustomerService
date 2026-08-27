@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Sparkles,
   Send,
@@ -18,24 +18,75 @@ export const GlobalCopilot: React.FC = () => {
     isCopilotOpen,
     setIsCopilotOpen,
     activeTab,
-    selectedOpportunityId,
-    opportunities,
+    activeCRMTab,
+    selectedAccountId,
+    selectedCrmOpportunityId,
+    accounts,
+    crmOpportunities,
+    contacts,
+    competitorPricingRecords,
     copilotCustomContext,
     showToast
   } = useApp();
+
   const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([
     {
       role: "assistant",
       content:
-        "G'day! I'm your Plasgain Technical Sales Copilot. I'm grounded in official Plasgain product catalogues and Australian Standards. Ask me about product suitability, AS/NZS 1158 compliance, spigot fittings, or trenching specifications."
+        "G'day! I'm your Plasgain Technical Sales Copilot. I'm connected to your CRM deals, account records, product catalogues, and Australian Standards. Ask me about active quotes, lead times, compliance clauses, spigot fittings, or competitor pricing."
     }
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
+  // Listen for Escape key to close Copilot drawer (P-06)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isCopilotOpen) {
+        setIsCopilotOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isCopilotOpen, setIsCopilotOpen]);
+
   if (!isCopilotOpen) return null;
 
-  const currentOpp = opportunities.find((o) => o.id === selectedOpportunityId);
+  const currentDeal = crmOpportunities.find((d) => d.id === selectedCrmOpportunityId);
+  const currentAccount = accounts.find((a) => a.id === (currentDeal?.accountId || selectedAccountId));
+  const accountContacts = contacts.filter((c) => c.accountId === currentAccount?.id);
+  const dealCompetitors = competitorPricingRecords.filter((cp) => cp.accountId === currentAccount?.id || cp.opportunityId === currentDeal?.id);
+
+  // Construct rich CRM intelligence context for the AI engine (M-01)
+  const buildCrmContext = () => {
+    const contextParts: string[] = [];
+    contextParts.push(`Active Screen: ${activeTab.toUpperCase()}`);
+    if (activeTab === "crm") contextParts.push(`CRM Sub-Tab: ${activeCRMTab}`);
+
+    if (currentDeal) {
+      contextParts.push(
+        `ACTIVE DEAL: "${currentDeal.name}" | Account: ${currentDeal.accountName} | Stage: ${currentDeal.stageName} | Deal Value: $${(currentDeal.dealValue || 0).toLocaleString()} | Probability: ${currentDeal.probability}% | Quote Ref / Number: ${currentDeal.quoteNumber || currentDeal.ostendoQuoteRef || "None"} | Expected Close: ${currentDeal.expectedCloseDate} | Primary Contact: ${currentDeal.primaryContactName} (${currentDeal.primaryContactEmail || "no email"}, ${currentDeal.primaryContactPhone || "no phone"}) | Next Action: ${currentDeal.nextAction} (Due: ${currentDeal.nextActionDate}) | Health: ${currentDeal.dealHealth} (${(currentDeal.dealHealthReasons || []).join(", ")}) | Products Quoted: ${currentDeal.products?.map((p) => `${p.quantity}x ${p.productName} (${p.productCode || "No code"})`).join(", ") || "None"}`
+      );
+    }
+
+    if (currentAccount) {
+      contextParts.push(
+        `ACCOUNT 360°: ${currentAccount.name} | Segment: ${currentAccount.customerSegment} | Territory: ${currentAccount.territory} | Owner: ${currentAccount.accountOwner} | Health: ${currentAccount.relationshipHealth} | Open Pipeline: $${(currentAccount.metrics?.openPipelineValue || 0).toLocaleString()} | Contacts on file: ${accountContacts.map((c) => `${c.firstName} ${c.lastName} (${c.jobTitle} - ${c.email})`).join("; ") || "None"}`
+      );
+    }
+
+    if (dealCompetitors.length > 0) {
+      contextParts.push(
+        `COMPETITOR INTEL: ${dealCompetitors.map((cp) => `${cp.competitorName} quoted ${cp.competitorProduct} at $${cp.price} (${cp.priceBasis}) on ${cp.observedDate}`).join("; ")}`
+      );
+    }
+
+    if (copilotCustomContext) {
+      contextParts.push(`Custom Context: ${copilotCustomContext}`);
+    }
+
+    return contextParts.join(" | ");
+  };
 
   const handleSend = async (textToSend: string) => {
     if (!textToSend.trim()) return;
@@ -52,7 +103,7 @@ export const GlobalCopilot: React.FC = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: textToSend,
-          screenContext: `Context: ${copilotCustomContext || "General"}. Active Tab: ${activeTab}. Selected Opportunity: ${currentOpp ? `${currentOpp.project} (${currentOpp.customerCompany})` : "None"}.`,
+          screenContext: buildCrmContext(),
           history: newMessages
         })
       });
@@ -92,9 +143,12 @@ export const GlobalCopilot: React.FC = () => {
             </div>
             <span
               className="text-spec text-ink-faint block truncate max-w-[200px]"
-              title={copilotCustomContext || (currentOpp ? `${currentOpp.project}` : "No customer context")}
+              title={
+                copilotCustomContext ||
+                (currentDeal ? `${currentDeal.name} (${currentDeal.accountName})` : currentAccount ? currentAccount.name : "No customer context")
+              }
             >
-              Context: {copilotCustomContext || (currentOpp ? `${currentOpp.project}` : activeTab === "product-finder" ? "Product Selection Wizard" : "No customer context")}
+              Context: {copilotCustomContext || (currentDeal ? currentDeal.name : currentAccount ? currentAccount.name : activeTab === "product-finder" ? "Product Selection Wizard" : "General Guidance")}
             </span>
           </div>
         </div>
@@ -102,6 +156,7 @@ export const GlobalCopilot: React.FC = () => {
         <button
           onClick={() => setIsCopilotOpen(false)}
           className="text-ink-faint hover:text-white p-1 rounded transition-colors cursor-pointer"
+          title="Close Copilot (Esc)"
         >
           <X className="w-4 h-4" />
         </button>
@@ -128,7 +183,7 @@ export const GlobalCopilot: React.FC = () => {
         {isLoading && (
           <div className="flex items-center gap-2 text-ink-dim text-meta py-1">
             <div className="w-3.5 h-3.5 border-2 border-brand-deep border-t-transparent rounded-full animate-spin"></div>
-            <span>Thinking...</span>
+            <span>Evaluating Plasgain knowledge base &amp; CRM context...</span>
           </div>
         )}
       </div>
@@ -136,16 +191,22 @@ export const GlobalCopilot: React.FC = () => {
       {/* Quick Prompts */}
       <div className="px-3 py-1.5 bg-paper border-t border-line flex gap-1.5 overflow-x-auto text-spec">
         <button
-          onClick={() => handleSend("What questions should I ask before quoting?")}
+          onClick={() => handleSend("What is the active quote reference, contact person and deal value for this project?")}
+          className="whitespace-nowrap bg-white px-2 py-0.5 rounded border border-line text-body hover:text-brand-deep cursor-pointer"
+        >
+          Quote Details?
+        </button>
+        <button
+          onClick={() => handleSend("What are the key technical questions before we finalize this luminaire quote?")}
           className="whitespace-nowrap bg-white px-2 py-0.5 rounded border border-line text-body hover:text-brand-deep cursor-pointer"
         >
           Key Questions?
         </button>
         <button
-          onClick={() => handleSend("Explain Cat P4 lighting compliance.")}
+          onClick={() => handleSend("Explain AS/NZS 1158 Cat P pathway compliance criteria.")}
           className="whitespace-nowrap bg-white px-2 py-0.5 rounded border border-line text-body hover:text-brand-deep cursor-pointer"
         >
-          Cat P4?
+          Cat P?
         </button>
       </div>
 

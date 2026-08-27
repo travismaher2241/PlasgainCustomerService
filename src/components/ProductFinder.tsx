@@ -23,10 +23,10 @@ import {
 import { useApp } from "../context/AppContext";
 
 export const ProductFinder: React.FC = () => {
-  const { setExplainingTerm, showToast, openCopilotWithContext } = useApp();
+  const { setExplainingTerm, showToast, openCopilotWithContext, navigateToWorkflow, navigateToCRM, addCrmOpportunity, accounts, currentUser } = useApp();
 
   const [application, setApplication] = useState("Shared path");
-  const [location, setLocation] = useState("Regional Victoria (Ballarat / Bendigo)");
+  const [location, setLocation] = useState("Regional Australia / Public Infrastructure");
   const [powerAvailability, setPowerAvailability] = useState("Off-grid Solar required");
   const [mountingHeight, setMountingHeight] = useState("6 metres standard");
   const [areaOrWidth, setAreaOrWidth] = useState("1.2 km length, 3m path width");

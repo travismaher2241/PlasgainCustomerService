@@ -71,6 +71,23 @@ export const NewEnquiryWorkspace: React.FC = () => {
   const [generatedEmail, setGeneratedEmail] = useState<{ subject: string; body: string } | null>(null);
   const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
   const [simulatedFiles, setSimulatedFiles] = useState<{ name: string; size: string; type: string }[]>([]);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [isSavedToPipeline, setIsSavedToPipeline] = useState(false);
+  const [saveFormData, setSaveFormData] = useState({
+    projectName: "",
+    accountId: "",
+    accountName: "",
+    contactName: "",
+    contactEmail: "",
+    contactPhone: "",
+    pipelineId: "pipe-major-projects",
+    stageId: "stage-new",
+    quantity: 1,
+    dealValue: 0,
+    productCode: "",
+    productName: "",
+    notes: ""
+  });
 
   const handleInputChange = (field: keyof typeof rawEnquiryInput, value: string) => {
     setRawEnquiryInput({
