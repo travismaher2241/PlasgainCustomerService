@@ -10,6 +10,7 @@ import {
   CONFLICT_REGISTER_DATA
 } from "./src/data/knowledgeBaseRaw";
 import { competitorPricingStore } from "./src/server/competitorPricingStore";
+import { notificationStore } from "./src/server/notificationStore";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1804,6 +1805,15 @@ app.post("/api/competitor-pricing", (req, res) => {
       status: readStringOr(body.status, "Active") as any
     });
 
+    // Broadcast team notification
+    notificationStore.create({
+      title: "New competitor pricing",
+      message: `${competitorName} quoted ${competitorProduct} at ${price.toLocaleString("en-AU", { minimumFractionDigits: 2 })} (${priceBasis}) for ${accountName}`,
+      timestamp: "Just now",
+      type: "info",
+      linkTo: { view: "accounts", id: accountId }
+    });
+
     return res.status(201).json({ record, alert });
   } catch (err: any) {
     console.error("Error creating competitor pricing record:", err);
@@ -1866,6 +1876,170 @@ app.patch("/api/competitor-pricing/alerts/:id/read", (req, res) => {
   } catch (err: any) {
     console.error("Error marking alert as read:", err);
     return res.status(500).json({ error: "Failed to mark alert as read" });
+  }
+});
+
+
+// -------------------------------------------------------------
+// SHARED NOTIFICATIONS ENDPOINTS
+// -------------------------------------------------------------
+
+// GET /api/notifications
+app.get("/api/notifications", (req, res) => {
+  try {
+    const includeArchived = req.query.includeArchived === "true";
+    const notifications = notificationStore.getAll(includeArchived);
+    return res.json({ notifications, count: notifications.length });
+  } catch (err: any) {
+    console.error("Error fetching notifications:", err);
+    return res.status(500).json({ error: "Failed to fetch notifications" });
+  }
+});
+
+// POST /api/notifications
+app.post("/api/notifications", (req, res) => {
+  try {
+    const body = req.body || {};
+    const title = readString(body.title);
+    const message = readString(body.message);
+    if (!title || !message) {
+      return res.status(400).json({ error: "Title and message are required." });
+    }
+
+    const notification = notificationStore.create({
+      title,
+      message,
+      timestamp: readStringOr(body.timestamp, "Just now"),
+      type: (body.type || "info") as any,
+      isRead: false,
+      isArchived: false,
+      linkTo: body.linkTo
+    });
+
+    return res.status(201).json({ notification });
+  } catch (err: any) {
+    console.error("Error creating notification:", err);
+    return res.status(500).json({ error: "Failed to create notification" });
+  }
+});
+
+// PATCH /api/notifications/:id/read
+app.patch("/api/notifications/:id/read", (req, res) => {
+  try {
+    const id = req.params.id;
+    const notification = notificationStore.markRead(id);
+    if (!notification) {
+      return res.status(404).json({ error: "Notification not found" });
+    }
+    return res.json({ notification });
+  } catch (err: any) {
+    console.error("Error marking notification read:", err);
+    return res.status(500).json({ error: "Failed to mark notification as read" });
+  }
+});
+
+// POST /api/notifications/mark-all-read
+app.post("/api/notifications/mark-all-read", (_req, res) => {
+  try {
+    notificationStore.markAllRead();
+    return res.json({ success: true });
+  } catch (err: any) {
+    console.error("Error marking all notifications read:", err);
+    return res.status(500).json({ error: "Failed to mark all notifications read" });
+  }
+});
+
+// PATCH /api/notifications/:id/archive
+app.patch("/api/notifications/:id/archive", (req, res) => {
+  try {
+    const id = req.params.id;
+    const notification = notificationStore.archive(id);
+    if (!notification) {
+      return res.status(404).json({ error: "Notification not found" });
+    }
+    return res.json({ notification });
+  } catch (err: any) {
+    console.error("Error archiving notification:", err);
+    return res.status(500).json({ error: "Failed to archive notification" });
+  }
+});
+
+// -------------------------------------------------------------
+// GROUNDED AI ACCOUNT INTELLIGENCE ENDPOINT
+// -------------------------------------------------------------
+app.post("/api/crm/account-summary", async (req, res) => {
+  try {
+    const { account, activities = [], opportunities = [], tasks = [], competitorPricing = [] } = req.body || {};
+
+    if (!account || !account.name) {
+      return res.status(400).json({ error: "Account details are required." });
+    }
+
+    if (!isAIConfigured()) {
+      return res.status(503).json({
+        error: "AI unavailable",
+        detail: "GEMINI_API_KEY is not configured. AI account intelligence requires a valid key."
+      });
+    }
+
+    const prompt = `You are the Plasgain Internal Sales Account Intelligence Engine.
+Analyze the following CRM records for account "${account.name}".
+Ground all findings STRICTLY on the provided data. NEVER hallucinate customer preferences, invented project status, or fake pricing.
+If there are few or no activities/deals, explicitly state that data is limited and further customer discovery is required.
+
+ACCOUNT:
+${JSON.stringify(account, null, 2)}
+
+RECENT ACTIVITIES:
+${JSON.stringify(activities.slice(0, 10), null, 2)}
+
+ACTIVE OPPORTUNITIES / DEALS:
+${JSON.stringify(opportunities, null, 2)}
+
+TASKS:
+${JSON.stringify(tasks, null, 2)}
+
+COMPETITOR PRICING INTELLIGENCE:
+${JSON.stringify(competitorPricing, null, 2)}
+
+Respond with a JSON object strictly matching this schema:
+{
+  "accountSummary": "Concise 2-3 sentence overview of the relationship status and key project momentum.",
+  "recentActivity": ["Key interaction 1 with date/type tag", "Key interaction 2"],
+  "knownRequirements": ["Confirmed technical requirement 1", "Specification need 2"],
+  "commercialIntelligence": ["Competitor intel or tender schedule observation with price basis"],
+  "risks": [
+    {
+      "statement": "Identified risk description",
+      "sourceType": "Opportunity" | "Activity" | "Task" | "Competitor Record" | "Account Profile",
+      "sourceId": "optional record id"
+    }
+  ],
+  "recommendedNextActions": [
+    {
+      "action": "Concrete sales or engineering follow-up step",
+      "reason": "Why this action is needed based on CRM evidence"
+    }
+  ],
+  "generatedAt": "${new Date().toISOString()}"
+}`;
+
+    const aiRes = await generateContentWithFailover({
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        temperature: 0.2
+      }
+    });
+
+    const parsed = extractJsonFromText(aiRes?.text || "{}");
+    return res.json({ summary: parsed });
+  } catch (err: any) {
+    console.error("Error generating account summary:", err);
+    if (err instanceof AIUnavailableError) {
+      return res.status(503).json({ error: "AI Unavailable", detail: err.reason });
+    }
+    return res.status(500).json({ error: "Failed to generate account summary", detail: err.message });
   }
 });
 

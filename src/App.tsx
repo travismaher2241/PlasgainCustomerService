@@ -8,7 +8,6 @@ import { CheckCircle2, AlertCircle, Info, XCircle } from "lucide-react";
 const HomeDashboard = lazy(() => import("./components/HomeDashboard").then(m => ({ default: m.HomeDashboard })));
 const NewEnquiryWorkspace = lazy(() => import("./components/NewEnquiryWorkspace").then(m => ({ default: m.NewEnquiryWorkspace })));
 const ProductFinder = lazy(() => import("./components/ProductFinder").then(m => ({ default: m.ProductFinder })));
-const AskPlasgain = lazy(() => import("./components/AskPlasgain").then(m => ({ default: m.AskPlasgain })));
 const DocumentLibrary = lazy(() => import("./components/DocumentLibrary").then(m => ({ default: m.DocumentLibrary })));
 const ToolsHub = lazy(() => import("./components/ToolsHub").then(m => ({ default: m.ToolsHub })));
 const SettingsView = lazy(() => import("./components/SettingsView").then(m => ({ default: m.SettingsView })));
@@ -47,7 +46,6 @@ const MainLayout: React.FC = () => {
               {activeTab === "crm" && <CRMCommandCenter />}
               {activeTab === "new-enquiry" && <NewEnquiryWorkspace />}
               {activeTab === "product-finder" && <ProductFinder />}
-              {activeTab === "ask-plasgain" && <AskPlasgain />}
               {activeTab === "documents" && <DocumentLibrary />}
               {activeTab === "tools" && <ToolsHub />}
               {activeTab === "settings" && <SettingsView />}

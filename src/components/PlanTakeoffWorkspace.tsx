@@ -38,7 +38,8 @@ import {
   formatOstendoCSV,
   formatOstendoTabDelimited,
   validateOstendoItems,
-  downloadOstendoCSV
+  downloadOstendoCSV,
+  copyOstendoProductList
 } from "../utils/datasheetExporter";
 
 interface SamplePlan {
@@ -425,16 +426,16 @@ export const PlanTakeoffWorkspace: React.FC = () => {
     navigateToCRM("pipeline", newDealId);
   };
 
-  // Export Product List for Ostendo (Strict product-only, validated)
-  const handleExportOstendo = () => {
+    // Download Ostendo CSV (Strict product-only, validated)
+  const handleDownloadOstendoCSV = () => {
     if (!takeoffResult) return;
 
     const items = takeoffResult.billOfMaterials.map((item) => ({
-      code: item.recommendedProductCode,
-      name: item.itemDescription,
+      itemCode: item.recommendedProductCode,
+      description: item.itemDescription,
       quantity: item.quantity,
       unit: item.unit || "ea",
-      notes: item.notes || item.drawingReference,
+      lineNotes: item.notes || item.drawingReference,
       quoteRef: ostendoQuoteRef || takeoffResult.drawingMetadata.drawingNumber
     }));
 
@@ -446,16 +447,34 @@ export const PlanTakeoffWorkspace: React.FC = () => {
     }
 
     setExportValidationErrors([]);
-
-    // 1. Copy tab-delimited product list to clipboard
-    const tabData = formatOstendoTabDelimited(items, ostendoQuoteRef || takeoffResult.drawingMetadata.drawingNumber);
-    navigator.clipboard.writeText(tabData);
-
-    // 2. Download clean CRLF CSV with UTF-8 BOM
     const csvData = formatOstendoCSV(items, ostendoQuoteRef || takeoffResult.drawingMetadata.drawingNumber);
     downloadOstendoCSV(csvData, `Ostendo_Product_List_${projectName.replace(/\s+/g, "_")}.csv`);
+    showToast("Ostendo CSV downloaded. Ostendo will calculate customer pricing, tax and totals.", "success");
+  };
 
-    showToast("Product list copied and CSV downloaded! Pricing will be calculated in Ostendo.", "success");
+  // Copy Product List for Ostendo
+  const handleCopyOstendoProductList = async () => {
+    if (!takeoffResult) return;
+
+    const items = takeoffResult.billOfMaterials.map((item) => ({
+      itemCode: item.recommendedProductCode,
+      description: item.itemDescription,
+      quantity: item.quantity,
+      unit: item.unit || "ea",
+      lineNotes: item.notes || item.drawingReference,
+      quoteRef: ostendoQuoteRef || takeoffResult.drawingMetadata.drawingNumber
+    }));
+
+    const validation = validateOstendoItems(items);
+    if (!validation.valid) {
+      setExportValidationErrors(validation.errors);
+      showToast(`Export blocked: ${validation.errors[0]}`, "error");
+      return;
+    }
+
+    setExportValidationErrors([]);
+    await copyOstendoProductList(items, ostendoQuoteRef || takeoffResult.drawingMetadata.drawingNumber);
+    showToast("Product list copied to clipboard! Pricing will be calculated in Ostendo.", "success");
   };
 
   // Export Schedule as clean CSV
@@ -792,15 +811,24 @@ export const PlanTakeoffWorkspace: React.FC = () => {
               </div>
             </div>
 
-            {/* Actions: Export Ostendo, Tender Package, Export CSV, Save to CRM */}
+                        {/* Actions: Download Ostendo CSV, Copy Product List, Tender Package, Export CSV, Save to CRM */}
             <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={handleExportOstendo}
+                onClick={handleDownloadOstendoCSV}
                 className="px-3 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-                title="Export product list (Item Code, Description, Qty, Unit) for Ostendo ERP entry"
+                title="Download standard UTF-8 CRLF CSV for Ostendo ERP"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5 text-cyan-200" />
-                <span>Export Product List for Ostendo</span>
+                <span>Download Ostendo CSV</span>
+              </button>
+
+              <button
+                onClick={handleCopyOstendoProductList}
+                className="px-3 py-1.5 bg-white hover:bg-brand-wash text-brand-deep border border-brand-edge font-bold text-meta rounded-edge flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                title="Copy tab-delimited product and quantity list to clipboard"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                <span>Copy Product List</span>
               </button>
 
               <button
@@ -818,7 +846,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
                 title="Download Take-off Schedule spreadsheet"
               >
                 <Download className="w-3.5 h-3.5 text-ink-dim" />
-                <span>Export Schedule (CSV)</span>
+                <span>Export Schedule</span>
               </button>
 
               <button

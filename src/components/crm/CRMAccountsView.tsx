@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Building2,
   Users,
@@ -29,7 +29,7 @@ import {
   TrendingUp
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
-import { Account, CRMContact, CRMOpportunity, RelationshipHealth, CompetitorPricingRecord, CompetitorPriceBasis, CompetitorGstStatus, CompetitorSourceType, CompetitorPricingStatus } from "../../types/crm";
+import { Account, CRMContact, CRMOpportunity, RelationshipHealth, CompetitorPricingRecord, CompetitorPriceBasis, CompetitorGstStatus, CompetitorSourceType, CompetitorPricingStatus, AccountIntelligenceSummary } from "../../types/crm";
 import { CRMContactModal } from "./CRMContactModal";
 
 export const CRMAccountsView: React.FC = () => {
@@ -58,6 +58,54 @@ export const CRMAccountsView: React.FC = () => {
   const [segmentFilter, setSegmentFilter] = useState("all");
   const [healthFilter, setHealthFilter] = useState("all");
   const [activeAccountTab, setActiveAccountTab] = useState<"overview" | "contacts" | "deals" | "timeline" | "quotes" | "competitor-pricing" | "ai-summary">("overview");
+
+  
+  // Grounded AI Account Intelligence State
+  const [aiSummary, setAiSummary] = useState<AccountIntelligenceSummary | null>(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  const handleFetchAiSummary = async (acc: Account) => {
+    setIsAiLoading(true);
+    setAiError(null);
+    try {
+      const accActivities = activities.filter((a) => a.accountId === acc.id);
+      const accDeals = crmOpportunities.filter((d) => d.accountId === acc.id);
+      const accTasks = tasks.filter((t) => t.accountId === acc.id);
+      const accCompetitors = competitorPricingRecords.filter((c) => c.accountId === acc.id);
+
+      const res = await fetch("/api/crm/account-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          account: acc,
+          activities: accActivities,
+          opportunities: accDeals,
+          tasks: accTasks,
+          competitorPricing: accCompetitors
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.detail || errData.error || "Failed to generate AI account summary");
+      }
+
+      const data = await res.json();
+      setAiSummary(data.summary);
+    } catch (err: any) {
+      console.error("AI summary error:", err);
+      setAiError(err.message || "AI service is currently unavailable");
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeAccountTab === "ai-summary" && selectedAccount && !aiSummary && !isAiLoading) {
+      handleFetchAiSummary(selectedAccount);
+    }
+  }, [activeAccountTab, selectedAccountId]);
 
   // Competitor Pricing Modal State
   const [isCompetitorModalOpen, setIsCompetitorModalOpen] = useState(false);
@@ -784,33 +832,147 @@ export const CRMAccountsView: React.FC = () => {
                 </div>
               )}
 
-              {/* Tab 5: AI Intelligence */}
+                            {/* Tab 5: AI Intelligence */}
               {activeAccountTab === "ai-summary" && (
-                <div className="space-y-4">
-                  <div className="p-5 bg-gradient-to-br from-hold/70 via-white to-hold/50 rounded-panel border border-hold space-y-4">
-                    <div className="flex items-center gap-2 text-hold font-bold text-body">
-                      <Sparkles className="w-4 h-4 text-hold" />
-                      Account Intelligence & Executive Summary
-                    </div>
-
-                    <p className="text-meta leading-relaxed">
-                      {selectedAccount.aiSummary?.summary ||
-                        `${selectedAccount.name} is an active ${selectedAccount.customerSegment.toLowerCase()} account with active lighting proposals in progress.`}
-                    </p>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-meta pt-2">
-                      <div className="p-3.5 bg-white rounded-edge border border-hold/80 shadow-xs space-y-1">
-                        <div className="font-bold text-body">Current Priority</div>
-                        <p className="text-ink-dim">{selectedAccount.aiSummary?.currentPriority || "Follow up on active quotations and technical Dialux submissions."}</p>
-                      </div>
-
-                      <div className="p-3.5 bg-white rounded-edge border border-hold/80 shadow-xs space-y-1">
-                        <div className="font-bold text-brand-deep">Recommended Next Move</div>
-                        <p className="text-brand-deep font-medium">
-                          {selectedAccount.aiSummary?.recommendedAction || "Schedule a 15-minute engineering check-in with the primary specifier."}
+                <div className="space-y-6">
+                  <div className="bg-white rounded-panel border border-brand-edge p-6 shadow-xs space-y-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-brand-edge pb-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="p-1 bg-brand-deep text-white rounded">
+                            <Sparkles className="w-4 h-4" />
+                          </span>
+                          <h3 className="text-base font-bold text-body">
+                            Grounded Account Intelligence &amp; Preparation
+                          </h3>
+                        </div>
+                        <p className="text-meta text-ink-dim mt-0.5">
+                          Synthesised from recorded customer activities, open opportunities, and competitor intelligence.
                         </p>
                       </div>
+
+                      <div className="flex items-center gap-2">
+                        {aiSummary?.generatedAt && (
+                          <span className="text-spec text-ink-faint">
+                            Generated: {new Date(aiSummary.generatedAt).toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        )}
+                        <button
+                          onClick={() => handleFetchAiSummary(selectedAccount)}
+                          disabled={isAiLoading}
+                          className="px-3 py-1.5 text-meta font-bold bg-brand-wash text-brand-deep border border-brand-edge rounded-edge hover:bg-brand-wash disabled:opacity-50 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>{isAiLoading ? "Synthesising..." : "Refresh Summary"}</span>
+                        </button>
+                      </div>
                     </div>
+
+                    {isAiLoading && (
+                      <div className="p-8 text-center space-y-2">
+                        <div className="w-6 h-6 border-2 border-brand-deep border-t-transparent rounded-full animate-spin mx-auto"></div>
+                        <p className="text-meta text-ink-dim">Analyzing CRM interactions, deals, and competitor records...</p>
+                      </div>
+                    )}
+
+                    {aiError && !isAiLoading && (
+                      <div className="p-4 bg-urgent-wash border border-urgent/30 rounded-edge text-meta text-urgent space-y-1">
+                        <div className="font-bold flex items-center gap-1.5">
+                          <AlertTriangle className="w-4 h-4" />
+                          AI Service Notice
+                        </div>
+                        <p>{aiError}</p>
+                        <p className="text-spec text-ink-dim">
+                          Configure GEMINI_API_KEY in .env.local to enable real-time account synthesis.
+                        </p>
+                      </div>
+                    )}
+
+                    {aiSummary && !isAiLoading && (
+                      <div className="space-y-5">
+                        {/* Executive Summary */}
+                        <div className="p-4 bg-brand-wash/30 rounded-edge border border-brand-edge/60 text-meta leading-relaxed">
+                          <div className="text-spec font-bold uppercase text-brand-deep mb-1">
+                            Account Relationship Summary
+                          </div>
+                          <p className="text-body font-medium">{aiSummary.accountSummary}</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-meta">
+                          {/* Known Requirements */}
+                          <div className="p-4 bg-raised rounded-edge border border-line space-y-2">
+                            <div className="font-bold text-body flex items-center gap-1.5">
+                              <CheckCircle2 className="w-4 h-4 text-brand-deep" />
+                              Confirmed Technical Requirements
+                            </div>
+                            {aiSummary.knownRequirements && aiSummary.knownRequirements.length > 0 ? (
+                              <ul className="space-y-1 pl-4 list-disc text-spec">
+                                {aiSummary.knownRequirements.map((req, i) => (
+                                  <li key={i}>{req}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-spec text-ink-dim italic">No specific technical requirements recorded yet.</p>
+                            )}
+                          </div>
+
+                          {/* Commercial Intelligence */}
+                          <div className="p-4 bg-raised rounded-edge border border-line space-y-2">
+                            <div className="font-bold text-body flex items-center gap-1.5">
+                              <TrendingUp className="w-4 h-4 text-brand-deep" />
+                              Commercial &amp; Competitor Intelligence
+                            </div>
+                            {aiSummary.commercialIntelligence && aiSummary.commercialIntelligence.length > 0 ? (
+                              <ul className="space-y-1 pl-4 list-disc text-spec">
+                                {aiSummary.commercialIntelligence.map((intel, i) => (
+                                  <li key={i}>{intel}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="text-spec text-ink-dim italic">No competitor pricing or tender schedule observed yet.</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Risks Matrix */}
+                        {aiSummary.risks && aiSummary.risks.length > 0 && (
+                          <div className="p-4 bg-raised rounded-edge border border-line space-y-2 text-meta">
+                            <div className="font-bold text-urgent flex items-center gap-1.5">
+                              <AlertTriangle className="w-4 h-4" />
+                              Relationship &amp; Project Risks
+                            </div>
+                            <div className="space-y-2">
+                              {aiSummary.risks.map((risk, i) => (
+                                <div key={i} className="flex items-start justify-between gap-3 text-spec p-2 bg-white rounded border border-line">
+                                  <span className="text-body font-medium">{risk.statement}</span>
+                                  <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-urgent-wash text-urgent shrink-0">
+                                    {risk.sourceType}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Recommended Next Actions */}
+                        {aiSummary.recommendedNextActions && aiSummary.recommendedNextActions.length > 0 && (
+                          <div className="p-4 bg-raised rounded-edge border border-line space-y-2 text-meta">
+                            <div className="font-bold text-brand-deep flex items-center gap-1.5">
+                              <Sparkles className="w-4 h-4" />
+                              Recommended Next Actions
+                            </div>
+                            <div className="space-y-2">
+                              {aiSummary.recommendedNextActions.map((item, i) => (
+                                <div key={i} className="p-2.5 bg-white rounded border border-brand-edge text-spec space-y-1">
+                                  <div className="font-bold text-body">{item.action}</div>
+                                  <div className="text-ink-dim italic">Why: {item.reason}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

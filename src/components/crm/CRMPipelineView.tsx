@@ -32,7 +32,8 @@ import {
   formatOstendoCSV,
   formatOstendoTabDelimited,
   validateOstendoItems,
-  downloadOstendoCSV
+  downloadOstendoCSV,
+  copyOstendoProductList
 } from "../../utils/datasheetExporter";
 
 export const CRMPipelineView: React.FC = () => {
@@ -462,40 +463,63 @@ export const CRMPipelineView: React.FC = () => {
                 <span className="font-semibold text-body">{selectedDeal.expectedCloseDate}</span>
               </div>
 
-              {/* Export Product List for Ostendo Button */}
-              <button
-                onClick={() => {
-                  const items = selectedDeal.products.map((p) => ({
-                    code: p.productCode,
-                    name: p.productName,
-                    quantity: p.quantity,
-                    unit: "ea",
-                    notes: p.notes,
-                    quoteRef: selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber
-                  }));
+                            {/* Ostendo Product-Only Export Actions */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  onClick={() => {
+                    const items = selectedDeal.products.map((p) => ({
+                      itemCode: p.productCode,
+                      description: p.productName,
+                      quantity: p.quantity,
+                      unit: "ea",
+                      lineNotes: p.notes,
+                      quoteRef: selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber
+                    }));
 
-                  const validation = validateOstendoItems(items);
-                  if (!validation.valid) {
-                    showToast(`Ostendo Export Blocked: ${validation.errors.join("; ")}`, "error");
-                    return;
-                  }
+                    const validation = validateOstendoItems(items);
+                    if (!validation.valid) {
+                      showToast(`Ostendo Export Blocked: ${validation.errors.join("; ")}`, "error");
+                      return;
+                    }
 
-                  // 1. Copy tab-delimited product list
-                  const tabData = formatOstendoTabDelimited(items, selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber);
-                  navigator.clipboard.writeText(tabData);
+                    const csvData = formatOstendoCSV(items, selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber);
+                    downloadOstendoCSV(csvData, `Ostendo_Product_List_${selectedDeal.name.replace(/\s+/g, "_")}.csv`);
+                    showToast("Ostendo CSV downloaded. Ostendo will calculate customer pricing, tax and totals.", "success");
+                  }}
+                  className="py-1.5 px-2.5 bg-white hover:bg-brand-wash text-brand-deep border border-brand-edge font-bold text-spec rounded-edge flex items-center justify-center gap-1 cursor-pointer shadow-2xs transition-colors"
+                  title="Download standard UTF-8 CRLF CSV for Ostendo ERP"
+                >
+                  <FileSpreadsheet className="w-3 h-3" />
+                  <span>Download CSV</span>
+                </button>
 
-                  // 2. Download clean CRLF CSV with UTF-8 BOM
-                  const csvData = formatOstendoCSV(items, selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber);
-                  downloadOstendoCSV(csvData, `Ostendo_Product_List_${selectedDeal.name.replace(/\s+/g, "_")}.csv`);
+                <button
+                  onClick={async () => {
+                    const items = selectedDeal.products.map((p) => ({
+                      itemCode: p.productCode,
+                      description: p.productName,
+                      quantity: p.quantity,
+                      unit: "ea",
+                      lineNotes: p.notes,
+                      quoteRef: selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber
+                    }));
 
-                  showToast("Product list copied and CSV downloaded! Pricing will be calculated in Ostendo.", "success");
-                }}
-                className="w-full mt-2 py-2 px-3 bg-white hover:bg-brand-wash text-brand-deep border border-brand-edge font-bold text-spec rounded-edge flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
-                title="Export product list (Item Code, Description, Qty, Unit) for Ostendo ERP entry"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Export Product List for Ostendo</span>
-              </button>
+                    const validation = validateOstendoItems(items);
+                    if (!validation.valid) {
+                      showToast(`Ostendo Export Blocked: ${validation.errors.join("; ")}`, "error");
+                      return;
+                    }
+
+                    await copyOstendoProductList(items, selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber);
+                    showToast("Product list copied to clipboard! Pricing will be calculated in Ostendo.", "success");
+                  }}
+                  className="py-1.5 px-2.5 bg-white hover:bg-raised text-body border border-line font-bold text-spec rounded-edge flex items-center justify-center gap-1 cursor-pointer shadow-2xs transition-colors"
+                  title="Copy tab-delimited product and quantity list to clipboard"
+                >
+                  <Copy className="w-3 h-3" />
+                  <span>Copy List</span>
+                </button>
+              </div>
             </div>
 
             {/* Column 2: Products & Luminaires */}

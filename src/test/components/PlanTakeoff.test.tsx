@@ -63,7 +63,8 @@ describe('PlanTakeoffWorkspace Component', () => {
   it('renders Export Product List for Ostendo and Tender Package buttons', () => {
     renderWorkspace();
 
-    expect(screen.getByRole('button', { name: /Export Product List for Ostendo/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Download Ostendo CSV/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Copy Product List/i })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /Tender Package/i }).length).toBeGreaterThanOrEqual(1);
   });
 

@@ -43,7 +43,6 @@ export type NavTab =
   | "crm"
   | "new-enquiry"
   | "product-finder"
-  | "ask-plasgain"
   | "documents"
   | "tools"
   | "settings";
@@ -54,18 +53,12 @@ export type CRMSubTab =
   | "pipeline"
   | "leads"
   | "tasks"
-  | "competitor-pricing"
-  | "analytics";
+  | "competitor-pricing";
 
 export type ToolSubTab =
   | "plan-takeoff"
-  | "solar-autonomy"
-  | "wind-pole-sizing"
   | "cable-cover-calc"
-  | "conflict-resolver"
-  | "tender-analyser"
-  | "quote-review"
-  | "product-comparison";
+  | "pole-spacing-calc";
 
 /** Who is signed in. Editable in Settings; persisted per browser. */
 export interface UserProfile {
@@ -327,6 +320,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     contactId?: string;
   } | null>(null);
 
+  
+  // Server-backed Notifications
+  const [serverNotifications, setServerNotifications] = useState<CRMNotification[]>([]);
+  const [copilotCustomContext, setCopilotCustomContext] = useState<string | null>(null);
+
+  const fetchNotifications = async () => {
+    try {
+      if (typeof window === "undefined") return;
+      const res = await fetch(getApiUrl("/api/notifications"));
+      if (res.ok) {
+        const data = await res.json();
+        if (data.notifications) setServerNotifications(data.notifications);
+      }
+    } catch (err) {
+      // Ignored in offline / test mode
+    }
+  };
+
+  const markNotificationRead = async (id: string) => {
+    try {
+      const res = await fetch(getApiUrl(`/api/notifications/${id}/read`), { method: "PATCH" });
+      if (res.ok) {
+        setServerNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+      }
+    } catch (err) {
+      console.error("Error marking notification read:", err);
+    }
+  };
+
+  const markAllNotificationsRead = async () => {
+    try {
+      const res = await fetch(getApiUrl("/api/notifications/mark-all-read"), { method: "POST" });
+      if (res.ok) {
+        setServerNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      }
+    } catch (err) {
+      console.error("Error marking all notifications read:", err);
+    }
+  };
+
+  const archiveNotification = async (id: string) => {
+    try {
+      const res = await fetch(getApiUrl(`/api/notifications/${id}/archive`), { method: "PATCH" });
+      if (res.ok) {
+        setServerNotifications(prev => prev.filter(n => n.id !== id));
+      }
+    } catch (err) {
+      console.error("Error archiving notification:", err);
+    }
+  };
+
+  const openCopilotWithContext = (contextStr: string, initialPrompt?: string) => {
+    setCopilotCustomContext(contextStr);
+    setIsCopilotOpen(true);
+  };
+
   // Server-backed Competitor Pricing Intelligence & Team Alerts
   const [competitorPricingRecords, setCompetitorPricingRecords] = useState<CompetitorPricingRecord[]>([]);
   const [competitorAlerts, setCompetitorAlerts] = useState<CompetitorPricingAlert[]>([]);
@@ -360,6 +409,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     fetchCompetitorData();
+    fetchNotifications();
 
     // Refresh when window regains focus
     const handleFocus = () => {
@@ -368,7 +418,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.addEventListener("focus", handleFocus);
 
     // Modest polling interval (20 seconds) for team sync
-    const intervalId = setInterval(fetchCompetitorData, 20000);
+    const intervalId = setInterval(() => { fetchCompetitorData(); fetchNotifications(); }, 20000);
 
     return () => {
       window.removeEventListener("focus", handleFocus);
@@ -676,13 +726,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       probability: 25,
       forecastCategory: "Pipeline",
       expectedCloseDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      products: lead.productInterest.map((p, idx) => ({
-        id: `prod-line-${idx}`,
-        productCode: p.toUpperCase().replace(/\s+/g, "-"),
-        productName: p,
-        category: "Solar Luminaire",
-        quantity: 1
-      })),
+      products: lead.productInterest.map((p, idx) => {
+        const resolved = SAMPLE_PRODUCTS.find(sp => sp.name.toLowerCase().includes(p.toLowerCase()) || sp.code.toLowerCase().includes(p.toLowerCase()));
+        return {
+          id: `prod-line-${idx}`,
+          productCode: resolved?.code || "",
+          productName: resolved?.name || p,
+          category: resolved?.category || "Solar Luminaire",
+          quantity: 1
+        };
+      }),
       projectApplication: lead.enquiryType,
       location: lead.location,
       customerNeed: lead.notes,

@@ -18,7 +18,6 @@ const CRMAccountsView = lazy(() => import("./CRMAccountsView").then(m => ({ defa
 const CRMPipelineView = lazy(() => import("./CRMPipelineView").then(m => ({ default: m.CRMPipelineView })));
 const CRMLeadsView = lazy(() => import("./CRMLeadsView").then(m => ({ default: m.CRMLeadsView })));
 const CRMTasksActivitiesView = lazy(() => import("./CRMTasksActivitiesView").then(m => ({ default: m.CRMTasksActivitiesView })));
-const CRMAnalyticsView = lazy(() => import("./CRMAnalyticsView").then(m => ({ default: m.CRMAnalyticsView })));
 const CRMCompetitorPricingView = lazy(() => import("./CRMCompetitorPricingView").then(m => ({ default: m.CRMCompetitorPricingView })));
 
 export const CRMCommandCenter: React.FC = () => {
@@ -136,18 +135,6 @@ export const CRMCommandCenter: React.FC = () => {
                 <TrendingUp className="w-3.5 h-3.5" />
                 Competitor Intel ({competitorPricingRecords.length})
               </button>
-
-              <button
-                onClick={() => setActiveCRMTab("analytics")}
-                className={`px-3 py-1.5 rounded-edge text-meta font-bold transition-all flex items-center gap-1.5 shrink-0 ${
-                  activeCRMTab === "analytics"
-                    ? "bg-brand-deep text-white shadow-xs"
-                    : "text-ink-dim hover:text-ink hover:bg-paper"
-                }`}
-              >
-                <TrendingUp className="w-3.5 h-3.5" />
-                Forecasting
-              </button>
             </div>
 
             {/* Quick Action Button */}
@@ -179,7 +166,6 @@ export const CRMCommandCenter: React.FC = () => {
           {activeCRMTab === "leads" && <CRMLeadsView />}
           {activeCRMTab === "tasks" && <CRMTasksActivitiesView />}
           {activeCRMTab === "competitor-pricing" && <CRMCompetitorPricingView />}
-          {activeCRMTab === "analytics" && <CRMAnalyticsView />}
         </Suspense>
       </main>
     </div>

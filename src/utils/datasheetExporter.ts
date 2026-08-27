@@ -1,25 +1,50 @@
 import { PlasgainProduct } from "../types";
 import { SAMPLE_PRODUCTS } from "../data/mockData";
 
-export interface OstendoExportItem {
-  code: string;
-  name: string;
+export interface OstendoProductExportLine {
+  itemCode?: string;
+  description?: string;
   quantity: number;
   unit?: string;
-  notes?: string;
+  lineNotes?: string;
   quoteRef?: string;
+  // Backwards compatibility mappings
+  code?: string;
+  name?: string;
+  notes?: string;
 }
+
+export type OstendoExportItem = OstendoProductExportLine;
 
 export interface OstendoValidationResult {
   valid: boolean;
   errors: string[];
 }
 
+/** Helper to cleanly extract canonical item code and description */
+export function normalizeExportLine(item: OstendoProductExportLine): {
+  itemCode: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  lineNotes: string;
+  quoteRef: string;
+} {
+  const itemCode = (item.itemCode || item.code || "").trim();
+  const description = (item.description || item.name || "").trim();
+  const quantity = typeof item.quantity === "number" ? item.quantity : parseFloat(String(item.quantity || 0));
+  const unit = (item.unit || "ea").trim();
+  const lineNotes = (item.lineNotes || item.notes || "").trim();
+  const quoteRef = (item.quoteRef || "").trim();
+  return { itemCode, description, quantity, unit, lineNotes, quoteRef };
+}
+
 /**
  * Validates product line items prior to Ostendo export.
  * Every row must have an explicit Item Code and quantity > 0.
+ * Reports all errors at once.
  */
-export function validateOstendoItems(items: OstendoExportItem[]): OstendoValidationResult {
+export function validateOstendoItems(items: OstendoProductExportLine[]): OstendoValidationResult {
   const errors: string[] = [];
 
   if (!items || items.length === 0) {
@@ -27,16 +52,15 @@ export function validateOstendoItems(items: OstendoExportItem[]): OstendoValidat
     return { valid: false, errors };
   }
 
-  items.forEach((item, idx) => {
+  items.forEach((rawItem, idx) => {
     const rowNum = idx + 1;
-    const code = (item.code || "").trim();
-    const qty = typeof item.quantity === "number" ? item.quantity : parseFloat(String(item.quantity));
+    const item = normalizeExportLine(rawItem);
 
-    if (!code) {
-      errors.push(`Row ${rowNum} ("${item.name || "Unnamed Item"}"): Missing explicit Item Code.`);
+    if (!item.itemCode) {
+      errors.push(`Row ${rowNum} ("${item.description || "Unnamed Item"}"): Missing explicit Item Code. Select a verified catalogue product.`);
     }
-    if (isNaN(qty) || qty <= 0) {
-      errors.push(`Row ${rowNum} ("${item.name || code || "Item"}"): Quantity must be greater than zero (found: ${item.quantity}).`);
+    if (isNaN(item.quantity) || item.quantity <= 0) {
+      errors.push(`Row ${rowNum} ("${item.description || item.itemCode || "Item"}"): Quantity must be greater than zero (found: ${rawItem.quantity}).`);
     }
   });
 
@@ -53,7 +77,8 @@ function escapeCsvField(val: string | number | undefined | null): string {
 }
 
 /**
- * Resolves a list of product names, codes, or strings into full PlasgainProduct specifications.
+ * Resolves a list of product names, codes, or strings into verified PlasgainProduct specifications.
+ * Never invents or manufactures guessed item codes.
  */
 export function resolveProductsForDeal(productNamesOrCodes: string[]): PlasgainProduct[] {
   if (!productNamesOrCodes || productNamesOrCodes.length === 0) {
@@ -67,10 +92,10 @@ export function resolveProductsForDeal(productNamesOrCodes: string[]): PlasgainP
     const rawLower = (raw || "").toLowerCase();
     const matched = SAMPLE_PRODUCTS.find(
       (p) =>
+        p.code.toLowerCase() === rawLower ||
+        p.name.toLowerCase() === rawLower ||
         p.name.toLowerCase().includes(rawLower) ||
-        p.code.toLowerCase().includes(rawLower) ||
-        rawLower.includes(p.name.toLowerCase()) ||
-        rawLower.includes(p.code.toLowerCase())
+        p.code.toLowerCase().includes(rawLower)
     );
 
     if (matched && !addedIds.has(matched.id)) {
@@ -79,7 +104,6 @@ export function resolveProductsForDeal(productNamesOrCodes: string[]): PlasgainP
     }
   }
 
-  // If no match found from sample products, fallback to top products
   if (resolved.length === 0) {
     return [SAMPLE_PRODUCTS[0]];
   }
@@ -88,28 +112,25 @@ export function resolveProductsForDeal(productNamesOrCodes: string[]): PlasgainP
 }
 
 /**
- * Formats validated product line items into standard Ostendo ERP CSV import format.
- * Strictly product-only: Item Code, Description, Quantity, Unit, Line Notes, Job / Quote Ref.
+ * Formats validated product line items into Ostendo ERP CSV import format.
+ * Canonical columns: Item Code, Description, Quantity, Unit, Line Notes, Job / Quote Ref.
+ * Strictly excludes pricing, GST, taxes, discounts, and margins (handled in Ostendo).
  * Uses UTF-8 BOM (\uFEFF) and Windows CRLF (\r\n) line endings.
  */
-export function formatOstendoCSV(items: OstendoExportItem[], quoteRef?: string): string {
+export function formatOstendoCSV(items: OstendoProductExportLine[], quoteRef?: string): string {
   const headers = ["Item Code", "Description", "Quantity", "Unit", "Line Notes", "Job / Quote Ref"];
   const headerLine = headers.map(escapeCsvField).join(",");
 
-  const rows = items.map((item) => {
-    const code = (item.code || "").trim();
-    const desc = (item.name || "").trim();
-    const qty = item.quantity;
-    const unit = (item.unit || "ea").trim();
-    const notes = (item.notes || "").trim();
-    const ref = (quoteRef || item.quoteRef || "").trim();
+  const rows = items.map((rawItem) => {
+    const item = normalizeExportLine(rawItem);
+    const ref = quoteRef || item.quoteRef || "";
 
     return [
-      escapeCsvField(code),
-      escapeCsvField(desc),
-      qty,
-      escapeCsvField(unit),
-      escapeCsvField(notes),
+      escapeCsvField(item.itemCode),
+      escapeCsvField(item.description),
+      item.quantity,
+      escapeCsvField(item.unit),
+      escapeCsvField(item.lineNotes),
       escapeCsvField(ref)
     ].join(",");
   });
@@ -119,20 +140,28 @@ export function formatOstendoCSV(items: OstendoExportItem[], quoteRef?: string):
 
 /**
  * Formats validated product line items into Tab-Delimited text.
- * Strictly product-only: Item Code \t Description \t Quantity \t Unit \t Line Notes \t Job / Quote Ref.
+ * Canonical columns: Item Code \t Description \t Quantity \t Unit \t Line Notes \t Job / Quote Ref.
  */
-export function formatOstendoTabDelimited(items: OstendoExportItem[], quoteRef?: string): string {
-  const rows = items.map((item) => {
-    const code = (item.code || "").trim();
-    const desc = (item.name || "").trim();
-    const qty = item.quantity;
-    const unit = (item.unit || "ea").trim();
-    const notes = (item.notes || "").trim();
-    const ref = (quoteRef || item.quoteRef || "").trim();
-    return `${code}\t${desc}\t${qty}\t${unit}\t${notes}\t${ref}`;
+export function formatOstendoTabDelimited(items: OstendoProductExportLine[], quoteRef?: string): string {
+  const rows = items.map((rawItem) => {
+    const item = normalizeExportLine(rawItem);
+    const ref = quoteRef || item.quoteRef || "";
+    return `${item.itemCode}\t${item.description}\t${item.quantity}\t${item.unit}\t${item.lineNotes}\t${ref}`;
   });
 
   return rows.join("\r\n");
+}
+
+/**
+ * Copies product list tab-delimited text to clipboard without initiating download.
+ */
+export async function copyOstendoProductList(items: OstendoProductExportLine[], quoteRef?: string): Promise<boolean> {
+  const text = formatOstendoTabDelimited(items, quoteRef);
+  if (typeof navigator !== "undefined" && navigator.clipboard) {
+    await navigator.clipboard.writeText(text);
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -184,11 +213,13 @@ I hope your week is going well.
 
 I wanted to quickly check in regarding the quotation we sent through for ${project}${options.quoteRef ? ` (Ref: ${quoteRef})` : ""}, featuring ${productsStr}.
 
-Did you have a chance to review the specifications and bill of materials? We want to ensure all luminaire outputs, pole heights, and battery autonomy meet your council and engineering requirements.
+Did you have a chance to review the specifications and product schedule? We want to ensure all luminaire outputs, pole heights, and battery autonomy meet your council and engineering requirements.
 
 If you have any technical questions or would like us to review any alternative configurations, please don't hesitate to reach out.
 
-${options.customNote ? `${options.customNote}\n\n` : ""}Kind regards,
+${options.customNote ? `${options.customNote}
+
+` : ""}Kind regards,
 
 ${sender}
 Plasgain Customer Service & Engineering
@@ -205,7 +236,9 @@ Current production lead times for ${productsStr} are running at approximately 2â
 
 Would you be open to a quick 5-minute call this week to align on next steps?
 
-${options.customNote ? `${options.customNote}\n\n` : ""}Best regards,
+${options.customNote ? `${options.customNote}
+
+` : ""}Best regards,
 
 ${sender}
 Plasgain Customer Service & Engineering
@@ -224,7 +257,9 @@ We have prepared the complete technical tender package for ${productsStr}${optio
 
 Please let me know if you need any last-minute amendments or additional spec sheets prior to submission.
 
-${options.customNote ? `${options.customNote}\n\n` : ""}Kind regards,
+${options.customNote ? `${options.customNote}
+
+` : ""}Kind regards,
 
 ${sender}
 Plasgain Customer Service & Engineering

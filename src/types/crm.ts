@@ -307,17 +307,42 @@ export interface NextBestActionItem {
   };
 }
 
-export interface CRMNotification {
+export interface ServerNotification {
   id: string;
   title: string;
   message: string;
-  timestamp: string;
+  timestamp?: string;
   type: "warning" | "info" | "success" | "action_required";
   isRead: boolean;
+  isArchived: boolean;
   linkTo?: {
-    view: "accounts" | "opportunities" | "leads" | "tasks" | "today";
+    view: "accounts" | "pipeline" | "leads" | "tasks" | "today" | "competitor-pricing";
     id?: string;
   };
+  createdAt: string;
+}
+
+export type CRMNotification = ServerNotification;
+
+export interface AccountIntelligenceRisk {
+  statement: string;
+  sourceType: string;
+  sourceId?: string;
+}
+
+export interface AccountIntelligenceNextAction {
+  action: string;
+  reason: string;
+}
+
+export interface AccountIntelligenceSummary {
+  accountSummary: string;
+  recentActivity: string[];
+  knownRequirements: string[];
+  commercialIntelligence: string[];
+  risks: AccountIntelligenceRisk[];
+  recommendedNextActions: AccountIntelligenceNextAction[];
+  generatedAt: string;
 }
 
 export type CompetitorPriceBasis =

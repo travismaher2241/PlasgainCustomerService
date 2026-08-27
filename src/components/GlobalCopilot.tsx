@@ -14,14 +14,20 @@ import {
 import { useApp } from "../context/AppContext";
 
 export const GlobalCopilot: React.FC = () => {
-  const { isCopilotOpen, setIsCopilotOpen, activeTab, selectedOpportunityId, opportunities, showToast } = useApp();
+  const {
+    isCopilotOpen,
+    setIsCopilotOpen,
+    activeTab,
+    selectedOpportunityId,
+    opportunities,
+    copilotCustomContext,
+    showToast
+  } = useApp();
   const [messages, setMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([
     {
       role: "assistant",
       content:
-        "G'day! I'm your Plasgain Sales Copilot. I'm aware you are currently on the " +
-        activeTab.toUpperCase() +
-        " screen. You can ask me to draft customer replies, explain compliance clauses, verify battery autonomy for a location, or sanity check pole heights."
+        "G'day! I'm your Plasgain Technical Sales Copilot. I'm grounded in official Plasgain product catalogues and Australian Standards. Ask me about product suitability, AS/NZS 1158 compliance, spigot fittings, or trenching specifications."
     }
   ]);
   const [input, setInput] = useState("");
@@ -46,7 +52,7 @@ export const GlobalCopilot: React.FC = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: textToSend,
-          screenContext: `Active Tab: ${activeTab}. Selected Opportunity: ${currentOpp ? `${currentOpp.project} (${currentOpp.customerCompany})` : "None"}.`,
+          screenContext: `Context: ${copilotCustomContext || "General"}. Active Tab: ${activeTab}. Selected Opportunity: ${currentOpp ? `${currentOpp.project} (${currentOpp.customerCompany})` : "None"}.`,
           history: newMessages
         })
       });
@@ -84,8 +90,11 @@ export const GlobalCopilot: React.FC = () => {
                 LIVE
               </span>
             </div>
-            <span className="text-spec text-ink-faint block">
-              Context: {activeTab}
+            <span
+              className="text-spec text-ink-faint block truncate max-w-[200px]"
+              title={copilotCustomContext || (currentOpp ? `${currentOpp.project}` : "No customer context")}
+            >
+              Context: {copilotCustomContext || (currentOpp ? `${currentOpp.project}` : activeTab === "product-finder" ? "Product Selection Wizard" : "No customer context")}
             </span>
           </div>
         </div>

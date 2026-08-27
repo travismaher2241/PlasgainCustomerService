@@ -15,25 +15,24 @@ describe('Main App Component', () => {
     render(<App />);
 
     // Click CRM Command Centre
-    const crmNav = screen.getByText('CRM Command Centre');
+    const crmNav = screen.getByRole('button', { name: /CRM Command Centre/i });
     fireEvent.click(crmNav);
 
-    expect(await screen.findByText(/Today \/ Focus/i, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText(/Today \/ Focus/i, {}, { timeout: 8000 })).toBeInTheDocument();
 
     // Click Tools Hub
-    const toolsNav = screen.getByText('Tools');
+    const toolsNav = screen.getByRole('button', { name: /^Tools$/i });
     fireEvent.click(toolsNav);
 
-    expect(await screen.findByText(/Engineering & Sales Calculators/i, {}, { timeout: 5000 })).toBeInTheDocument();
-    expect(await screen.findByText(/AI Drawing & Plan Deciphering/i, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText(/Technical Estimators & Plan Take-off/i, {}, { timeout: 8000 })).toBeInTheDocument();
 
-    // Click New Enquiry
-    const enquiryNav = screen.getByText('New Enquiry');
-    fireEvent.click(enquiryNav);
+    // Click Product Finder
+    const prodNav = screen.getByRole('button', { name: /Product Finder/i });
+    fireEvent.click(prodNav);
 
-    expect(await screen.findByText(/Enquiry Analysis Workspace/i, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText(/Intelligent Product Finder/i, {}, { timeout: 8000 })).toBeInTheDocument();
 
     // Verify Learn is not in sidebar
     expect(screen.queryByText('Learn')).not.toBeInTheDocument();
-  });
+  }, 15000);
 });

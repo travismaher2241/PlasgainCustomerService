@@ -23,7 +23,7 @@ import {
 import { useApp } from "../context/AppContext";
 
 export const ProductFinder: React.FC = () => {
-  const { setExplainingTerm, showToast } = useApp();
+  const { setExplainingTerm, showToast, openCopilotWithContext } = useApp();
 
   const [application, setApplication] = useState("Shared path");
   const [location, setLocation] = useState("Regional Victoria (Ballarat / Bendigo)");
@@ -403,7 +403,17 @@ export const ProductFinder: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="text-meta text-ink-dim font-medium">Verified Plasgain Range</span>
+                  <button
+                    onClick={() =>
+                      openCopilotWithContext(
+                        `Product: ${primary.productName} (${primary.productCode || "Standard"}) - Application: ${application}, Location: ${location}`
+                      )
+                    }
+                    className="px-3 py-1.5 text-meta font-bold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Ask Copilot about this product</span>
+                  </button>
                 </div>
               </div>
 

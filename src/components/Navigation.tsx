@@ -19,7 +19,6 @@ export const Navigation: React.FC = () => {
     { id: "crm", label: "CRM", icon: KanbanSquare },
     { id: "new-enquiry", label: "New Enquiry", icon: FilePlus2, badge: "AI" },
     { id: "product-finder", label: "Product Finder", icon: SearchCode },
-    { id: "ask-plasgain", label: "Ask Plasgain", icon: MessageSquareQuote },
     { id: "documents", label: "Documents", icon: FileText },
     { id: "tools", label: "Tools", icon: Wrench },
     { id: "settings", label: "Settings", icon: SlidersHorizontal }

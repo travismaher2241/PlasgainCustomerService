@@ -1,5 +1,19 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Search, Sparkles, Menu, Bell, TrendingUp, Check, ExternalLink, X } from "lucide-react";
+import {
+  Search,
+  Sparkles,
+  Menu,
+  Bell,
+  TrendingUp,
+  Check,
+  ExternalLink,
+  X,
+  AlertTriangle,
+  Info,
+  CheckCircle2,
+  Archive,
+  ArrowRight
+} from "lucide-react";
 import { useApp, NavTab } from "../context/AppContext";
 
 interface HeaderProps {
@@ -14,13 +28,16 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
     setIsCopilotOpen,
     selectedOpportunityId,
     opportunities,
-    competitorAlerts,
-    unreadCompetitorAlertsCount,
-    markCompetitorAlertRead,
+    notifications,
+    unreadNotificationsCount,
+    markNotificationRead,
+    markAllNotificationsRead,
+    archiveNotification,
     navigateToCRM
   } = useApp();
 
   const [isAlertsOpen, setIsAlertsOpen] = useState(false);
+  const [filterTab, setFilterTab] = useState<"all" | "unread">("all");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -42,21 +59,25 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
       case "crm":
         return "CRM Command Centre";
       case "new-enquiry":
-        return "Enquiry Analysis";
+        return "Enquiry & Tender Analysis";
       case "product-finder":
         return "Product Matcher";
-      case "ask-plasgain":
-        return "Technical Assistant";
       case "documents":
         return "Product Catalogues";
       case "tools":
-        return "Engineering & Sales Calculators";
+        return "Engineering Take-off & Calculators";
       case "settings":
         return "Settings";
       default:
         return "Workspace";
     }
   };
+
+  const displayedNotifications = (notifications || []).filter((n) => {
+    if (n.isArchived) return false;
+    if (filterTab === "unread") return !n.isRead;
+    return true;
+  });
 
   return (
     <header className="h-13.5 bg-surface border-b border-line px-4 sm:px-6.5 flex items-center gap-4 shrink-0 sticky top-0 z-30">
@@ -92,93 +113,126 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           </kbd>
         </button>
 
-        {/* Team Notifications & Competitor Alerts Bell */}
+        {/* Team Notifications & Alerts Bell */}
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setIsAlertsOpen(!isAlertsOpen)}
             className="p-2 rounded-edge text-ink-dim hover:text-ink bg-paper hover:bg-raised border border-line transition-colors relative cursor-pointer"
-            title="Team Intelligence & Competitor Pricing Alerts"
+            title="Team Notifications & Operational Alerts"
           >
             <Bell className="w-4 h-4" />
-            {unreadCompetitorAlertsCount > 0 && (
+            {unreadNotificationsCount > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 bg-urgent text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs animate-pulse">
-                {unreadCompetitorAlertsCount}
+                {unreadNotificationsCount}
               </span>
             )}
           </button>
 
           {/* Alerts Dropdown Modal */}
           {isAlertsOpen && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-panel shadow-xl border border-line overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+            <div className="absolute right-0 mt-2 w-84 sm:w-96 bg-white rounded-panel shadow-xl border border-line overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
               <div className="p-3 bg-raised border-b border-line flex items-center justify-between">
                 <div className="flex items-center gap-2 font-bold text-meta text-body">
-                  <TrendingUp className="w-4 h-4 text-brand-deep" />
-                  <span>Team Competitor Pricing Alerts</span>
+                  <Bell className="w-4 h-4 text-brand-deep" />
+                  <span>Team Notifications & Alerts</span>
                 </div>
-                <span className="text-spec font-bold px-2 py-0.5 rounded-full bg-brand-wash text-brand-deep">
-                  {unreadCompetitorAlertsCount} Unread
-                </span>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setFilterTab("all")}
+                    className={`text-[11px] font-bold px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                      filterTab === "all" ? "bg-white text-body shadow-2xs" : "text-ink-dim hover:text-body"
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => setFilterTab("unread")}
+                    className={`text-[11px] font-bold px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                      filterTab === "unread" ? "bg-brand-wash text-brand-deep font-bold" : "text-ink-dim hover:text-body"
+                    }`}
+                  >
+                    Unread ({unreadNotificationsCount})
+                  </button>
+                </div>
               </div>
 
               <div className="max-h-80 overflow-y-auto divide-y divide-line text-meta">
-                {competitorAlerts.length === 0 ? (
+                {displayedNotifications.length === 0 ? (
                   <div className="p-6 text-center text-ink-dim text-spec">
-                    No competitor pricing alerts recorded yet.
+                    {filterTab === "unread" ? "No unread notifications." : "No active team notifications."}
                   </div>
                 ) : (
-                  competitorAlerts.slice(0, 8).map((alert) => (
+                  displayedNotifications.slice(0, 8).map((notif) => (
                     <div
-                      key={alert.id}
+                      key={notif.id}
                       className={`p-3 space-y-1.5 transition-colors ${
-                        !alert.isRead ? "bg-brand-wash/20" : "bg-white hover:bg-raised/40"
+                        !notif.isRead ? "bg-brand-wash/20" : "bg-white hover:bg-raised/40"
                       }`}
                     >
                       <div className="flex items-center justify-between text-spec">
-                        <span className="font-bold text-brand-deep uppercase">
-                          {alert.title}
-                        </span>
-                        <span className="text-ink-faint">
-                          {new Date(alert.createdAt).toLocaleDateString("en-AU")}
+                        <div className="flex items-center gap-1.5">
+                          {notif.type === "warning" && <AlertTriangle className="w-3.5 h-3.5 text-urgent" />}
+                          {notif.type === "action_required" && <CheckCircle2 className="w-3.5 h-3.5 text-soon" />}
+                          {notif.type === "info" && <TrendingUp className="w-3.5 h-3.5 text-brand-deep" />}
+                          {notif.type === "success" && <Check className="w-3.5 h-3.5 text-emerald-600" />}
+                          <span className="font-bold text-body text-spec uppercase">
+                            {notif.title}
+                          </span>
+                        </div>
+                        <span className="text-ink-faint text-[11px]">
+                          {notif.timestamp || (notif.createdAt ? new Date(notif.createdAt).toLocaleDateString("en-AU") : "Recently")}
                         </span>
                       </div>
 
                       <p className="text-spec text-body font-medium leading-relaxed">
-                        {alert.message}
+                        {notif.message}
                       </p>
 
                       <div className="flex items-center justify-between pt-1 text-spec">
-                        <button
-                          onClick={() => {
-                            if (!alert.isRead) markCompetitorAlertRead(alert.id);
-                            setIsAlertsOpen(false);
-                            navigateToCRM("accounts", alert.accountId);
-                          }}
-                          className="font-bold text-brand-deep hover:underline flex items-center gap-1 cursor-pointer"
-                        >
-                          View Account 360° <ExternalLink className="w-3 h-3" />
-                        </button>
-                        {!alert.isRead && (
+                        {notif.linkTo ? (
                           <button
-                            onClick={() => markCompetitorAlertRead(alert.id)}
-                            className="text-ink-dim hover:text-ink flex items-center gap-0.5 cursor-pointer font-semibold"
+                            onClick={() => {
+                              if (!notif.isRead) markNotificationRead(notif.id);
+                              setIsAlertsOpen(false);
+                              navigateToCRM(notif.linkTo!.view as any, notif.linkTo!.id);
+                            }}
+                            className="font-bold text-brand-deep hover:underline flex items-center gap-1 cursor-pointer"
                           >
-                            <Check className="w-3 h-3 text-emerald-600" /> Mark read
+                            <span>Open Record</span>
+                            <ArrowRight className="w-3 h-3" />
                           </button>
+                        ) : (
+                          <span></span>
                         )}
+
+                        <div className="flex items-center gap-2">
+                          {!notif.isRead && (
+                            <button
+                              onClick={() => markNotificationRead(notif.id)}
+                              className="text-ink-dim hover:text-ink flex items-center gap-0.5 cursor-pointer font-semibold"
+                              title="Mark as read"
+                            >
+                              <Check className="w-3 h-3 text-emerald-600" /> Read
+                            </button>
+                          )}
+                          <button
+                            onClick={() => archiveNotification(notif.id)}
+                            className="text-ink-faint hover:text-ink-dim flex items-center gap-0.5 cursor-pointer"
+                            title="Archive notification"
+                          >
+                            <Archive className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))
                 )}
               </div>
 
-              {competitorAlerts.length > 0 && (
+              {displayedNotifications.length > 0 && (
                 <div className="p-2 bg-paper border-t border-line text-center">
                   <button
-                    onClick={() => {
-                      competitorAlerts.forEach((a) => {
-                        if (!a.isRead) markCompetitorAlertRead(a.id);
-                      });
-                    }}
+                    onClick={() => markAllNotificationsRead()}
                     className="text-spec font-bold text-brand-deep hover:underline cursor-pointer"
                   >
                     Mark All as Read

@@ -1,0 +1,132 @@
+[
+  {
+    "title": "Mark Read Test",
+    "message": "Testing read state",
+    "type": "info",
+    "id": "notif-1787799266830-498",
+    "isRead": true,
+    "isArchived": true,
+    "createdAt": "2026-08-27T02:54:26.830Z"
+  },
+  {
+    "title": "Test Alert",
+    "message": "This is an automated test alert",
+    "type": "action_required",
+    "linkTo": {
+      "view": "pipeline",
+      "id": "crm-opp-1"
+    },
+    "id": "notif-1787799266828-245",
+    "isRead": true,
+    "isArchived": false,
+    "createdAt": "2026-08-27T02:54:26.828Z"
+  },
+  {
+    "title": "Mark Read Test",
+    "message": "Testing read state",
+    "type": "info",
+    "id": "notif-1787799193787-152",
+    "isRead": true,
+    "isArchived": true,
+    "createdAt": "2026-08-27T02:53:13.787Z"
+  },
+  {
+    "title": "Test Alert",
+    "message": "This is an automated test alert",
+    "type": "action_required",
+    "linkTo": {
+      "view": "pipeline",
+      "id": "crm-opp-1"
+    },
+    "id": "notif-1787799193784-915",
+    "isRead": true,
+    "isArchived": false,
+    "createdAt": "2026-08-27T02:53:13.784Z"
+  },
+  {
+    "title": "Mark Read Test",
+    "message": "Testing read state",
+    "type": "info",
+    "id": "notif-1787799170126-193",
+    "isRead": true,
+    "isArchived": true,
+    "createdAt": "2026-08-27T02:52:50.126Z"
+  },
+  {
+    "title": "Test Alert",
+    "message": "This is an automated test alert",
+    "type": "action_required",
+    "linkTo": {
+      "view": "pipeline",
+      "id": "crm-opp-1"
+    },
+    "id": "notif-1787799170123-555",
+    "isRead": true,
+    "isArchived": false,
+    "createdAt": "2026-08-27T02:52:50.123Z"
+  },
+  {
+    "title": "Mark Read Test",
+    "message": "Testing read state",
+    "type": "info",
+    "id": "notif-1787799133464-445",
+    "isRead": true,
+    "isArchived": true,
+    "createdAt": "2026-08-27T02:52:13.464Z"
+  },
+  {
+    "title": "Test Alert",
+    "message": "This is an automated test alert",
+    "type": "action_required",
+    "linkTo": {
+      "view": "pipeline",
+      "id": "crm-opp-1"
+    },
+    "id": "notif-1787799133461-881",
+    "isRead": true,
+    "isArchived": false,
+    "createdAt": "2026-08-27T02:52:13.461Z"
+  },
+  {
+    "id": "notif-001",
+    "title": "Overdue Customer Follow-Up",
+    "message": "Gold Coast Foreshore Quote Q-1042 sent 15 days ago with no response. Follow up with Rob Mitchell.",
+    "timestamp": "Today",
+    "type": "warning",
+    "isRead": true,
+    "isArchived": false,
+    "linkTo": {
+      "view": "pipeline",
+      "id": "opp-003"
+    },
+    "createdAt": "2026-08-27T00:51:30.087Z"
+  },
+  {
+    "id": "notif-002",
+    "title": "New Inbound Enquiry Ingested",
+    "message": "Sunshine Coast Council requested 18x Intense 50W lights for Ewen Maddock Dam Trail.",
+    "timestamp": "Today",
+    "type": "action_required",
+    "isRead": true,
+    "isArchived": false,
+    "linkTo": {
+      "view": "leads",
+      "id": "lead-001"
+    },
+    "createdAt": "2026-08-26T22:51:30.089Z"
+  },
+  {
+    "id": "notif-003",
+    "title": "New competitor pricing",
+    "message": "Leadsun Australia quoted AE3 30W Solar at $1,850.00 (Per Unit) for City of Ballarat",
+    "timestamp": "Yesterday",
+    "type": "info",
+    "isRead": true,
+    "isArchived": false,
+    "linkTo": {
+      "view": "accounts",
+      "id": "acc-ballarat"
+    },
+    "createdAt": "2026-08-26T02:51:30.089Z"
+  }
+]

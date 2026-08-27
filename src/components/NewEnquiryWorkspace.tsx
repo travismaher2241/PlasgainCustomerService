@@ -40,6 +40,7 @@ import {
   formatOstendoTabDelimited,
   validateOstendoItems,
   downloadOstendoCSV,
+  copyOstendoProductList,
   resolveProductsForDeal
 } from "../utils/datasheetExporter";
 
@@ -364,19 +365,19 @@ export const NewEnquiryWorkspace: React.FC = () => {
               <Download className="w-3.5 h-3.5 text-ink-dim" />
               <span>Tender Package</span>
             </button>
-            <button
+                        <button
               onClick={() => {
                 const items = [];
                 if (currentEnquiryAnalysis?.primaryRecommendation) {
                   const resolved = resolveProductsForDeal([currentEnquiryAnalysis.primaryRecommendation.productName]);
-                  const prodCode = resolved[0]?.code || "";
+                  const prodCode = resolved[0]?.code || currentEnquiryAnalysis.primaryRecommendation.productCode || "";
                   const qty = parseInt(currentEnquiryAnalysis.opportunitySummary?.quantity?.value || "1", 10) || 1;
                   items.push({
-                    code: prodCode,
-                    name: currentEnquiryAnalysis.primaryRecommendation.productName,
+                    itemCode: prodCode,
+                    description: currentEnquiryAnalysis.primaryRecommendation.productName,
                     quantity: qty,
                     unit: "ea",
-                    notes: currentEnquiryAnalysis.primaryRecommendation.reasoning || ""
+                    lineNotes: currentEnquiryAnalysis.primaryRecommendation.whySuitable || ""
                   });
                 }
 
@@ -386,17 +387,46 @@ export const NewEnquiryWorkspace: React.FC = () => {
                   return;
                 }
 
-                const tabData = formatOstendoTabDelimited(items, ostendoQuoteRef || "OST-ENQUIRY");
-                navigator.clipboard.writeText(tabData);
                 const csvData = formatOstendoCSV(items, ostendoQuoteRef || "OST-ENQUIRY");
                 downloadOstendoCSV(csvData, `Ostendo_Product_List_${(rawEnquiryInput.project || "Enquiry").replace(/\s+/g, "_")}.csv`);
-                showToast("Product list copied and CSV downloaded! Pricing will be calculated in Ostendo.", "success");
+                showToast("Ostendo CSV downloaded. Ostendo will calculate customer pricing, tax and totals.", "success");
               }}
               className="text-meta font-bold px-3 py-1.5 rounded-edge bg-white hover:bg-brand-wash text-brand-deep border border-brand-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-              title="Export product list (Item Code, Description, Qty, Unit) for Ostendo ERP entry"
+              title="Download standard UTF-8 CRLF CSV for Ostendo ERP"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Export Product List for Ostendo</span>
+              <span>Download Ostendo CSV</span>
+            </button>
+            <button
+              onClick={async () => {
+                const items = [];
+                if (currentEnquiryAnalysis?.primaryRecommendation) {
+                  const resolved = resolveProductsForDeal([currentEnquiryAnalysis.primaryRecommendation.productName]);
+                  const prodCode = resolved[0]?.code || currentEnquiryAnalysis.primaryRecommendation.productCode || "";
+                  const qty = parseInt(currentEnquiryAnalysis.opportunitySummary?.quantity?.value || "1", 10) || 1;
+                  items.push({
+                    itemCode: prodCode,
+                    description: currentEnquiryAnalysis.primaryRecommendation.productName,
+                    quantity: qty,
+                    unit: "ea",
+                    lineNotes: currentEnquiryAnalysis.primaryRecommendation.whySuitable || ""
+                  });
+                }
+
+                const validation = validateOstendoItems(items);
+                if (!validation.valid) {
+                  showToast(`Ostendo Export Blocked: ${validation.errors.join("; ")}`, "error");
+                  return;
+                }
+
+                await copyOstendoProductList(items, ostendoQuoteRef || "OST-ENQUIRY");
+                showToast("Product list copied to clipboard! Pricing will be calculated in Ostendo.", "success");
+              }}
+              className="text-meta font-bold px-3 py-1.5 rounded-edge bg-white hover:bg-raised text-body border border-line transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              title="Copy tab-delimited product and quantity list to clipboard"
+            >
+              <Copy className="w-3.5 h-3.5" />
+              <span>Copy Product List</span>
             </button>
             <button
               onClick={handleSaveOpportunity}
