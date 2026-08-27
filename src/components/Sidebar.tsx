@@ -29,7 +29,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
   }[] = [
     { id: "home", label: "Home", icon: Home },
     { id: "crm", label: "CRM Command Centre", icon: KanbanSquare },
-    { id: "new-enquiry", label: "New Enquiry", icon: FilePlus2, badge: "AI" },
+    { id: "new-enquiry", label: "New Enquiry", icon: FilePlus2 },
     { id: "product-finder", label: "Product Finder", icon: SearchCode },
     { id: "opportunities", label: "Opportunities", icon: KanbanSquare, badge: opportunities.length },
     { id: "documents", label: "Product Catalogues", icon: BookOpen },
