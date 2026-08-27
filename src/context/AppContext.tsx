@@ -1004,12 +1004,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     addCrmOpportunity(newOpp);
 
-    // Update lead status
+    // Update lead status with full persisted linkage metadata
     updateLead(leadId, {
       leadStatus: "Converted",
       convertedAccountId: accountId,
       convertedContactId: contactId,
-      convertedOpportunityId: oppId
+      convertedOpportunityId: oppId,
+      convertedAt: new Date().toISOString(),
+      convertedBy: currentUser.name
     });
 
     logActivity({

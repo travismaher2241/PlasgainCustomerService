@@ -115,12 +115,11 @@ export function resolveSingleProduct(rawInput: string | any): ProductResolutionI
     };
   }
 
-  // Tier 2: Substring or code token containment
+  // Tier 2: Full canonical product name or full product code contained in longer drawing text
   const partial = SAMPLE_PRODUCTS.find(
     (p) =>
-      cleanLower.includes(p.code.toLowerCase()) ||
-      cleanLower.includes(p.name.toLowerCase()) ||
-      p.name.toLowerCase().includes(cleanLower)
+      (p.code.length >= 4 && cleanLower.includes(p.code.toLowerCase())) ||
+      (p.name.length >= 6 && cleanLower.includes(p.name.toLowerCase()))
   );
   if (partial) {
     return {

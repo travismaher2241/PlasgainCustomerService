@@ -252,6 +252,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
   const [ostendoQuoteRef, setOstendoQuoteRef] = useState("");
   const [exportValidationErrors, setExportValidationErrors] = useState<string[]>([]);
   const [isTakeoffSaveModalOpen, setIsTakeoffSaveModalOpen] = useState(false);
+  const [accountMismatchConfirmed, setAccountMismatchConfirmed] = useState(false);
   const [takeoffSaveFormData, setTakeoffSaveFormData] = useState({
     projectName: "",
     accountId: "",
@@ -425,6 +426,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
       stageId: pipelines[0]?.stages[2]?.id || "stage-solution",
       dealValue: 0
     });
+    setAccountMismatchConfirmed(false);
 
     setIsTakeoffSaveModalOpen(true);
   };
@@ -462,6 +464,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
       accountId: newAccId,
       accountName: newAccName
     }));
+    setAccountMismatchConfirmed(true);
 
     showToast(`Created and linked new CRM Account: "${newAccName}"!`, "success");
   };
@@ -475,6 +478,18 @@ export const PlanTakeoffWorkspace: React.FC = () => {
     const acc = accounts.find((a) => a.id === takeoffSaveFormData.accountId);
     if (!acc) {
       showToast("Selected account was not found. Please choose an account.", "error");
+      return;
+    }
+
+    const isConflict = Boolean(
+      acc &&
+      customerName &&
+      !acc.name.toLowerCase().includes(customerName.toLowerCase()) &&
+      !customerName.toLowerCase().includes(acc.name.toLowerCase())
+    );
+
+    if (isConflict && !accountMismatchConfirmed) {
+      showToast(`Cannot save: Selected account "${acc.name}" conflicts with drawing customer "${customerName}". Please confirm override or create a matching account.`, "error");
       return;
     }
     const pipe = pipelines.find((p) => p.id === takeoffSaveFormData.pipelineId) || pipelines[0];
@@ -1198,18 +1213,30 @@ export const PlanTakeoffWorkspace: React.FC = () => {
                 )}
                 {(() => {
                   const selAcc = accounts.find((a) => a.id === takeoffSaveFormData.accountId);
-                  if (
+                  const isConflict = Boolean(
                     selAcc &&
                     customerName &&
                     !selAcc.name.toLowerCase().includes(customerName.toLowerCase()) &&
                     !customerName.toLowerCase().includes(selAcc.name.toLowerCase())
-                  ) {
+                  );
+                  if (isConflict && selAcc) {
                     return (
-                      <div className="mt-2 p-2.5 bg-soon-wash border border-soon text-soon rounded text-spec flex items-start gap-2">
-                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                        <div>
-                          <strong>Account / Authority Conflict:</strong> Selected account "{selAcc.name}" ({selAcc.territory}) does not match drawing authority "{customerName}".
+                      <div className="mt-2 p-3 bg-soon-wash border border-soon text-soon rounded text-spec space-y-2">
+                        <div className="flex items-start gap-2">
+                          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                          <div>
+                            <strong>Account / Authority Conflict:</strong> Selected account "{selAcc.name}" ({selAcc.territory}) does not match drawing authority "{customerName}".
+                          </div>
                         </div>
+                        <label className="flex items-center gap-2 pt-1 font-semibold text-body cursor-pointer border-t border-soon/30">
+                          <input
+                            type="checkbox"
+                            checked={accountMismatchConfirmed}
+                            onChange={(e) => setAccountMismatchConfirmed(e.target.checked)}
+                            className="rounded border-soon text-brand cursor-pointer"
+                          />
+                          <span>I confirm this account is correct despite the mismatch with drawing authority</span>
+                        </label>
                       </div>
                     );
                   }
@@ -1261,18 +1288,31 @@ export const PlanTakeoffWorkspace: React.FC = () => {
               >
                 Cancel
               </button>
-              <button
-                onClick={handleConfirmTakeoffSave}
-                disabled={!takeoffSaveFormData.accountId}
-                className={`px-4 py-2 font-bold text-meta rounded-edge shadow-xs flex items-center gap-1.5 transition-colors ${
-                  takeoffSaveFormData.accountId
-                    ? "bg-brand-deep hover:bg-brand text-white cursor-pointer"
-                    : "bg-ink-faint text-white cursor-not-allowed opacity-75"
-                }`}
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Confirm &amp; Save Deal</span>
-              </button>
+              {(() => {
+                const selAcc = accounts.find((a) => a.id === takeoffSaveFormData.accountId);
+                const isConflict = Boolean(
+                  selAcc &&
+                  customerName &&
+                  !selAcc.name.toLowerCase().includes(customerName.toLowerCase()) &&
+                  !customerName.toLowerCase().includes(selAcc.name.toLowerCase())
+                );
+                const isBlocked = !takeoffSaveFormData.accountId || (isConflict && !accountMismatchConfirmed);
+
+                return (
+                  <button
+                    onClick={handleConfirmTakeoffSave}
+                    disabled={isBlocked}
+                    className={`px-4 py-2 font-bold text-meta rounded-edge shadow-xs flex items-center gap-1.5 transition-colors ${
+                      !isBlocked
+                        ? "bg-brand-deep hover:bg-brand text-white cursor-pointer"
+                        : "bg-ink-faint text-white cursor-not-allowed opacity-75"
+                    }`}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Confirm &amp; Save Deal</span>
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>

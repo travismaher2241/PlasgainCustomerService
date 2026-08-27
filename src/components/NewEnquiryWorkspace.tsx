@@ -207,6 +207,37 @@ export const NewEnquiryWorkspace: React.FC = () => {
     } else {
       setSelectedQuestions([...selectedQuestions, qText]);
     }
+  const handleInlineCreateAccount = () => {
+    const compName = rawEnquiryInput.company.trim();
+    if (!compName) {
+      showToast("Please enter a company name to create an account", "warning");
+      return;
+    }
+    const isCouncil = compName.toLowerCase().includes("council") || compName.toLowerCase().includes("city") || compName.toLowerCase().includes("shire");
+    const isVic = (rawEnquiryInput.location || "").toLowerCase().includes("vic") || (rawEnquiryInput.location || "").toLowerCase().includes("victoria");
+    const newAccId = `acc-${Date.now()}`;
+    addAccount({
+      id: newAccId,
+      name: compName,
+      status: "Prospect",
+      industry: "Government & Public Infrastructure",
+      customerSegment: isCouncil ? "Local Government / Council" : "Civil Contractor",
+      territory: isVic ? "VIC/TAS" : "QLD/NT",
+      accountOwner: currentUser.name,
+      leadSource: rawEnquiryInput.source || "Email",
+      createdDate: new Date().toISOString().split("T")[0],
+      lastInteractionDate: new Date().toISOString().split("T")[0],
+      relationshipHealth: "Healthy",
+      tags: ["Enquiry Workspace", "New Account"],
+      notes: `Created inline from Enquiry Workspace for project "${rawEnquiryInput.project || "New Project"}"`,
+      metrics: {
+        openPipelineValue: 0,
+        totalDealsWon: 0,
+        activeDealsCount: 1,
+        totalEnquiries: 1
+      }
+    });
+    showToast(`Created and matched CRM Account: "${compName}"!`, "success");
   };
 
   const handleSaveOpportunity = (shouldNavigate = true): string | null => {
@@ -632,7 +663,20 @@ export const NewEnquiryWorkspace: React.FC = () => {
         {/* Metadata Fields */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
           <div>
-            <label className="block text-spec font-semibold text-ink-dim mb-1">Company</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-spec font-semibold text-ink-dim">Company</label>
+              {rawEnquiryInput.company && !accounts.some(a => a.name.toLowerCase() === rawEnquiryInput.company.toLowerCase()) && (
+                <button
+                  type="button"
+                  onClick={handleInlineCreateAccount}
+                  className="text-[10px] text-brand-deep font-bold hover:underline cursor-pointer flex items-center gap-0.5"
+                  title="Create new CRM Account"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>+ Create</span>
+                </button>
+              )}
+            </div>
             <input
               type="text"
               id="workspace-company-input"
@@ -641,6 +685,17 @@ export const NewEnquiryWorkspace: React.FC = () => {
               placeholder="e.g. ABC Civil Pty Ltd"
               className="w-full text-meta px-2.5 py-1.5 rounded-edge border border-line focus:outline-none focus:border-brand-deep"
             />
+            {rawEnquiryInput.company && (
+              <div className="mt-1 text-[10px]">
+                {accounts.some(a => a.name.toLowerCase() === rawEnquiryInput.company.toLowerCase()) ? (
+                  <span className="text-brand-deep font-semibold flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3 text-brand-deep" /> Matched CRM Account
+                  </span>
+                ) : (
+                  <span className="text-ink-faint">Not in CRM (Click + Create)</span>
+                )}
+              </div>
+            )}
           </div>
           <div>
             <label className="block text-spec font-semibold text-ink-dim mb-1">Contact Name</label>

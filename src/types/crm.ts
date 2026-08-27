@@ -162,6 +162,8 @@ export interface CRMLead {
   convertedAccountId?: string;
   convertedContactId?: string;
   convertedOpportunityId?: string;
+  convertedAt?: string;
+  convertedBy?: string;
 }
 
 export interface PipelineStageConfig {
