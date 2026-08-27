@@ -33,6 +33,8 @@ import { useApp } from "../context/AppContext";
 import { BOMItem, DrawingTakeoffResult } from "../types";
 import { apiPost, AIUnavailableError, toUserMessage } from "../utils/apiClient";
 import { AIUnavailableNotice } from "./AIUnavailableNotice";
+import { DatasheetPackageModal } from "./DatasheetPackageModal";
+import { formatOstendoCSV, formatOstendoTabDelimited } from "../utils/datasheetExporter";
 
 interface SamplePlan {
   id: string;
@@ -254,6 +256,8 @@ export const PlanTakeoffWorkspace: React.FC = () => {
 
   // Quotation Modal State
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [isDatasheetModalOpen, setIsDatasheetModalOpen] = useState(false);
+  const [ostendoQuoteRef, setOstendoQuoteRef] = useState("");
   const [quoteNotes, setQuoteNotes] = useState("Lead time: 2–3 weeks. Standard Plasgain 5-Year System Warranty included.");
 
   // File Input Handler
@@ -764,8 +768,47 @@ export const PlanTakeoffWorkspace: React.FC = () => {
               </div>
             </div>
 
-            {/* Actions: Save to CRM, Export CSV, Draft Quote */}
+            {/* Actions: Save to CRM, Export CSV, Ostendo Export, Tender Package, Draft Quote */}
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => {
+                  if (!takeoffResult) return;
+                  const items = takeoffResult.billOfMaterials.map((item) => ({
+                    code: item.recommendedProductCode,
+                    name: item.itemDescription,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                    category: item.category
+                  }));
+                  const tabData = formatOstendoTabDelimited(items);
+                  navigator.clipboard.writeText(tabData);
+                  const csvData = formatOstendoCSV(items, ostendoQuoteRef || takeoffResult.drawingMetadata.drawingNumber);
+                  const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.setAttribute("href", url);
+                  link.setAttribute("download", `Ostendo_Line_Items_${projectName.replace(/\s+/g, "_")}.csv`);
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  showToast("Copied Ostendo grid data & downloaded CSV!", "success");
+                }}
+                className="px-3 py-1.5 bg-white hover:bg-brand-wash text-brand-deep font-bold text-meta rounded-edge border border-brand-edge flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                title="Copy tab-delimited grid data and download CSV for Ostendo ERP"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Export for Ostendo</span>
+              </button>
+
+              <button
+                onClick={() => setIsDatasheetModalOpen(true)}
+                className="px-3 py-1.5 bg-paper hover:bg-raised text-body font-bold text-meta rounded-edge border border-line flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                title="Generate and download consolidated Tender Spec Package"
+              >
+                <Download className="w-3.5 h-3.5 text-ink-dim" />
+                <span>Tender Package</span>
+              </button>
+
               <button
                 onClick={handleExportCSV}
                 className="px-3 py-1.5 bg-paper hover:bg-raised text-meta font-bold rounded-edge border border-line flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
@@ -1052,6 +1095,18 @@ export const PlanTakeoffWorkspace: React.FC = () => {
 
           </div>
         </div>
+      )}
+
+      {/* Datasheet & Tender Spec Package Modal */}
+      {isDatasheetModalOpen && takeoffResult && (
+        <DatasheetPackageModal
+          isOpen={isDatasheetModalOpen}
+          onClose={() => setIsDatasheetModalOpen(false)}
+          projectName={projectName}
+          customerName={customerName}
+          quoteRef={ostendoQuoteRef || takeoffResult.drawingMetadata.drawingNumber}
+          initialProductNames={takeoffResult.billOfMaterials.map((b) => b.recommendedProductCode || b.itemDescription)}
+        />
       )}
 
     </div>

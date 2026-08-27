@@ -28,10 +28,14 @@ import {
   Image as ImageIcon,
   Save,
   Info,
-  ChevronRight
+  ChevronRight,
+  Download
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { EnquiryAnalysisResult, StatusField } from "../types";
+import { CustomerFollowUpModal } from "./CustomerFollowUpModal";
+import { DatasheetPackageModal } from "./DatasheetPackageModal";
+import { formatOstendoCSV, formatOstendoTabDelimited } from "../utils/datasheetExporter";
 
 export const NewEnquiryWorkspace: React.FC = () => {
   const {
@@ -54,6 +58,9 @@ export const NewEnquiryWorkspace: React.FC = () => {
   const [emailError, setEmailError] = useState<PanelError | null>(null);
   const [selectedQuestions, setSelectedQuestions] = useState<string[]>([]);
   const [isReplyModalOpen, setIsReplyModalOpen] = useState(false);
+  const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
+  const [isDatasheetModalOpen, setIsDatasheetModalOpen] = useState(false);
+  const [ostendoQuoteRef, setOstendoQuoteRef] = useState("");
   const [generatedEmail, setGeneratedEmail] = useState<{ subject: string; body: string } | null>(null);
   const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
   const [simulatedFiles, setSimulatedFiles] = useState<{ name: string; size: string; type: string }[]>([]);
@@ -334,6 +341,59 @@ export const NewEnquiryWorkspace: React.FC = () => {
             >
               <RotateCcw className="w-3.5 h-3.5" />
               <span>New Analysis</span>
+            </button>
+            <button
+              onClick={() => setIsFollowUpModalOpen(true)}
+              className="text-meta font-bold px-3 py-1.5 rounded-edge bg-soon-wash text-soon border border-soon/30 hover:bg-soon transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              title="Draft customer follow-up sequence referencing Ostendo quote"
+            >
+              <Mail className="w-3.5 h-3.5" />
+              <span>Follow-Up</span>
+            </button>
+            <button
+              onClick={() => setIsDatasheetModalOpen(true)}
+              className="text-meta font-bold px-3 py-1.5 rounded-edge bg-white hover:bg-raised text-body border border-line transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              title="Download consolidated Tender Spec Package"
+            >
+              <Download className="w-3.5 h-3.5 text-ink-dim" />
+              <span>Tender Package</span>
+            </button>
+            <button
+              onClick={() => {
+                const items = [];
+                if (currentEnquiryAnalysis?.primaryRecommendation) {
+                  items.push({
+                    code: currentEnquiryAnalysis.primaryRecommendation.productName.substring(0, 15).toUpperCase().replace(/\s+/g, "-"),
+                    name: currentEnquiryAnalysis.primaryRecommendation.productName,
+                    quantity: parseInt(currentEnquiryAnalysis.opportunitySummary?.quantity?.value || "1", 10) || 1,
+                    unitPrice: 0
+                  });
+                } else {
+                  items.push({
+                    code: "PLASGAIN-ITEM",
+                    name: rawEnquiryInput.project || "Public Lighting Solution",
+                    quantity: 1,
+                    unitPrice: 0
+                  });
+                }
+                const tabData = formatOstendoTabDelimited(items);
+                navigator.clipboard.writeText(tabData);
+                const csvData = formatOstendoCSV(items, ostendoQuoteRef || "OST-ENQUIRY");
+                const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement("a");
+                link.setAttribute("href", url);
+                link.setAttribute("download", `Ostendo_Line_Items_${(rawEnquiryInput.project || "Enquiry").replace(/\s+/g, "_")}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showToast("Copied Ostendo grid line items & downloaded CSV!", "success");
+              }}
+              className="text-meta font-bold px-3 py-1.5 rounded-edge bg-white hover:bg-brand-wash text-brand-deep border border-brand-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              title="Export line items formatted for Ostendo ERP data entry"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Export for Ostendo</span>
             </button>
             <button
               onClick={handleSaveOpportunity}
@@ -1098,6 +1158,39 @@ export const NewEnquiryWorkspace: React.FC = () => {
             ) : null}
           </div>
         </div>
+      )}
+
+      {/* Customer Follow-Up Generator Modal */}
+      {isFollowUpModalOpen && (
+        <CustomerFollowUpModal
+          isOpen={isFollowUpModalOpen}
+          onClose={() => setIsFollowUpModalOpen(false)}
+          initialContactName={rawEnquiryInput.customer || currentEnquiryAnalysis?.opportunitySummary?.customer?.value || ""}
+          initialCompanyName={rawEnquiryInput.company || currentEnquiryAnalysis?.opportunitySummary?.company?.value || ""}
+          initialProjectName={rawEnquiryInput.project || currentEnquiryAnalysis?.opportunitySummary?.project?.value || ""}
+          initialQuoteRef={ostendoQuoteRef}
+          initialProducts={
+            currentEnquiryAnalysis?.primaryRecommendation
+              ? [currentEnquiryAnalysis.primaryRecommendation.productName]
+              : []
+          }
+        />
+      )}
+
+      {/* Datasheet & Tender Spec Package Modal */}
+      {isDatasheetModalOpen && (
+        <DatasheetPackageModal
+          isOpen={isDatasheetModalOpen}
+          onClose={() => setIsDatasheetModalOpen(false)}
+          projectName={rawEnquiryInput.project || currentEnquiryAnalysis?.opportunitySummary?.project?.value || "Public Lighting Project"}
+          customerName={rawEnquiryInput.company || currentEnquiryAnalysis?.opportunitySummary?.company?.value || "Council / Contractor"}
+          quoteRef={ostendoQuoteRef}
+          initialProductNames={
+            currentEnquiryAnalysis?.primaryRecommendation
+              ? [currentEnquiryAnalysis.primaryRecommendation.productName]
+              : ["Intense Light - 50W Solar", "Pro Blade Solar 75/125"]
+          }
+        />
       )}
     </div>
   );

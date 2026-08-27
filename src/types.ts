@@ -161,6 +161,8 @@ export interface Opportunity {
   nextActionDate: string;
   readinessScore: number;
   notes: string;
+  quoteNumber?: string;
+  ostendoQuoteRef?: string;
   rawEnquiry?: string;
   analysis?: EnquiryAnalysisResult;
 }

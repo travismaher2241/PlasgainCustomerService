@@ -18,10 +18,17 @@ import {
   Calendar,
   Layers,
   ArrowRight,
-  TrendingUp
+  TrendingUp,
+  Mail,
+  FileSpreadsheet,
+  Download,
+  Copy
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { CRMOpportunity, DealHealthRating } from "../../types/crm";
+import { CustomerFollowUpModal } from "../CustomerFollowUpModal";
+import { DatasheetPackageModal } from "../DatasheetPackageModal";
+import { formatOstendoCSV, formatOstendoTabDelimited } from "../../utils/datasheetExporter";
 
 export const CRMPipelineView: React.FC = () => {
   const {
@@ -36,13 +43,16 @@ export const CRMPipelineView: React.FC = () => {
     accounts,
     openQuickLog,
     navigateToCRM,
-    currentUser
+    currentUser,
+    showToast
   } = useApp();
 
   const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
   const [searchQuery, setSearchQuery] = useState("");
   const [healthFilter, setHealthFilter] = useState("all");
   const [isNewDealModalOpen, setIsNewDealModalOpen] = useState(false);
+  const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
+  const [isDatasheetModalOpen, setIsDatasheetModalOpen] = useState(false);
 
   // Active pipeline configuration
   const currentPipeline = pipelines.find((p) => p.id === activePipelineId) || pipelines[0];
@@ -380,8 +390,23 @@ export const CRMPipelineView: React.FC = () => {
               <h2 className="text-xl font-bold text-body">{selectedDeal.name}</h2>
               <p className="text-meta text-ink-dim mt-0.5">{selectedDeal.projectApplication} · {selectedDeal.location}</p>
             </div>
-
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setIsFollowUpModalOpen(true)}
+                className="px-3 py-1.5 text-meta font-bold bg-soon-wash text-soon border border-soon/30 rounded-edge hover:bg-soon transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                title="Generate tailored follow-up emails referencing Ostendo quotes"
+              >
+                <Mail className="w-3.5 h-3.5" />
+                <span>Follow-Up Generator</span>
+              </button>
+              <button
+                onClick={() => setIsDatasheetModalOpen(true)}
+                className="px-3 py-1.5 text-meta font-bold bg-paper hover:bg-raised text-body border border-line rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                title="Download consolidated PDF/HTML tender package with compliance statements"
+              >
+                <Download className="w-3.5 h-3.5 text-ink-dim" />
+                <span>Download Tender Package</span>
+              </button>
               <button
                 onClick={() => openQuickLog("call", selectedDeal.accountId, selectedDeal.id)}
                 className="px-3 py-1.5 text-meta font-semibold bg-white border border-line-strong rounded-edge hover:bg-raised"
@@ -404,9 +429,34 @@ export const CRMPipelineView: React.FC = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Column 1: Financials & Probability */}
+            {/* Column 1: Financials & Ostendo Integration */}
             <div className="p-4 bg-raised rounded-panel space-y-3 text-meta">
-              <div className="font-bold text-body border-b border-line pb-2">Commercial Summary</div>
+              <div className="font-bold text-body border-b border-line pb-2 flex items-center justify-between">
+                <span>Commercial &amp; Ostendo ERP</span>
+                <span className="text-spec font-normal text-ink-dim">Official Quoting in Ostendo</span>
+              </div>
+              
+              {/* Ostendo Quote Reference */}
+              <div className="p-2.5 bg-white rounded-edge border border-line space-y-1">
+                <label className="block text-spec font-bold uppercase text-brand-deep">
+                  Ostendo Quote Reference
+                </label>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="text"
+                    value={selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber || ""}
+                    onChange={(e) =>
+                      updateCrmOpportunity(selectedDeal.id, {
+                        ostendoQuoteRef: e.target.value,
+                        quoteNumber: e.target.value
+                      })
+                    }
+                    placeholder="e.g. OST-8924 / Q-2025"
+                    className="w-full p-1.5 text-meta font-mono font-bold bg-brand-wash text-brand-deep border border-brand-edge rounded focus:ring-1 focus:ring-brand"
+                  />
+                </div>
+              </div>
+
               <div className="flex justify-between">
                 <span className="text-ink-dim">Deal Value:</span>
                 <span className="font-bold text-body">${selectedDeal.dealValue.toLocaleString()}</span>
@@ -423,22 +473,68 @@ export const CRMPipelineView: React.FC = () => {
                 <span className="text-ink-dim">Target Close Date:</span>
                 <span className="font-semibold text-body">{selectedDeal.expectedCloseDate}</span>
               </div>
+
+              {/* Export for Ostendo Button */}
+              <button
+                onClick={() => {
+                  const items = selectedDeal.products.map((p) => ({
+                    code: p.productCode,
+                    name: p.productName,
+                    quantity: p.quantity,
+                    unitPrice: p.unitPrice,
+                    category: p.category
+                  }));
+                  if (items.length === 0) {
+                    items.push({
+                      code: "PLASGAIN-SOLAR",
+                      name: selectedDeal.name,
+                      quantity: 1,
+                      unitPrice: selectedDeal.dealValue
+                    });
+                  }
+                  // Tab delimited for fast copy-paste
+                  const tabData = formatOstendoTabDelimited(items);
+                  navigator.clipboard.writeText(tabData);
+                  // CSV download
+                  const csvData = formatOstendoCSV(items, selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber);
+                  const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement("a");
+                  link.setAttribute("href", url);
+                  link.setAttribute("download", `Ostendo_Line_Items_${selectedDeal.name.replace(/\s+/g, "_")}.csv`);
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+
+                  showToast("Copied Ostendo grid data & downloaded CSV for ERP entry!", "success");
+                }}
+                className="w-full mt-2 py-2 px-3 bg-white hover:bg-brand-wash text-brand-deep border border-brand-edge font-bold text-spec rounded-edge flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                title="Copy tab-delimited grid data and download CSV formatted for Ostendo ERP entry"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5" />
+                <span>Export Line Items for Ostendo</span>
+              </button>
             </div>
 
             {/* Column 2: Products & Luminaires */}
             <div className="p-4 bg-raised rounded-panel space-y-3 text-meta">
-              <div className="font-bold text-body border-b border-line pb-2">Luminaires & Bill of Materials</div>
+              <div className="font-bold text-body border-b border-line pb-2 flex justify-between items-center">
+                <span>Luminaires &amp; Bill of Materials</span>
+                <span className="text-spec font-bold text-brand-deep bg-brand-wash px-1.5 py-0.5 rounded">
+                  {selectedDeal.products.length} Items
+                </span>
+              </div>
               {selectedDeal.products.length === 0 ? (
-                <div className="text-ink-faint italic">No specific products line-items added yet.</div>
+                <div className="text-ink-faint italic py-2">No specific product line-items added yet.</div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-2 max-h-48 overflow-y-auto">
                   {selectedDeal.products.map((p, idx) => (
-                    <div key={idx} className="flex justify-between items-start text-body">
+                    <div key={idx} className="flex justify-between items-start text-body bg-white p-2 rounded border border-line">
                       <div>
-                        <div className="font-semibold">{p.productName}</div>
-                        <div className="text-spec text-ink-dim">Qty: {p.quantity}</div>
+                        <div className="font-semibold text-spec">{p.productName}</div>
+                        <div className="text-[11px] text-ink-dim">Code: {p.productCode || "N/A"} • Qty: {p.quantity}</div>
                       </div>
-                      {p.totalPrice && <span className="font-bold">${p.totalPrice.toLocaleString()}</span>}
+                      {p.totalPrice && <span className="font-bold text-spec">${p.totalPrice.toLocaleString()}</span>}
                     </div>
                   ))}
                 </div>
@@ -573,6 +669,33 @@ export const CRMPipelineView: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Customer Follow-Up Generator Modal */}
+      {isFollowUpModalOpen && selectedDeal && (
+        <CustomerFollowUpModal
+          isOpen={isFollowUpModalOpen}
+          onClose={() => setIsFollowUpModalOpen(false)}
+          dealId={selectedDeal.id}
+          accountId={selectedDeal.accountId}
+          initialContactName={selectedDeal.primaryContactName}
+          initialCompanyName={selectedDeal.accountName}
+          initialProjectName={selectedDeal.name}
+          initialQuoteRef={selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber || ""}
+          initialProducts={selectedDeal.products.map((p) => p.productName || p.productCode)}
+        />
+      )}
+
+      {/* Datasheet & Tender Spec Package Modal */}
+      {isDatasheetModalOpen && selectedDeal && (
+        <DatasheetPackageModal
+          isOpen={isDatasheetModalOpen}
+          onClose={() => setIsDatasheetModalOpen(false)}
+          projectName={selectedDeal.name}
+          customerName={selectedDeal.accountName}
+          quoteRef={selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber || ""}
+          initialProductNames={selectedDeal.products.map((p) => p.productName || p.productCode)}
+        />
       )}
     </div>
   );

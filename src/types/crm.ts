@@ -220,6 +220,7 @@ export interface CRMOpportunity {
   competitors?: string[];
   source: string;
   quoteNumber?: string;
+  ostendoQuoteRef?: string;
   quoteStatus?: "Draft" | "Sent" | "Viewed" | "Revising" | "Accepted" | "Declined" | "Expired" | "None";
   quoteValue?: number;
   quoteSentDate?: string;
