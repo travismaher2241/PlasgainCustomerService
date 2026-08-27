@@ -42,10 +42,8 @@ export type NavTab =
   | "new-enquiry"
   | "product-finder"
   | "ask-plasgain"
-  | "opportunities"
   | "documents"
   | "tools"
-  | "learn"
   | "settings";
 
 export type CRMSubTab =
@@ -57,12 +55,12 @@ export type CRMSubTab =
   | "analytics";
 
 export type ToolSubTab =
+  | "solar-autonomy"
+  | "wind-pole-sizing"
+  | "cable-cover-calc"
+  | "conflict-resolver"
   | "tender-analyser"
   | "quote-review"
-  | "customer-research"
-  | "call-prep"
-  | "call-notes"
-  | "follow-up"
   | "product-comparison";
 
 /** Who is signed in. Editable in Settings; persisted per browser. */
@@ -221,7 +219,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeTab, setActiveTab] = useState<NavTab>("home");
   const [activeCRMTab, setActiveCRMTab] = useState<CRMSubTab>("today");
-  const [activeToolTab, setActiveToolTab] = useState<ToolSubTab>("tender-analyser");
+  const [activeToolTab, setActiveToolTab] = useState<ToolSubTab>("solar-autonomy");
 
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     try {

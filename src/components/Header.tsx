@@ -1,5 +1,5 @@
 import React from "react";
-import { Search, Sparkles, BookOpen, Menu } from "lucide-react";
+import { Search, Sparkles, Menu } from "lucide-react";
 import { useApp, NavTab } from "../context/AppContext";
 
 interface HeaderProps {
@@ -12,7 +12,6 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
     setIsSearchOpen,
     isCopilotOpen,
     setIsCopilotOpen,
-    setExplainingTerm,
     selectedOpportunityId,
     opportunities
   } = useApp();
@@ -31,14 +30,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
         return "Product Matcher";
       case "ask-plasgain":
         return "Technical Assistant";
-      case "opportunities":
-        return "Opportunities Pipeline";
       case "documents":
         return "Product Catalogues";
       case "tools":
-        return "Sales Power Tools";
-      case "learn":
-        return "Learning Centre";
+        return "Engineering & Sales Calculators";
       case "settings":
         return "Settings";
       default:
@@ -63,8 +58,6 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
         <span className="truncate">
           {activeTab === "new-enquiry" && currentOpp
             ? currentOpp.project
-            : activeTab === "opportunities" && currentOpp
-            ? `${currentOpp.customerCompany} (${currentOpp.project})`
             : "Commercial & Solar Lighting"}
         </span>
       </div>
@@ -76,20 +69,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           className="flex items-center gap-2 text-meta text-ink-faint bg-paper hover:bg-raised px-2.5 py-1.5 rounded-edge border border-line hover:border-line-strong transition-colors cursor-pointer"
         >
           <Search className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Search specs &amp; docs</span>
+          <span className="hidden sm:inline">Search specs, terms &amp; docs</span>
           <kbd className="u-data hidden sm:inline-block ml-1 px-1 text-[0.625rem] text-ink-faint border border-line-strong rounded-[2px]">
             ⌘K
           </kbd>
-        </button>
-
-        {/* Glossary */}
-        <button
-          onClick={() => setExplainingTerm("Autonomy")}
-          className="hidden sm:flex items-center gap-1.5 text-meta font-medium text-ink-dim hover:text-ink px-2.5 py-1.5 rounded-edge border border-line hover:border-line-strong transition-colors cursor-pointer"
-          title="Quick lighting glossary & terminology"
-        >
-          <BookOpen className="w-3.5 h-3.5 text-brand-deep" />
-          <span>Lighting terms</span>
         </button>
 
         {/* Copilot */}

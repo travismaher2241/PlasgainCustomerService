@@ -218,12 +218,12 @@ export const HomeDashboard: React.FC = () => {
 
   const handleOpenOpportunity = (oppId: string) => {
     setSelectedOpportunityId(oppId);
-    navigateToWorkflow("opportunities", undefined, oppId);
+    navigateToCRM("pipeline", oppId);
   };
 
   const handlePrepCall = (oppId: string) => {
     setSelectedOpportunityId(oppId);
-    navigateToWorkflow("tools", "call-prep", oppId);
+    openQuickLog("call", undefined, oppId);
   };
 
   const handleReviewQuote = (oppId: string) => {
@@ -365,10 +365,10 @@ export const HomeDashboard: React.FC = () => {
             </button>
           )}
           <button
-            onClick={() => navigateToWorkflow("opportunities")}
+            onClick={() => navigateToCRM("pipeline")}
             className="ml-auto text-meta font-medium text-brand-deep hover:underline flex items-center gap-1 cursor-pointer"
           >
-            <span>All pipeline</span>
+            <span>All deals pipeline</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -542,20 +542,20 @@ export const HomeDashboard: React.FC = () => {
             </div>
           </button>
 
-          {/* Action 4: Prepare Call */}
+          {/* Action 4: Solar Sizing */}
           <button
-            onClick={() => navigateToWorkflow("tools", "call-prep", "opp-001")}
+            onClick={() => navigateToWorkflow("tools", "solar-autonomy")}
             className="p-3 rounded-panel bg-white hover:bg-raised border border-line hover:border-brand text-left transition-all cursor-pointer group shadow-2xs flex flex-col justify-between min-h-[74px]"
           >
             <div className="flex items-center justify-between">
               <div className="p-1.5 rounded-edge bg-soon-wash text-soon group-hover:scale-105 transition-transform">
-                <PhoneCall className="w-4 h-4" />
+                <Sparkles className="w-4 h-4" />
               </div>
               <ArrowRight className="w-3.5 h-3.5 text-ink-faint group-hover:text-brand-deep group-hover:translate-x-0.5 transition-all" />
             </div>
             <div className="mt-1">
-              <div className="text-meta font-bold group-hover:text-brand-deep">Prepare Call</div>
-              <div className="text-spec text-ink-dim truncate">Generate customer talking points</div>
+              <div className="text-meta font-bold group-hover:text-brand-deep">Solar Sizing</div>
+              <div className="text-spec text-ink-dim truncate">Battery autonomy & PV calculator</div>
             </div>
           </button>
 
@@ -577,19 +577,49 @@ export const HomeDashboard: React.FC = () => {
               </div>
               <div className="mt-1">
                 <div className="text-meta font-bold">More Tools</div>
-                <div className="text-spec text-ink-dim truncate">Catalogues, CRM, Quote Review...</div>
+                <div className="text-spec text-ink-dim truncate">Calculators, Catalogues, CRM...</div>
               </div>
             </button>
 
             {/* Dropdown Menu */}
             {isMoreToolsOpen && (
-              <div className="absolute right-0 bottom-full lg:bottom-auto lg:top-full mb-1 lg:mb-0 lg:mt-1 z-30 w-56 bg-white rounded-panel shadow-lg border border-line py-1.5 animate-in fade-in zoom-in-95 duration-150">
+              <div className="absolute right-0 bottom-full lg:bottom-auto lg:top-full mb-1 lg:mb-0 lg:mt-1 z-30 w-64 bg-white rounded-panel shadow-lg border border-line py-1.5 animate-in fade-in zoom-in-95 duration-150">
+                <button
+                  onClick={() => {
+                    setIsMoreToolsOpen(false);
+                    navigateToWorkflow("tools", "wind-pole-sizing");
+                  }}
+                  className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-ink-faint" />
+                  <span>Wind Region & Pole Sizing</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setIsMoreToolsOpen(false);
+                    navigateToWorkflow("tools", "cable-cover-calc");
+                  }}
+                  className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
+                >
+                  <Layers className="w-3.5 h-3.5 text-ink-faint" />
+                  <span>Polymeric Cable Cover Calc</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setIsMoreToolsOpen(false);
+                    navigateToWorkflow("tools", "conflict-resolver");
+                  }}
+                  className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
+                >
+                  <AlertCircle className="w-3.5 h-3.5 text-ink-faint" />
+                  <span>Conflict & Spec Resolver</span>
+                </button>
                 <button
                   onClick={() => {
                     setIsMoreToolsOpen(false);
                     navigateToWorkflow("documents");
                   }}
-                  className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
+                  className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer border-t border-line"
                 >
                   <BookOpen className="w-3.5 h-3.5 text-ink-faint" />
                   <span>Product Catalogues & PDFs</span>
@@ -597,42 +627,12 @@ export const HomeDashboard: React.FC = () => {
                 <button
                   onClick={() => {
                     setIsMoreToolsOpen(false);
-                    navigateToWorkflow("tools", "quote-review");
-                  }}
-                  className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
-                >
-                  <ClipboardCheck className="w-3.5 h-3.5 text-ink-faint" />
-                  <span>Review Quote Accuracy</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setIsMoreToolsOpen(false);
-                    navigateToWorkflow("crm");
+                    navigateToCRM("today");
                   }}
                   className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
                 >
                   <KanbanSquare className="w-3.5 h-3.5 text-ink-faint" />
                   <span>CRM Command Centre</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setIsMoreToolsOpen(false);
-                    navigateToWorkflow("tools", "customer-research");
-                  }}
-                  className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
-                >
-                  <Building className="w-3.5 h-3.5 text-ink-faint" />
-                  <span>Customer Intelligence</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setIsMoreToolsOpen(false);
-                    navigateToWorkflow("tools", "product-comparison");
-                  }}
-                  className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
-                >
-                  <Scale className="w-3.5 h-3.5 text-ink-faint" />
-                  <span>Product Comparison</span>
                 </button>
               </div>
             )}
@@ -650,7 +650,7 @@ export const HomeDashboard: React.FC = () => {
             Pipeline & Workload Overview
           </h2>
           <button
-            onClick={() => navigateToWorkflow("crm")}
+            onClick={() => navigateToCRM("pipeline")}
             className="text-meta font-semibold text-brand-deep hover:underline cursor-pointer"
           >
             Open Full CRM &rarr;
@@ -659,7 +659,7 @@ export const HomeDashboard: React.FC = () => {
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div
-            onClick={() => navigateToWorkflow("opportunities")}
+            onClick={() => navigateToCRM("pipeline")}
             className="bg-white p-3.5 rounded-panel border border-line hover:border-line-strong transition-colors cursor-pointer"
           >
             <div className="text-spec font-semibold text-ink-dim">Active Deals</div>
@@ -668,7 +668,7 @@ export const HomeDashboard: React.FC = () => {
           </div>
 
           <div
-            onClick={() => navigateToWorkflow("opportunities")}
+            onClick={() => navigateToCRM("pipeline")}
             className="bg-white p-3.5 rounded-panel border border-line hover:border-line-strong transition-colors cursor-pointer"
           >
             <div className="text-spec font-semibold text-ink-dim">In Technical Review</div>
@@ -679,7 +679,7 @@ export const HomeDashboard: React.FC = () => {
           </div>
 
           <div
-            onClick={() => navigateToWorkflow("opportunities")}
+            onClick={() => navigateToCRM("pipeline")}
             className="bg-white p-3.5 rounded-panel border border-line hover:border-line-strong transition-colors cursor-pointer"
           >
             <div className="text-spec font-semibold text-ink-dim">Pending Quotes</div>

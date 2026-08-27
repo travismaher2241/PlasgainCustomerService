@@ -9,10 +9,8 @@ const HomeDashboard = lazy(() => import("./components/HomeDashboard").then(m => 
 const NewEnquiryWorkspace = lazy(() => import("./components/NewEnquiryWorkspace").then(m => ({ default: m.NewEnquiryWorkspace })));
 const ProductFinder = lazy(() => import("./components/ProductFinder").then(m => ({ default: m.ProductFinder })));
 const AskPlasgain = lazy(() => import("./components/AskPlasgain").then(m => ({ default: m.AskPlasgain })));
-const OpportunitiesPipeline = lazy(() => import("./components/OpportunitiesPipeline").then(m => ({ default: m.OpportunitiesPipeline })));
 const DocumentLibrary = lazy(() => import("./components/DocumentLibrary").then(m => ({ default: m.DocumentLibrary })));
 const ToolsHub = lazy(() => import("./components/ToolsHub").then(m => ({ default: m.ToolsHub })));
-const LearningCentre = lazy(() => import("./components/LearningCentre").then(m => ({ default: m.LearningCentre })));
 const SettingsView = lazy(() => import("./components/SettingsView").then(m => ({ default: m.SettingsView })));
 const CRMCommandCenter = lazy(() => import("./components/crm/CRMCommandCenter").then(m => ({ default: m.CRMCommandCenter })));
 const CRMQuickLogModal = lazy(() => import("./components/crm/CRMQuickLogModal").then(m => ({ default: m.CRMQuickLogModal })));
@@ -50,10 +48,8 @@ const MainLayout: React.FC = () => {
               {activeTab === "new-enquiry" && <NewEnquiryWorkspace />}
               {activeTab === "product-finder" && <ProductFinder />}
               {activeTab === "ask-plasgain" && <AskPlasgain />}
-              {activeTab === "opportunities" && <OpportunitiesPipeline />}
               {activeTab === "documents" && <DocumentLibrary />}
               {activeTab === "tools" && <ToolsHub />}
-              {activeTab === "learn" && <LearningCentre />}
               {activeTab === "settings" && <SettingsView />}
             </Suspense>
           </div>

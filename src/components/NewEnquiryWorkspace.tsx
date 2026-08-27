@@ -44,6 +44,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
     setExplainingTerm,
     showToast,
     navigateToWorkflow,
+    navigateToCRM,
     currentUser
   } = useApp();
 
@@ -272,8 +273,8 @@ export const NewEnquiryWorkspace: React.FC = () => {
       notes: newOpp.notes
     });
 
-    showToast("Saved opportunity to CRM Command Centre!", "success");
-    navigateToWorkflow("opportunities");
+    showToast("Saved opportunity to CRM Deals Pipeline!", "success");
+    navigateToCRM("pipeline", crmOppId);
   };
 
   const renderStatusBadge = (field: StatusField) => {

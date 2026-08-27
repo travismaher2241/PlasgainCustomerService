@@ -87,8 +87,9 @@ describe('HomeDashboard', () => {
   it('opens the More Tools menu', () => {
     renderHome();
     fireEvent.click(screen.getByText(/More Tools/i));
+    expect(screen.getByText(/Wind Region & Pole Sizing/i)).toBeInTheDocument();
+    expect(screen.getByText(/Polymeric Cable Cover Calc/i)).toBeInTheDocument();
+    expect(screen.getByText(/Conflict & Spec Resolver/i)).toBeInTheDocument();
     expect(screen.getByText(/Product Catalogues & PDFs/i)).toBeInTheDocument();
-    expect(screen.getByText(/Review Quote Accuracy/i)).toBeInTheDocument();
-    expect(screen.getByText(/Customer Intelligence/i)).toBeInTheDocument();
   });
 });

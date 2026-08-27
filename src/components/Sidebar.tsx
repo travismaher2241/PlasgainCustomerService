@@ -6,7 +6,6 @@ import {
   KanbanSquare,
   BookOpen,
   Wrench,
-  GraduationCap,
   SlidersHorizontal,
   X
 } from "lucide-react";
@@ -19,7 +18,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) => {
-  const { activeTab, setActiveTab, opportunities, currentUser } = useApp();
+  const { activeTab, setActiveTab, currentUser } = useApp();
 
   const navItems: {
     id: NavTab;
@@ -31,10 +30,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
     { id: "crm", label: "CRM Command Centre", icon: KanbanSquare },
     { id: "new-enquiry", label: "New Enquiry", icon: FilePlus2 },
     { id: "product-finder", label: "Product Finder", icon: SearchCode },
-    { id: "opportunities", label: "Opportunities", icon: KanbanSquare, badge: opportunities.length },
     { id: "documents", label: "Product Catalogues", icon: BookOpen },
     { id: "tools", label: "Tools", icon: Wrench },
-    { id: "learn", label: "Learn", icon: GraduationCap },
     { id: "settings", label: "Settings", icon: SlidersHorizontal }
   ];
 

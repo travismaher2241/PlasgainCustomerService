@@ -21,11 +21,11 @@ describe('Sidebar Component', () => {
     expect(screen.getByText('CRM Command Centre')).toBeInTheDocument();
     expect(screen.getByText('New Enquiry')).toBeInTheDocument();
     expect(screen.getByText('Product Finder')).toBeInTheDocument();
-    expect(screen.getByText('Opportunities')).toBeInTheDocument();
     expect(screen.getByText('Product Catalogues')).toBeInTheDocument();
     expect(screen.getByText('Tools')).toBeInTheDocument();
-    expect(screen.getByText('Learn')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
+    expect(screen.queryByText('Opportunities')).not.toBeInTheDocument();
+    expect(screen.queryByText('Learn')).not.toBeInTheDocument();
   });
 
   it('handles navigation item click and closes mobile menu if callback provided', () => {

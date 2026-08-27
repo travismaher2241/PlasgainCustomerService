@@ -21,6 +21,7 @@ export const GlobalSearchModal: React.FC = () => {
     documents,
     glossary,
     navigateToWorkflow,
+    navigateToCRM,
     setExplainingTerm
   } = useApp();
 
@@ -160,7 +161,7 @@ export const GlobalSearchModal: React.FC = () => {
                   <button
                     key={o.id}
                     onClick={() =>
-                      handleSelect(() => navigateToWorkflow("opportunities", undefined, o.id))
+                      handleSelect(() => navigateToCRM("pipeline", o.id))
                     }
                     className="w-full flex items-center justify-between p-2 rounded-edge hover:bg-raised text-left transition-colors cursor-pointer"
                   >

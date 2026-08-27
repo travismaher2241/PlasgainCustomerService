@@ -24,12 +24,16 @@ describe('Main App Component', () => {
     const toolsNav = screen.getByText('Tools');
     fireEvent.click(toolsNav);
 
-    expect(await screen.findByText(/Sales Power Tools Hub/i, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText(/Engineering & Sales Calculators/i, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText(/Solar Autonomy & Battery Sizing/i, {}, { timeout: 5000 })).toBeInTheDocument();
 
-    // Click Learn
-    const learnNav = screen.getByText('Learn');
-    fireEvent.click(learnNav);
+    // Click New Enquiry
+    const enquiryNav = screen.getByText('New Enquiry');
+    fireEvent.click(enquiryNav);
 
-    expect(await screen.findByText(/5-Minute Micro-Lessons/i, {}, { timeout: 5000 })).toBeInTheDocument();
+    expect(await screen.findByText(/Enquiry Analysis Workspace/i, {}, { timeout: 5000 })).toBeInTheDocument();
+
+    // Verify Learn is not in sidebar
+    expect(screen.queryByText('Learn')).not.toBeInTheDocument();
   });
 });

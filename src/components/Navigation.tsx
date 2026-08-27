@@ -7,23 +7,21 @@ import {
   KanbanSquare,
   FileText,
   Wrench,
-  GraduationCap,
   SlidersHorizontal
 } from "lucide-react";
 import { useApp, NavTab } from "../context/AppContext";
 
 export const Navigation: React.FC = () => {
-  const { activeTab, setActiveTab, opportunities } = useApp();
+  const { activeTab, setActiveTab } = useApp();
 
   const navItems: { id: NavTab; label: string; icon: React.ComponentType<{ className?: string }>; badge?: number | string }[] = [
     { id: "home", label: "Home", icon: Home },
+    { id: "crm", label: "CRM", icon: KanbanSquare },
     { id: "new-enquiry", label: "New Enquiry", icon: FilePlus2, badge: "AI" },
     { id: "product-finder", label: "Product Finder", icon: SearchCode },
     { id: "ask-plasgain", label: "Ask Plasgain", icon: MessageSquareQuote },
-    { id: "opportunities", label: "Opportunities", icon: KanbanSquare, badge: opportunities.length },
     { id: "documents", label: "Documents", icon: FileText },
     { id: "tools", label: "Tools", icon: Wrench },
-    { id: "learn", label: "Learn", icon: GraduationCap },
     { id: "settings", label: "Settings", icon: SlidersHorizontal }
   ];
 
