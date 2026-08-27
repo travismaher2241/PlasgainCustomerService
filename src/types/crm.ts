@@ -190,7 +190,10 @@ export interface OpportunityProductLine {
   quantity: number;
   unit?: string;
   unitPrice?: number;
+  costPrice?: number;
   totalPrice?: number;
+  marginPercent?: number;
+  isOstendoVerified?: boolean;
   notes?: string;
 }
 
@@ -209,6 +212,8 @@ export interface CRMOpportunity {
   stageId: string;
   stageName: string;
   dealValue: number;
+  totalCostValue?: number;
+  grossMarginPercent?: number;
   weightedValue: number;
   probability: number;
   forecastCategory: ForecastCategory;
@@ -216,15 +221,20 @@ export interface CRMOpportunity {
   products: OpportunityProductLine[];
   projectApplication: string;
   location: string;
+  windRegion?: "Region A" | "Region B" | "Region C" | "Region D";
+  foundationType?: "Direct Burial" | "Base Plate (Ragbolt)";
   customerNeed: string;
   keyRequirements: string[];
   competitors?: string[];
   source: string;
   quoteNumber?: string;
   ostendoQuoteRef?: string;
-  quoteStatus?: "Draft" | "Sent" | "Viewed" | "Revising" | "Accepted" | "Declined" | "Expired" | "None";
+  quoteRevision?: string;
+  quoteStatus?: "Draft" | "Sent" | "Viewed" | "Revising" | "Accepted" | "Declined" | "Expired" | "None" | "Issued" | "Client Review" | "PO Received";
   quoteValue?: number;
   quoteSentDate?: string;
+  quoteIssuedDate?: string;
+  quoteExpiryDate?: string;
   latestActivity: string;
   latestActivityDate: string;
   nextAction: string;

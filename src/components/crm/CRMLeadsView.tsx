@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Flame,
   UserCheck,
@@ -14,20 +14,39 @@ import {
   Calendar,
   Layers,
   ChevronRight,
-  HelpCircle
+  HelpCircle,
+  Building2,
+  Link2,
+  GitMerge,
+  AlertCircle,
+  Check,
+  X
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { CRMLead, LeadStatus } from "../../types/crm";
 
 export const CRMLeadsView: React.FC = () => {
-  const { leads, updateLead, addLead, convertLead, accounts, openQuickLog, navigateToCRM,
-    currentUser
+  const {
+    leads,
+    updateLead,
+    addLead,
+    convertLead,
+    accounts,
+    contacts,
+    openQuickLog,
+    navigateToCRM,
+    currentUser,
+    showToast
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(leads[0]?.id || null);
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
+
+  // FEAT-05: Conversion & Deduplication Modal State
+  const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
+  const [convertTargetAccountId, setConvertTargetAccountId] = useState<string>("");
 
   const [newLeadForm, setNewLeadForm] = useState({
     leadName: "",
@@ -52,6 +71,35 @@ export const CRMLeadsView: React.FC = () => {
   });
 
   const selectedLead = leads.find((l) => l.id === selectedLeadId) || filteredLeads[0];
+
+  // FEAT-05: Deduplication & Smart Domain Matching
+  const matchedAccountInfo = useMemo(() => {
+    if (!selectedLead) return null;
+
+    // 1. Exact company match
+    const exact = accounts.find((a) => a.name.toLowerCase() === selectedLead.company.toLowerCase());
+    if (exact) return { account: exact, matchType: "Exact Company Name Match" };
+
+    // 2. Email domain matching (excluding generic webmails)
+    const emailDomain = selectedLead.contactEmail?.split("@")[1]?.toLowerCase();
+    if (emailDomain && !["gmail.com", "outlook.com", "hotmail.com", "yahoo.com", "bigpond.com"].includes(emailDomain)) {
+      const domainKeyword = emailDomain.split(".")[0];
+      const matchByDomain = accounts.find(
+        (a) => a.name.toLowerCase().includes(domainKeyword) || (a as any).website?.toLowerCase().includes(emailDomain)
+      );
+      if (matchByDomain) return { account: matchByDomain, matchType: `Corporate Domain Match (@${emailDomain})` };
+    }
+
+    // 3. Fuzzy company substring matching
+    const fuzzy = accounts.find(
+      (a) =>
+        (a.name.toLowerCase().length > 4 && selectedLead.company.toLowerCase().includes(a.name.toLowerCase())) ||
+        (selectedLead.company.toLowerCase().length > 4 && a.name.toLowerCase().includes(selectedLead.company.toLowerCase()))
+    );
+    if (fuzzy) return { account: fuzzy, matchType: "Company Name Similarity" };
+
+    return null;
+  }, [selectedLead, accounts]);
 
   const handleCreateLead = (e: React.FormEvent) => {
     e.preventDefault();
@@ -92,8 +140,18 @@ export const CRMLeadsView: React.FC = () => {
     setIsNewLeadModalOpen(false);
   };
 
-  const handleConvert = (leadId: string) => {
-    const result = convertLead(leadId);
+  const handleOpenConvertModal = () => {
+    if (!selectedLead) return;
+    setConvertTargetAccountId(matchedAccountInfo?.account?.id || "");
+    setIsConvertModalOpen(true);
+  };
+
+  const handleExecuteConvert = () => {
+    if (!selectedLead) return;
+    const targetAccId = convertTargetAccountId || undefined;
+    const result = convertLead(selectedLead.id, targetAccId);
+    showToast(`Successfully converted lead "${selectedLead.leadName}" into Deals Pipeline!`, "success");
+    setIsConvertModalOpen(false);
     navigateToCRM("pipeline", result.oppId);
   };
 
@@ -121,78 +179,87 @@ export const CRMLeadsView: React.FC = () => {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      {/* Top Header */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-line pb-4">
         <div>
-          <h1 className="text-2xl font-bold text-body tracking-tight">Leads & Inbound Ingestion</h1>
-          <p className="text-body text-ink-dim">
-            Automated lead scoring (0-100), qualification, and one-click conversion into Accounts and Deals.
+          <h1 className="text-2xl font-bold text-body tracking-tight">Inbound Leads &amp; Qualification</h1>
+          <p className="text-meta text-ink-dim">
+            Automated lead scoring, domain deduplication, and 1-click pipeline conversion.
           </p>
         </div>
-        <button
-          onClick={() => setIsNewLeadModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-meta font-semibold text-white bg-brand-deep rounded-edge hover:bg-brand-deep shadow-sm transition-colors self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" /> Add Lead
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsNewLeadModalOpen(true)}
+            className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-xs flex items-center gap-2 transition-colors cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Ingest Lead</span>
+          </button>
+        </div>
       </div>
 
-      {/* 2-Column Split: Leads List vs Lead Detail & Convert */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Side: Directory (5 Columns) */}
-        <div className="lg:col-span-5 bg-white rounded-panel border border-line shadow-sm overflow-hidden flex flex-col h-[750px]">
-          {/* Filter Header */}
-          <div className="p-3.5 border-b border-line space-y-2.5 bg-raised">
-            <div className="relative">
-              <Search className="w-4 h-4 text-ink-faint absolute left-3 top-2.5" />
-              <input
-                type="text"
-                placeholder="Search leads by company, contact, title..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 text-meta bg-white border border-line rounded-edge focus:outline-none focus:ring-2 focus:ring-brand"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full text-meta py-1 px-2 bg-white border border-line rounded-edge"
-              >
-                <option value="all">All Lead Statuses</option>
-                <option value="New">New</option>
-                <option value="Attempting Contact">Attempting Contact</option>
-                <option value="Qualifying">Qualifying</option>
-                <option value="Converted">Converted</option>
-              </select>
-            </div>
-          </div>
+      {/* Filter & Search Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-3 rounded-panel border border-line shadow-xs">
+        <div className="flex items-center gap-2 flex-1 max-w-md">
+          <Search className="w-4 h-4 text-ink-faint" />
+          <input
+            type="text"
+            placeholder="Search leads by company, contact, project..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full text-meta bg-transparent focus:outline-none"
+          />
+        </div>
 
-          {/* Leads Scroll List */}
-          <div className="divide-y divide-line overflow-y-auto flex-1">
+        <div className="flex items-center gap-2">
+          {["all", "New", "Contacted", "Qualified", "Converted"].map((status) => (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              className={`px-3 py-1 text-meta font-semibold rounded-edge capitalize transition-colors cursor-pointer ${
+                statusFilter === status
+                  ? "bg-brand-deep text-white"
+                  : "bg-paper text-body hover:bg-raised"
+              }`}
+            >
+              {status}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Main Master-Detail Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Side: Lead Feed (5 Columns) */}
+        <div className="lg:col-span-5 bg-white rounded-panel border border-line shadow-sm overflow-hidden flex flex-col">
+          <div className="p-3 bg-paper border-b border-line text-spec font-bold text-ink-dim uppercase">
+            Active Leads ({filteredLeads.length})
+          </div>
+          <div className="divide-y divide-line overflow-y-auto max-h-[700px]">
             {filteredLeads.length === 0 ? (
-              <div className="p-8 text-center text-meta text-ink-dim">No matching leads found.</div>
+              <div className="p-8 text-center text-meta text-ink-dim">No leads found matching your filter.</div>
             ) : (
               filteredLeads.map((l) => {
-                const isSelected = l.id === selectedLead?.id;
+                const isSelected = selectedLead?.id === l.id;
                 return (
                   <div
                     key={l.id}
                     onClick={() => setSelectedLeadId(l.id)}
-                    className={`p-3.5 cursor-pointer transition-colors ${
-                      isSelected ? "bg-brand-wash border-l-4 border-brand-deep" : "hover:bg-raised"
+                    className={`p-4 cursor-pointer transition-colors space-y-2 ${
+                      isSelected ? "bg-brand-wash/50 border-l-4 border-l-brand-deep" : "hover:bg-raised"
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-0.5">
-                        <div className="text-meta font-bold leading-snug">{l.leadName}</div>
-                        <div className="text-spec text-ink-dim">{l.company} · {l.contactName}</div>
+                      <div>
+                        <div className="font-bold text-body text-meta">{l.company}</div>
+                        <div className="text-spec text-ink-dim font-medium">{l.leadName}</div>
                       </div>
                       {getScoreBadge(l.leadScore)}
                     </div>
-                    <div className="mt-2 flex items-center justify-between text-spec text-ink-dim">
-                      <span>Est: <strong className="text-body font-semibold">${l.estimatedValue.toLocaleString()}</strong></span>
-                      <span className="font-semibold text-ink-dim">{l.leadStatus}</span>
+
+                    <div className="flex items-center justify-between text-spec text-ink-dim pt-1">
+                      <span>{l.contactName}</span>
+                      <span className="font-bold text-body">${l.estimatedValue.toLocaleString()}</span>
                     </div>
                   </div>
                 );
@@ -222,10 +289,10 @@ export const CRMLeadsView: React.FC = () => {
 
               {selectedLead.leadStatus !== "Converted" ? (
                 <button
-                  onClick={() => handleConvert(selectedLead.id)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-meta font-bold text-white bg-brand-deep rounded-edge hover:bg-brand-deep shadow-sm transition-colors"
+                  onClick={handleOpenConvertModal}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 text-meta font-bold text-white bg-brand-deep rounded-edge hover:bg-brand shadow-sm transition-colors cursor-pointer"
                 >
-                  <UserCheck className="w-4 h-4" /> Convert to Deal & Account
+                  <UserCheck className="w-4 h-4" /> Convert to Deal &amp; Account
                 </button>
               ) : (
                 <span className="px-3 py-1 bg-brand-wash text-brand-deep text-meta font-bold rounded-edge flex items-center gap-1">
@@ -233,6 +300,29 @@ export const CRMLeadsView: React.FC = () => {
                 </span>
               )}
             </div>
+
+            {/* FEAT-05: Smart Deduplication / Account Match Banner */}
+            {matchedAccountInfo && selectedLead.leadStatus !== "Converted" && (
+              <div className="p-3.5 bg-brand-wash/80 rounded-edge border border-brand-edge flex items-start gap-3 text-meta animate-in fade-in duration-150">
+                <GitMerge className="w-5 h-5 text-brand-deep shrink-0 mt-0.5" />
+                <div className="space-y-1 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-brand-deep text-spec uppercase">
+                      Existing CRM Account Detected ({matchedAccountInfo.matchType})
+                    </span>
+                    <span className="text-[11px] font-bold text-brand-deep bg-white px-2 py-0.5 rounded border border-brand-edge">
+                      {matchedAccountInfo.account.status}
+                    </span>
+                  </div>
+                  <p className="text-spec text-body font-semibold">
+                    Matching Account: <strong>{matchedAccountInfo.account.name}</strong> · Owner: {matchedAccountInfo.account.accountOwner} · Territory: {matchedAccountInfo.account.territory}
+                  </p>
+                  <p className="text-[11px] text-ink-dim">
+                    Converting this lead will automatically link the new deal and contact to <strong>{matchedAccountInfo.account.name}</strong> to prevent duplicate customer records.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Contact Details Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-meta">
@@ -252,7 +342,7 @@ export const CRMLeadsView: React.FC = () => {
               </div>
 
               <div className="p-4 bg-raised rounded-panel space-y-2">
-                <div className="font-bold text-body border-b border-line pb-1">Scope & Estimation</div>
+                <div className="font-bold text-body border-b border-line pb-1">Scope &amp; Estimation</div>
                 <div className="flex justify-between">
                   <span className="text-ink-dim">Estimated Value:</span>
                   <span className="font-bold text-body">${selectedLead.estimatedValue.toLocaleString()}</span>
@@ -290,7 +380,7 @@ export const CRMLeadsView: React.FC = () => {
             {/* Customer Need Notes */}
             {selectedLead.notes && (
               <div className="p-4 bg-raised rounded-panel border border-line text-meta space-y-1">
-                <div className="font-bold text-body">Raw Enquiry Content & Specifics</div>
+                <div className="font-bold text-body">Raw Enquiry Content &amp; Specifics</div>
                 <p className="text-ink-dim leading-relaxed">{selectedLead.notes}</p>
               </div>
             )}
@@ -303,7 +393,7 @@ export const CRMLeadsView: React.FC = () => {
               </div>
               <button
                 onClick={() => openQuickLog("call", undefined, undefined)}
-                className="px-3 py-1.5 font-semibold text-white bg-brand-deep rounded-edge hover:bg-brand-deep"
+                className="px-3 py-1.5 font-semibold text-white bg-brand-deep rounded-edge hover:bg-brand cursor-pointer"
               >
                 Log Call
               </button>
@@ -312,13 +402,110 @@ export const CRMLeadsView: React.FC = () => {
         )}
       </div>
 
+      {/* FEAT-05: Lead Conversion & Deduplication Modal */}
+      {isConvertModalOpen && selectedLead && (
+        <div className="fixed inset-0 bg-chrome/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div className="flex items-center gap-2">
+                <UserCheck className="w-5 h-5 text-brand-deep" />
+                <h3 className="text-lg font-bold text-body">
+                  Convert Lead to Pipeline Deal
+                </h3>
+              </div>
+              <button
+                onClick={() => setIsConvertModalOpen(false)}
+                className="text-ink-faint hover:text-ink p-1 rounded cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-meta">
+              <div>
+                <span className="text-spec font-bold text-ink-dim uppercase">Lead Summary</span>
+                <div className="p-3 bg-paper rounded-edge border border-line font-medium text-body mt-1">
+                  <strong>{selectedLead.company}</strong> — {selectedLead.leadName} (${selectedLead.estimatedValue.toLocaleString()})
+                  <div className="text-spec text-ink-dim mt-0.5">Contact: {selectedLead.contactName} ({selectedLead.contactEmail})</div>
+                </div>
+              </div>
+
+              {/* Deduplication & Account Linkage Choice */}
+              <div>
+                <label className="block text-spec font-bold uppercase text-ink-dim mb-1.5">
+                  Target Customer Account
+                </label>
+                <div className="space-y-2">
+                  {matchedAccountInfo && (
+                    <label className="flex items-start gap-2.5 p-3 rounded-edge border border-brand-edge bg-brand-wash/60 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="accountOption"
+                        checked={convertTargetAccountId === matchedAccountInfo.account.id}
+                        onChange={() => setConvertTargetAccountId(matchedAccountInfo.account.id)}
+                        className="mt-1 accent-brand-deep"
+                      />
+                      <div>
+                        <div className="font-bold text-body flex items-center gap-1.5">
+                          <Check className="w-3.5 h-3.5 text-brand-deep" />
+                          <span>Link to Existing Account: {matchedAccountInfo.account.name}</span>
+                        </div>
+                        <p className="text-[11px] text-ink-dim mt-0.5">
+                          Recommended: Matches by {matchedAccountInfo.matchType}. Avoids duplicate account entries.
+                        </p>
+                      </div>
+                    </label>
+                  )}
+
+                  <label className="flex items-start gap-2.5 p-3 rounded-edge border border-line bg-white hover:bg-raised cursor-pointer">
+                    <input
+                      type="radio"
+                      name="accountOption"
+                      checked={convertTargetAccountId === ""}
+                      onChange={() => setConvertTargetAccountId("")}
+                      className="mt-1 accent-brand-deep"
+                    />
+                    <div>
+                      <div className="font-bold text-body">
+                        Create New Account: "{selectedLead.company}"
+                      </div>
+                      <p className="text-[11px] text-ink-dim mt-0.5">
+                        Creates a brand-new Account record in the CRM.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
+                <button
+                  type="button"
+                  onClick={() => setIsConvertModalOpen(false)}
+                  className="px-3.5 py-2 text-ink-dim hover:text-ink font-medium cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExecuteConvert}
+                  className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-xs cursor-pointer flex items-center gap-1.5 transition-colors"
+                >
+                  <UserCheck className="w-4 h-4" />
+                  <span>Confirm &amp; Open Deal</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* New Lead Modal */}
       {isNewLeadModalOpen && (
         <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-line pb-3">
               <h3 className="text-lg font-bold text-body">Ingest New Lead</h3>
-              <button onClick={() => setIsNewLeadModalOpen(false)} className="text-ink-faint hover:text-ink-dim text-body">
+              <button onClick={() => setIsNewLeadModalOpen(false)} className="text-ink-faint hover:text-ink-dim text-body cursor-pointer">
                 ✕
               </button>
             </div>
@@ -377,15 +564,15 @@ export const CRMLeadsView: React.FC = () => {
                     className="w-full p-2 border border-line-strong rounded-edge"
                   >
                     <option value="Solar Pathway Lighting">Solar Pathway Lighting</option>
-                    <option value="Roadway & Streetlight">Roadway & Streetlight</option>
-                    <option value="Car Park & Area">Car Park & Area</option>
+                    <option value="Roadway & Streetlight">Roadway &amp; Streetlight</option>
+                    <option value="Car Park & Area">Car Park &amp; Area</option>
                     <option value="Composite Poles">Composite Poles</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block font-semibold text-body mb-1">Enquiry Details & Requirements</label>
+                <label className="block font-semibold text-body mb-1">Enquiry Details &amp; Requirements</label>
                 <textarea
                   rows={3}
                   placeholder="Paste raw email or tender spec details..."
@@ -399,13 +586,13 @@ export const CRMLeadsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsNewLeadModalOpen(false)}
-                  className="px-4 py-2 text-ink-dim hover:text-ink"
+                  className="px-4 py-2 text-ink-dim hover:text-ink cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 font-semibold text-white bg-brand-deep rounded-edge hover:bg-brand-deep"
+                  className="px-4 py-2 font-semibold text-white bg-brand-deep rounded-edge hover:bg-brand cursor-pointer"
                 >
                   Ingest Lead
                 </button>

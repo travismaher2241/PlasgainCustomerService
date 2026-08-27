@@ -22,12 +22,19 @@ import {
   Mail,
   FileSpreadsheet,
   Download,
-  Copy
+  Copy,
+  Trash2,
+  Sliders,
+  Tag,
+  Check,
+  Package,
+  RefreshCw
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
-import { CRMOpportunity, DealHealthRating } from "../../types/crm";
+import { CRMOpportunity, DealHealthRating, OpportunityProductLine } from "../../types/crm";
 import { CustomerFollowUpModal } from "../CustomerFollowUpModal";
 import { DatasheetPackageModal } from "../DatasheetPackageModal";
+import { SAMPLE_PRODUCTS } from "../../data/mockData";
 import {
   formatOstendoCSV,
   formatOstendoTabDelimited,
@@ -70,6 +77,30 @@ export const CRMPipelineView: React.FC = () => {
   const [isNewDealModalOpen, setIsNewDealModalOpen] = useState(false);
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
   const [isDatasheetModalOpen, setIsDatasheetModalOpen] = useState(false);
+
+  // BOM Editor local state
+  const [isAddingBomLine, setIsAddingBomLine] = useState(false);
+  const [newBomLine, setNewBomLine] = useState<{
+    catalogId: string;
+    productCode: string;
+    productName: string;
+    category: string;
+    quantity: number;
+    unitPrice: number;
+    costPrice: number;
+    unit: string;
+  }>({
+    catalogId: "",
+    productCode: "50W-INTENSE",
+    productName: "Intense Light - 50W Solar",
+    category: "Solar Luminaire",
+    quantity: 10,
+    unitPrice: 1600,
+    costPrice: 1000,
+    unit: "ea"
+  });
+  const [targetMarginSlider, setTargetMarginSlider] = useState<number>(35);
+  const [showIncGst, setShowIncGst] = useState<boolean>(false);
 
   // Active pipeline configuration
   const currentPipeline = pipelines.find((p) => p.id === activePipelineId) || pipelines[0];
@@ -470,20 +501,31 @@ export const CRMPipelineView: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Column 1: Financials & Ostendo Integration */}
-            <div className="p-4 bg-raised rounded-panel space-y-3 text-meta">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Column 1: FEAT-06 Ostendo Quote Lifecycle Tracking */}
+            <div className="p-4 bg-raised rounded-panel space-y-3 text-meta border border-line">
               <div className="font-bold text-body border-b border-line pb-2 flex items-center justify-between">
-                <span>Commercial &amp; Ostendo ERP</span>
-                <span className="text-spec font-normal text-ink-dim">Official Quoting in Ostendo</span>
+                <span className="flex items-center gap-1.5 text-body">
+                  <FileSpreadsheet className="w-4 h-4 text-brand-deep" />
+                  <span>Ostendo ERP Quote Lifecycle</span>
+                </span>
+                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                  (selectedDeal.quoteStatus === "PO Received" || selectedDeal.quoteStatus === "Accepted")
+                    ? "bg-brand-wash text-brand-deep border border-brand-edge"
+                    : selectedDeal.quoteStatus === "Expired"
+                    ? "bg-urgent-wash text-urgent border border-urgent/30"
+                    : "bg-paper text-ink-dim border border-line"
+                }`}>
+                  {selectedDeal.quoteStatus || "Draft"}
+                </span>
               </div>
               
-              {/* Ostendo Quote Reference */}
-              <div className="p-2.5 bg-white rounded-edge border border-line space-y-1">
-                <label className="block text-spec font-bold uppercase text-brand-deep">
-                  Ostendo Quote Reference
-                </label>
-                <div className="flex items-center gap-1.5">
+              {/* Quote Reference & Revision */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-ink-dim mb-0.5">
+                    Quote Number
+                  </label>
                   <input
                     type="text"
                     value={selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber || ""}
@@ -493,31 +535,138 @@ export const CRMPipelineView: React.FC = () => {
                         quoteNumber: e.target.value
                       })
                     }
-                    placeholder="e.g. OST-8924 / Q-2025"
-                    className="w-full p-1.5 text-meta font-mono font-bold bg-brand-wash text-brand-deep border border-brand-edge rounded focus:ring-1 focus:ring-brand"
+                    placeholder="e.g. Q-88210"
+                    className="w-full p-1.5 text-spec font-mono font-bold bg-white text-brand-deep border border-line rounded focus:ring-1 focus:ring-brand"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-ink-dim mb-0.5">
+                    Revision
+                  </label>
+                  <select
+                    value={selectedDeal.quoteRevision || "Rev A"}
+                    onChange={(e) =>
+                      updateCrmOpportunity(selectedDeal.id, {
+                        quoteRevision: e.target.value
+                      })
+                    }
+                    className="w-full p-1.5 text-spec font-bold bg-white text-body border border-line rounded"
+                  >
+                    <option value="Rev A">Rev A (Original)</option>
+                    <option value="Rev B">Rev B (Updated)</option>
+                    <option value="Rev C">Rev C (Value Engineered)</option>
+                    <option value="Rev D">Rev D (Final Tender)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Status & Expiry Date */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-ink-dim mb-0.5">
+                    Quote Status
+                  </label>
+                  <select
+                    value={selectedDeal.quoteStatus || "Issued"}
+                    onChange={(e) =>
+                      updateCrmOpportunity(selectedDeal.id, {
+                        quoteStatus: e.target.value as any
+                      })
+                    }
+                    className="w-full p-1.5 text-spec font-medium bg-white text-body border border-line rounded"
+                  >
+                    <option value="Draft">Draft (Estimating)</option>
+                    <option value="Issued">Issued to Client</option>
+                    <option value="Client Review">Client Review</option>
+                    <option value="Revised">Revised</option>
+                    <option value="PO Received">PO Received (Won)</option>
+                    <option value="Expired">Expired</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-ink-dim mb-0.5">
+                    Expiry Date
+                  </label>
+                  <input
+                    type="date"
+                    value={selectedDeal.quoteExpiryDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
+                    onChange={(e) =>
+                      updateCrmOpportunity(selectedDeal.id, {
+                        quoteExpiryDate: e.target.value
+                      })
+                    }
+                    className="w-full p-1.5 text-spec font-medium bg-white text-body border border-line rounded"
                   />
                 </div>
               </div>
 
-              <div className="flex justify-between">
-                <span className="text-ink-dim">Deal Value:</span>
-                <span className="font-bold text-body">${selectedDeal.dealValue.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-ink-dim">Weighted Forecast:</span>
-                <span className="font-bold text-brand-deep">${selectedDeal.weightedValue.toLocaleString()}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-ink-dim">Close Probability:</span>
-                <span className="font-semibold text-body">{selectedDeal.probability}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-ink-dim">Target Close Date:</span>
-                <span className="font-semibold text-body">{selectedDeal.expectedCloseDate}</span>
+              {/* Quote Expiry Countdown */}
+              {selectedDeal.quoteExpiryDate && (
+                <div className="flex items-center justify-between text-[11px] px-2 py-1 bg-white rounded border border-line">
+                  <span className="text-ink-dim">Validity:</span>
+                  {new Date(selectedDeal.quoteExpiryDate).getTime() < Date.now() ? (
+                    <span className="font-bold text-urgent flex items-center gap-1">
+                      <Clock className="w-3 h-3" /> Quote Expired
+                    </span>
+                  ) : (
+                    <span className="font-bold text-brand-deep flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Expires in {Math.ceil((new Date(selectedDeal.quoteExpiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Quick Revision & Win Actions */}
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  onClick={() => {
+                    const currentRev = selectedDeal.quoteRevision || "Rev A";
+                    const nextRev = currentRev === "Rev A" ? "Rev B" : currentRev === "Rev B" ? "Rev C" : "Rev D";
+                    const baseRef = (selectedDeal.ostendoQuoteRef || "Q-88200").replace(/-Rev[A-D]/, "");
+                    const newQuoteRef = `${baseRef}-${nextRev}`;
+                    
+                    updateCrmOpportunity(selectedDeal.id, {
+                      quoteRevision: nextRev,
+                      ostendoQuoteRef: newQuoteRef,
+                      quoteStatus: "Revised",
+                      latestActivity: `Generated Quote Revision ${nextRev} (${newQuoteRef})`,
+                      latestActivityDate: new Date().toISOString().split("T")[0]
+                    });
+                    showToast(`Created Revision ${nextRev} (${newQuoteRef})`, "success");
+                  }}
+                  className="py-1.5 px-2 bg-white hover:bg-brand-wash text-brand-deep border border-brand-edge font-bold text-[11px] rounded flex items-center justify-center gap-1 cursor-pointer transition-colors"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  <span>Create Revision</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    const winPipeline = pipelines.find((p) => p.id === selectedDeal.pipelineId) || pipelines[0];
+                    const wonStage = winPipeline.stages[winPipeline.stages.length - 1] || { id: "stage-won", name: "Closed Won", probability: 100 };
+                    
+                    updateCrmOpportunity(selectedDeal.id, {
+                      quoteStatus: "PO Received",
+                      stageId: wonStage.id,
+                      stageName: wonStage.name,
+                      probability: 100,
+                      weightedValue: selectedDeal.dealValue,
+                      latestActivity: "Purchase Order received! Deal marked Closed Won.",
+                      latestActivityDate: new Date().toISOString().split("T")[0],
+                      wonReason: "Accepted technical specification and competitive commercial offer."
+                    });
+                    showToast("🏆 Purchase Order Received! Deal marked Closed Won!", "success");
+                  }}
+                  className="py-1.5 px-2 bg-brand-deep hover:bg-brand text-white font-bold text-[11px] rounded flex items-center justify-center gap-1 cursor-pointer shadow-2xs transition-colors"
+                >
+                  <CheckCircle2 className="w-3 h-3" />
+                  <span>PO Received (Win)</span>
+                </button>
               </div>
 
-                            {/* Ostendo Product-Only Export Actions */}
-              <div className="grid grid-cols-2 gap-2 pt-1">
+              {/* Ostendo CSV / Tab Export */}
+              <div className="grid grid-cols-2 gap-2 pt-1 border-t border-line">
                 <button
                   onClick={() => {
                     const items = selectedDeal.products.map((p) => ({
@@ -528,22 +677,19 @@ export const CRMPipelineView: React.FC = () => {
                       lineNotes: p.notes,
                       quoteRef: selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber
                     }));
-
                     const validation = validateOstendoItems(items);
                     if (!validation.valid) {
                       showToast(`Ostendo Export Blocked: ${validation.errors.join("; ")}`, "error");
                       return;
                     }
-
                     const csvData = formatOstendoCSV(items, selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber);
                     downloadOstendoCSV(csvData, `Ostendo_Product_List_${selectedDeal.name.replace(/\s+/g, "_")}.csv`);
-                    showToast("Ostendo CSV downloaded. Ostendo will calculate customer pricing, tax and totals.", "success");
+                    showToast("Ostendo CSV downloaded. Ready for ERP import.", "success");
                   }}
-                  className="py-1.5 px-2.5 bg-white hover:bg-brand-wash text-brand-deep border border-brand-edge font-bold text-spec rounded-edge flex items-center justify-center gap-1 cursor-pointer shadow-2xs transition-colors"
-                  title="Download standard UTF-8 CRLF CSV for Ostendo ERP"
+                  className="py-1 px-2 bg-white hover:bg-raised text-ink-dim border border-line font-bold text-[11px] rounded flex items-center justify-center gap-1 cursor-pointer transition-colors"
                 >
-                  <FileSpreadsheet className="w-3 h-3" />
-                  <span>Download CSV</span>
+                  <Download className="w-3 h-3" />
+                  <span>Ostendo CSV</span>
                 </button>
 
                 <button
@@ -556,51 +702,69 @@ export const CRMPipelineView: React.FC = () => {
                       lineNotes: p.notes,
                       quoteRef: selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber
                     }));
-
                     const validation = validateOstendoItems(items);
                     if (!validation.valid) {
                       showToast(`Ostendo Export Blocked: ${validation.errors.join("; ")}`, "error");
                       return;
                     }
-
                     await copyOstendoProductList(items, selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber);
-                    showToast("Product list copied to clipboard! Pricing will be calculated in Ostendo.", "success");
+                    showToast("Product matrix copied to clipboard!", "success");
                   }}
-                  className="py-1.5 px-2.5 bg-white hover:bg-raised text-body border border-line font-bold text-spec rounded-edge flex items-center justify-center gap-1 cursor-pointer shadow-2xs transition-colors"
-                  title="Copy tab-delimited product and quantity list to clipboard"
+                  className="py-1 px-2 bg-white hover:bg-raised text-ink-dim border border-line font-bold text-[11px] rounded flex items-center justify-center gap-1 cursor-pointer transition-colors"
                 >
                   <Copy className="w-3 h-3" />
-                  <span>Copy List</span>
+                  <span>Copy Matrix</span>
                 </button>
               </div>
             </div>
 
-            {/* Column 2: Products & Luminaires */}
-            <div className="p-4 bg-raised rounded-panel space-y-3 text-meta">
-              <div className="font-bold text-body border-b border-line pb-2 flex justify-between items-center">
-                <span>Luminaires &amp; Product List</span>
-                <span className="text-spec font-bold text-brand-deep bg-brand-wash px-1.5 py-0.5 rounded">
-                  {selectedDeal.products.length} Items
+            {/* Column 2: Commercial Values & Margin Overview */}
+            <div className="p-4 bg-raised rounded-panel space-y-3 text-meta border border-line">
+              <div className="font-bold text-body border-b border-line pb-2 flex items-center justify-between">
+                <span>Commercial Summary</span>
+                <span className="text-spec font-bold text-brand-deep">
+                  {selectedDeal.grossMarginPercent || 36}% Gross Margin
                 </span>
               </div>
-              {selectedDeal.products.length === 0 ? (
-                <div className="text-ink-faint italic py-2">No specific product line-items added yet.</div>
-              ) : (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {selectedDeal.products.map((p, idx) => (
-                    <div key={idx} className="flex justify-between items-start text-body bg-white p-2 rounded border border-line">
-                      <div>
-                        <div className="font-semibold text-spec">{p.productName}</div>
-                        <div className="text-[11px] text-ink-dim">Code: {p.productCode || "N/A"} • Qty: {p.quantity}</div>
-                      </div>
-                    </div>
-                  ))}
+
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-ink-dim">Deal Value (ex GST):</span>
+                  <span className="font-bold text-body text-base">${selectedDeal.dealValue.toLocaleString()}</span>
                 </div>
-              )}
+                <div className="flex justify-between items-center">
+                  <span className="text-ink-dim">Deal Value (inc 10% GST):</span>
+                  <span className="font-semibold text-body">${Math.round(selectedDeal.dealValue * 1.1).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-ink-dim">Est. Cost of Goods (COGS):</span>
+                  <span className="font-medium text-ink-dim">
+                    ${(selectedDeal.totalCostValue || Math.round(selectedDeal.dealValue * 0.64)).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-ink-dim">Gross Profit ($ AUD):</span>
+                  <span className="font-bold text-brand">
+                    ${(selectedDeal.dealValue - (selectedDeal.totalCostValue || Math.round(selectedDeal.dealValue * 0.64))).toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center pt-1 border-t border-line">
+                  <span className="text-ink-dim">Close Probability:</span>
+                  <span className="font-semibold text-body">{selectedDeal.probability}%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-ink-dim">Weighted Pipeline Value:</span>
+                  <span className="font-bold text-brand-deep">${selectedDeal.weightedValue.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-ink-dim">Expected Decision Date:</span>
+                  <span className="font-semibold text-body">{selectedDeal.expectedCloseDate}</span>
+                </div>
+              </div>
             </div>
 
             {/* Column 3: Health & Next Action */}
-            <div className="p-4 bg-raised rounded-panel space-y-3 text-meta">
+            <div className="p-4 bg-raised rounded-panel space-y-3 text-meta border border-line">
               <div className="font-bold text-body border-b border-line pb-2">Next Best Action</div>
               <div className="p-2.5 bg-brand-wash border border-brand-edge rounded-edge text-brand-deep font-semibold">
                 {selectedDeal.nextAction || "No immediate action scheduled."}
@@ -609,11 +773,410 @@ export const CRMPipelineView: React.FC = () => {
                 Action Due: <span className="font-semibold text-body">{selectedDeal.nextActionDate}</span>
               </div>
               {selectedDeal.dealHealthReasons && (
-                <div className="text-spec text-ink-dim pt-1">
-                  <strong>Health Diagnosis:</strong> {selectedDeal.dealHealthReasons.join("; ")}
+                <div className="text-spec text-ink-dim pt-1 space-y-1">
+                  <strong className="text-body block">Deal Health Rationale:</strong>
+                  <ul className="list-disc list-inside space-y-0.5">
+                    {selectedDeal.dealHealthReasons.map((r, i) => (
+                      <li key={i}>{r}</li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </div>
+          </div>
+
+          {/* FEAT-02: Interactive Multi-Line Bill of Materials (BOM) & Margin Calculator */}
+          <div className="p-5 bg-white rounded-panel border border-line shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Layers className="w-5 h-5 text-brand-deep" />
+                  <h3 className="text-base font-bold text-body">
+                    Bill of Materials (BOM) &amp; Margin Calculator
+                  </h3>
+                  <span className="text-spec font-bold text-brand-deep bg-brand-wash px-2 py-0.5 rounded">
+                    {selectedDeal.products.length} Line Item{selectedDeal.products.length !== 1 ? "s" : ""}
+                  </span>
+                </div>
+                <p className="text-spec text-ink-dim mt-0.5">
+                  Configure project packages, accessory hardware, cost markups, and Ostendo line items.
+                </p>
+              </div>
+
+              {/* Target Margin Slider & Controls */}
+              <div className="flex items-center gap-4 bg-raised p-2 rounded-edge border border-line">
+                <div className="flex items-center gap-2">
+                  <Sliders className="w-4 h-4 text-brand-deep" />
+                  <span className="text-spec font-bold text-ink-dim uppercase">Target Margin:</span>
+                  <span className="text-spec font-black text-brand-deep min-w-[36px]">
+                    {targetMarginSlider}%
+                  </span>
+                  <input
+                    type="range"
+                    min={10}
+                    max={60}
+                    step={1}
+                    value={targetMarginSlider}
+                    onChange={(e) => setTargetMarginSlider(Number(e.target.value))}
+                    className="w-24 accent-brand-deep cursor-pointer"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const marginMultiplier = 1 - targetMarginSlider / 100;
+                    const updatedProducts = selectedDeal.products.map((p) => {
+                      const cost = p.costPrice || (p.unitPrice ? Math.round(p.unitPrice * 0.65) : 500);
+                      const newUnitPrice = Math.round(cost / marginMultiplier);
+                      return {
+                        ...p,
+                        costPrice: cost,
+                        unitPrice: newUnitPrice,
+                        totalPrice: newUnitPrice * p.quantity,
+                        marginPercent: targetMarginSlider
+                      };
+                    });
+                    const newTotal = updatedProducts.reduce((sum, p) => sum + (p.totalPrice || 0), 0);
+                    const newTotalCost = updatedProducts.reduce((sum, p) => sum + ((p.costPrice || 0) * p.quantity), 0);
+
+                    updateCrmOpportunity(selectedDeal.id, {
+                      products: updatedProducts,
+                      dealValue: newTotal,
+                      totalCostValue: newTotalCost,
+                      grossMarginPercent: targetMarginSlider,
+                      weightedValue: newTotal * (selectedDeal.probability / 100)
+                    });
+                    showToast(`Applied ${targetMarginSlider}% target gross margin across all BOM line items!`, "success");
+                  }}
+                  className="px-2.5 py-1 bg-brand-deep hover:bg-brand text-white font-bold text-[11px] rounded shadow-2xs cursor-pointer transition-colors"
+                >
+                  Apply Margin to All
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsAddingBomLine(!isAddingBomLine)}
+                  className="px-2.5 py-1 bg-white hover:bg-paper text-body border border-line-strong font-bold text-[11px] rounded shadow-2xs cursor-pointer transition-colors flex items-center gap-1"
+                >
+                  <Plus className="w-3.5 h-3.5 text-brand-deep" />
+                  <span>{isAddingBomLine ? "Close" : "+ Add Item"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Inline Add Item Form */}
+            {isAddingBomLine && (
+              <div className="p-4 bg-brand-wash/60 rounded-edge border border-brand-edge space-y-3 animate-in fade-in duration-150 text-meta">
+                <div className="font-bold text-brand-deep text-spec uppercase flex items-center gap-1.5">
+                  <Plus className="w-4 h-4" /> Add Product Line to BOM Schedule
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold uppercase text-ink-dim mb-1">
+                      Select Catalogue Product or Enter Custom
+                    </label>
+                    <select
+                      value={newBomLine.catalogId}
+                      onChange={(e) => {
+                        const prod = SAMPLE_PRODUCTS.find((p) => p.id === e.target.value);
+                        if (prod) {
+                          setNewBomLine({
+                            ...newBomLine,
+                            catalogId: prod.id,
+                            productCode: prod.code,
+                            productName: prod.name,
+                            category: prod.category,
+                            unitPrice: 1650,
+                            costPrice: 1050
+                          });
+                        } else {
+                          setNewBomLine({
+                            ...newBomLine,
+                            catalogId: ""
+                          });
+                        }
+                      }}
+                      className="w-full p-1.5 bg-white rounded border border-line text-spec font-medium"
+                    >
+                      <option value="">-- Custom Item / Hardware Surcharge --</option>
+                      {SAMPLE_PRODUCTS.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase text-ink-dim mb-1">
+                      Product Code / SKU *
+                    </label>
+                    <input
+                      type="text"
+                      value={newBomLine.productCode}
+                      onChange={(e) => setNewBomLine({ ...newBomLine, productCode: e.target.value })}
+                      placeholder="e.g. PB-75W-3K"
+                      className="w-full p-1.5 bg-white rounded border border-line text-spec font-mono font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase text-ink-dim mb-1">
+                      Category
+                    </label>
+                    <input
+                      type="text"
+                      value={newBomLine.category}
+                      onChange={(e) => setNewBomLine({ ...newBomLine, category: e.target.value })}
+                      placeholder="e.g. Solar Luminaire"
+                      className="w-full p-1.5 bg-white rounded border border-line text-spec"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-bold uppercase text-ink-dim mb-1">
+                      Description / Line Notes
+                    </label>
+                    <input
+                      type="text"
+                      value={newBomLine.productName}
+                      onChange={(e) => setNewBomLine({ ...newBomLine, productName: e.target.value })}
+                      placeholder="e.g. 75W Modular Solar Light with 3000K LED"
+                      className="w-full p-1.5 bg-white rounded border border-line text-spec"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase text-ink-dim mb-1">
+                      Quantity &amp; Unit
+                    </label>
+                    <div className="flex gap-1">
+                      <input
+                        type="number"
+                        min={1}
+                        value={newBomLine.quantity}
+                        onChange={(e) => setNewBomLine({ ...newBomLine, quantity: Math.max(1, Number(e.target.value)) })}
+                        className="w-16 p-1.5 bg-white rounded border border-line text-spec font-bold"
+                      />
+                      <input
+                        type="text"
+                        value={newBomLine.unit}
+                        onChange={(e) => setNewBomLine({ ...newBomLine, unit: e.target.value })}
+                        className="w-14 p-1.5 bg-white rounded border border-line text-spec"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase text-ink-dim mb-1">
+                      Unit Cost ($ AUD)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={newBomLine.costPrice}
+                      onChange={(e) => setNewBomLine({ ...newBomLine, costPrice: Number(e.target.value) })}
+                      className="w-full p-1.5 bg-white rounded border border-line text-spec"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase text-ink-dim mb-1">
+                      Unit Sell ($ AUD)
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={newBomLine.unitPrice}
+                      onChange={(e) => setNewBomLine({ ...newBomLine, unitPrice: Number(e.target.value) })}
+                      className="w-full p-1.5 bg-white rounded border border-line text-spec font-bold text-brand-deep"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingBomLine(false)}
+                    className="px-3 py-1 text-ink-dim hover:text-ink text-spec"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!newBomLine.productCode.trim() || !newBomLine.productName.trim()) {
+                        showToast("Please provide product code and description", "warning");
+                        return;
+                      }
+                      const lineCost = newBomLine.costPrice || 0;
+                      const lineSell = newBomLine.unitPrice || 0;
+                      const lineMargin = lineSell > 0 ? Math.round(((lineSell - lineCost) / lineSell) * 100) : 0;
+
+                      const newLine: OpportunityProductLine = {
+                        id: `bom-line-${Date.now()}`,
+                        productCode: newBomLine.productCode,
+                        productName: newBomLine.productName,
+                        category: newBomLine.category,
+                        quantity: newBomLine.quantity,
+                        unit: newBomLine.unit || "ea",
+                        costPrice: lineCost,
+                        unitPrice: lineSell,
+                        totalPrice: lineSell * newBomLine.quantity,
+                        marginPercent: lineMargin,
+                        isOstendoVerified: true
+                      };
+
+                      const updatedProducts = [...selectedDeal.products, newLine];
+                      const newTotal = updatedProducts.reduce((sum, p) => sum + (p.totalPrice || 0), 0);
+                      const newTotalCost = updatedProducts.reduce((sum, p) => sum + ((p.costPrice || 0) * p.quantity), 0);
+                      const overallMargin = newTotal > 0 ? Math.round(((newTotal - newTotalCost) / newTotal) * 100) : 35;
+
+                      updateCrmOpportunity(selectedDeal.id, {
+                        products: updatedProducts,
+                        dealValue: newTotal,
+                        totalCostValue: newTotalCost,
+                        grossMarginPercent: overallMargin,
+                        weightedValue: newTotal * (selectedDeal.probability / 100)
+                      });
+
+                      showToast(`Added ${newLine.productName} to Deal BOM!`, "success");
+                      setIsAddingBomLine(false);
+                    }}
+                    className="px-3 py-1 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded shadow-xs cursor-pointer"
+                  >
+                    + Insert Line to Schedule
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* BOM Table */}
+            {selectedDeal.products.length === 0 ? (
+              <div className="p-8 text-center bg-paper rounded-edge border border-dashed border-line text-ink-dim">
+                <Package className="w-8 h-8 mx-auto text-ink-faint mb-2" />
+                <div className="font-semibold text-body">No line items in this deal BOM</div>
+                <p className="text-spec mt-1">Use the "+ Add Item" button above or import calculations from the Tools Hub.</p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-meta border-collapse">
+                  <thead>
+                    <tr className="border-b border-line bg-paper text-spec font-bold text-ink-dim uppercase">
+                      <th className="py-2 px-3">Item / SKU</th>
+                      <th className="py-2 px-3">Description</th>
+                      <th className="py-2 px-3">Category</th>
+                      <th className="py-2 px-3 text-right">Qty</th>
+                      <th className="py-2 px-3 text-right">Unit Cost</th>
+                      <th className="py-2 px-3 text-right">Unit Sell (ex GST)</th>
+                      <th className="py-2 px-3 text-right">Margin</th>
+                      <th className="py-2 px-3 text-right">Line Total</th>
+                      <th className="py-2 px-3 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {selectedDeal.products.map((p, idx) => {
+                      const cost = p.costPrice || (p.unitPrice ? Math.round(p.unitPrice * 0.64) : 0);
+                      const sell = p.unitPrice || 0;
+                      const lineMargin = sell > 0 ? Math.round(((sell - cost) / sell) * 100) : 0;
+                      const lineTotal = (p.totalPrice !== undefined ? p.totalPrice : (sell * p.quantity));
+
+                      return (
+                        <tr key={p.id || idx} className="hover:bg-raised/60 transition-colors">
+                          <td className="py-2.5 px-3 font-mono font-bold text-brand-deep text-spec">
+                            <div className="flex items-center gap-1.5">
+                              <span>{p.productCode || "CUSTOM"}</span>
+                              <span className="text-[10px] bg-brand-wash text-brand px-1 py-0.2 rounded font-sans font-bold" title="Ostendo Compatible SKU">
+                                ERP
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-2.5 px-3 font-medium text-body text-spec">
+                            {p.productName}
+                            {p.notes && <div className="text-[11px] text-ink-dim font-normal italic">{p.notes}</div>}
+                          </td>
+                          <td className="py-2.5 px-3 text-ink-dim text-spec">
+                            {p.category || "General"}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-bold text-body text-spec">
+                            {p.quantity} {p.unit || "ea"}
+                          </td>
+                          <td className="py-2.5 px-3 text-right text-ink-dim text-spec">
+                            ${cost.toLocaleString()}
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-bold text-body text-spec">
+                            ${sell.toLocaleString()}
+                          </td>
+                          <td className="py-2.5 px-3 text-right text-spec">
+                            <span className={`px-1.5 py-0.5 rounded font-bold text-[11px] ${
+                              lineMargin >= 35
+                                ? "bg-brand-wash text-brand-deep"
+                                : lineMargin >= 20
+                                ? "bg-warn-wash text-warn"
+                                : "bg-urgent-wash text-urgent"
+                            }`}>
+                              {lineMargin}%
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-bold text-body text-spec">
+                            ${lineTotal.toLocaleString()}
+                          </td>
+                          <td className="py-2.5 px-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updatedProducts = selectedDeal.products.filter((_, i) => i !== idx);
+                                const newTotal = updatedProducts.reduce((sum, item) => sum + (item.totalPrice || (item.unitPrice ? item.unitPrice * item.quantity : 0)), 0);
+                                const newTotalCost = updatedProducts.reduce((sum, item) => sum + ((item.costPrice || 0) * item.quantity), 0);
+                                const overallMargin = newTotal > 0 ? Math.round(((newTotal - newTotalCost) / newTotal) * 100) : 35;
+
+                                updateCrmOpportunity(selectedDeal.id, {
+                                  products: updatedProducts,
+                                  dealValue: newTotal,
+                                  totalCostValue: newTotalCost,
+                                  grossMarginPercent: overallMargin,
+                                  weightedValue: newTotal * (selectedDeal.probability / 100)
+                                });
+                                showToast(`Removed line item from BOM`, "info");
+                              }}
+                              className="p-1 text-ink-faint hover:text-urgent rounded cursor-pointer"
+                              title="Delete line item"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-line bg-paper font-bold text-body">
+                      <td colSpan={3} className="py-2.5 px-3 text-spec uppercase">Total Schedule Scope</td>
+                      <td className="py-2.5 px-3 text-right text-spec">
+                        {selectedDeal.products.reduce((sum, p) => sum + p.quantity, 0)} Units
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-ink-dim text-spec">
+                        ${(selectedDeal.totalCostValue || selectedDeal.products.reduce((sum, p) => sum + ((p.costPrice || Math.round((p.unitPrice || 0) * 0.64)) * p.quantity), 0)).toLocaleString()}
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-spec">
+                        ${selectedDeal.dealValue.toLocaleString()}
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-brand-deep text-spec">
+                        {selectedDeal.grossMarginPercent || 36}%
+                      </td>
+                      <td className="py-2.5 px-3 text-right text-brand-deep text-base">
+                        ${selectedDeal.dealValue.toLocaleString()}
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

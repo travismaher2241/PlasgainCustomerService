@@ -65,7 +65,8 @@ export type CRMSubTab =
 export type ToolSubTab =
   | "plan-takeoff"
   | "cable-cover-calc"
-  | "pole-spacing-calc";
+  | "pole-spacing-calc"
+  | "wind-foundation-calc";
 
 /** Who is signed in. Editable in Settings; persisted per browser. */
 export interface UserProfile {

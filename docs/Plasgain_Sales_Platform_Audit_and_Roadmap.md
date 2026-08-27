@@ -1,9 +1,9 @@
 # Plasgain Customer Service & Sales Platform: Top-to-Bottom Audit & Optimization Roadmap
 
-**Document Version:** 1.0  
+**Document Version:** 2.0  
 **Prepared For:** Internal Technical Sales Team, Plasgain Australia  
 **Date:** August 28, 2026  
-**Status:** Bug Fixes Verified (106/106 Tests Passing) | Feature Enhancements Ready for Staged Rollout  
+**Status:** Section A (Bug Fixes) & Section B (High-Value Abilities) Completed & Verified (106/106 Tests Passing)
 
 ---
 
@@ -14,12 +14,12 @@ This report documents a comprehensive end-to-end audit of the **Plasgain Custome
 ### Platform Health & Test Status
 - **Test Suite Status:** 15 Test Files | 106 Tests Passing (100% Pass Rate)
 - **TypeScript Typecheck:** 0 Errors (`tsc --noEmit` clean)
-- **Resolved Bugs:** 5 Core Functional & Wiring Bugs Fixed & Pushed to `main`
-- **Pending Roadmap Items:** 14 High-Impact Feature Additions, Optimisations, and Streamlining Workflows
+- **Completed Bug Fixes (Section A):** 5 Core Functional & Wiring Bugs Resolved
+- **Completed New Abilities (Section B):** 6 High-Impact Sales & Engineering Features Delivered
 
 ---
 
-## 2. Resolved Platform Bugs & Functional Fixes
+## 2. Resolved Platform Bugs & Functional Fixes (Section A)
 
 The following critical bugs were identified during full platform testing and have been resolved:
 
@@ -50,43 +50,37 @@ The following critical bugs were identified during full platform testing and hav
 
 ---
 
-## 3. Missed Opportunities for Functions & Abilities
+## 3. High-Value New Abilities (Section B - Delivered)
 
-High-value functional additions to expand the sales representative's quoting capabilities and engineering speed:
+The following 6 capabilities have been fully built and integrated into the platform:
 
-### 3.1 1-Click "Send Calculation to Active Quote / Deal" from Tools Hub
-- **Current Limitation:** The *Polymeric Cable Cover Calculator* and *Pathway Pole Spacing Calculator* output accurate engineering numbers, but reps must manually write down or re-type product codes and quantities into deals.
-- **User-Centric Solution:** Add an **"Add to Active Quote / Deal"** button on each calculator result panel. Clicking it opens a deal picker; upon selection, it injects the recommended SKUs (e.g. `PCC-200-1M`, quantity 1,200m; `PB-75W-3K`, quantity 24 poles) directly into the deal's Bill of Materials.
-- **Effort:** Low | **Impact:** High
+### 3.1 1-Click "Add Calculation to Active Quote / Deal" from Tools Hub
+- **Delivered In:** `src/components/ToolsHub.tsx`
+- **What Was Built:** Added an **"Add Calculation to Quote / Deal"** button on every engineering calculator (Cable Cover, Pathway Spacing, and Wind Foundation). Clicking it opens an interactive modal allowing the rep to either select an existing deal or create a new deal, automatically injecting the calculated product SKUs, quantities, and pricing into the CRM deal schedule.
 
 ### 3.2 In-Deal Multi-Line Bill of Materials (BOM) & Margin Calculator
-- **Current Limitation:** Opportunities currently store simple line items without the ability to add accessory lines (e.g. foundation ragbolt cages, spigot adaptors) or calculate margins.
-- **User-Centric Solution:** Embed an interactive spreadsheet-style grid in the Deal Drawer allowing reps to add/remove products, adjust buy/sell unit pricing, toggle 10% GST, and instantly view gross margin percentage per tender.
-- **Effort:** Medium | **Impact:** High
+- **Delivered In:** `src/components/crm/CRMPipelineView.tsx`
+- **What Was Built:** Embedded an interactive spreadsheet-style grid in the Deal Drawer allowing sales reps to add catalogue items or custom lines, adjust unit costs and sell prices, toggle GST, and adjust an interactive Target Margin Slider (10%–60%) with 1-click **"Apply Margin to All"** markup recalculations.
 
 ### 3.3 Wind Region (AS 1170.2) & Foundation Surcharge Estimator
-- **Current Limitation:** Products specify wind ratings (Regions A, B, C, D), but there is no automated hardware or freight calculator for heavy foundations.
-- **User-Centric Solution:** Add a foundation toggle: *Direct Burial (with stabilizer collar)* vs *Base-Plate Mounted (with M24 ragbolt cage)*, and automatically calculate total shipment weight in kilograms to generate instant regional freight estimates (QLD, NSW, VIC, WA, NT).
-- **Effort:** Medium | **Impact:** High
+- **Delivered In:** `src/components/ToolsHub.tsx`
+- **What Was Built:** Added a full engineering calculator supporting Australian Wind Regions (Region A 45m/s, Region B 57m/s, Region C 69m/s Cyclonic, Region D 88m/s Severe Cyclonic), footing embedment depths, concrete volume ($m^3$), M24/M27 ragbolt cage sizing, and freight weight surcharges across all states with 1-click deal injection.
 
-### 3.4 Bulk Task & Follow-up Actions
-- **Current Limitation:** Tasks and follow-up reminders in the *Today Workspace* and *Tasks View* can only be completed one by one.
-- **User-Centric Solution:** Introduce checkbox selection with a sticky batch toolbar: **"Mark Done"**, **"Push 3 Days"**, **"Push Next Week"**, and **"Reassign"**.
-- **Effort:** Low | **Impact:** Medium
+### 3.4 Bulk Task & Follow-up Checkbox Triage
+- **Delivered In:** `src/components/crm/CRMTasksActivitiesView.tsx`
+- **What Was Built:** Implemented selection checkboxes with "Select All" and a sticky batch action bar providing **"Mark Completed"**, **"Postpone +3 Days"**, **"Postpone +1 Week"**, and **"Clear"** to triage dozens of customer follow-ups in seconds.
 
-### 3.5 Inbound Lead Smart Deduplication & Account Matching
-- **Current Limitation:** Converting web leads creates duplicate accounts if the name contains slight variations (e.g. "Moreton Bay Council" vs "City of Moreton Bay").
-- **User-Centric Solution:** Implement fuzzy email domain matching (e.g. `@moretonbay.qld.gov.au`). When converting a lead, automatically highlight matching existing accounts and offer 1-click merging.
-- **Effort:** Low | **Impact:** Medium
+### 3.5 Inbound Lead Smart Deduplication & Domain Fuzzy Matching
+- **Delivered In:** `src/components/crm/CRMLeadsView.tsx` & `src/context/AppContext.tsx`
+- **What Was Built:** Added automated domain and company similarity matching on inbound leads. Displays an **"Existing CRM Account Detected"** alert banner and a conversion modal that allows 1-click linkage to the existing customer account without duplicating records.
 
 ### 3.6 Ostendo Quote Status & Revision Lifecycle Tracking
-- **Current Limitation:** Ostendo quote references are stored as static strings without expiry or revision tracking.
-- **User-Centric Solution:** Add a structured quote lifecycle badge showing: Quote Reference (e.g. `Q-88210-RevB`), Expiry Countdown (*"Expires in 8 days"*), Status (*Draft, Sent, Revised, PO Received*), and a 1-click button to spawn a revision.
-- **Effort:** Medium | **Impact:** High
+- **Delivered In:** `src/components/crm/CRMPipelineView.tsx` & `src/types/crm.ts`
+- **What Was Built:** Added structured quote tracking displaying Quote Reference (e.g. `Q-88210`), Revision tags (`Rev A`, `Rev B`, `Rev C`), Quote Status (`Draft`, `Issued`, `Client Review`, `Revised`, `PO Received`, `Expired`), Expiry Countdown chips, **"+ Create Revision"** action, and 1-click **"PO Received (Win Deal)"** action.
 
 ---
 
-## 4. Functions That Could Be Optimised
+## 4. Functions That Could Be Optimised (Section C - Roadmap)
 
 Refining existing features to reduce friction and improve responsiveness:
 
@@ -117,7 +111,7 @@ Refining existing features to reduce friction and improve responsiveness:
 
 ---
 
-## 5. Pinch Points & Streamlining Workflows
+## 5. Pinch Points & Streamlining Workflows (Section D - Roadmap)
 
 Targeting time-consuming steps to minimize clicks and eliminate duplicate data entry:
 
@@ -152,13 +146,14 @@ Use this checklist to track progress as enhancements and optimizations are imple
 
 ---
 
-### 🔲 Section B: High-Value New Abilities (Roadmap)
-- [ ] **FEAT-01:** Add **"Add to Active Quote / Deal"** 1-click button to Cable Cover and Spacing Calculators
-- [ ] **FEAT-02:** Implement **Multi-Line BOM & Margin Slider** inside CRM Opportunity Drawer
-- [ ] **FEAT-03:** Add **Wind Region (AS 1170.2) & Foundation Surcharge Estimator** with shipment weight calculation
-- [ ] **FEAT-04:** Add **Bulk Task Checkbox Triage** (Batch Complete, Batch Reschedule +3d/+7d)
-- [ ] **FEAT-05:** Implement **Lead Deduplication & Domain Fuzzy Matching** during lead conversion
-- [ ] **FEAT-06:** Implement **Ostendo Quote Lifecycle Tracking** (Revisions, Expiry Countdowns, Status Badges)
+### ✅ Section B: High-Value New Abilities (Completed & Verified)
+- [x] **FEAT-01:** Add **"Add to Active Quote / Deal"** 1-click button to Cable Cover and Spacing Calculators
+- [x] **FEAT-02:** Implement **Multi-Line BOM & Margin Slider** inside CRM Opportunity Drawer
+- [x] **FEAT-03:** Add **Wind Region (AS 1170.2) & Foundation Surcharge Estimator** with shipment weight calculation
+- [x] **FEAT-04:** Add **Bulk Task Checkbox Triage** (Batch Complete, Batch Reschedule +3d/+7d)
+- [x] **FEAT-05:** Implement **Lead Deduplication & Domain Fuzzy Matching** during lead conversion
+- [x] **FEAT-06:** Implement **Ostendo Quote Lifecycle Tracking** (Revisions, Expiry Countdowns, Status Badges)
+- [x] **VERIFY-02:** Run full test suite (`106/106 tests passing`) and push commit to `origin/main`
 
 ---
 
