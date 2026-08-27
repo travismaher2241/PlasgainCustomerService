@@ -9,6 +9,7 @@ import {
   VALIDATION_TESTS,
   CONFLICT_REGISTER_DATA
 } from "./src/data/knowledgeBaseRaw";
+import { competitorPricingStore } from "./src/server/competitorPricingStore";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -640,9 +641,13 @@ app.post(["/api/analyse-drawing", "/api/drawing/takeoff", "/api/analyze-drawing"
       const ai = getAI();
       const systemPrompt = `${MASTER_PLASGAIN_SYSTEM_INSTRUCTION}
 
-AI DRAWING & PLAN DECIPHERING (BOM TAKE-OFF) INSTRUCTIONS:
+AI DRAWING & PLAN DECIPHERING (PRODUCT TAKE-OFF) INSTRUCTIONS:
 You are an expert Australian Civil & Electrical Estimator and Lighting Engineer for Plasgain.
-Examine the provided engineering drawing/plan/PDF/image and extract a comprehensive Bill of Materials (BOM) Take-off.
+Examine the provided engineering drawing/plan/PDF/image and extract a comprehensive Product Take-off schedule.
+
+CRITICAL PRICING RULE:
+Ostendo ERP is the sole source of truth for all pricing, customer rates, discounts, GST, and quotations.
+Do NOT estimate, calculate, or output any unit prices, total prices, or monetary values. Output product codes, descriptions, quantities, units, and engineering specifications only.
 
 Inspect and decipher:
 1. Drawing Legends, Title Blocks & Schedules: Extract sheet title, drawing number, scale, revision, and recognized Australian Standards (AS/NZS 1158.1.1, AS/NZS 1158.3.1, AS 4702, AS/NZS 3000, AS 1170.2).
@@ -686,8 +691,6 @@ Return valid JSON conforming strictly to this schema:
       "unit": "ea" | "m" | "rolls" | "sets" | "packs",
       "recommendedProductCode": string,
       "drawingReference": string,
-      "unitPrice": number,
-      "totalPrice": number,
       "confidence": "High" | "Medium" | "Low",
       "notes": string
     }
@@ -699,11 +702,10 @@ Return valid JSON conforming strictly to this schema:
       "description": string
     }
   ],
-  "summary": string,
-  "totalEstimatedValue": number
+  "summary": string
 }`;
 
-      const userTextPrompt = `Decipher this engineering drawing and produce an itemized Bill of Materials (BOM) Take-off for Plasgain quotation:
+      const userTextPrompt = `Decipher this engineering drawing and produce an itemized Product Take-off for Plasgain quotation:
 File Name: ${fileName}
 Project Name: ${project || "Civil / Public Lighting Project"}
 Customer / Authority: ${customer || "Council / Civil Contractor"}
@@ -1734,6 +1736,136 @@ CHAT HISTORY: ${JSON.stringify(resolvedHistory)}`;
   } catch (error: any) {
     console.error("Error in copilot chat:", error);
     res.status(500).json({ error: error.message || "Failed to process chat" });
+  }
+});
+
+// -------------------------------------------------------------
+// COMPETITOR PRICING INTELLIGENCE & TEAM ALERTS ENDPOINTS
+// -------------------------------------------------------------
+
+// GET /api/competitor-pricing
+app.get("/api/competitor-pricing", (req, res) => {
+  try {
+    const accountId = typeof req.query.accountId === "string" ? req.query.accountId : undefined;
+    const competitorName = typeof req.query.competitorName === "string" ? req.query.competitorName : undefined;
+    const status = typeof req.query.status === "string" ? req.query.status : undefined;
+
+    const records = competitorPricingStore.getAllPricingRecords({ accountId, competitorName, status });
+    return res.json({ records, count: records.length });
+  } catch (err: any) {
+    console.error("Error fetching competitor pricing:", err);
+    return res.status(500).json({ error: "Failed to fetch competitor pricing records" });
+  }
+});
+
+// POST /api/competitor-pricing
+app.post("/api/competitor-pricing", (req, res) => {
+  try {
+    const body = req.body || {};
+    const accountId = readString(body.accountId);
+    const accountName = readString(body.accountName);
+    const competitorName = readString(body.competitorName);
+    const competitorProduct = readString(body.competitorProduct);
+    const rawPrice = body.price;
+    const price = typeof rawPrice === "number" ? rawPrice : parseFloat(rawPrice);
+    const priceBasis = readStringOr(body.priceBasis, "Per Unit");
+    const gstStatus = readStringOr(body.gstStatus, "Ex GST");
+    const observedDate = readString(body.observedDate);
+
+    // Validation
+    const errors: string[] = [];
+    if (!accountId) errors.push("Customer Account ID is required.");
+    if (!accountName) errors.push("Customer Account Name is required.");
+    if (!competitorName) errors.push("Competitor Name is required.");
+    if (!competitorProduct) errors.push("Competitor Product is required.");
+    if (isNaN(price) || price <= 0) errors.push("Price must be a positive number greater than zero.");
+    if (!observedDate) errors.push("Observed Date is required.");
+
+    if (errors.length > 0) {
+      return res.status(400).json({ error: "Validation failed", details: errors });
+    }
+
+    const { record, alert } = competitorPricingStore.createPricingRecord({
+      accountId: accountId!,
+      accountName: accountName!,
+      opportunityId: readString(body.opportunityId) || undefined,
+      opportunityName: readString(body.opportunityName) || undefined,
+      competitorName: competitorName!,
+      competitorProduct: competitorProduct!,
+      price,
+      currency: readStringOr(body.currency, "AUD"),
+      priceBasis: priceBasis as any,
+      gstStatus: gstStatus as any,
+      quantity: typeof body.quantity === "number" ? body.quantity : (body.quantity ? parseFloat(body.quantity) : undefined),
+      sourceType: readStringOr(body.sourceType, "Customer Verbal") as any,
+      observedDate: observedDate!,
+      notes: readString(body.notes) || undefined,
+      createdBy: readStringOr(body.createdBy, "Team Member"),
+      status: readStringOr(body.status, "Active") as any
+    });
+
+    return res.status(201).json({ record, alert });
+  } catch (err: any) {
+    console.error("Error creating competitor pricing record:", err);
+    return res.status(500).json({ error: "Failed to create competitor pricing record" });
+  }
+});
+
+// PATCH /api/competitor-pricing/:id
+app.patch("/api/competitor-pricing/:id", (req, res) => {
+  try {
+    const id = req.params.id;
+    const body = req.body || {};
+    const updates: any = {};
+
+    if (body.status !== undefined) updates.status = body.status;
+    if (body.price !== undefined) {
+      const p = typeof body.price === "number" ? body.price : parseFloat(body.price);
+      if (isNaN(p) || p <= 0) {
+        return res.status(400).json({ error: "Price must be a positive number greater than zero." });
+      }
+      updates.price = p;
+    }
+    if (body.notes !== undefined) updates.notes = readString(body.notes);
+    if (body.priceBasis !== undefined) updates.priceBasis = body.priceBasis;
+    if (body.gstStatus !== undefined) updates.gstStatus = body.gstStatus;
+    if (body.sourceType !== undefined) updates.sourceType = body.sourceType;
+    if (body.competitorProduct !== undefined) updates.competitorProduct = body.competitorProduct;
+
+    const updated = competitorPricingStore.updatePricingRecord(id, updates);
+    if (!updated) {
+      return res.status(404).json({ error: "Competitor pricing record not found" });
+    }
+    return res.json({ record: updated });
+  } catch (err: any) {
+    console.error("Error updating competitor pricing record:", err);
+    return res.status(500).json({ error: "Failed to update competitor pricing record" });
+  }
+});
+
+// GET /api/competitor-pricing/alerts
+app.get("/api/competitor-pricing/alerts", (_req, res) => {
+  try {
+    const alerts = competitorPricingStore.getAllAlerts();
+    return res.json({ alerts, count: alerts.length });
+  } catch (err: any) {
+    console.error("Error fetching competitor alerts:", err);
+    return res.status(500).json({ error: "Failed to fetch competitor alerts" });
+  }
+});
+
+// PATCH /api/competitor-pricing/alerts/:id/read
+app.patch("/api/competitor-pricing/alerts/:id/read", (req, res) => {
+  try {
+    const id = req.params.id;
+    const alert = competitorPricingStore.markAlertRead(id);
+    if (!alert) {
+      return res.status(404).json({ error: "Alert not found" });
+    }
+    return res.json({ alert });
+  } catch (err: any) {
+    console.error("Error marking alert as read:", err);
+    return res.status(500).json({ error: "Failed to mark alert as read" });
   }
 });
 

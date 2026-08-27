@@ -300,8 +300,6 @@ export interface BOMItem {
   unit: "ea" | "m" | "rolls" | "sets" | "packs" | string;
   recommendedProductCode: string;
   drawingReference: string;
-  unitPrice: number;
-  totalPrice: number;
   confidence: "High" | "Medium" | "Low" | string;
   notes?: string;
 }
@@ -326,5 +324,4 @@ export interface DrawingTakeoffResult {
     description: string;
   }>;
   summary: string;
-  totalEstimatedValue: number;
 }

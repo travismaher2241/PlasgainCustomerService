@@ -35,7 +35,13 @@ import { useApp } from "../context/AppContext";
 import { EnquiryAnalysisResult, StatusField } from "../types";
 import { CustomerFollowUpModal } from "./CustomerFollowUpModal";
 import { DatasheetPackageModal } from "./DatasheetPackageModal";
-import { formatOstendoCSV, formatOstendoTabDelimited } from "../utils/datasheetExporter";
+import {
+  formatOstendoCSV,
+  formatOstendoTabDelimited,
+  validateOstendoItems,
+  downloadOstendoCSV,
+  resolveProductsForDeal
+} from "../utils/datasheetExporter";
 
 export const NewEnquiryWorkspace: React.FC = () => {
   const {
@@ -362,38 +368,35 @@ export const NewEnquiryWorkspace: React.FC = () => {
               onClick={() => {
                 const items = [];
                 if (currentEnquiryAnalysis?.primaryRecommendation) {
+                  const resolved = resolveProductsForDeal([currentEnquiryAnalysis.primaryRecommendation.productName]);
+                  const prodCode = resolved[0]?.code || "";
+                  const qty = parseInt(currentEnquiryAnalysis.opportunitySummary?.quantity?.value || "1", 10) || 1;
                   items.push({
-                    code: currentEnquiryAnalysis.primaryRecommendation.productName.substring(0, 15).toUpperCase().replace(/\s+/g, "-"),
+                    code: prodCode,
                     name: currentEnquiryAnalysis.primaryRecommendation.productName,
-                    quantity: parseInt(currentEnquiryAnalysis.opportunitySummary?.quantity?.value || "1", 10) || 1,
-                    unitPrice: 0
-                  });
-                } else {
-                  items.push({
-                    code: "PLASGAIN-ITEM",
-                    name: rawEnquiryInput.project || "Public Lighting Solution",
-                    quantity: 1,
-                    unitPrice: 0
+                    quantity: qty,
+                    unit: "ea",
+                    notes: currentEnquiryAnalysis.primaryRecommendation.reasoning || ""
                   });
                 }
-                const tabData = formatOstendoTabDelimited(items);
+
+                const validation = validateOstendoItems(items);
+                if (!validation.valid) {
+                  showToast(`Ostendo Export Blocked: ${validation.errors.join("; ")}`, "error");
+                  return;
+                }
+
+                const tabData = formatOstendoTabDelimited(items, ostendoQuoteRef || "OST-ENQUIRY");
                 navigator.clipboard.writeText(tabData);
                 const csvData = formatOstendoCSV(items, ostendoQuoteRef || "OST-ENQUIRY");
-                const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.setAttribute("href", url);
-                link.setAttribute("download", `Ostendo_Line_Items_${(rawEnquiryInput.project || "Enquiry").replace(/\s+/g, "_")}.csv`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                showToast("Copied Ostendo grid line items & downloaded CSV!", "success");
+                downloadOstendoCSV(csvData, `Ostendo_Product_List_${(rawEnquiryInput.project || "Enquiry").replace(/\s+/g, "_")}.csv`);
+                showToast("Product list copied and CSV downloaded! Pricing will be calculated in Ostendo.", "success");
               }}
               className="text-meta font-bold px-3 py-1.5 rounded-edge bg-white hover:bg-brand-wash text-brand-deep border border-brand-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
-              title="Export line items formatted for Ostendo ERP data entry"
+              title="Export product list (Item Code, Description, Qty, Unit) for Ostendo ERP entry"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Export for Ostendo</span>
+              <span>Export Product List for Ostendo</span>
             </button>
             <button
               onClick={handleSaveOpportunity}

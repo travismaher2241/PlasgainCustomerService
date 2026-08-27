@@ -30,7 +30,10 @@ export const CRMTodayWorkspace: React.FC = () => {
     nextBestActions,
     toggleTaskComplete,
     navigateToCRM,
-    openQuickLog
+    openQuickLog,
+    competitorAlerts,
+    markCompetitorAlertRead,
+    unreadCompetitorAlertsCount
   } = useApp();
 
   const [filterOwner, setFilterOwner] = useState<string>("all");
@@ -155,6 +158,77 @@ export const CRMTodayWorkspace: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left 2 Columns: Next Best Actions & Deals Requiring Attention */}
         <div className="lg:col-span-2 space-y-6">
+          
+          {/* New Competitor Pricing Intelligence Section */}
+          {competitorAlerts && competitorAlerts.length > 0 && (
+            <div className="bg-white rounded-panel border border-brand-edge shadow-sm overflow-hidden">
+              <div className="bg-gradient-to-r from-brand-wash via-white to-white px-5 py-4 border-b border-brand-edge flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 bg-brand-deep rounded-edge text-white">
+                    <TrendingUp className="w-4 h-4 text-cyan-200" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-body">New Competitor Pricing Intelligence</h2>
+                    <p className="text-meta text-ink-dim">Market price points and competitor quotes observed by the team</p>
+                  </div>
+                </div>
+                {unreadCompetitorAlertsCount > 0 && (
+                  <span className="text-meta font-bold text-brand-deep bg-brand-wash px-2.5 py-0.5 rounded-full border border-brand-edge">
+                    {unreadCompetitorAlertsCount} New Alerts
+                  </span>
+                )}
+              </div>
+
+              <div className="divide-y divide-line">
+                {competitorAlerts.slice(0, 4).map((alert) => (
+                  <div
+                    key={alert.id}
+                    className={`p-4 hover:bg-raised transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                      !alert.isRead ? "bg-brand-wash/15" : ""
+                    }`}
+                  >
+                    <div className="space-y-1 max-w-xl">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-bold text-body text-meta">{alert.competitorName}</span>
+                        <span className="text-spec font-mono font-semibold text-brand-deep bg-brand-wash px-2 py-0.5 rounded">
+                          {alert.competitorProduct}
+                        </span>
+                        <span className="text-meta text-ink-dim">for <strong>{alert.accountName}</strong></span>
+                      </div>
+                      <p className="text-body font-bold text-brand-deep">
+                        ${alert.price.toLocaleString("en-AU", { minimumFractionDigits: 2 })} {alert.priceBasis && `(${alert.priceBasis})`}
+                      </p>
+                      <p className="text-spec text-ink-dim">
+                        {alert.message} · <span className="text-ink-faint">Observed: {new Date(alert.createdAt).toLocaleDateString("en-AU")}</span>
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                      <button
+                        onClick={() => {
+                          if (!alert.isRead) markCompetitorAlertRead(alert.id);
+                          navigateToCRM("accounts", alert.accountId);
+                        }}
+                        className="px-3 py-1.5 text-meta font-bold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <span>View Account Intel</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                      {!alert.isRead && (
+                        <button
+                          onClick={() => markCompetitorAlertRead(alert.id)}
+                          className="px-2.5 py-1.5 text-spec text-ink-dim hover:text-ink hover:bg-raised rounded-edge border border-line cursor-pointer font-semibold"
+                        >
+                          Mark Read
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Next Best Actions Section */}
           <div className="bg-white rounded-panel border border-hold shadow-sm overflow-hidden">
             <div className="bg-gradient-to-r from-hold/80 via-white to-white px-5 py-4 border-b border-hold flex items-center justify-between">
@@ -219,8 +293,7 @@ export const CRMTodayWorkspace: React.FC = () => {
                         }}
                         className="px-3 py-1.5 text-meta font-semibold text-hold bg-hold-wash border border-hold rounded-edge hover:bg-hold-wash transition-colors flex items-center gap-1"
                       >
-                        {action.actionLabel}
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        Action <ArrowRight className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -229,50 +302,94 @@ export const CRMTodayWorkspace: React.FC = () => {
             </div>
           </div>
 
-          {/* Deals Needing Attention / Stalled Deals */}
-          <div className="bg-white rounded-panel border border-line shadow-sm overflow-hidden">
+          {/* Deals Requiring Urgent Attention */}
+          <div className="bg-white rounded-panel border border-line shadow-xs overflow-hidden">
             <div className="px-5 py-4 border-b border-line flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-soon" />
-                <h2 className="text-base font-bold text-body">Deals Requiring Attention</h2>
+                <AlertTriangle className="w-4 h-4 text-urgent" />
+                <h2 className="text-base font-bold text-body">Deals Requiring Attention (At Risk or Stalled)</h2>
               </div>
-              <button
-                onClick={() => navigateToCRM("pipeline")}
-                className="text-meta text-brand-deep hover:text-brand-deep font-medium flex items-center gap-0.5"
-              >
-                View all pipeline <ChevronRight className="w-3.5 h-3.5" />
-              </button>
+              <span className="text-meta font-medium text-urgent bg-urgent-wash px-2 py-0.5 rounded-full">
+                {atRiskDeals.length} Deals
+              </span>
             </div>
 
             <div className="divide-y divide-line">
               {atRiskDeals.length === 0 ? (
-                <div className="p-6 text-center text-ink-dim text-body">
-                  No deals flagged as At Risk or Stalled. Pipeline health is strong.
-                </div>
+                <div className="p-6 text-center text-ink-dim text-meta">No at-risk deals currently. Great pipeline momentum!</div>
               ) : (
                 atRiskDeals.map((deal) => (
-                  <div
-                    key={deal.id}
-                    onClick={() => navigateToCRM("pipeline", deal.id)}
-                    className="p-4 hover:bg-raised transition-colors cursor-pointer flex items-center justify-between gap-4"
-                  >
-                    <div className="space-y-1">
+                  <div key={deal.id} className="p-4 hover:bg-raised transition-colors flex items-center justify-between gap-4">
+                    <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-meta font-bold px-2 py-0.5 rounded-full bg-urgent-wash text-urgent">
+                        <span className="font-bold text-body text-meta">{deal.name}</span>
+                        <span className="text-spec font-medium text-ink-dim bg-paper px-2 py-0.5 rounded">
+                          {deal.accountName}
+                        </span>
+                        <span className="text-spec font-semibold px-2 py-0.5 rounded-full bg-urgent-wash text-urgent">
                           {deal.dealHealth}
                         </span>
-                        <span className="text-meta text-ink-dim">{deal.accountName}</span>
-                        <span className="text-meta text-ink-faint">·</span>
-                        <span className="text-meta text-ink-dim">{deal.stageName}</span>
                       </div>
-                      <div className="text-body font-semibold">{deal.name}</div>
-                      <div className="text-meta text-urgent">
-                        {deal.dealHealthReasons.join(" · ")}
+                      <div className="text-spec text-ink-dim mt-1">
+                        Value: <strong className="text-body">${deal.dealValue.toLocaleString()}</strong> · Stage: {deal.stageName} · In Stage: {deal.daysInCurrentStage} days
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
-                      <div className="text-body font-bold">${deal.dealValue.toLocaleString()}</div>
-                      <div className="text-meta text-ink-dim">{deal.probability}% probability</div>
+
+                    <button
+                      onClick={() => navigateToCRM("pipeline", deal.id)}
+                      className="px-3 py-1.5 text-meta font-semibold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash transition-colors flex items-center gap-1 shrink-0"
+                    >
+                      View Deal <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right 1 Column: Today's Tasks, High Value Deals & Recent Activity */}
+        <div className="space-y-6">
+          {/* Today & Overdue Tasks */}
+          <div className="bg-white rounded-panel border border-line shadow-xs overflow-hidden">
+            <div className="px-5 py-4 border-b border-line flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-brand-deep" />
+                <h2 className="text-base font-bold text-body">Tasks for Today</h2>
+              </div>
+              <span className="text-meta font-semibold px-2 py-0.5 bg-paper text-body rounded-full">
+                {todayTasks.length + overdueTasks.length} Pending
+              </span>
+            </div>
+
+            <div className="divide-y divide-line max-h-72 overflow-y-auto">
+              {overdueTasks.length > 0 && (
+                <div className="p-2.5 bg-urgent-wash border-b border-urgent/20 text-spec font-semibold text-urgent flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                  {overdueTasks.length} overdue task(s) need immediate attention
+                </div>
+              )}
+
+              {[...overdueTasks, ...todayTasks].length === 0 ? (
+                <div className="p-6 text-center text-ink-dim text-meta">No tasks due today. Add one via Quick Log!</div>
+              ) : (
+                [...overdueTasks, ...todayTasks].map((task) => (
+                  <div key={task.id} className="p-3 hover:bg-raised transition-colors flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      checked={task.status === "Completed"}
+                      onChange={() => toggleTaskComplete(task.id)}
+                      className="mt-1 h-4 w-4 rounded border-line text-brand-deep focus:ring-brand"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-meta font-semibold text-body truncate">{task.title}</p>
+                      <div className="text-spec text-ink-dim flex items-center gap-2 mt-0.5">
+                        <span className={task.dueDate < todayStr ? "text-urgent font-semibold" : ""}>
+                          Due: {task.dueDate}
+                        </span>
+                        <span>·</span>
+                        <span>{task.priority} Priority</span>
+                      </div>
                     </div>
                   </div>
                 ))
@@ -280,169 +397,59 @@ export const CRMTodayWorkspace: React.FC = () => {
             </div>
           </div>
 
-          {/* Hot Deals to Close */}
-          <div className="bg-white rounded-panel border border-line shadow-sm overflow-hidden">
+          {/* High Priority Opportunities */}
+          <div className="bg-white rounded-panel border border-line shadow-xs overflow-hidden">
             <div className="px-5 py-4 border-b border-line flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Flame className="w-4 h-4 text-brand-deep" />
-                <h2 className="text-base font-bold text-body">Hot Opportunities in Final Stages</h2>
+                <Flame className="w-4 h-4 text-soon" />
+                <h2 className="text-base font-bold text-body">Top High-Value Deals</h2>
               </div>
-              <span className="text-meta text-ink-dim">{hotDeals.length} deals</span>
+              <button
+                onClick={() => navigateToCRM("pipeline")}
+                className="text-spec text-brand-deep font-semibold hover:underline"
+              >
+                All Deals
+              </button>
             </div>
+
             <div className="divide-y divide-line">
-              {hotDeals.map((deal) => (
+              {hotDeals.slice(0, 4).map((deal) => (
                 <div
                   key={deal.id}
                   onClick={() => navigateToCRM("pipeline", deal.id)}
-                  className="p-4 hover:bg-raised transition-colors cursor-pointer flex items-center justify-between gap-4"
+                  className="p-3.5 hover:bg-raised transition-colors cursor-pointer flex items-center justify-between gap-3"
                 >
-                  <div>
-                    <div className="text-meta font-medium text-ink-dim">{deal.accountName}</div>
-                    <div className="text-body font-semibold">{deal.name}</div>
-                    <div className="text-meta text-brand-deep font-medium mt-0.5">
-                      Next: {deal.nextAction || "Follow up on closing date"}
-                    </div>
+                  <div className="min-w-0">
+                    <div className="font-semibold text-meta text-body truncate">{deal.name}</div>
+                    <div className="text-spec text-ink-dim truncate">{deal.accountName} · {deal.stageName}</div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-body font-bold text-brand-deep">${deal.dealValue.toLocaleString()}</div>
-                    <div className="text-meta text-ink-dim">Close: {deal.expectedCloseDate}</div>
+                  <div className="text-right shrink-0">
+                    <div className="font-bold text-body text-meta">${deal.dealValue.toLocaleString()}</div>
+                    <div className="text-spec text-brand-deep font-semibold">{deal.probability}% win prob</div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
 
-        {/* Right Column: Tasks Due Today, Overdue Follow-ups, and Activity Stream */}
-        <div className="space-y-6">
-          {/* Tasks & Follow-ups */}
-          <div className="bg-white rounded-panel border border-line shadow-sm overflow-hidden">
+          {/* Recent Activity Feed */}
+          <div className="bg-white rounded-panel border border-line shadow-xs overflow-hidden">
             <div className="px-5 py-4 border-b border-line flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-body" />
-                <h2 className="text-base font-bold text-body">Tasks & Follow-Ups</h2>
-              </div>
-              <button
-                onClick={() => openQuickLog("task")}
-                className="text-meta text-brand-deep hover:text-brand-deep font-semibold"
-              >
-                + Add Task
-              </button>
-            </div>
-
-            <div className="p-4 space-y-3">
-              {/* Overdue */}
-              {overdueTasks.length > 0 && (
-                <div className="space-y-2">
-                  <div className="text-spec font-bold uppercase tracking-wider text-urgent flex items-center gap-1">
-                    <Clock className="w-3 h-3" /> Overdue ({overdueTasks.length})
-                  </div>
-                  {overdueTasks.map((t) => (
-                    <div key={t.id} className="p-3 bg-urgent-wash border border-urgent rounded-edge text-meta space-y-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <button
-                          onClick={() => toggleTaskComplete(t.id)}
-                          className="mt-0.5 w-4 h-4 rounded border border-urgent bg-white flex items-center justify-center hover:bg-urgent-wash"
-                        >
-                          {t.status === "Completed" && <CheckCircle2 className="w-3.5 h-3.5 text-urgent" />}
-                        </button>
-                        <div className="flex-1 font-semibold text-urgent">{t.title}</div>
-                      </div>
-                      <div className="text-spec text-urgent pl-6">
-                        Due: {t.dueDate} · {t.accountName || "General"}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Due Today */}
-              <div className="space-y-2 pt-2">
-                <div className="text-spec font-bold uppercase tracking-wider text-ink-dim">
-                  Due Today / Upcoming
-                </div>
-                {todayTasks.length === 0 && overdueTasks.length === 0 ? (
-                  <div className="text-meta text-ink-dim italic py-2">No pending tasks for today.</div>
-                ) : (
-                  todayTasks.map((t) => (
-                    <div key={t.id} className="p-3 bg-raised border border-line rounded-edge text-meta space-y-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <button
-                          onClick={() => toggleTaskComplete(t.id)}
-                          className="mt-0.5 w-4 h-4 rounded border border-line-strong bg-white flex items-center justify-center hover:bg-brand-wash"
-                        >
-                          {t.status === "Completed" && <CheckCircle2 className="w-3.5 h-3.5 text-brand-deep" />}
-                        </button>
-                        <div className="flex-1 font-semibold text-body">{t.title}</div>
-                      </div>
-                      <div className="text-spec text-ink-dim pl-6">
-                        {t.dueTime ? `${t.dueTime} · ` : ""}
-                        {t.accountName || "General"}
-                      </div>
-                    </div>
-                  ))
-                )}
+                <Clock className="w-4 h-4 text-ink-dim" />
+                <h2 className="text-base font-bold text-body">Recent Team Activities</h2>
               </div>
             </div>
-          </div>
 
-          {/* Inbound Leads Requiring Response */}
-          <div className="bg-white rounded-panel border border-line shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-line flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Flame className="w-4 h-4 text-urgent" />
-                <h2 className="text-base font-bold text-body">Inbound Leads</h2>
-              </div>
-              <button
-                onClick={() => navigateToCRM("leads")}
-                className="text-meta text-brand-deep hover:text-brand-deep font-medium"
-              >
-                View all
-              </button>
-            </div>
-            <div className="divide-y divide-line">
-              {newHotLeads.map((l) => (
-                <div
-                  key={l.id}
-                  onClick={() => navigateToCRM("leads", l.id)}
-                  className="p-3.5 hover:bg-raised transition-colors cursor-pointer space-y-1"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-meta font-bold">{l.company}</span>
-                    <span className="text-spec font-bold px-2 py-0.5 bg-urgent-wash text-urgent rounded-full">
-                      Score: {l.leadScore}
-                    </span>
-                  </div>
-                  <div className="text-meta text-ink-dim">{l.contactName} · {l.enquiryType}</div>
-                  <div className="text-spec text-ink-dim">Est. ${l.estimatedValue.toLocaleString()} · {l.location}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Recent Customer Activity */}
-          <div className="bg-white rounded-panel border border-line shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-line flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Layers className="w-4 h-4 text-ink-dim" />
-                <h2 className="text-base font-bold text-body">Recent Activity</h2>
-              </div>
-              <button
-                onClick={() => openQuickLog("note")}
-                className="text-meta text-ink-dim hover:text-ink font-medium"
-              >
-                + Note
-              </button>
-            </div>
-            <div className="divide-y divide-line">
+            <div className="divide-y divide-line max-h-64 overflow-y-auto">
               {recentActivities.map((act) => (
-                <div key={act.id} className="p-3 text-meta space-y-1">
-                  <div className="flex items-center justify-between text-ink-dim text-spec">
-                    <span className="font-semibold text-body">{act.accountName || "System"}</span>
-                    <span>{new Date(act.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                <div key={act.id} className="p-3 text-meta hover:bg-raised transition-colors space-y-1">
+                  <div className="flex items-center justify-between text-spec">
+                    <span className="font-semibold text-body capitalize">{act.type} · {act.accountName || "General"}</span>
+                    <span className="text-ink-faint">{act.timestamp}</span>
                   </div>
-                  <div className="font-medium text-body">{act.title}</div>
-                  <div className="text-ink-dim text-spec line-clamp-2">{act.description}</div>
+                  <p className="font-medium text-body text-spec">{act.title}</p>
+                  {act.description && <p className="text-spec text-ink-dim line-clamp-1">{act.description}</p>}
                 </div>
               ))}
             </div>
@@ -450,5 +457,5 @@ export const CRMTodayWorkspace: React.FC = () => {
         </div>
       </div>
     </div>
-  );
+);
 };

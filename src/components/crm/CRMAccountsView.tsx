@@ -25,10 +25,11 @@ import {
   ArrowUpRight,
   Edit3,
   Trash2,
-  Smartphone
+  Smartphone,
+  TrendingUp
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
-import { Account, CRMContact, CRMOpportunity, RelationshipHealth } from "../../types/crm";
+import { Account, CRMContact, CRMOpportunity, RelationshipHealth, CompetitorPricingRecord, CompetitorPriceBasis, CompetitorGstStatus, CompetitorSourceType, CompetitorPricingStatus } from "../../types/crm";
 import { CRMContactModal } from "./CRMContactModal";
 
 export const CRMAccountsView: React.FC = () => {
@@ -47,13 +48,116 @@ export const CRMAccountsView: React.FC = () => {
     deleteContact,
     openQuickLog,
     navigateToCRM,
-    currentUser
+    currentUser,
+    competitorPricingRecords,
+    addCompetitorPricing,
+    updateCompetitorPricing
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [segmentFilter, setSegmentFilter] = useState("all");
   const [healthFilter, setHealthFilter] = useState("all");
-  const [activeAccountTab, setActiveAccountTab] = useState<"overview" | "contacts" | "deals" | "timeline" | "quotes" | "ai-summary">("overview");
+  const [activeAccountTab, setActiveAccountTab] = useState<"overview" | "contacts" | "deals" | "timeline" | "quotes" | "competitor-pricing" | "ai-summary">("overview");
+
+  // Competitor Pricing Modal State
+  const [isCompetitorModalOpen, setIsCompetitorModalOpen] = useState(false);
+  const [editingCompetitorRecord, setEditingCompetitorRecord] = useState<CompetitorPricingRecord | null>(null);
+  const [competitorForm, setCompetitorForm] = useState({
+    competitorName: "",
+    competitorProduct: "",
+    price: 1850,
+    currency: "AUD",
+    priceBasis: "Per Unit" as CompetitorPriceBasis,
+    gstStatus: "Ex GST" as CompetitorGstStatus,
+    quantity: "" as string | number,
+    sourceType: "Customer Verbal" as CompetitorSourceType,
+    observedDate: new Date().toISOString().split("T")[0],
+    notes: "",
+    status: "Active" as CompetitorPricingStatus
+  });
+
+  const resetCompetitorForm = () => {
+    setCompetitorForm({
+      competitorName: "",
+      competitorProduct: "",
+      price: 1850,
+      currency: "AUD",
+      priceBasis: "Per Unit",
+      gstStatus: "Ex GST",
+      quantity: "",
+      sourceType: "Customer Verbal",
+      observedDate: new Date().toISOString().split("T")[0],
+      notes: "",
+      status: "Active"
+    });
+    setEditingCompetitorRecord(null);
+  };
+
+  const handleOpenAddCompetitor = () => {
+    resetCompetitorForm();
+    setIsCompetitorModalOpen(true);
+  };
+
+  const handleOpenEditCompetitor = (record: CompetitorPricingRecord) => {
+    setEditingCompetitorRecord(record);
+    setCompetitorForm({
+      competitorName: record.competitorName,
+      competitorProduct: record.competitorProduct,
+      price: record.price,
+      currency: record.currency || "AUD",
+      priceBasis: record.priceBasis,
+      gstStatus: record.gstStatus,
+      quantity: record.quantity || "",
+      sourceType: record.sourceType,
+      observedDate: record.observedDate,
+      notes: record.notes || "",
+      status: record.status
+    });
+    setIsCompetitorModalOpen(true);
+  };
+
+  const handleSaveCompetitorPricing = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAccount) return;
+
+    const priceNum = typeof competitorForm.price === "number" ? competitorForm.price : parseFloat(competitorForm.price);
+    const qtyNum = competitorForm.quantity ? (typeof competitorForm.quantity === "number" ? competitorForm.quantity : parseFloat(competitorForm.quantity)) : undefined;
+
+    if (editingCompetitorRecord) {
+      await updateCompetitorPricing(editingCompetitorRecord.id, {
+        competitorName: competitorForm.competitorName,
+        competitorProduct: competitorForm.competitorProduct,
+        price: priceNum,
+        priceBasis: competitorForm.priceBasis,
+        gstStatus: competitorForm.gstStatus,
+        quantity: qtyNum,
+        sourceType: competitorForm.sourceType,
+        observedDate: competitorForm.observedDate,
+        notes: competitorForm.notes,
+        status: competitorForm.status
+      });
+    } else {
+      await addCompetitorPricing({
+        accountId: selectedAccount.id,
+        accountName: selectedAccount.name,
+        competitorName: competitorForm.competitorName,
+        competitorProduct: competitorForm.competitorProduct,
+        price: priceNum,
+        currency: competitorForm.currency,
+        priceBasis: competitorForm.priceBasis,
+        gstStatus: competitorForm.gstStatus,
+        quantity: qtyNum,
+        sourceType: competitorForm.sourceType,
+        observedDate: competitorForm.observedDate,
+        notes: competitorForm.notes,
+        createdBy: currentUser.name,
+        status: competitorForm.status
+      });
+    }
+
+    setIsCompetitorModalOpen(false);
+    resetCompetitorForm();
+  };
 
   // Contact modal state
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -91,6 +195,7 @@ export const CRMAccountsView: React.FC = () => {
   const accountDeals = crmOpportunities.filter((d) => d.accountId === selectedAccount?.id);
   const accountActivities = activities.filter((act) => act.accountId === selectedAccount?.id);
   const accountTasks = tasks.filter((t) => t.accountId === selectedAccount?.id);
+  const accountCompetitorPricing = competitorPricingRecords.filter((r) => r.accountId === selectedAccount?.id);
 
   const handleCreateAccount = (e: React.FormEvent) => {
     e.preventDefault();
@@ -819,6 +924,206 @@ export const CRMAccountsView: React.FC = () => {
                   className="px-4 py-2 font-semibold text-white bg-brand-deep rounded-edge hover:bg-brand-deep"
                 >
                   Save Account
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Competitor Pricing Structured Modal */}
+      {isCompetitorModalOpen && selectedAccount && (
+        <div className="fixed inset-0 bg-chrome/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div className="flex items-center gap-2">
+                <TrendingUp className="w-5 h-5 text-brand-deep" />
+                <h3 className="text-lg font-bold text-body">
+                  {editingCompetitorRecord ? "Edit Competitor Pricing" : "Record Competitor Pricing"}
+                </h3>
+              </div>
+              <button
+                onClick={() => {
+                  setIsCompetitorModalOpen(false);
+                  resetCompetitorForm();
+                }}
+                className="text-ink-faint hover:text-ink p-1 rounded"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveCompetitorPricing} className="space-y-3.5 text-meta">
+              <div className="p-2.5 bg-paper rounded-edge border border-line text-spec text-ink-dim">
+                Customer Account: <strong className="text-body">{selectedAccount.name}</strong>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                    Competitor Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Leadsun, Orca Solar"
+                    value={competitorForm.competitorName}
+                    onChange={(e) => setCompetitorForm({ ...competitorForm, competitorName: e.target.value })}
+                    className="w-full p-2 bg-paper rounded-edge border border-line text-meta font-medium"
+                  />
+                </div>
+                <div>
+                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                    Competitor Model / Product *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. AE3 30W All-In-One"
+                    value={competitorForm.competitorProduct}
+                    onChange={(e) => setCompetitorForm({ ...competitorForm, competitorProduct: e.target.value })}
+                    className="w-full p-2 bg-paper rounded-edge border border-line text-meta font-medium"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                    Observed Price ($ AUD) *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    required
+                    value={competitorForm.price}
+                    onChange={(e) => setCompetitorForm({ ...competitorForm, price: parseFloat(e.target.value) || 0 })}
+                    className="w-full p-2 bg-paper rounded-edge border border-line font-bold text-brand-deep text-meta"
+                  />
+                </div>
+                <div>
+                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                    Price Basis *
+                  </label>
+                  <select
+                    value={competitorForm.priceBasis}
+                    onChange={(e) => setCompetitorForm({ ...competitorForm, priceBasis: e.target.value as CompetitorPriceBasis })}
+                    className="w-full p-2 bg-paper rounded-edge border border-line text-meta"
+                  >
+                    <option value="Per Unit">Per Unit</option>
+                    <option value="Per System">Per System</option>
+                    <option value="Project Total">Project Total</option>
+                    <option value="Supply Only">Supply Only</option>
+                    <option value="Installed">Installed</option>
+                    <option value="Unknown">Unknown</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                    GST Treatment
+                  </label>
+                  <select
+                    value={competitorForm.gstStatus}
+                    onChange={(e) => setCompetitorForm({ ...competitorForm, gstStatus: e.target.value as CompetitorGstStatus })}
+                    className="w-full p-2 bg-paper rounded-edge border border-line text-meta"
+                  >
+                    <option value="Ex GST">Ex GST</option>
+                    <option value="Inc GST">Inc GST</option>
+                    <option value="Unknown">Unknown</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                    Intelligence Source *
+                  </label>
+                  <select
+                    value={competitorForm.sourceType}
+                    onChange={(e) => setCompetitorForm({ ...competitorForm, sourceType: e.target.value as CompetitorSourceType })}
+                    className="w-full p-2 bg-paper rounded-edge border border-line text-meta"
+                  >
+                    <option value="Customer Verbal">Customer Verbal</option>
+                    <option value="Competitor Quote">Competitor Quote</option>
+                    <option value="Tender Schedule">Tender Schedule</option>
+                    <option value="Email">Email</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                    Date Observed *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={competitorForm.observedDate}
+                    onChange={(e) => setCompetitorForm({ ...competitorForm, observedDate: e.target.value })}
+                    className="w-full p-2 bg-paper rounded-edge border border-line text-meta"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                    Quantity (if known)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 24"
+                    value={competitorForm.quantity}
+                    onChange={(e) => setCompetitorForm({ ...competitorForm, quantity: e.target.value })}
+                    className="w-full p-2 bg-paper rounded-edge border border-line text-meta"
+                  />
+                </div>
+                <div>
+                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={competitorForm.status}
+                    onChange={(e) => setCompetitorForm({ ...competitorForm, status: e.target.value as CompetitorPricingStatus })}
+                    className="w-full p-2 bg-paper rounded-edge border border-line text-meta"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Superseded">Superseded</option>
+                    <option value="Unverified">Unverified</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                  Context, Scope &amp; Notes
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Includes delivery? Battery enclosure type? Lead times mentioned?"
+                  value={competitorForm.notes}
+                  onChange={(e) => setCompetitorForm({ ...competitorForm, notes: e.target.value })}
+                  className="w-full p-2 bg-paper rounded-edge border border-line text-meta"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCompetitorModalOpen(false);
+                    resetCompetitorForm();
+                  }}
+                  className="px-4 py-2 text-ink-dim hover:text-ink"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 font-bold text-white bg-brand-deep rounded-edge hover:bg-brand transition-colors cursor-pointer shadow-xs"
+                >
+                  {editingCompetitorRecord ? "Update Intelligence" : "Save & Alert Team"}
                 </button>
               </div>
             </form>

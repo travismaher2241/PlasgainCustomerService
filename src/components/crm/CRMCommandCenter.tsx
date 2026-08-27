@@ -19,6 +19,7 @@ const CRMPipelineView = lazy(() => import("./CRMPipelineView").then(m => ({ defa
 const CRMLeadsView = lazy(() => import("./CRMLeadsView").then(m => ({ default: m.CRMLeadsView })));
 const CRMTasksActivitiesView = lazy(() => import("./CRMTasksActivitiesView").then(m => ({ default: m.CRMTasksActivitiesView })));
 const CRMAnalyticsView = lazy(() => import("./CRMAnalyticsView").then(m => ({ default: m.CRMAnalyticsView })));
+const CRMCompetitorPricingView = lazy(() => import("./CRMCompetitorPricingView").then(m => ({ default: m.CRMCompetitorPricingView })));
 
 export const CRMCommandCenter: React.FC = () => {
   const {
@@ -29,7 +30,8 @@ export const CRMCommandCenter: React.FC = () => {
     leads,
     tasks,
     nextBestActions,
-    openQuickLog
+    openQuickLog,
+    competitorPricingRecords
   } = useApp();
 
   const overdueCount = tasks.filter(
@@ -124,6 +126,18 @@ export const CRMCommandCenter: React.FC = () => {
               </button>
 
               <button
+                onClick={() => setActiveCRMTab("competitor-pricing")}
+                className={`px-3 py-1.5 rounded-edge text-meta font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                  activeCRMTab === "competitor-pricing"
+                    ? "bg-brand-deep text-white shadow-xs"
+                    : "text-ink-dim hover:text-ink hover:bg-paper"
+                }`}
+              >
+                <TrendingUp className="w-3.5 h-3.5" />
+                Competitor Intel ({competitorPricingRecords.length})
+              </button>
+
+              <button
                 onClick={() => setActiveCRMTab("analytics")}
                 className={`px-3 py-1.5 rounded-edge text-meta font-bold transition-all flex items-center gap-1.5 shrink-0 ${
                   activeCRMTab === "analytics"
@@ -164,6 +178,7 @@ export const CRMCommandCenter: React.FC = () => {
           {activeCRMTab === "pipeline" && <CRMPipelineView />}
           {activeCRMTab === "leads" && <CRMLeadsView />}
           {activeCRMTab === "tasks" && <CRMTasksActivitiesView />}
+          {activeCRMTab === "competitor-pricing" && <CRMCompetitorPricingView />}
           {activeCRMTab === "analytics" && <CRMAnalyticsView />}
         </Suspense>
       </main>

@@ -8,31 +8,55 @@ import {
   generateCustomerFollowUpEmail,
   formatOstendoCSV,
   formatOstendoTabDelimited,
+  validateOstendoItems,
   resolveProductsForDeal,
   generateTenderPackageHTML
 } from '../../utils/datasheetExporter';
 import { SAMPLE_PRODUCTS } from '../../data/mockData';
 
-describe('Follow-up Generator & Ostendo Exporter Utils', () => {
-  it('formats line items correctly for Ostendo ERP CSV import', () => {
+describe('Follow-up Generator & Ostendo Product-Only Exporter Utils', () => {
+  it('formats line items strictly as product-only for Ostendo ERP CSV import (no pricing, GST or tax)', () => {
     const items = [
-      { code: '50W-INTENSE', name: 'Intense Light - 50W Solar', quantity: 12, unitPrice: 1650 },
-      { code: 'PLASPOLE-6M', name: 'Plaspole 6.0m Recycled Composite Light Pole', quantity: 12, unitPrice: 620 }
+      { code: '50W-INTENSE', name: 'Intense Light - 50W Solar', quantity: 12, unit: 'ea', notes: 'Pole P1-P12' },
+      { code: 'PLASPOLE-6M', name: 'Plaspole 6.0m Recycled Composite Light Pole', quantity: 12, unit: 'ea', notes: 'Direct burial' }
     ];
 
     const csv = formatOstendoCSV(items, 'OST-2025-001');
-    expect(csv).toContain('Item Code,Description,Quantity,Unit Price (AUD),Tax Code,Job / Quote Ref');
-    expect(csv).toContain('"50W-INTENSE","Intense Light - 50W Solar",12,1650.00,"GST","OST-2025-001"');
-    expect(csv).toContain('"PLASPOLE-6M","Plaspole 6.0m Recycled Composite Light Pole",12,620.00,"GST","OST-2025-001"');
+    expect(csv).toContain('"Item Code","Description","Quantity","Unit","Line Notes","Job / Quote Ref"');
+    expect(csv).toContain('"50W-INTENSE","Intense Light - 50W Solar",12,"ea","Pole P1-P12","OST-2025-001"');
+    expect(csv).toContain('"PLASPOLE-6M","Plaspole 6.0m Recycled Composite Light Pole",12,"ea","Direct burial","OST-2025-001"');
+    // Ensure no pricing or tax codes are present
+    expect(csv).not.toContain('Unit Price');
+    expect(csv).not.toContain('Tax Code');
+    expect(csv).not.toContain('GST');
   });
 
-  it('formats tab-delimited grid data for direct clipboard pasting into Ostendo', () => {
+  it('formats tab-delimited grid data without prices for fast pasting into Ostendo', () => {
     const items = [
-      { code: '50W-INTENSE', name: 'Intense Light - 50W Solar', quantity: 10, unitPrice: 1500 }
+      { code: '50W-INTENSE', name: 'Intense Light - 50W Solar', quantity: 10, unit: 'ea', notes: 'Stage 1' }
     ];
 
-    const tabDelimited = formatOstendoTabDelimited(items);
-    expect(tabDelimited).toBe('50W-INTENSE\tIntense Light - 50W Solar\t10\t1500.00\tGST');
+    const tabDelimited = formatOstendoTabDelimited(items, 'OST-2025-001');
+    expect(tabDelimited).toBe('50W-INTENSE\tIntense Light - 50W Solar\t10\tea\tStage 1\tOST-2025-001');
+    expect(tabDelimited).not.toContain('GST');
+  });
+
+  it('validates Ostendo export items and rejects missing codes or zero/negative quantities', () => {
+    const validItems = [
+      { code: 'PB-75W', name: 'Pro Blade 75W', quantity: 5 }
+    ];
+    const validRes = validateOstendoItems(validItems);
+    expect(validRes.valid).toBe(true);
+    expect(validRes.errors).toHaveLength(0);
+
+    const invalidItems = [
+      { code: '', name: 'Missing code item', quantity: 5 },
+      { code: 'PB-75W', name: 'Zero qty item', quantity: 0 },
+      { code: 'PB-75W', name: 'Negative qty item', quantity: -2 }
+    ];
+    const invalidRes = validateOstendoItems(invalidItems);
+    expect(invalidRes.valid).toBe(false);
+    expect(invalidRes.errors.length).toBeGreaterThanOrEqual(3);
   });
 
   it('generates Day 7 follow-up email sequence with Ostendo reference and product details', () => {

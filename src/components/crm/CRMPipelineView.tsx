@@ -28,7 +28,12 @@ import { useApp } from "../../context/AppContext";
 import { CRMOpportunity, DealHealthRating } from "../../types/crm";
 import { CustomerFollowUpModal } from "../CustomerFollowUpModal";
 import { DatasheetPackageModal } from "../DatasheetPackageModal";
-import { formatOstendoCSV, formatOstendoTabDelimited } from "../../utils/datasheetExporter";
+import {
+  formatOstendoCSV,
+  formatOstendoTabDelimited,
+  validateOstendoItems,
+  downloadOstendoCSV
+} from "../../utils/datasheetExporter";
 
 export const CRMPipelineView: React.FC = () => {
   const {
@@ -137,7 +142,6 @@ export const CRMPipelineView: React.FC = () => {
       stageId: stage.id,
       stageName: stage.name,
       probability: stage.probability,
-      // Probability and weighted value must move together or the forecast drifts.
       weightedValue: ((deal?.dealValue ?? 0) * stage.probability) / 100,
       daysInCurrentStage: 0,
       latestActivity: `Moved stage to ${stage.name}`,
@@ -244,83 +248,72 @@ export const CRMPipelineView: React.FC = () => {
         <div className="flex gap-4 overflow-x-auto pb-6 pt-2 items-start min-h-[600px]">
           {currentPipeline.stages.map((stage) => {
             const stageDeals = filteredDeals.filter((d) => d.stageId === stage.id);
-            const stageTotal = stageDeals.reduce((sum, d) => sum + (d.dealValue || 0), 0);
+            const stageValue = stageDeals.reduce((sum, d) => sum + (d.dealValue || 0), 0);
 
             return (
               <div
                 key={stage.id}
-                className="w-80 shrink-0 bg-paper rounded-panel p-3 border border-line flex flex-col max-h-[750px]"
+                className="w-76 shrink-0 bg-paper rounded-panel border border-line p-3 flex flex-col max-h-[calc(100vh-280px)]"
               >
-                {/* Stage Header */}
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-line">
-                  <div>
-                    <div className="text-meta font-bold">{stage.name}</div>
-                    <div className="text-spec text-ink-dim font-medium">
-                      ${stageTotal.toLocaleString()} · {stageDeals.length} deals
-                    </div>
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-bold text-body text-meta">{stage.name}</h3>
+                    <span className="text-spec font-semibold px-2 py-0.5 rounded-full bg-raised text-ink-dim">
+                      {stageDeals.length}
+                    </span>
                   </div>
-                  <span className="text-spec font-bold text-ink-faint">{stage.probability}%</span>
+                  <span className="text-spec font-medium text-ink-dim">{stage.probability}%</span>
                 </div>
 
-                {/* Stage Cards Scroll */}
+                <div className="text-spec text-ink-dim font-medium px-1 mb-3">
+                  ${stageValue.toLocaleString()}
+                </div>
+
                 <div className="space-y-3 overflow-y-auto flex-1 pr-1">
-                  {stageDeals.length === 0 ? (
-                    <div className="p-4 text-center text-spec text-ink-faint border border-dashed border-line-strong rounded-edge">
-                      No active deals
-                    </div>
-                  ) : (
-                    stageDeals.map((deal) => (
-                      <div
-                        key={deal.id}
-                        onClick={() => setSelectedCrmOpportunityId(deal.id)}
-                        className={`bg-white p-3.5 rounded-panel border transition-all cursor-pointer shadow-xs hover:shadow-md space-y-2.5 ${
-                          selectedDeal?.id === deal.id
-                            ? "border-brand ring-2 ring-brand/20"
-                            : "border-line"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-1">
-                          <div className="space-y-0.5">
-                            <span className="text-spec text-ink-dim font-semibold">{deal.accountName}</span>
-                            <h4 className="text-meta font-bold leading-snug">{deal.name}</h4>
-                          </div>
-                          {getHealthBadge(deal.dealHealth)}
-                        </div>
-
-                        <div className="text-meta font-bold text-brand-deep flex items-center justify-between">
-                          <span>${deal.dealValue.toLocaleString()}</span>
-                          <span className="text-spec font-normal text-ink-dim">Close: {deal.expectedCloseDate}</span>
-                        </div>
-
-                        {deal.dealHealthReasons && deal.dealHealthReasons.length > 0 && deal.dealHealth !== "Healthy" && (
-                          <div className="text-spec text-urgent bg-urgent-wash p-1.5 rounded border border-urgent/60 leading-tight">
-                            {deal.dealHealthReasons[0]}
-                          </div>
-                        )}
-
-                        <div className="text-spec text-ink-dim pt-2 border-t border-line flex items-center justify-between">
-                          <span className="truncate max-w-[140px]">Next: {deal.nextAction || "None"}</span>
-                          <span className="font-semibold text-ink-dim">{deal.daysInCurrentStage}d in stage</span>
-                        </div>
-
-                        {/* Quick Move Stage Select */}
-                        <div className="pt-1 flex items-center justify-between gap-1">
-                          <select
-                            value={deal.stageId}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => handleStageChange(deal.id, e.target.value)}
-                            className="w-full text-spec py-1 px-1.5 bg-raised border border-line rounded"
-                          >
-                            {currentPipeline.stages.map((s) => (
-                              <option key={s.id} value={s.id}>
-                                Move to: {s.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                  {stageDeals.map((deal) => (
+                    <div
+                      key={deal.id}
+                      onClick={() => setSelectedCrmOpportunityId(deal.id)}
+                      className={`p-3.5 bg-white rounded-edge border transition-all cursor-pointer shadow-2xs hover:shadow-xs hover:border-brand-edge ${
+                        selectedCrmOpportunityId === deal.id ? "ring-2 ring-brand border-brand" : "border-line"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-1.5">
+                        <span className="text-spec font-bold text-ink-dim truncate">{deal.accountName}</span>
+                        {getHealthBadge(deal.dealHealth)}
                       </div>
-                    ))
-                  )}
+
+                      <h4 className="font-bold text-body text-meta line-clamp-2 mb-2">{deal.name}</h4>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-line text-spec">
+                        <span className="font-bold text-body">${deal.dealValue.toLocaleString()}</span>
+                        <span className="text-ink-dim">{deal.expectedCloseDate}</span>
+                      </div>
+
+                      {deal.nextAction && (
+                        <div className="mt-2 text-[11px] text-brand-deep bg-brand-wash px-2 py-1 rounded truncate">
+                          Next: {deal.nextAction}
+                        </div>
+                      )}
+
+                      {/* Quick stage mover */}
+                      <div className="mt-2.5 pt-2 border-t border-line/60 flex items-center justify-between text-spec">
+                        <span className="text-ink-dim text-[11px]">Move stage:</span>
+                        <select
+                          value={deal.stageId}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => handleStageChange(deal.id, e.target.value)}
+                          className="text-[11px] font-semibold bg-raised border border-line rounded px-1.5 py-0.5 focus:outline-none"
+                        >
+                          {currentPipeline.stages.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             );
@@ -328,18 +321,19 @@ export const CRMPipelineView: React.FC = () => {
         </div>
       ) : (
         /* Table View */
-        <div className="bg-white rounded-panel border border-line shadow-sm overflow-hidden">
+        <div className="bg-white rounded-panel border border-line shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-meta">
-              <thead className="bg-raised border-b border-line text-ink-dim font-bold uppercase tracking-wider">
-                <tr>
-                  <th className="py-3 px-4">Opportunity & Account</th>
-                  <th className="py-3 px-4">Stage</th>
-                  <th className="py-3 px-4">Deal Value</th>
-                  <th className="py-3 px-4">Health</th>
-                  <th className="py-3 px-4">Next Action</th>
-                  <th className="py-3 px-4">Close Date</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+            <table className="w-full text-meta">
+              <thead>
+                <tr className="bg-raised border-b border-line text-spec font-bold text-ink-dim uppercase">
+                  <th className="text-left py-3 px-4">Opportunity</th>
+                  <th className="text-left py-3 px-3">Account</th>
+                  <th className="text-left py-3 px-3">Stage</th>
+                  <th className="text-right py-3 px-3">Value</th>
+                  <th className="text-right py-3 px-3">Weighted</th>
+                  <th className="text-left py-3 px-3">Close Date</th>
+                  <th className="text-center py-3 px-3">Health</th>
+                  <th className="text-left py-3 px-4">Next Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -347,28 +341,22 @@ export const CRMPipelineView: React.FC = () => {
                   <tr
                     key={deal.id}
                     onClick={() => setSelectedCrmOpportunityId(deal.id)}
-                    className="hover:bg-raised cursor-pointer"
+                    className={`hover:bg-raised/50 cursor-pointer transition-colors ${
+                      selectedCrmOpportunityId === deal.id ? "bg-brand-wash/30" : ""
+                    }`}
                   >
-                    <td className="py-3 px-4">
-                      <div className="font-bold text-body">{deal.name}</div>
-                      <div className="text-spec text-ink-dim">{deal.accountName}</div>
+                    <td className="py-3 px-4 font-bold text-body">{deal.name}</td>
+                    <td className="py-3 px-3 text-ink-dim">{deal.accountName}</td>
+                    <td className="py-3 px-3">
+                      <span className="font-semibold px-2 py-0.5 rounded bg-paper border border-line text-spec">
+                        {deal.stageName}
+                      </span>
                     </td>
-                    <td className="py-3 px-4 font-semibold text-body">{deal.stageName}</td>
-                    <td className="py-3 px-4 font-bold text-body">${deal.dealValue.toLocaleString()}</td>
-                    <td className="py-3 px-4">{getHealthBadge(deal.dealHealth)}</td>
-                    <td className="py-3 px-4 text-ink-dim">{deal.nextAction || "None"}</td>
-                    <td className="py-3 px-4 text-ink-dim">{deal.expectedCloseDate}</td>
-                    <td className="py-3 px-4 text-right">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          openQuickLog("call", deal.accountId, deal.id);
-                        }}
-                        className="text-meta font-semibold text-brand-deep hover:text-brand-deep"
-                      >
-                        Log Activity
-                      </button>
-                    </td>
+                    <td className="py-3 px-3 text-right font-bold text-body">${deal.dealValue.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-right font-semibold text-brand-deep">${deal.weightedValue.toLocaleString()}</td>
+                    <td className="py-3 px-3 text-ink-dim text-spec">{deal.expectedCloseDate}</td>
+                    <td className="py-3 px-3 text-center">{getHealthBadge(deal.dealHealth)}</td>
+                    <td className="py-3 px-4 text-spec text-ink-dim truncate max-w-xs">{deal.nextAction || "-"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -474,52 +462,46 @@ export const CRMPipelineView: React.FC = () => {
                 <span className="font-semibold text-body">{selectedDeal.expectedCloseDate}</span>
               </div>
 
-              {/* Export for Ostendo Button */}
+              {/* Export Product List for Ostendo Button */}
               <button
                 onClick={() => {
                   const items = selectedDeal.products.map((p) => ({
                     code: p.productCode,
                     name: p.productName,
                     quantity: p.quantity,
-                    unitPrice: p.unitPrice,
-                    category: p.category
+                    unit: "ea",
+                    notes: p.notes,
+                    quoteRef: selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber
                   }));
-                  if (items.length === 0) {
-                    items.push({
-                      code: "PLASGAIN-SOLAR",
-                      name: selectedDeal.name,
-                      quantity: 1,
-                      unitPrice: selectedDeal.dealValue
-                    });
-                  }
-                  // Tab delimited for fast copy-paste
-                  const tabData = formatOstendoTabDelimited(items);
-                  navigator.clipboard.writeText(tabData);
-                  // CSV download
-                  const csvData = formatOstendoCSV(items, selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber);
-                  const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" });
-                  const url = URL.createObjectURL(blob);
-                  const link = document.createElement("a");
-                  link.setAttribute("href", url);
-                  link.setAttribute("download", `Ostendo_Line_Items_${selectedDeal.name.replace(/\s+/g, "_")}.csv`);
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
 
-                  showToast("Copied Ostendo grid data & downloaded CSV for ERP entry!", "success");
+                  const validation = validateOstendoItems(items);
+                  if (!validation.valid) {
+                    showToast(`Ostendo Export Blocked: ${validation.errors.join("; ")}`, "error");
+                    return;
+                  }
+
+                  // 1. Copy tab-delimited product list
+                  const tabData = formatOstendoTabDelimited(items, selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber);
+                  navigator.clipboard.writeText(tabData);
+
+                  // 2. Download clean CRLF CSV with UTF-8 BOM
+                  const csvData = formatOstendoCSV(items, selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber);
+                  downloadOstendoCSV(csvData, `Ostendo_Product_List_${selectedDeal.name.replace(/\s+/g, "_")}.csv`);
+
+                  showToast("Product list copied and CSV downloaded! Pricing will be calculated in Ostendo.", "success");
                 }}
                 className="w-full mt-2 py-2 px-3 bg-white hover:bg-brand-wash text-brand-deep border border-brand-edge font-bold text-spec rounded-edge flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
-                title="Copy tab-delimited grid data and download CSV formatted for Ostendo ERP entry"
+                title="Export product list (Item Code, Description, Qty, Unit) for Ostendo ERP entry"
               >
                 <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Export Line Items for Ostendo</span>
+                <span>Export Product List for Ostendo</span>
               </button>
             </div>
 
             {/* Column 2: Products & Luminaires */}
             <div className="p-4 bg-raised rounded-panel space-y-3 text-meta">
               <div className="font-bold text-body border-b border-line pb-2 flex justify-between items-center">
-                <span>Luminaires &amp; Bill of Materials</span>
+                <span>Luminaires &amp; Product List</span>
                 <span className="text-spec font-bold text-brand-deep bg-brand-wash px-1.5 py-0.5 rounded">
                   {selectedDeal.products.length} Items
                 </span>
@@ -534,7 +516,6 @@ export const CRMPipelineView: React.FC = () => {
                         <div className="font-semibold text-spec">{p.productName}</div>
                         <div className="text-[11px] text-ink-dim">Code: {p.productCode || "N/A"} • Qty: {p.quantity}</div>
                       </div>
-                      {p.totalPrice && <span className="font-bold text-spec">${p.totalPrice.toLocaleString()}</span>}
                     </div>
                   ))}
                 </div>

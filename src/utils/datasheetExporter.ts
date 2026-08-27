@@ -2,12 +2,54 @@ import { PlasgainProduct } from "../types";
 import { SAMPLE_PRODUCTS } from "../data/mockData";
 
 export interface OstendoExportItem {
-  code?: string;
+  code: string;
   name: string;
   quantity: number;
-  unitPrice?: number;
-  category?: string;
+  unit?: string;
   notes?: string;
+  quoteRef?: string;
+}
+
+export interface OstendoValidationResult {
+  valid: boolean;
+  errors: string[];
+}
+
+/**
+ * Validates product line items prior to Ostendo export.
+ * Every row must have an explicit Item Code and quantity > 0.
+ */
+export function validateOstendoItems(items: OstendoExportItem[]): OstendoValidationResult {
+  const errors: string[] = [];
+
+  if (!items || items.length === 0) {
+    errors.push("At least one product line item is required for Ostendo export.");
+    return { valid: false, errors };
+  }
+
+  items.forEach((item, idx) => {
+    const rowNum = idx + 1;
+    const code = (item.code || "").trim();
+    const qty = typeof item.quantity === "number" ? item.quantity : parseFloat(String(item.quantity));
+
+    if (!code) {
+      errors.push(`Row ${rowNum} ("${item.name || "Unnamed Item"}"): Missing explicit Item Code.`);
+    }
+    if (isNaN(qty) || qty <= 0) {
+      errors.push(`Row ${rowNum} ("${item.name || code || "Item"}"): Quantity must be greater than zero (found: ${item.quantity}).`);
+    }
+  });
+
+  return {
+    valid: errors.length === 0,
+    errors
+  };
+}
+
+function escapeCsvField(val: string | number | undefined | null): string {
+  if (val === undefined || val === null) return '""';
+  const str = String(val);
+  return `"${str.replace(/"/g, '""')}"`;
 }
 
 /**
@@ -46,35 +88,66 @@ export function resolveProductsForDeal(productNamesOrCodes: string[]): PlasgainP
 }
 
 /**
- * Formats line items into standard Ostendo ERP CSV import format.
+ * Formats validated product line items into standard Ostendo ERP CSV import format.
+ * Strictly product-only: Item Code, Description, Quantity, Unit, Line Notes, Job / Quote Ref.
+ * Uses UTF-8 BOM (\uFEFF) and Windows CRLF (\r\n) line endings.
  */
 export function formatOstendoCSV(items: OstendoExportItem[], quoteRef?: string): string {
-  const headers = ["Item Code", "Description", "Quantity", "Unit Price (AUD)", "Tax Code", "Job / Quote Ref"];
+  const headers = ["Item Code", "Description", "Quantity", "Unit", "Line Notes", "Job / Quote Ref"];
+  const headerLine = headers.map(escapeCsvField).join(",");
+
   const rows = items.map((item) => {
-    const code = item.code || item.name.substring(0, 15).toUpperCase().replace(/\s+/g, "-");
-    const desc = item.name.replace(/"/g, '""');
-    const qty = item.quantity || 1;
-    const price = (item.unitPrice || 0).toFixed(2);
-    const tax = "GST";
-    const ref = (quoteRef || "OST-QUOTE").replace(/"/g, '""');
-    return `"${code}","${desc}",${qty},${price},"${tax}","${ref}"`;
+    const code = (item.code || "").trim();
+    const desc = (item.name || "").trim();
+    const qty = item.quantity;
+    const unit = (item.unit || "ea").trim();
+    const notes = (item.notes || "").trim();
+    const ref = (quoteRef || item.quoteRef || "").trim();
+
+    return [
+      escapeCsvField(code),
+      escapeCsvField(desc),
+      qty,
+      escapeCsvField(unit),
+      escapeCsvField(notes),
+      escapeCsvField(ref)
+    ].join(",");
   });
 
-  return [headers.join(","), ...rows].join("\n");
+  return "\uFEFF" + [headerLine, ...rows].join("\r\n");
 }
 
 /**
- * Formats line items into Tab-Delimited text for 1-click paste into Ostendo grid.
+ * Formats validated product line items into Tab-Delimited text.
+ * Strictly product-only: Item Code \t Description \t Quantity \t Unit \t Line Notes \t Job / Quote Ref.
  */
-export function formatOstendoTabDelimited(items: OstendoExportItem[]): string {
-  return items
-    .map((item) => {
-      const code = item.code || item.name.substring(0, 15).toUpperCase().replace(/\s+/g, "-");
-      const qty = item.quantity || 1;
-      const price = (item.unitPrice || 0).toFixed(2);
-      return `${code}\t${item.name}\t${qty}\t${price}\tGST`;
-    })
-    .join("\n");
+export function formatOstendoTabDelimited(items: OstendoExportItem[], quoteRef?: string): string {
+  const rows = items.map((item) => {
+    const code = (item.code || "").trim();
+    const desc = (item.name || "").trim();
+    const qty = item.quantity;
+    const unit = (item.unit || "ea").trim();
+    const notes = (item.notes || "").trim();
+    const ref = (quoteRef || item.quoteRef || "").trim();
+    return `${code}\t${desc}\t${qty}\t${unit}\t${notes}\t${ref}`;
+  });
+
+  return rows.join("\r\n");
+}
+
+/**
+ * Helper to download Ostendo CSV file and cleanly revoke Object URL.
+ */
+export function downloadOstendoCSV(csvContent: string, filename: string): void {
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename.endsWith(".csv") ? filename : `${filename}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 /**

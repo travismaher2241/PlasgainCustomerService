@@ -1,0 +1,32 @@
+[
+  {
+    "id": "cpa-001",
+    "recordId": "cp-001",
+    "accountId": "acc-ballarat",
+    "accountName": "City of Ballarat",
+    "competitorName": "Leadsun Australia",
+    "competitorProduct": "AE3 Series 30W All-In-One Solar Fitting",
+    "price": 1850,
+    "currency": "AUD",
+    "priceBasis": "Per Unit",
+    "title": "New competitor pricing",
+    "message": "Leadsun Australia quoted AE3 Series 30W All-In-One Solar Fitting at $1,850.00 (Per Unit) for City of Ballarat",
+    "createdAt": "2025-02-10T09:30:00.000Z",
+    "isRead": false
+  },
+  {
+    "id": "cpa-002",
+    "recordId": "cp-002",
+    "accountId": "acc-geelong",
+    "accountName": "City of Greater Geelong",
+    "competitorName": "Orca Solar Lighting",
+    "competitorProduct": "Vertex 60W Split Solar System",
+    "price": 2650,
+    "currency": "AUD",
+    "priceBasis": "Supply Only",
+    "title": "New competitor pricing",
+    "message": "Orca Solar Lighting quoted Vertex 60W Split Solar System at $2,650.00 (Supply Only) for City of Greater Geelong",
+    "createdAt": "2025-02-15T14:15:00.000Z",
+    "isRead": true
+  }
+]

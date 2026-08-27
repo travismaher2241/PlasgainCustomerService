@@ -34,7 +34,12 @@ import { BOMItem, DrawingTakeoffResult } from "../types";
 import { apiPost, AIUnavailableError, toUserMessage } from "../utils/apiClient";
 import { AIUnavailableNotice } from "./AIUnavailableNotice";
 import { DatasheetPackageModal } from "./DatasheetPackageModal";
-import { formatOstendoCSV, formatOstendoTabDelimited } from "../utils/datasheetExporter";
+import {
+  formatOstendoCSV,
+  formatOstendoTabDelimited,
+  validateOstendoItems,
+  downloadOstendoCSV
+} from "../utils/datasheetExporter";
 
 interface SamplePlan {
   id: string;
@@ -78,8 +83,6 @@ const SAMPLE_PLANS: SamplePlan[] = [
           unit: "ea",
           recommendedProductCode: "PB-75W-3K",
           drawingReference: "Poles P1 to P24 along shared path alignment",
-          unitPrice: 1650,
-          totalPrice: 39600,
           confidence: "High",
           notes: "3000K specified in drawing notes for wildlife preservation buffer"
         },
@@ -91,8 +94,6 @@ const SAMPLE_PLANS: SamplePlan[] = [
           unit: "ea",
           recommendedProductCode: "PLASPOLE-6M-DB-GRN",
           drawingReference: "P1–P24 (1.2m embedment depth per detail 3/E02)",
-          unitPrice: 620,
-          totalPrice: 14880,
           confidence: "High",
           notes: "Non-conductive composite suitable for riverbank salinity"
         },
@@ -104,8 +105,6 @@ const SAMPLE_PLANS: SamplePlan[] = [
           unit: "m",
           recommendedProductCode: "PCC-200-1M",
           drawingReference: "Submains trench run T-01 to T-04 (1,200 linear metres)",
-          unitPrice: 18.5,
-          totalPrice: 22200,
           confidence: "High",
           notes: "Replaces 31.8 Tonnes of heavy concrete slabs; 1200 interlocking units"
         },
@@ -117,8 +116,6 @@ const SAMPLE_PLANS: SamplePlan[] = [
           unit: "rolls",
           recommendedProductCode: "WT-ELEC-500M",
           drawingReference: "Laid 200mm above cable covers across 1.2km trench",
-          unitPrice: 85,
-          totalPrice: 255,
           confidence: "High",
           notes: "Continuous orange warning tape 'DANGER ELECTRICAL CABLE BELOW'"
         }
@@ -140,8 +137,7 @@ const SAMPLE_PLANS: SamplePlan[] = [
           description: "Drawing detail indicates soft riverbank soil. Direct burial depth specified at 1.2m embedment (H/5) with stabilized aggregate collar."
         }
       ],
-      summary: "Deciphered 24x 6m Solar Pathway Poles, 1,200m underground civil trenching protection, and flagged canopy shading near river bend.",
-      totalEstimatedValue: 76935
+      summary: "Deciphered 24x 6m Solar Pathway Poles, 1,200m underground civil trenching protection, and flagged canopy shading near river bend."
     }
   },
   {
@@ -173,8 +169,6 @@ const SAMPLE_PLANS: SamplePlan[] = [
           unit: "ea",
           recommendedProductCode: "INTENSE-50W-4K",
           drawingReference: "Car park bays A1 to D4 perimeter poles",
-          unitPrice: 1980,
-          totalPrice: 31680,
           confidence: "High",
           notes: "Category P11b compliance for commercial pedestrian night safety"
         },
@@ -186,8 +180,6 @@ const SAMPLE_PLANS: SamplePlan[] = [
           unit: "ea",
           recommendedProductCode: "STEEL-8M-BP",
           drawingReference: "4x M24 ragbolt cage on 300mm PCD in concrete footing",
-          unitPrice: 940,
-          totalPrice: 15040,
           confidence: "High",
           notes: "Engineered for Wind Region B coastal buffer"
         },
@@ -199,8 +191,6 @@ const SAMPLE_PLANS: SamplePlan[] = [
           unit: "m",
           recommendedProductCode: "PCC-300-1M",
           drawingReference: "Main distributor trench between switchboard and perimeter",
-          unitPrice: 24.0,
-          totalPrice: 19200,
           confidence: "High",
           notes: "300mm wide for 3-phase multi-circuit conduit bank"
         }
@@ -217,8 +207,7 @@ const SAMPLE_PLANS: SamplePlan[] = [
           description: "Car park schedule specifies 100% output from dusk to 11:00 PM, then 30% dim with PIR motion activation."
         }
       ],
-      summary: "Deciphered 16x 8m Intense 50W Solar Luminaires on Baseplate Steel Poles with 800m Polymeric Cable Protection.",
-      totalEstimatedValue: 65920
+      summary: "Deciphered 16x 8m Intense 50W Solar Luminaires on Baseplate Steel Poles with 800m Polymeric Cable Protection."
     }
   }
 ];
@@ -254,11 +243,10 @@ export const PlanTakeoffWorkspace: React.FC = () => {
   const [rotation, setRotation] = useState<number>(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Quotation Modal State
-  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  // Export & Datasheet Modal State
   const [isDatasheetModalOpen, setIsDatasheetModalOpen] = useState(false);
   const [ostendoQuoteRef, setOstendoQuoteRef] = useState("");
-  const [quoteNotes, setQuoteNotes] = useState("Lead time: 2–3 weeks. Standard Plasgain 5-Year System Warranty included.");
+  const [exportValidationErrors, setExportValidationErrors] = useState<string[]>([]);
 
   // File Input Handler
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -292,6 +280,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
     setTakeoffResult(sample.result);
     setZoomLevel(1.0);
     setRotation(0);
+    setExportValidationErrors([]);
     showToast(`Loaded sample plan: ${sample.name}`, "success");
   };
 
@@ -299,6 +288,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
   const handleRunAnalysis = async () => {
     setIsAnalysing(true);
     setAnalysisError(null);
+    setExportValidationErrors([]);
 
     try {
       const payload = {
@@ -329,27 +319,19 @@ export const PlanTakeoffWorkspace: React.FC = () => {
     }
   };
 
-  // Edit BOM Item Quantity or Price
+  // Edit BOM Item
   const handleUpdateItem = (id: string, field: keyof BOMItem, value: any) => {
     if (!takeoffResult) return;
     const updatedBOM = takeoffResult.billOfMaterials.map((item) => {
       if (item.id === id) {
-        const updated = { ...item, [field]: value };
-        if (field === "quantity" || field === "unitPrice") {
-          const qty = Number(field === "quantity" ? value : updated.quantity) || 0;
-          const price = Number(field === "unitPrice" ? value : updated.unitPrice) || 0;
-          updated.totalPrice = Math.round(qty * price);
-        }
-        return updated;
+        return { ...item, [field]: value };
       }
       return item;
     });
 
-    const newTotal = updatedBOM.reduce((acc, curr) => acc + (curr.totalPrice || 0), 0);
     setTakeoffResult({
       ...takeoffResult,
-      billOfMaterials: updatedBOM,
-      totalEstimatedValue: newTotal
+      billOfMaterials: updatedBOM
     });
   };
 
@@ -357,13 +339,11 @@ export const PlanTakeoffWorkspace: React.FC = () => {
   const handleDeleteItem = (id: string) => {
     if (!takeoffResult) return;
     const updatedBOM = takeoffResult.billOfMaterials.filter((item) => item.id !== id);
-    const newTotal = updatedBOM.reduce((acc, curr) => acc + (curr.totalPrice || 0), 0);
     setTakeoffResult({
       ...takeoffResult,
-      billOfMaterials: updatedBOM,
-      totalEstimatedValue: newTotal
+      billOfMaterials: updatedBOM
     });
-    showToast("Line item removed from Bill of Materials", "info");
+    showToast("Line item removed from take-off schedule", "info");
   };
 
   // Add New Custom Line Item
@@ -375,25 +355,21 @@ export const PlanTakeoffWorkspace: React.FC = () => {
       itemDescription: "Plasgain Additional Luminaire / Custom Fitting",
       quantity: 1,
       unit: "ea",
-      recommendedProductCode: "PLASGAIN-CUSTOM",
+      recommendedProductCode: "PB-75W-3K",
       drawingReference: "User Added Item",
-      unitPrice: 1500,
-      totalPrice: 1500,
       confidence: "High",
       notes: "Manually added to take-off schedule"
     };
 
     const updatedBOM = [...takeoffResult.billOfMaterials, newItem];
-    const newTotal = updatedBOM.reduce((acc, curr) => acc + curr.totalPrice, 0);
     setTakeoffResult({
       ...takeoffResult,
-      billOfMaterials: updatedBOM,
-      totalEstimatedValue: newTotal
+      billOfMaterials: updatedBOM
     });
     showToast("Added custom item to take-off schedule", "success");
   };
 
-  // Save BOM Take-off to CRM Command Centre Deal
+  // Save Product Take-off to CRM Command Centre Deal (Products and quantities only)
   const handleSaveToCRM = () => {
     if (!takeoffResult) return;
 
@@ -404,9 +380,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
       productName: item.itemDescription,
       category: item.category,
       quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      totalPrice: item.totalPrice,
-      notes: `Drawing Ref: ${item.drawingReference} | ${item.notes || ""}`
+      notes: item.drawingReference ? `Drawing Ref: ${item.drawingReference}` : ""
     }));
 
     addCrmOpportunity({
@@ -421,9 +395,9 @@ export const PlanTakeoffWorkspace: React.FC = () => {
       pipelineId: "pipe-solar",
       stageId: "stage-quote",
       stageName: "Quoting / Proposal",
-      dealValue: takeoffResult.totalEstimatedValue || 75000,
+      dealValue: 50000,
       probability: 60,
-      weightedValue: (takeoffResult.totalEstimatedValue || 75000) * 0.6,
+      weightedValue: 30000,
       forecastCategory: "Likely",
       expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       products: productLines,
@@ -431,40 +405,71 @@ export const PlanTakeoffWorkspace: React.FC = () => {
       location: "Victoria",
       customerNeed: `Engineering plan take-off extracted from ${takeoffResult.drawingMetadata.drawingNumber} (${takeoffResult.drawingMetadata.sheetTitle})`,
       keyRequirements: [
-        `Poles & Luminaires: ${takeoffResult.billOfMaterials.filter(b => b.category.includes("Luminaire")).reduce((a,c) => a + c.quantity, 0)} Units`,
+        `Poles & Luminaires: ${takeoffResult.billOfMaterials.filter(b => b.category.includes("Luminaire") || b.category.includes("Pole")).reduce((a,c) => a + c.quantity, 0)} Units`,
         `Standards: ${(takeoffResult.drawingMetadata.standardsIdentified || []).join(", ") || "AS/NZS 1158"}`,
         `Take-off Date: ${new Date().toLocaleDateString("en-AU")}`
       ],
       source: "AI Plan Deciphering / Take-off",
-      latestActivity: `Plan Take-off generated with ${takeoffResult.billOfMaterials.length} line items`,
+      latestActivity: `Product Take-off generated with ${takeoffResult.billOfMaterials.length} line items`,
       latestActivityDate: new Date().toISOString().split("T")[0],
-      nextAction: "Issue formal quotation and Dialux photometric verification report",
+      nextAction: "Generate quotation in Ostendo ERP and prepare Dialux verification report",
       nextActionDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       daysInCurrentStage: 0,
       totalDealAgeDays: 0,
       dealHealth: "Healthy",
-      dealHealthReasons: ["Detailed itemized bill of materials verified against engineering plan"],
-      notes: `Drawing Metadata: ${takeoffResult.drawingMetadata.drawingNumber} (${takeoffResult.drawingMetadata.sheetTitle}). Total BOM Value: $${takeoffResult.totalEstimatedValue.toLocaleString("en-AU")}`
+      dealHealthReasons: ["Detailed product schedule verified against engineering plan"],
+      notes: `Drawing Metadata: ${takeoffResult.drawingMetadata.drawingNumber} (${takeoffResult.drawingMetadata.sheetTitle}). Official pricing processed in Ostendo ERP.`
     });
 
-    showToast("Saved BOM Take-off directly to CRM Deals Pipeline!", "success");
+    showToast("Saved Product Take-off to CRM Deals Pipeline!", "success");
     navigateToCRM("pipeline", newDealId);
   };
 
-  // Export BOQ as clean CSV
+  // Export Product List for Ostendo (Strict product-only, validated)
+  const handleExportOstendo = () => {
+    if (!takeoffResult) return;
+
+    const items = takeoffResult.billOfMaterials.map((item) => ({
+      code: item.recommendedProductCode,
+      name: item.itemDescription,
+      quantity: item.quantity,
+      unit: item.unit || "ea",
+      notes: item.notes || item.drawingReference,
+      quoteRef: ostendoQuoteRef || takeoffResult.drawingMetadata.drawingNumber
+    }));
+
+    const validation = validateOstendoItems(items);
+    if (!validation.valid) {
+      setExportValidationErrors(validation.errors);
+      showToast(`Export blocked: ${validation.errors[0]}`, "error");
+      return;
+    }
+
+    setExportValidationErrors([]);
+
+    // 1. Copy tab-delimited product list to clipboard
+    const tabData = formatOstendoTabDelimited(items, ostendoQuoteRef || takeoffResult.drawingMetadata.drawingNumber);
+    navigator.clipboard.writeText(tabData);
+
+    // 2. Download clean CRLF CSV with UTF-8 BOM
+    const csvData = formatOstendoCSV(items, ostendoQuoteRef || takeoffResult.drawingMetadata.drawingNumber);
+    downloadOstendoCSV(csvData, `Ostendo_Product_List_${projectName.replace(/\s+/g, "_")}.csv`);
+
+    showToast("Product list copied and CSV downloaded! Pricing will be calculated in Ostendo.", "success");
+  };
+
+  // Export Schedule as clean CSV
   const handleExportCSV = () => {
     if (!takeoffResult) return;
 
     const headers = [
       "Item #",
       "Category",
-      "Product Code",
-      "Item Description",
-      "Drawing Reference",
+      "Description",
+      "Plasgain Product Code",
       "Quantity",
       "Unit",
-      "Unit Price (AUD)",
-      "Total Price (AUD)",
+      "Drawing Reference",
       "Confidence",
       "Notes"
     ];
@@ -472,58 +477,105 @@ export const PlanTakeoffWorkspace: React.FC = () => {
     const rows = takeoffResult.billOfMaterials.map((item, idx) => [
       `"${idx + 1}"`,
       `"${item.category.replace(/"/g, '""')}"`,
-      `"${item.recommendedProductCode.replace(/"/g, '""')}"`,
       `"${item.itemDescription.replace(/"/g, '""')}"`,
-      `"${item.drawingReference.replace(/"/g, '""')}"`,
+      `"${item.recommendedProductCode.replace(/"/g, '""')}"`,
       item.quantity,
       `"${item.unit}"`,
-      item.unitPrice,
-      item.totalPrice,
+      `"${item.drawingReference.replace(/"/g, '""')}"`,
       `"${item.confidence}"`,
       `"${(item.notes || "").replace(/"/g, '""')}"`
     ]);
 
-    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\r\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `Plasgain_BOQ_Takeoff_${projectName.replace(/\s+/g, "_")}_${Date.now()}.csv`);
+    link.setAttribute("download", `Takeoff_Schedule_${projectName.replace(/\s+/g, "_")}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
 
-    showToast("Downloaded Bill of Quantities (CSV)!", "success");
+    showToast("Downloaded Take-off Schedule CSV!", "success");
   };
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner & File Dropzone */}
-      <div className="bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-line">
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-body">AI Drawing &amp; Plan Deciphering (BOM Take-off)</h2>
-              <span className="text-spec font-bold px-2 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge">
-                Gemini Multimodal Vision
-              </span>
+    <div className="space-y-6 max-w-7xl mx-auto pb-12">
+      
+      {/* Header & Feature Context */}
+      <div className="bg-gradient-to-r from-brand-deep via-brand to-brand-deep text-white p-6 rounded-panel shadow-md relative overflow-hidden">
+        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-white/5 skew-x-12 transform origin-top-right pointer-events-none" />
+        
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+          <div className="space-y-1.5">
+            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-white/15 text-white text-spec font-bold tracking-wide uppercase">
+              <Sparkles className="w-3.5 h-3.5 text-soon" />
+              <span>AI Drawing &amp; Plan Deciphering</span>
             </div>
-            <p className="text-meta text-ink-dim mt-0.5">
-              Upload electrical layouts, civil drawings, or site plans (PDF, PNG, JPG, TIFF) to automatically extract lighting schedules, pole tables, and civil trenching runs.
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight">
+              Engineering Plan &amp; Product Take-off
+            </h1>
+            <p className="text-white/80 text-meta max-w-2xl">
+              Extract luminaire schedules, pole tables, and civil cable cover quantities directly from engineering drawings. Exports validated product lists for Ostendo ERP entry.
             </p>
           </div>
 
-          {/* Sample Plans Selector */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={() => setIsDatasheetModalOpen(true)}
+              className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-edge font-bold text-meta backdrop-blur-xs flex items-center gap-2 border border-white/20 transition-colors cursor-pointer"
+              title="Download consolidated Tender Spec Package"
+            >
+              <Download className="w-4 h-4 text-cyan-300" />
+              <span>Tender Package</span>
+            </button>
+            <button
+              onClick={handleRunAnalysis}
+              disabled={isAnalysing}
+              className="px-4 py-2 bg-soon hover:bg-soon text-ink-base font-bold rounded-edge text-meta shadow-sm hover:shadow flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${isAnalysing ? "animate-spin" : ""}`} />
+              <span>{isAnalysing ? "Deciphering Plan..." : "Re-Analyse Plan"}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Validation Error Notice if any */}
+      {exportValidationErrors.length > 0 && (
+        <div className="p-4 bg-urgent-wash border border-urgent/30 rounded-panel text-meta text-urgent space-y-1.5 animate-in fade-in duration-150">
+          <div className="flex items-center gap-2 font-bold">
+            <AlertTriangle className="w-4 h-4" />
+            <span>Ostendo Export Blocked — Please correct the following line items:</span>
+          </div>
+          <ul className="list-disc pl-6 text-spec space-y-0.5">
+            {exportValidationErrors.map((err, idx) => (
+              <li key={idx}>{err}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Blueprint Ingestion Ribbon */}
+      <div className="bg-white p-5 rounded-panel border border-line shadow-xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-line pb-3">
           <div className="flex items-center gap-2">
-            <span className="text-spec font-bold text-ink-dim uppercase">Quick Sample:</span>
+            <Layers className="w-4 h-4 text-brand-deep" />
+            <h2 className="font-bold text-body text-meta">Select or Upload Plan Drawing</h2>
+          </div>
+
+          {/* Sample Switcher */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-spec text-ink-dim font-semibold">Load Sample:</span>
             {SAMPLE_PLANS.map((sample) => (
               <button
                 key={sample.id}
                 onClick={() => handleSelectSample(sample)}
-                className={`px-2.5 py-1.5 rounded-edge text-meta font-medium border transition-colors cursor-pointer ${
+                className={`px-2.5 py-1 text-spec font-bold rounded border transition-colors cursor-pointer ${
                   selectedPlanId === sample.id
-                    ? "bg-brand-wash text-brand-deep border-brand font-bold shadow-xs"
-                    : "bg-paper text-ink-dim border-line hover:bg-raised"
+                    ? "bg-brand-deep text-white border-brand-deep"
+                    : "bg-paper text-ink hover:bg-raised border-line"
                 }`}
               >
                 {sample.name.split(" ")[0]} Plan
@@ -577,154 +629,124 @@ export const PlanTakeoffWorkspace: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-2 pt-1">
+            <div>
+              <label className="block text-spec font-bold uppercase text-ink-dim mb-0.5">
+                Engineer Notes / Clarifications
+              </label>
               <input
                 type="text"
                 value={drawingNotes}
                 onChange={(e) => setDrawingNotes(e.target.value)}
-                placeholder="Additional notes for AI (e.g. 'Extract all 3000K fittings and polymeric cable covers')..."
-                className="flex-1 p-2 bg-paper text-meta rounded-edge border border-line"
+                placeholder="e.g. Verify 3000K wildlife buffer and 1.2m footing embedment depth"
+                className="w-full p-2 bg-paper text-meta rounded-edge border border-line"
               />
-              <button
-                onClick={handleRunAnalysis}
-                disabled={isAnalysing}
-                className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-colors shrink-0"
-              >
-                {isAnalysing ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Deciphering...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 text-brand-lift" />
-                    <span>Decipher Plan</span>
-                  </>
-                )}
-              </button>
             </div>
           </div>
         </div>
-
-        {analysisError && (
-          <AIUnavailableNotice
-            detail={analysisError.detail}
-            guidance={analysisError.guidance}
-            onRetry={handleRunAnalysis}
-          />
-        )}
       </div>
 
-      {/* Main Split Screen: Plan Preview Canvas (Left) & BOM Take-off Schedule (Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      {/* Main Split-Screen Workspace */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* Left Column: Interactive Plan Canvas / CAD Viewer */}
-        <div className="lg:col-span-5 bg-chrome rounded-panel border border-chrome-line p-4 flex flex-col min-h-[520px] shadow-md text-white">
+        {/* Left Column: Interactive CAD & Drawing Viewer */}
+        <div className="lg:col-span-5 bg-slate-950 rounded-panel p-4 text-white shadow-md border border-slate-800 space-y-3">
           
-          {/* Canvas Controls Header */}
-          <div className="flex items-center justify-between pb-3 border-b border-white/10 text-meta">
+          {/* Viewer Toolbar */}
+          <div className="flex items-center justify-between border-b border-white/10 pb-3">
             <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-brand-lift" />
-              <span className="font-bold truncate max-w-[200px]">
-                {takeoffResult?.drawingMetadata.drawingNumber || "Sheet E-02"}
+              <span className="font-mono text-spec font-bold bg-cyan-950 text-cyan-400 border border-cyan-800 px-2 py-0.5 rounded">
+                {takeoffResult?.drawingMetadata.drawingNumber || "CAD-VIEW"}
               </span>
-              <span className="text-spec bg-white/10 px-2 py-0.5 rounded text-ink-faint">
-                {takeoffResult?.drawingMetadata.scale || "1:500"}
+              <span className="text-spec text-slate-400 truncate max-w-[180px]">
+                {takeoffResult?.drawingMetadata.sheetTitle || "Engineering Layout"}
               </span>
             </div>
 
-            <div className="flex items-center gap-1">
+            {/* Zoom / Rotate Controls */}
+            <div className="flex items-center gap-1.5">
               <button
-                onClick={() => setZoomLevel(Math.min(zoomLevel + 0.25, 2.5))}
-                className="p-1.5 rounded hover:bg-white/10 text-white cursor-pointer"
-                title="Zoom In"
-              >
-                <ZoomIn className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setZoomLevel(Math.max(zoomLevel - 0.25, 0.5))}
-                className="p-1.5 rounded hover:bg-white/10 text-white cursor-pointer"
+                onClick={() => setZoomLevel((prev) => Math.max(0.6, prev - 0.2))}
+                className="p-1.5 bg-white/10 hover:bg-white/20 rounded cursor-pointer transition-colors"
                 title="Zoom Out"
               >
-                <ZoomOut className="w-4 h-4" />
+                <ZoomOut className="w-3.5 h-3.5 text-cyan-300" />
+              </button>
+              <span className="text-spec font-mono font-bold text-slate-300 w-10 text-center">
+                {Math.round(zoomLevel * 100)}%
+              </span>
+              <button
+                onClick={() => setZoomLevel((prev) => Math.min(2.5, prev + 0.2))}
+                className="p-1.5 bg-white/10 hover:bg-white/20 rounded cursor-pointer transition-colors"
+                title="Zoom In"
+              >
+                <ZoomIn className="w-3.5 h-3.5 text-cyan-300" />
               </button>
               <button
-                onClick={() => setRotation((rotation + 90) % 360)}
-                className="p-1.5 rounded hover:bg-white/10 text-white cursor-pointer"
+                onClick={() => setRotation((prev) => (prev + 90) % 360)}
+                className="p-1.5 bg-white/10 hover:bg-white/20 rounded cursor-pointer transition-colors"
                 title="Rotate 90°"
               >
-                <RotateCw className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => { setZoomLevel(1.0); setRotation(0); }}
-                className="p-1.5 rounded hover:bg-white/10 text-white cursor-pointer text-spec font-bold"
-                title="Reset View"
-              >
-                1:1
+                <RotateCw className="w-3.5 h-3.5 text-cyan-300" />
               </button>
             </div>
           </div>
 
-          {/* Interactive Plan Viewer Area */}
-          <div className="flex-1 relative overflow-hidden bg-chrome-deep rounded-edge my-3 flex items-center justify-center p-4 border border-white/5">
+          {/* Interactive Canvas View */}
+          <div className="relative h-[420px] bg-slate-900 rounded-edge border border-cyan-950 overflow-hidden flex items-center justify-center p-4">
+            
+            {/* Blueprint Grid Overlay */}
             <div
+              className="absolute inset-0 opacity-15 pointer-events-none"
               style={{
-                transform: `scale(${zoomLevel}) rotate(${rotation}deg)`,
-                transition: "transform 0.15s ease-out"
+                backgroundImage:
+                  "linear-gradient(to right, #06b6d4 1px, transparent 1px), linear-gradient(to bottom, #06b6d4 1px, transparent 1px)",
+                backgroundSize: "24px 24px"
               }}
-              className="w-full h-full min-h-[360px] bg-gradient-to-br from-slate-900 via-slate-800 to-slate-950 rounded-edge p-5 flex flex-col justify-between border border-cyan-500/20 shadow-inner relative select-none"
+            />
+
+            {/* Drawing Content Simulation with Zoom & Rotate */}
+            <div
+              className="transition-transform duration-150 ease-out flex flex-col items-center justify-center text-center p-6 space-y-4 max-w-sm"
+              style={{
+                transform: `scale(${zoomLevel}) rotate(${rotation}deg)`
+              }}
             >
-              {/* CAD Grid Simulation Background */}
-              <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
-
-              {/* Top Title Block in CAD canvas */}
-              <div className="relative z-10 flex justify-between items-start text-spec text-cyan-300 font-mono">
-                <div>
-                  <div className="font-bold tracking-wider text-white">
-                    {takeoffResult?.drawingMetadata.sheetTitle || "CIVIL & LIGHTING LAYOUT"}
-                  </div>
-                  <div className="text-cyan-400/80">
-                    DWG NO: {takeoffResult?.drawingMetadata.drawingNumber} | REV: {takeoffResult?.drawingMetadata.revision || "B"}
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="px-1.5 py-0.5 rounded bg-cyan-950/60 border border-cyan-500/30 text-cyan-300">
-                    CAD LAYER: LIGHTING_POLES &amp; CIVIL_TRENCH
-                  </span>
-                </div>
-              </div>
-
-              {/* Visualized CAD vector layout */}
-              <div className="relative z-10 my-auto py-6 space-y-4">
+              {/* Simulated CAD Sheet Graphics */}
+              <div className="w-56 h-36 border-2 border-cyan-500/40 rounded bg-cyan-950/20 p-3 relative flex flex-col justify-between">
                 
-                {/* Visual Pathway Alignment */}
-                <div className="relative h-12 bg-slate-800/80 border-y border-dashed border-cyan-400/40 rounded flex items-center px-4 justify-between">
-                  <span className="text-[10px] font-mono text-cyan-300/60 tracking-widest uppercase">
-                    1.2km Shared Path Alignment (Ch 0.00m &rarr; Ch 1200m)
-                  </span>
-                  <div className="flex gap-2">
-                    {[1, 2, 3, 4, 5, 6].map((p) => (
-                      <div key={p} className="flex flex-col items-center">
-                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse border border-white shadow-[0_0_8px_rgba(52,211,153,0.8)]" />
-                        <span className="text-[8px] font-mono text-emerald-300 mt-0.5">P{p}</span>
-                      </div>
-                    ))}
+                {/* Title Block Box */}
+                <div className="text-left font-mono text-[9px] text-cyan-400 border-b border-cyan-500/30 pb-1">
+                  <div>DWG: {takeoffResult?.drawingMetadata.drawingNumber || "E-02"}</div>
+                  <div>SCALE: {takeoffResult?.drawingMetadata.scale || "1:500"}</div>
+                </div>
+
+                {/* Simulated Pole & Luminaire Symbols */}
+                <div className="flex justify-around items-center py-2">
+                  <div className="flex flex-col items-center gap-0.5">
+                    <div className="w-3 h-3 rounded-full bg-amber-400 shadow-md shadow-amber-500/50 animate-pulse" />
+                    <span className="text-[8px] font-mono text-amber-300 font-bold">P1 (6m)</span>
+                  </div>
+                  <div className="h-0.5 w-12 bg-dashed border-b border-dashed border-orange-400" />
+                  <div className="flex flex-col items-center gap-0.5">
+                    <div className="w-3 h-3 rounded-full bg-amber-400 shadow-md shadow-amber-500/50 animate-pulse" />
+                    <span className="text-[8px] font-mono text-amber-300 font-bold">P2 (6m)</span>
+                  </div>
+                  <div className="h-0.5 w-12 bg-dashed border-b border-dashed border-orange-400" />
+                  <div className="flex flex-col items-center gap-0.5">
+                    <div className="w-3 h-3 rounded-full bg-amber-400 shadow-md shadow-amber-500/50 animate-pulse" />
+                    <span className="text-[8px] font-mono text-amber-300 font-bold">P3 (6m)</span>
                   </div>
                 </div>
 
-                {/* Submains Cable Trench Run Indicator */}
-                <div className="h-4 bg-amber-950/40 border border-amber-500/30 rounded flex items-center px-3 justify-between text-[9px] font-mono text-amber-300">
-                  <span className="flex items-center gap-1">
-                    <Layers className="w-3 h-3 text-amber-400" />
-                    Trench T-01: 1,200m Polymeric Cable Cover Slabs (AS 4702)
-                  </span>
-                  <span>Depth: 750mm</span>
+                {/* Underground Trench Callout */}
+                <div className="text-[8px] font-mono text-orange-400 bg-orange-950/60 px-1 py-0.5 rounded border border-orange-500/30">
+                  ⚡ 1,200m Polymeric Cover Slab Run
                 </div>
               </div>
 
               {/* Bottom Metadata Bar */}
-              <div className="relative z-10 flex justify-between items-end text-spec text-cyan-300 font-mono pt-2 border-t border-white/10">
-                <div className="text-[10px] text-ink-faint">
+              <div className="relative z-10 flex justify-between items-end text-spec text-cyan-300 font-mono pt-2 border-t border-white/10 w-full">
+                <div className="text-[10px] text-slate-400">
                   Standards: {(takeoffResult?.drawingMetadata.standardsIdentified || []).join(" • ")}
                 </div>
                 <div className="text-[10px] text-emerald-400 font-bold">
@@ -737,7 +759,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
 
           {/* Legends & Symbol Cross-reference */}
           <div className="pt-2 border-t border-white/10">
-            <span className="text-spec font-bold text-ink-faint uppercase tracking-wider block mb-1.5">
+            <span className="text-spec font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
               Deciphered Drawing Legend &amp; Symbols:
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-spec">
@@ -746,58 +768,39 @@ export const PlanTakeoffWorkspace: React.FC = () => {
                   <span className="font-mono font-bold text-cyan-300 bg-cyan-950/60 px-1.5 py-0.5 rounded shrink-0">
                     {leg.symbol}
                   </span>
-                  <span className="text-ink-faint text-meta truncate">{leg.description}</span>
+                  <span className="text-slate-300 text-meta truncate">{leg.description}</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Right Column: Editable Bill of Materials (BOM) & Actions */}
+        {/* Right Column: Editable Product & Quantity List & Actions */}
         <div className="lg:col-span-7 space-y-4">
           
-          {/* Action Ribbon & Financial Summary */}
+          {/* Action Ribbon & Product Schedule Context */}
           <div className="bg-white p-4 rounded-panel border border-line shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <span className="text-spec font-bold text-ink-dim uppercase tracking-wider block">
-                Total Bill of Materials Value (Ex GST)
+                Product &amp; Quantity Take-off Schedule
               </span>
-              <div className="text-2xl font-black text-brand-deep mt-0.5">
-                $${(takeoffResult?.totalEstimatedValue || 0).toLocaleString("en-AU")}
-                <span className="text-meta font-normal text-ink-dim ml-2">AUD</span>
+              <div className="text-lg font-black text-body mt-0.5 flex items-center gap-2">
+                <span>{takeoffResult?.billOfMaterials.length || 0} Line Items Verified</span>
+                <span className="text-spec font-normal text-brand-deep bg-brand-wash px-2 py-0.5 rounded">
+                  Pricing calculated in Ostendo ERP
+                </span>
               </div>
             </div>
 
-            {/* Actions: Save to CRM, Export CSV, Ostendo Export, Tender Package, Draft Quote */}
+            {/* Actions: Export Ostendo, Tender Package, Export CSV, Save to CRM */}
             <div className="flex flex-wrap items-center gap-2">
               <button
-                onClick={() => {
-                  if (!takeoffResult) return;
-                  const items = takeoffResult.billOfMaterials.map((item) => ({
-                    code: item.recommendedProductCode,
-                    name: item.itemDescription,
-                    quantity: item.quantity,
-                    unitPrice: item.unitPrice,
-                    category: item.category
-                  }));
-                  const tabData = formatOstendoTabDelimited(items);
-                  navigator.clipboard.writeText(tabData);
-                  const csvData = formatOstendoCSV(items, ostendoQuoteRef || takeoffResult.drawingMetadata.drawingNumber);
-                  const blob = new Blob([csvData], { type: "text/csv;charset=utf-8;" });
-                  const url = URL.createObjectURL(blob);
-                  const link = document.createElement("a");
-                  link.setAttribute("href", url);
-                  link.setAttribute("download", `Ostendo_Line_Items_${projectName.replace(/\s+/g, "_")}.csv`);
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-                  showToast("Copied Ostendo grid data & downloaded CSV!", "success");
-                }}
-                className="px-3 py-1.5 bg-white hover:bg-brand-wash text-brand-deep font-bold text-meta rounded-edge border border-brand-edge flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
-                title="Copy tab-delimited grid data and download CSV for Ostendo ERP"
+                onClick={handleExportOstendo}
+                className="px-3 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                title="Export product list (Item Code, Description, Qty, Unit) for Ostendo ERP entry"
               >
-                <FileSpreadsheet className="w-3.5 h-3.5" />
-                <span>Export for Ostendo</span>
+                <FileSpreadsheet className="w-3.5 h-3.5 text-cyan-200" />
+                <span>Export Product List for Ostendo</span>
               </button>
 
               <button
@@ -812,37 +815,28 @@ export const PlanTakeoffWorkspace: React.FC = () => {
               <button
                 onClick={handleExportCSV}
                 className="px-3 py-1.5 bg-paper hover:bg-raised text-meta font-bold rounded-edge border border-line flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
-                title="Download Bill of Quantities spreadsheet"
+                title="Download Take-off Schedule spreadsheet"
               >
                 <Download className="w-3.5 h-3.5 text-ink-dim" />
-                <span>Export BOQ (CSV)</span>
-              </button>
-
-              <button
-                onClick={() => setIsQuoteModalOpen(true)}
-                className="px-3 py-1.5 bg-soon-wash hover:bg-soon text-soon text-meta font-bold rounded-edge border border-soon/30 flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
-                title="Draft Customer Quotation Document"
-              >
-                <Mail className="w-3.5 h-3.5" />
-                <span>Draft Quote</span>
+                <span>Export Schedule (CSV)</span>
               </button>
 
               <button
                 onClick={handleSaveToCRM}
-                className="px-3.5 py-1.5 bg-brand-deep hover:bg-brand text-white text-meta font-bold rounded-edge shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
-                title="Push itemized BOM to CRM Command Centre Deal"
+                className="px-3.5 py-1.5 bg-brand-wash hover:bg-brand-wash/80 text-brand-deep text-meta font-bold rounded-edge border border-brand-edge shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                title="Push products & quantities to CRM Command Centre Deal"
               >
-                <KanbanSquare className="w-3.5 h-3.5 text-brand-lift" />
+                <KanbanSquare className="w-3.5 h-3.5 text-brand" />
                 <span>Save to CRM Deal</span>
               </button>
             </div>
           </div>
 
-          {/* Interactive BOM Table */}
+          {/* Interactive Product & Quantity Table */}
           <div className="bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-line">
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-meta text-body">Itemized Bill of Materials Take-off</h3>
+                <h3 className="font-bold text-meta text-body">Itemized Products &amp; Quantities</h3>
                 <span className="text-spec font-bold px-2 py-0.5 rounded-full bg-brand-wash text-brand-deep">
                   {takeoffResult?.billOfMaterials.length || 0} Line Items
                 </span>
@@ -861,11 +855,10 @@ export const PlanTakeoffWorkspace: React.FC = () => {
                 <thead>
                   <tr className="border-b border-line text-spec font-bold text-ink-dim uppercase">
                     <th className="text-left py-2 pr-2">Item / Category</th>
-                    <th className="text-left py-2 px-2">Plasgain Product Match</th>
+                    <th className="text-left py-2 px-2">Plasgain Item Code</th>
                     <th className="text-left py-2 px-2">Drawing Ref</th>
-                    <th className="text-center py-2 px-2 w-20">Qty</th>
-                    <th className="text-right py-2 px-2 w-24">Unit ($)</th>
-                    <th className="text-right py-2 pl-2 w-24">Total ($)</th>
+                    <th className="text-center py-2 px-2 w-28">Quantity</th>
+                    <th className="text-left py-2 px-2">Notes / Standards</th>
                     <th className="py-2 pl-2 w-8"></th>
                   </tr>
                 </thead>
@@ -881,11 +874,15 @@ export const PlanTakeoffWorkspace: React.FC = () => {
                         </span>
                       </td>
 
-                      {/* Code */}
+                      {/* Explicit Item Code */}
                       <td className="py-2.5 px-2">
-                        <span className="font-mono text-spec font-bold text-brand-deep bg-brand-wash px-2 py-0.5 rounded">
-                          {item.recommendedProductCode}
-                        </span>
+                        <input
+                          type="text"
+                          value={item.recommendedProductCode}
+                          onChange={(e) => handleUpdateItem(item.id, "recommendedProductCode", e.target.value)}
+                          placeholder="e.g. PB-75W-3K"
+                          className="font-mono text-spec font-bold text-brand-deep bg-brand-wash border border-brand-edge px-2 py-1 rounded w-36 focus:ring-1 focus:ring-brand"
+                        />
                       </td>
 
                       {/* Drawing Ref */}
@@ -893,31 +890,29 @@ export const PlanTakeoffWorkspace: React.FC = () => {
                         {item.drawingReference}
                       </td>
 
-                      {/* Quantity Input */}
+                      {/* Quantity & Unit Input */}
                       <td className="py-2.5 px-2 text-center">
-                        <input
-                          type="number"
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) => handleUpdateItem(item.id, "quantity", e.target.value)}
-                          className="w-16 p-1 text-center font-bold bg-paper rounded border border-line focus:ring-1 focus:ring-brand text-meta"
-                        />
-                        <span className="text-spec text-ink-faint block">{item.unit}</span>
+                        <div className="flex items-center justify-center gap-1">
+                          <input
+                            type="number"
+                            min="1"
+                            value={item.quantity}
+                            onChange={(e) => handleUpdateItem(item.id, "quantity", Number(e.target.value) || 1)}
+                            className="w-16 p-1 text-center font-bold bg-paper rounded border border-line focus:ring-1 focus:ring-brand text-meta"
+                          />
+                          <span className="text-spec font-bold text-ink-dim">{item.unit || "ea"}</span>
+                        </div>
                       </td>
 
-                      {/* Unit Price Input */}
-                      <td className="py-2.5 px-2 text-right">
+                      {/* Notes / Specs */}
+                      <td className="py-2.5 px-2 text-spec text-ink-dim">
                         <input
-                          type="number"
-                          value={item.unitPrice}
-                          onChange={(e) => handleUpdateItem(item.id, "unitPrice", e.target.value)}
-                          className="w-20 p-1 text-right font-medium bg-paper rounded border border-line focus:ring-1 focus:ring-brand text-meta"
+                          type="text"
+                          value={item.notes || ""}
+                          onChange={(e) => handleUpdateItem(item.id, "notes", e.target.value)}
+                          placeholder="Line notes for Ostendo / spec sheet"
+                          className="w-full p-1 text-spec bg-paper rounded border border-line"
                         />
-                      </td>
-
-                      {/* Total Price */}
-                      <td className="py-2.5 pl-2 text-right font-bold text-body">
-                        $${(item.totalPrice || 0).toLocaleString("en-AU")}
                       </td>
 
                       {/* Delete */}
@@ -936,42 +931,38 @@ export const PlanTakeoffWorkspace: React.FC = () => {
               </table>
             </div>
 
-            {/* Total Row */}
-            <div className="pt-3 border-t border-line flex justify-between items-center text-meta font-bold">
-              <span className="text-ink-dim">Estimated Materials Total (Ex GST):</span>
-              <span className="text-lg text-brand-deep">
-                $${(takeoffResult?.totalEstimatedValue || 0).toLocaleString("en-AU")} AUD
-              </span>
+            <div className="pt-3 border-t border-line flex justify-between items-center text-spec text-ink-dim">
+              <span>* Line items above will be exported to Ostendo ERP where unit pricing, customer tiers, and GST are calculated.</span>
             </div>
           </div>
 
           {/* Engineering & Site Shading Warnings */}
           {takeoffResult?.engineeringAndSiteNotes && takeoffResult.engineeringAndSiteNotes.length > 0 && (
             <div className="bg-white p-4 rounded-panel border border-line shadow-2xs space-y-2.5">
-              <span className="text-spec font-bold text-ink-dim uppercase tracking-wider block">
-                Engineering Observations &amp; Site Compliance Notes
-              </span>
-              <div className="space-y-2">
+              <div className="flex items-center gap-2 text-meta font-bold text-body border-b border-line pb-2">
+                <AlertTriangle className="w-4 h-4 text-brand-deep" />
+                <span>AI Engineering &amp; Environmental Intelligence</span>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {takeoffResult.engineeringAndSiteNotes.map((note, idx) => (
                   <div
                     key={idx}
-                    className={`p-3 rounded-edge border flex items-start gap-2.5 text-meta ${
+                    className={`p-3 rounded-edge border text-meta space-y-1 ${
                       note.type === "warning"
-                        ? "bg-urgent-wash border-urgent text-urgent"
+                        ? "bg-urgent-wash border-urgent/20 text-urgent"
                         : note.type === "compliance"
                         ? "bg-brand-wash border-brand-edge text-brand-deep"
-                        : "bg-paper border-line text-body"
+                        : "bg-paper border-line text-ink"
                     }`}
                   >
-                    {note.type === "warning" ? (
-                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-urgent" />
-                    ) : (
-                      <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-brand-deep" />
-                    )}
-                    <div>
-                      <div className="font-bold">{note.title}</div>
-                      <p className="text-spec leading-relaxed mt-0.5 opacity-90">{note.description}</p>
+                    <div className="font-bold flex items-center gap-1.5">
+                      {note.type === "warning" && <AlertTriangle className="w-3.5 h-3.5" />}
+                      {note.type === "compliance" && <ShieldCheck className="w-3.5 h-3.5" />}
+                      {note.type === "info" && <Info className="w-3.5 h-3.5" />}
+                      <span>{note.title}</span>
                     </div>
+                    <p className="text-spec leading-relaxed text-body">{note.description}</p>
                   </div>
                 ))}
               </div>
@@ -980,122 +971,6 @@ export const PlanTakeoffWorkspace: React.FC = () => {
 
         </div>
       </div>
-
-      {/* Customer Quotation Generator Modal */}
-      {isQuoteModalOpen && (
-        <div className="fixed inset-0 bg-chrome/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl border border-line overflow-hidden flex flex-col max-h-[90vh] animate-in fade-in zoom-in-95 duration-150">
-            
-            {/* Modal Header */}
-            <div className="p-4 bg-raised border-b border-line flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileSpreadsheet className="w-5 h-5 text-brand-deep" />
-                <h3 className="font-bold text-lg text-body">Draft Customer Quotation Document</h3>
-              </div>
-              <button
-                onClick={() => setIsQuoteModalOpen(false)}
-                className="text-ink-faint hover:text-ink p-1 rounded cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Body: Formatted Quote Preview */}
-            <div className="p-5 overflow-y-auto space-y-4 font-mono text-spec bg-paper border-y border-line">
-              <div className="bg-white p-5 rounded-edge border border-line space-y-3">
-                <div className="border-b border-line pb-2 flex justify-between items-start">
-                  <div>
-                    <h4 className="font-bold text-meta text-body">PLASGAIN LIGHTING &amp; CIVIL SYSTEMS</h4>
-                    <p className="text-spec text-ink-dim">Formal Quotation Schedule • Reference: {takeoffResult?.drawingMetadata.drawingNumber || "Q-2025"}</p>
-                  </div>
-                  <div className="text-right text-spec text-ink-faint">
-                    Date: {new Date().toLocaleDateString("en-AU")}
-                  </div>
-                </div>
-
-                <div>
-                  <strong>Attention:</strong> {customerName}<br />
-                  <strong>Project:</strong> {projectName}<br />
-                  <strong>Drawing Source:</strong> {takeoffResult?.drawingMetadata.sheetTitle} ({takeoffResult?.drawingMetadata.drawingNumber})
-                </div>
-
-                {/* Table of BOM items */}
-                <table className="w-full border-collapse border border-line text-spec">
-                  <thead>
-                    <tr className="bg-raised text-ink-dim font-bold">
-                      <th className="border border-line p-1.5 text-left">Item</th>
-                      <th className="border border-line p-1.5 text-left">Product Code</th>
-                      <th className="border border-line p-1.5 text-left">Description</th>
-                      <th className="border border-line p-1.5 text-center">Qty</th>
-                      <th className="border border-line p-1.5 text-right">Unit ($)</th>
-                      <th className="border border-line p-1.5 text-right">Total ($)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {takeoffResult?.billOfMaterials.map((item, i) => (
-                      <tr key={i}>
-                        <td className="border border-line p-1.5">{i + 1}</td>
-                        <td className="border border-line p-1.5 font-bold">{item.recommendedProductCode}</td>
-                        <td className="border border-line p-1.5">{item.itemDescription}</td>
-                        <td className="border border-line p-1.5 text-center">{item.quantity} {item.unit}</td>
-                        <td className="border border-line p-1.5 text-right">$${item.unitPrice.toLocaleString("en-AU")}</td>
-                        <td className="border border-line p-1.5 text-right font-bold">$${item.totalPrice.toLocaleString("en-AU")}</td>
-                      </tr>
-                    ))}
-                    <tr className="bg-raised font-bold">
-                      <td colSpan={5} className="border border-line p-1.5 text-right">SUBTOTAL (EX GST):</td>
-                      <td className="border border-line p-1.5 text-right text-brand-deep">$${takeoffResult?.totalEstimatedValue.toLocaleString("en-AU")} AUD</td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                {/* Terms and compliance notes */}
-                <div className="pt-2 text-spec text-ink-dim space-y-1">
-                  <strong>Engineering &amp; Compliance Notes:</strong><br />
-                  • Luminaires compliant with AS/NZS 1158 Category P / V photometric standards.<br />
-                  • Cable covers manufactured to AS 4702 Category 1 impact protection.<br />
-                  • ${quoteNotes}
-                </div>
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="p-4 bg-raised flex items-center justify-between">
-              <button
-                onClick={() => {
-                  const text = `PLASGAIN FORMAL QUOTATION\nProject: ${projectName}\nCustomer: ${customerName}\nDrawing Ref: ${takeoffResult?.drawingMetadata.drawingNumber}\n\n${takeoffResult?.billOfMaterials.map((b, i) => `${i+1}. ${b.recommendedProductCode} - ${b.itemDescription} | Qty: ${b.quantity} ${b.unit} | Unit: $\$${b.unitPrice} | Total: $\$${b.totalPrice}`).join("\n")}\n\nTotal (Ex GST): $\$${takeoffResult?.totalEstimatedValue} AUD\nWarranty: 5-Year Plasgain System Warranty\nLead Time: 2-3 Weeks`;
-                  navigator.clipboard.writeText(text);
-                  showToast("Copied formal quote text to clipboard!", "success");
-                }}
-                className="px-4 py-2 bg-white hover:bg-raised text-meta font-bold rounded-edge border border-line flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
-              >
-                <Copy className="w-3.5 h-3.5 text-ink-dim" />
-                <span>Copy Quote Text</span>
-              </button>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setIsQuoteModalOpen(false)}
-                  className="px-4 py-2 bg-line hover:bg-line-strong text-meta font-medium rounded-edge cursor-pointer"
-                >
-                  Close
-                </button>
-                <button
-                  onClick={() => {
-                    setIsQuoteModalOpen(false);
-                    handleSaveToCRM();
-                  }}
-                  className="px-4 py-2 bg-brand-deep hover:bg-brand text-white text-meta font-bold rounded-edge shadow-xs flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Save to CRM &amp; Send</span>
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      )}
 
       {/* Datasheet & Tender Spec Package Modal */}
       {isDatasheetModalOpen && takeoffResult && (

@@ -16,13 +16,13 @@ describe('PlanTakeoffWorkspace Component', () => {
     renderWorkspace();
 
     expect(screen.getByText(/AI Drawing & Plan Deciphering/i)).toBeInTheDocument();
-    expect(screen.getByText(/Gemini Multimodal Vision/i)).toBeInTheDocument();
+    expect(screen.getByText(/Engineering Plan & Product Take-off/i)).toBeInTheDocument();
     expect(screen.getByText(/Drop Engineering PDF, CAD Drawing/i)).toBeInTheDocument();
     expect(screen.getByText(/Ballarat Plan/i)).toBeInTheDocument();
     expect(screen.getByText(/Geelong Plan/i)).toBeInTheDocument();
   });
 
-  it('loads sample plan data with deciphered BOM line items and metadata', () => {
+  it('loads sample plan data with deciphered product line items and notes (product-only)', () => {
     renderWorkspace();
 
     // Default Ballarat sample plan
@@ -31,6 +31,9 @@ describe('PlanTakeoffWorkspace Component', () => {
     expect(screen.getByText(/Plaspole 6.0m Recycled Composite Light Pole/i)).toBeInTheDocument();
     expect(screen.getByText(/Plasgain Polymeric Cable Cover Slabs/i)).toBeInTheDocument();
     expect(screen.getByText(/Tree Canopy Shading Alert/i)).toBeInTheDocument();
+
+    // Ensures pricing notes point to Ostendo ERP
+    expect(screen.getByText(/Pricing calculated in Ostendo ERP/i)).toBeInTheDocument();
   });
 
   it('switches between sample plans dynamically', () => {
@@ -44,7 +47,7 @@ describe('PlanTakeoffWorkspace Component', () => {
     expect(screen.getByText(/8.0m Galvanised Mild Steel Baseplate Pole/i)).toBeInTheDocument();
   });
 
-  it('allows adding and removing BOM line items', () => {
+  it('allows adding and removing line items', () => {
     renderWorkspace();
 
     const addButton = screen.getByRole('button', { name: /Add Item/i });
@@ -57,23 +60,14 @@ describe('PlanTakeoffWorkspace Component', () => {
     expect(screen.queryByText(/Plasgain Additional Luminaire/i)).not.toBeInTheDocument();
   });
 
-  it('opens and closes the Draft Customer Quotation modal', () => {
+  it('renders Export Product List for Ostendo and Tender Package buttons', () => {
     renderWorkspace();
 
-    const draftQuoteButton = screen.getByRole('button', { name: /Draft Quote/i });
-    fireEvent.click(draftQuoteButton);
-
-    expect(screen.getByText(/Draft Customer Quotation Document/i)).toBeInTheDocument();
-    expect(screen.getByText(/Formal Quotation Schedule/i)).toBeInTheDocument();
-    expect(screen.getByText(/Copy Quote Text/i)).toBeInTheDocument();
-
-    const closeButton = screen.getByRole('button', { name: /Close/i });
-    fireEvent.click(closeButton);
-
-    expect(screen.queryByText(/Draft Customer Quotation Document/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Export Product List for Ostendo/i })).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /Tender Package/i }).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('triggers Save to CRM Deals Pipeline', () => {
+  it('triggers Save to CRM Deals Pipeline with product lines only', () => {
     renderWorkspace();
 
     const saveCrmButton = screen.getByRole('button', { name: /Save to CRM Deal/i });

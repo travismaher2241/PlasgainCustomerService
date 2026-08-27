@@ -319,3 +319,60 @@ export interface CRMNotification {
     id?: string;
   };
 }
+
+export type CompetitorPriceBasis =
+  | "Per Unit"
+  | "Per System"
+  | "Project Total"
+  | "Supply Only"
+  | "Installed"
+  | "Unknown";
+
+export type CompetitorGstStatus = "Ex GST" | "Inc GST" | "Unknown";
+
+export type CompetitorSourceType =
+  | "Customer Verbal"
+  | "Competitor Quote"
+  | "Tender Schedule"
+  | "Email"
+  | "Other";
+
+export type CompetitorPricingStatus = "Active" | "Superseded" | "Unverified";
+
+export interface CompetitorPricingRecord {
+  id: string;
+  accountId: string;
+  accountName: string;
+  opportunityId?: string;
+  opportunityName?: string;
+  competitorName: string;
+  competitorProduct: string;
+  price: number;
+  currency: string;
+  priceBasis: CompetitorPriceBasis;
+  gstStatus: CompetitorGstStatus;
+  quantity?: number;
+  sourceType: CompetitorSourceType;
+  observedDate: string;
+  notes?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  status: CompetitorPricingStatus;
+}
+
+export interface CompetitorPricingAlert {
+  id: string;
+  recordId: string;
+  accountId: string;
+  accountName: string;
+  competitorName: string;
+  competitorProduct: string;
+  price: number;
+  currency: string;
+  priceBasis: string;
+  title: string;
+  message: string;
+  createdAt: string;
+  isRead: boolean;
+}

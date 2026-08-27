@@ -16,7 +16,9 @@ import {
   CRMTask,
   PipelineConfig,
   NextBestActionItem,
-  CRMNotification
+  CRMNotification,
+  CompetitorPricingRecord,
+  CompetitorPricingAlert
 } from "../types/crm";
 import {
   SAMPLE_OPPORTUNITIES,
@@ -52,6 +54,7 @@ export type CRMSubTab =
   | "pipeline"
   | "leads"
   | "tasks"
+  | "competitor-pricing"
   | "analytics";
 
 export type ToolSubTab =
@@ -151,6 +154,15 @@ interface AppContextType {
   nextBestActions: NextBestActionItem[];
   notifications: CRMNotification[];
   dismissNotification: (id: string) => void;
+
+  // Competitor Pricing Intelligence (Shared Server-Backed)
+  competitorPricingRecords: CompetitorPricingRecord[];
+  competitorAlerts: CompetitorPricingAlert[];
+  unreadCompetitorAlertsCount: number;
+  addCompetitorPricing: (recordData: Omit<CompetitorPricingRecord, "id" | "createdAt" | "updatedAt">) => Promise<CompetitorPricingRecord | null>;
+  updateCompetitorPricing: (id: string, updates: Partial<CompetitorPricingRecord>) => Promise<CompetitorPricingRecord | null>;
+  markCompetitorAlertRead: (alertId: string) => Promise<void>;
+  fetchCompetitorData: () => Promise<void>;
 
   // Knowledge & Training
   documents: KnowledgeDocument[];
@@ -314,6 +326,143 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     opportunityId?: string;
     contactId?: string;
   } | null>(null);
+
+  // Server-backed Competitor Pricing Intelligence & Team Alerts
+  const [competitorPricingRecords, setCompetitorPricingRecords] = useState<CompetitorPricingRecord[]>([]);
+  const [competitorAlerts, setCompetitorAlerts] = useState<CompetitorPricingAlert[]>([]);
+
+  const getApiUrl = (endpoint: string) => {
+    if (typeof window !== "undefined" && window.location?.origin && window.location.origin !== "null") {
+      return `${window.location.origin}${endpoint}`;
+    }
+    return endpoint;
+  };
+
+  const fetchCompetitorData = async () => {
+    try {
+      if (typeof window === "undefined") return;
+      const [pricingRes, alertsRes] = await Promise.all([
+        fetch(getApiUrl("/api/competitor-pricing")),
+        fetch(getApiUrl("/api/competitor-pricing/alerts"))
+      ]);
+      if (pricingRes.ok) {
+        const data = await pricingRes.json();
+        if (data.records) setCompetitorPricingRecords(data.records);
+      }
+      if (alertsRes.ok) {
+        const data = await alertsRes.json();
+        if (data.alerts) setCompetitorAlerts(data.alerts);
+      }
+    } catch (err) {
+      // Ignored during testing/offline
+    }
+  };
+
+  useEffect(() => {
+    fetchCompetitorData();
+
+    // Refresh when window regains focus
+    const handleFocus = () => {
+      fetchCompetitorData();
+    };
+    window.addEventListener("focus", handleFocus);
+
+    // Modest polling interval (20 seconds) for team sync
+    const intervalId = setInterval(fetchCompetitorData, 20000);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      clearInterval(intervalId);
+    };
+  }, []);
+
+  const addCompetitorPricing = async (
+    recordData: Omit<CompetitorPricingRecord, "id" | "createdAt" | "updatedAt">
+  ): Promise<CompetitorPricingRecord | null> => {
+    try {
+      const res = await fetch(getApiUrl("/api/competitor-pricing"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(recordData)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.details?.join(", ") || err.error || "Failed to add competitor pricing");
+      }
+      const data = await res.json();
+      if (data.record) {
+        setCompetitorPricingRecords((prev) => [data.record, ...prev]);
+        if (data.alert) {
+          setCompetitorAlerts((prev) => [data.alert, ...prev]);
+        }
+        // Also log to CRM activity
+        logActivity({
+          type: "note",
+          title: `Competitor Intelligence: ${data.record.competitorName}`,
+          description: `Recorded ${data.record.competitorProduct} at $${data.record.price} (${data.record.priceBasis}) - ${data.record.sourceType}`,
+          accountId: data.record.accountId,
+          accountName: data.record.accountName,
+          performedBy: data.record.createdBy
+        });
+        showToast("Competitor pricing recorded & team alert dispatched!", "success");
+        return data.record;
+      }
+      return null;
+    } catch (err: any) {
+      console.error("Error adding competitor pricing:", err);
+      showToast(err.message || "Failed to record competitor pricing", "error");
+      return null;
+    }
+  };
+
+  const updateCompetitorPricing = async (
+    id: string,
+    updates: Partial<CompetitorPricingRecord>
+  ): Promise<CompetitorPricingRecord | null> => {
+    try {
+      const res = await fetch(getApiUrl(`/api/competitor-pricing/${id}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Failed to update competitor pricing");
+      }
+      const data = await res.json();
+      if (data.record) {
+        setCompetitorPricingRecords((prev) =>
+          prev.map((r) => (r.id === id ? data.record : r))
+        );
+        showToast("Competitor pricing record updated", "success");
+        return data.record;
+      }
+      return null;
+    } catch (err: any) {
+      console.error("Error updating competitor pricing:", err);
+      showToast(err.message || "Failed to update competitor record", "error");
+      return null;
+    }
+  };
+
+  const markCompetitorAlertRead = async (alertId: string) => {
+    try {
+      const res = await fetch(getApiUrl(`/api/competitor-pricing/alerts/${alertId}/read`), {
+        method: "PATCH"
+      });
+      if (res.ok) {
+        setCompetitorAlerts((prev) =>
+          prev.map((a) => (a.id === alertId ? { ...a, isRead: true } : a))
+        );
+      }
+    } catch (err) {
+      console.error("Error marking competitor alert read:", err);
+    }
+  };
+
+  const unreadCompetitorAlertsCount = useMemo(() => {
+    return competitorAlerts.filter((a) => !a.isRead).length;
+  }, [competitorAlerts]);
 
   const [notifications, setNotifications] = useState<CRMNotification[]>([
     {
@@ -767,6 +916,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         nextBestActions,
         notifications,
         dismissNotification,
+        competitorPricingRecords,
+        competitorAlerts,
+        unreadCompetitorAlertsCount,
+        addCompetitorPricing,
+        updateCompetitorPricing,
+        markCompetitorAlertRead,
+        fetchCompetitorData,
         documents,
         addDocument,
         products,
