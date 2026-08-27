@@ -129,6 +129,7 @@ export const CRMAccountsView: React.FC = () => {
       competitorName: "",
       competitorProduct: "",
       price: 1850,
+      plasgainQuotedPrice: "",
       currency: "AUD",
       priceBasis: "Per Unit",
       gstStatus: "Ex GST",
@@ -152,6 +153,7 @@ export const CRMAccountsView: React.FC = () => {
       competitorName: record.competitorName,
       competitorProduct: record.competitorProduct,
       price: record.price,
+      plasgainQuotedPrice: record.plasgainQuotedPrice !== undefined ? record.plasgainQuotedPrice : "",
       currency: record.currency || "AUD",
       priceBasis: record.priceBasis,
       gstStatus: record.gstStatus,
@@ -170,12 +172,14 @@ export const CRMAccountsView: React.FC = () => {
 
     const priceNum = typeof competitorForm.price === "number" ? competitorForm.price : parseFloat(competitorForm.price);
     const qtyNum = competitorForm.quantity ? (typeof competitorForm.quantity === "number" ? competitorForm.quantity : parseFloat(competitorForm.quantity)) : undefined;
+    const plasgainPriceNum = competitorForm.plasgainQuotedPrice !== "" && competitorForm.plasgainQuotedPrice !== undefined ? (typeof competitorForm.plasgainQuotedPrice === "number" ? competitorForm.plasgainQuotedPrice : parseFloat(competitorForm.plasgainQuotedPrice as string)) : undefined;
 
     if (editingCompetitorRecord) {
       await updateCompetitorPricing(editingCompetitorRecord.id, {
         competitorName: competitorForm.competitorName,
         competitorProduct: competitorForm.competitorProduct,
         price: priceNum,
+        plasgainQuotedPrice: plasgainPriceNum,
         priceBasis: competitorForm.priceBasis,
         gstStatus: competitorForm.gstStatus,
         quantity: qtyNum,
@@ -191,6 +195,7 @@ export const CRMAccountsView: React.FC = () => {
         competitorName: competitorForm.competitorName,
         competitorProduct: competitorForm.competitorProduct,
         price: priceNum,
+        plasgainQuotedPrice: plasgainPriceNum,
         currency: competitorForm.currency,
         priceBasis: competitorForm.priceBasis,
         gstStatus: competitorForm.gstStatus,

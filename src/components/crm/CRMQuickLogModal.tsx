@@ -64,10 +64,12 @@ export const CRMQuickLogModal: React.FC = () => {
     const prefixes = ["Call with", "Email sent to", "Meeting with", "Account Note:"];
     const isAutoTitle = !title || prefixes.some((p) => title.startsWith(p));
     if (isAutoTitle) {
-      if (newType === "call") setTitle(`Call with ${targetAccount?.name || "Client"}`);
-      else if (newType === "email") setTitle(`Email sent to ${targetAccount?.name || "Client"}`);
-      else if (newType === "meeting") setTitle(`Meeting with ${targetAccount?.name || "Client"}`);
-      else if (newType === "note") setTitle(`Account Note: ${targetAccount?.name || "Client"}`);
+      const acc = accounts.find((a) => a.id === selectedAccountId);
+      const accName = acc?.name || "Client";
+      if (newType === "call") setTitle(`Call with ${accName}`);
+      else if (newType === "email") setTitle(`Email sent to ${accName}`);
+      else if (newType === "meeting") setTitle(`Meeting with ${accName}`);
+      else if (newType === "note") setTitle(`Account Note: ${accName}`);
     }
   };
 
@@ -176,8 +178,19 @@ export const CRMQuickLogModal: React.FC = () => {
               <select
                 value={selectedAccountId}
                 onChange={(e) => {
-                  setSelectedAccountId(e.target.value);
+                  const newAccId = e.target.value;
+                  setSelectedAccountId(newAccId);
                   setSelectedOppId("");
+                  const prefixes = ["Call with", "Email sent to", "Meeting with", "Account Note:"];
+                  const isAutoTitle = !title || prefixes.some((p) => title.startsWith(p));
+                  if (isAutoTitle) {
+                    const acc = accounts.find((a) => a.id === newAccId);
+                    const accName = acc?.name || "Client";
+                    if (type === "call") setTitle(`Call with ${accName}`);
+                    else if (type === "email") setTitle(`Email sent to ${accName}`);
+                    else if (type === "meeting") setTitle(`Meeting with ${accName}`);
+                    else if (type === "note") setTitle(`Account Note: ${accName}`);
+                  }
                 }}
                 className="w-full p-2 text-meta rounded-edge border border-line bg-white focus:outline-none"
               >

@@ -87,7 +87,7 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
       warranty,
       customNote
     });
-  }, [cadence, contactName, companyName, projectName, quoteRef, initialProducts, currentUser, customNote]);
+  }, [cadence, contactName, contactEmail, companyName, projectName, quoteRef, initialProducts, currentUser, leadTime, warranty, customNote]);
 
   const [editableBody, setEditableBody] = useState(generatedEmail.body);
   const [editableSubject, setEditableSubject] = useState(generatedEmail.subject);

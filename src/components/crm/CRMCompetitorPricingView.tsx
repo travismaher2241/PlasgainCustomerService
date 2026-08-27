@@ -112,11 +112,15 @@ export const CRMCompetitorPricingView: React.FC = () => {
 
   const handleOpenEdit = (record: CompetitorPricingRecord) => {
     setEditingRecord(record);
+    const opp = crmOpportunities.find((o) => o.id === record.opportunityId);
     setFormState({
       accountId: record.accountId,
+      opportunityId: record.opportunityId || "",
+      opportunityName: record.opportunityName || opp?.name || "",
       competitorName: record.competitorName,
       competitorProduct: record.competitorProduct,
       price: record.price,
+      plasgainQuotedPrice: record.plasgainQuotedPrice !== undefined ? record.plasgainQuotedPrice : "",
       currency: record.currency || "AUD",
       priceBasis: record.priceBasis,
       gstStatus: record.gstStatus,
@@ -134,14 +138,19 @@ export const CRMCompetitorPricingView: React.FC = () => {
     const account = accounts.find((a) => a.id === formState.accountId) || accounts[0];
     const priceNum = typeof formState.price === "number" ? formState.price : parseFloat(formState.price);
     const qtyNum = formState.quantity ? (typeof formState.quantity === "number" ? formState.quantity : parseFloat(formState.quantity)) : undefined;
+    const opp = crmOpportunities.find((o) => o.id === formState.opportunityId);
+    const plasgainPriceNum = formState.plasgainQuotedPrice !== "" && formState.plasgainQuotedPrice !== undefined ? (typeof formState.plasgainQuotedPrice === "number" ? formState.plasgainQuotedPrice : parseFloat(formState.plasgainQuotedPrice as string)) : undefined;
 
     if (editingRecord) {
       await updateCompetitorPricing(editingRecord.id, {
         accountId: account.id,
         accountName: account.name,
+        opportunityId: formState.opportunityId || undefined,
+        opportunityName: opp?.name || formState.opportunityName || undefined,
         competitorName: formState.competitorName,
         competitorProduct: formState.competitorProduct,
         price: priceNum,
+        plasgainQuotedPrice: plasgainPriceNum,
         priceBasis: formState.priceBasis,
         gstStatus: formState.gstStatus,
         quantity: qtyNum,
@@ -154,9 +163,12 @@ export const CRMCompetitorPricingView: React.FC = () => {
       await addCompetitorPricing({
         accountId: account.id,
         accountName: account.name,
+        opportunityId: formState.opportunityId || undefined,
+        opportunityName: opp?.name || formState.opportunityName || undefined,
         competitorName: formState.competitorName,
         competitorProduct: formState.competitorProduct,
         price: priceNum,
+        plasgainQuotedPrice: plasgainPriceNum,
         currency: formState.currency,
         priceBasis: formState.priceBasis,
         gstStatus: formState.gstStatus,
@@ -461,21 +473,45 @@ export const CRMCompetitorPricingView: React.FC = () => {
             </div>
 
             <form onSubmit={handleSave} className="space-y-3.5 text-meta">
-              <div>
-                <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
-                  Customer Account *
-                </label>
-                <select
-                  value={formState.accountId}
-                  onChange={(e) => setFormState({ ...formState, accountId: e.target.value })}
-                  className="w-full p-2 bg-paper rounded-edge border border-line text-meta font-medium"
-                >
-                  {accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name}
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                    Customer Account *
+                  </label>
+                  <select
+                    value={formState.accountId}
+                    onChange={(e) => setFormState({ ...formState, accountId: e.target.value, opportunityId: "", opportunityName: "" })}
+                    className="w-full p-2 bg-paper rounded-edge border border-line text-meta font-medium"
+                  >
+                    {accounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                    Linked Deal / Project
+                  </label>
+                  <select
+                    value={formState.opportunityId}
+                    onChange={(e) => {
+                      const opp = crmOpportunities.find((o) => o.id === e.target.value);
+                      setFormState({ ...formState, opportunityId: e.target.value, opportunityName: opp?.name || "" });
+                    }}
+                    className="w-full p-2 bg-paper rounded-edge border border-line text-meta font-medium"
+                  >
+                    <option value="">None / General Market</option>
+                    {crmOpportunities
+                      .filter((o) => !formState.accountId || o.accountId === formState.accountId)
+                      .map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -507,10 +543,10 @@ export const CRMCompetitorPricingView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
                   <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
-                    Observed Price ($ AUD) *
+                    Observed Price ($) *
                   </label>
                   <input
                     type="number"
@@ -519,6 +555,20 @@ export const CRMCompetitorPricingView: React.FC = () => {
                     required
                     value={formState.price}
                     onChange={(e) => setFormState({ ...formState, price: parseFloat(e.target.value) || 0 })}
+                    className="w-full p-2 bg-paper rounded-edge border border-line font-bold text-urgent text-meta"
+                  />
+                </div>
+                <div>
+                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                    Plasgain Quoted ($)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="e.g. 1950"
+                    value={formState.plasgainQuotedPrice}
+                    onChange={(e) => setFormState({ ...formState, plasgainQuotedPrice: e.target.value })}
                     className="w-full p-2 bg-paper rounded-edge border border-line font-bold text-brand-deep text-meta"
                   />
                 </div>

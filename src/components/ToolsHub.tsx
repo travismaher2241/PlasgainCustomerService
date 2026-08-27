@@ -96,17 +96,17 @@ export const ToolsHub: React.FC = () => {
   // Tool: AS/NZS 1158 Pathway Pole Spacing & Lux Estimator
   // -------------------------------------------------------------
   const [pathwayWidth, setPathwayWidth] = useState<number>(3.0);
-  const [subCategory, setSubCategory] = useState<"P1" | "P2" | "P3" | "P4">("P3");
+  const [subCategory, setSubCategory] = useState<"P1" | "P2" | "P3" | "P4" | "PR1" | "PR2" | "PR3" | "PR4">("P3");
   const [poleHeightM, setPoleHeightM] = useState<number>(5.0);
   const [luminaireOutputLm, setLuminaireOutputLm] = useState<number>(4500);
 
   const spacingCalculations = useMemo(() => {
-    // Standard AS/NZS 1158.3.1 PR Category spacing approximation
+    // Standard AS/NZS 1158.3.1 Category P / PR spacing approximation
     let baseSpacing = 32;
-    if (subCategory === "P1") baseSpacing = 20;
-    if (subCategory === "P2") baseSpacing = 26;
-    if (subCategory === "P3") baseSpacing = 32;
-    if (subCategory === "P4") baseSpacing = 40;
+    if (subCategory === "P1" || subCategory === "PR1") baseSpacing = 20;
+    else if (subCategory === "P2" || subCategory === "PR2") baseSpacing = 26;
+    else if (subCategory === "P3" || subCategory === "PR3") baseSpacing = 32;
+    else if (subCategory === "P4" || subCategory === "PR4") baseSpacing = 40;
 
     // Height and lumens modifier
     const heightFactor = poleHeightM / 5.0;
@@ -114,10 +114,14 @@ export const ToolsHub: React.FC = () => {
     const recommendedSpacing = Math.round(baseSpacing * Math.sqrt(lumenFactor) * (0.8 + 0.2 * heightFactor));
     const polesPerKm = Math.ceil(1000 / recommendedSpacing);
 
+    const isP1 = subCategory === "P1" || subCategory === "PR1";
+    const isP2 = subCategory === "P2" || subCategory === "PR2";
+    const isP3 = subCategory === "P3" || subCategory === "PR3";
+
     return {
       recommendedSpacing,
       polesPerKm,
-      illuminanceEav: subCategory === "P1" ? "2.0 Lux" : subCategory === "P2" ? "1.0 Lux" : subCategory === "P3" ? "0.5 Lux" : "0.2 Lux",
+      illuminanceEav: isP1 ? "2.0 Lux" : isP2 ? "1.0 Lux" : isP3 ? "0.5 Lux" : "0.2 Lux",
       uniformityUo: "0.20 Min"
     };
   }, [pathwayWidth, subCategory, poleHeightM, luminaireOutputLm]);
@@ -327,9 +331,10 @@ export const ToolsHub: React.FC = () => {
                 onChange={(e) => setSubCategory(e.target.value as any)}
                 className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
               >
-                <option value="PR2">PR2 (High Pedestrian Activity / Urban Promenades - 2.0 Lux)</option>
-                <option value="PR3">PR3 (Standard Shared Path / Council Cycleway - 1.0 Lux)</option>
-                <option value="PR4">PR4 (Low Activity Parks / Rural Pathways - 0.5 Lux)</option>
+                <option value="P1">P1 / PR1 (High Pedestrian Activity / Connecting Arterials - 2.0 Lux)</option>
+                <option value="P2">P2 / PR2 (High Activity Promenades / Commercial Strips - 1.0 Lux)</option>
+                <option value="P3">P3 / PR3 (Standard Shared Path / Council Cycleway - 0.5 Lux)</option>
+                <option value="P4">P4 / PR4 (Minor Parkland / Rural Pathways - 0.2 Lux)</option>
               </select>
             </div>
 

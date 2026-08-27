@@ -52,6 +52,11 @@ export const NewEnquiryWorkspace: React.FC = () => {
     setRawEnquiryInput,
     addOpportunity,
     addCrmOpportunity,
+    accounts,
+    pipelines,
+    contacts,
+    addAccount,
+    addContact,
     setExplainingTerm,
     showToast,
     navigateToWorkflow,
@@ -255,23 +260,85 @@ export const NewEnquiryWorkspace: React.FC = () => {
 
     addOpportunity(newOpp);
 
+    // Resolve or create matching Account in CRM
+    const existingAccount = accounts.find(
+      (a) => a.name.toLowerCase() === companyName.toLowerCase()
+    );
+    let targetAccountId = existingAccount?.id;
+    if (!targetAccountId) {
+      targetAccountId = `acc-${Date.now()}`;
+      addAccount({
+        id: targetAccountId,
+        name: companyName,
+        status: "Prospect",
+        industry: "Government & Public Infrastructure",
+        customerSegment: companyName.toLowerCase().includes("council") ? "Local Government / Council" : "Civil Contractor",
+        territory: "QLD/NT",
+        accountOwner: currentUser.name,
+        leadSource: rawEnquiryInput.source || "Email",
+        createdDate: new Date().toISOString().split("T")[0],
+        lastInteractionDate: new Date().toISOString().split("T")[0],
+        relationshipHealth: "Healthy",
+        tags: ["Enquiry Analyzer", applicationVal || "Solar Lighting"],
+        notes: `Created from enquiry for ${projectName}`,
+        metrics: {
+          openPipelineValue: quantityNum * 1600 || 38400,
+          totalDealsWon: 0,
+          activeDealsCount: 1,
+          totalEnquiries: 1
+        }
+      });
+    }
+
+    // Resolve or create matching Contact in CRM
+    const existingContact = contacts.find(
+      (c) => c.accountId === targetAccountId && (c.email?.toLowerCase() === contactEmail.toLowerCase() || `${c.firstName} ${c.lastName}`.toLowerCase() === customerName.toLowerCase())
+    );
+    let targetContactId = existingContact?.id;
+    if (!targetContactId) {
+      targetContactId = `con-${Date.now()}`;
+      const nameParts = customerName.trim().split(" ");
+      addContact({
+        id: targetContactId,
+        accountId: targetAccountId,
+        accountName: companyName,
+        firstName: nameParts[0] || "Contact",
+        lastName: nameParts.slice(1).join(" ") || "",
+        jobTitle: "Project Enquirer",
+        email: contactEmail,
+        mobile: rawEnquiryInput.contact || "",
+        preferredContactMethod: "Email",
+        roleInBuyingProcess: "Evaluator",
+        isDecisionMaker: true,
+        influenceLevel: "Medium",
+        relationshipStatus: "Warm",
+        contactOwner: currentUser.name,
+        tags: ["Enquiry Ingestion"],
+        notes: `Contact for ${projectName}`
+      });
+    }
+
+    // Use active/default pipeline
+    const targetPipeline = (pipelines && pipelines.length > 0) ? (pipelines.find(p => p.isDefault) || pipelines[0]) : { id: "pipe-major-projects", stages: [{ id: "stage-new", name: "New Opportunity", probability: 10 }] };
+    const targetStage = targetPipeline.stages[0] || { id: "stage-new", name: "New Opportunity", probability: 10 };
+
     // Also ingest into CRM pipeline
     const crmOppId = `crm-opp-${Date.now()}`;
     addCrmOpportunity({
       id: crmOppId,
       name: newOpp.project,
-      accountId: "acc-1",
+      accountId: targetAccountId,
       accountName: newOpp.customerCompany,
-      primaryContactId: "con-1",
+      primaryContactId: targetContactId,
       primaryContactName: newOpp.contactName,
       primaryContactEmail: newOpp.contactEmail,
       opportunityOwner: currentUser.name,
-      pipelineId: "pipe-solar",
-      stageId: "stage-new",
-      stageName: "New Enquiry / Lead",
+      pipelineId: targetPipeline.id,
+      stageId: targetStage.id,
+      stageName: targetStage.name,
       dealValue: newOpp.estimatedValue || 38400,
-      probability: 25,
-      weightedValue: (newOpp.estimatedValue || 38400) * 0.25,
+      probability: targetStage.probability || 25,
+      weightedValue: (newOpp.estimatedValue || 38400) * ((targetStage.probability || 25) / 100),
       forecastCategory: "Pipeline",
       expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       products: [
