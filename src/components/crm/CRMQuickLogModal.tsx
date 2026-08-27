@@ -8,7 +8,8 @@ import {
   CheckCircle2,
   Clock,
   User,
-  Building2
+  Building2,
+  Zap
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { ActivityType } from "../../types/crm";
@@ -36,6 +37,34 @@ export const CRMQuickLogModal: React.FC = () => {
   const [followUpDate, setFollowUpDate] = useState(
     new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
   );
+
+  const applyPreset = (presetType: "voicemail" | "dialux" | "price-accepted") => {
+    const acc = accounts.find((a) => a.id === selectedAccountId);
+    const accName = acc?.name || "Client";
+
+    if (presetType === "voicemail") {
+      setType("call");
+      setTitle(`Left Voicemail for ${accName}`);
+      setDescription("Left voicemail message regarding tender quote follow-up and delivery schedule.");
+      setOutcome("Left Voicemail");
+      setScheduleFollowUp(true);
+      setFollowUpDate(new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+    } else if (presetType === "dialux") {
+      setType("email");
+      setTitle(`Sent Dialux & Datasheet Package to ${accName}`);
+      setDescription("Issued AS/NZS 1158 Dialux photometric simulation report and product datasheet package for council review.");
+      setOutcome("Sent Technical Package");
+      setScheduleFollowUp(true);
+      setFollowUpDate(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+    } else if (presetType === "price-accepted") {
+      setType("call");
+      setTitle(`Price Acceptance Confirmed with ${accName}`);
+      setDescription("Customer verbally confirmed price acceptance. Awaiting formal Purchase Order / tender award.");
+      setOutcome("Price Accepted");
+      setScheduleFollowUp(true);
+      setFollowUpDate(new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
+    }
+  };
 
   useEffect(() => {
     if (quickLogModal?.isOpen) {
@@ -142,6 +171,41 @@ export const CRMQuickLogModal: React.FC = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 text-meta">
+          {/* STRM-01: 1-Click Call Outcome Presets */}
+          <div className="p-2.5 bg-brand-wash/60 rounded-edge border border-brand-edge space-y-1.5">
+            <div className="flex items-center justify-between text-spec font-bold text-brand-deep uppercase">
+              <span className="flex items-center gap-1.5">
+                <Zap className="w-3.5 h-3.5" /> 1-Click Outcome Presets:
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => applyPreset("voicemail")}
+                className="px-2.5 py-1 bg-white hover:bg-brand-wash border border-brand-edge text-body hover:text-brand-deep rounded text-spec font-semibold cursor-pointer shadow-2xs transition-colors"
+                title="Fill: Left voice message & auto-schedule follow-up task in 2 days"
+              >
+                📞 Left Voice Msg (+2d)
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPreset("dialux")}
+                className="px-2.5 py-1 bg-white hover:bg-brand-wash border border-brand-edge text-body hover:text-brand-deep rounded text-spec font-semibold cursor-pointer shadow-2xs transition-colors"
+                title="Fill: Sent Dialux photometric report & task in 5 days"
+              >
+                📄 Sent Dialux / Spec (+5d)
+              </button>
+              <button
+                type="button"
+                onClick={() => applyPreset("price-accepted")}
+                className="px-2.5 py-1 bg-white hover:bg-brand-wash border border-brand-edge text-body hover:text-brand-deep rounded text-spec font-semibold cursor-pointer shadow-2xs transition-colors"
+                title="Fill: Customer confirmed price acceptance & task in 3 days"
+              >
+                🏆 Price Accepted (+3d)
+              </button>
+            </div>
+          </div>
+
           {/* Activity Type */}
           <div>
             <label className="block text-spec font-bold text-ink-dim uppercase mb-1.5">

@@ -335,12 +335,22 @@ export const CRMTodayWorkspace: React.FC = () => {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => navigateToCRM("pipeline", deal.id)}
-                      className="px-3 py-1.5 text-meta font-semibold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash transition-colors flex items-center gap-1 shrink-0"
-                    >
-                      View Deal <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => openQuickLog("call", deal.accountId, deal.id)}
+                        className="p-1.5 text-meta font-medium text-body bg-white hover:bg-raised border border-line rounded-edge transition-colors cursor-pointer shadow-2xs"
+                        title="Log Call against this deal"
+                      >
+                        <Phone className="w-3.5 h-3.5 text-brand-deep" />
+                      </button>
+                      <button
+                        onClick={() => navigateToCRM("pipeline", deal.id)}
+                        className="px-3 py-1.5 text-meta font-semibold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
+                      >
+                        View Deal <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
                 ))
               )}

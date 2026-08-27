@@ -29,7 +29,8 @@ import {
   Save,
   Info,
   ChevronRight,
-  Download
+  Download,
+  Zap
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { EnquiryAnalysisResult, StatusField } from "../types";
@@ -208,8 +209,8 @@ export const NewEnquiryWorkspace: React.FC = () => {
     }
   };
 
-  const handleSaveOpportunity = () => {
-    if (!currentEnquiryAnalysis) return;
+  const handleSaveOpportunity = (shouldNavigate = true): string | null => {
+    if (!currentEnquiryAnalysis) return null;
 
     const oppSummary = currentEnquiryAnalysis.opportunitySummary;
     const customerName = oppSummary.contactName?.value || rawEnquiryInput.customer || "";
@@ -226,7 +227,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
 
     if (!customerName || !companyName || !projectName) {
       showToast("Add contact name, company, and project before saving to pipeline", "warning");
-      return;
+      return null;
     }
 
     const newOpp = {
@@ -371,8 +372,20 @@ export const NewEnquiryWorkspace: React.FC = () => {
       notes: newOpp.notes
     });
 
-    showToast("Saved opportunity to CRM Deals Pipeline!", "success");
-    navigateToCRM("pipeline", crmOppId);
+    if (shouldNavigate) {
+      showToast("Saved opportunity to CRM Deals Pipeline!", "success");
+      navigateToCRM("pipeline", crmOppId);
+    }
+    return crmOppId;
+  };
+
+  // STRM-03: Unified Save Deal & Draft Follow-Up Package Action
+  const handleSaveAndDraftFollowUp = () => {
+    if (!currentEnquiryAnalysis) return;
+    const oppId = handleSaveOpportunity(false);
+    if (!oppId) return;
+    setIsFollowUpModalOpen(true);
+    showToast("Saved deal to CRM & opened follow-up draft package!", "success");
   };
 
   const renderStatusBadge = (field: StatusField) => {
@@ -513,11 +526,19 @@ export const NewEnquiryWorkspace: React.FC = () => {
               <span>Copy Product List</span>
             </button>
             <button
-              onClick={handleSaveOpportunity}
-              className="text-meta font-medium px-3.5 py-1.5 rounded-edge bg-brand-deep hover:bg-brand-deep text-white transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              onClick={() => handleSaveOpportunity(true)}
+              className="text-meta font-medium px-3.5 py-1.5 rounded-edge bg-white hover:bg-raised text-body border border-line-strong transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
             >
-              <Save className="w-3.5 h-3.5" />
+              <Save className="w-3.5 h-3.5 text-brand-deep" />
               <span>Save to Pipeline</span>
+            </button>
+            <button
+              onClick={handleSaveAndDraftFollowUp}
+              className="text-meta font-bold px-4 py-1.5 rounded-edge bg-brand-deep hover:bg-brand text-white transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+              title="Save opportunity to CRM Deals and immediately open tailored follow-up draft"
+            >
+              <Zap className="w-4 h-4" />
+              <span>Save Deal &amp; Draft Follow-Up</span>
             </button>
           </div>
         )}

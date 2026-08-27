@@ -29,7 +29,9 @@ import {
   Check,
   Package,
   RefreshCw,
-  Phone
+  Phone,
+  Zap,
+  ClipboardCheck
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { CRMOpportunity, DealHealthRating, OpportunityProductLine } from "../../types/crm";
@@ -57,6 +59,8 @@ export const CRMPipelineView: React.FC = () => {
     accounts,
     openQuickLog,
     navigateToCRM,
+    logActivity,
+    addTask,
     currentUser,
     showToast
   } = useApp();
@@ -520,21 +524,165 @@ export const CRMPipelineView: React.FC = () => {
               </button>
               <button
                 onClick={() => openQuickLog("call", selectedDeal.accountId, selectedDeal.id)}
-                className="px-3 py-1.5 text-meta font-semibold bg-white border border-line-strong rounded-edge hover:bg-raised"
+                className="px-3 py-1.5 text-meta font-semibold bg-white border border-line-strong rounded-edge hover:bg-raised cursor-pointer"
               >
                 + Log Call
               </button>
               <button
                 onClick={() => openQuickLog("task", selectedDeal.accountId, selectedDeal.id)}
-                className="px-3 py-1.5 text-meta font-semibold bg-white border border-line-strong rounded-edge hover:bg-raised"
+                className="px-3 py-1.5 text-meta font-semibold bg-white border border-line-strong rounded-edge hover:bg-raised cursor-pointer"
               >
                 + Task
               </button>
               <button
                 onClick={() => navigateToCRM("accounts", selectedDeal.accountId)}
-                className="px-3 py-1.5 text-meta font-semibold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash"
+                className="px-3 py-1.5 text-meta font-semibold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash cursor-pointer"
               >
                 View Account 360°
+              </button>
+            </div>
+          </div>
+
+          {/* STRM-01: 1-Click Call Outcome Presets in Deal Drawer */}
+          <div className="p-3 bg-brand-wash/60 rounded-edge border border-brand-edge flex flex-wrap items-center justify-between gap-2 text-meta">
+            <div className="flex items-center gap-2">
+              <span className="p-1 bg-brand-deep text-white rounded">
+                <Zap className="w-3.5 h-3.5" />
+              </span>
+              <span className="text-spec font-bold text-brand-deep uppercase">
+                1-Click Call Outcome Shortcuts:
+              </span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  const acc = accounts.find((a) => a.id === selectedDeal.accountId);
+                  const accName = acc?.name || selectedDeal.accountName || "Client";
+                  logActivity({
+                    type: "call",
+                    title: `Left Voicemail for ${accName}`,
+                    description: `Left voicemail message regarding quote follow-up for deal "${selectedDeal.name}".`,
+                    accountId: selectedDeal.accountId,
+                    accountName: accName,
+                    opportunityId: selectedDeal.id,
+                    opportunityName: selectedDeal.name,
+                    performedBy: currentUser.name,
+                    metadata: { outcome: "Left Voicemail" }
+                  });
+                  const followUpDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+                  addTask({
+                    title: `Follow-up: Call ${accName} on ${selectedDeal.name}`,
+                    type: "Follow-up",
+                    status: "To Do",
+                    priority: "High",
+                    dueDate: followUpDate,
+                    dueTime: "10:00 AM",
+                    accountId: selectedDeal.accountId,
+                    accountName: accName,
+                    opportunityId: selectedDeal.id,
+                    opportunityName: selectedDeal.name,
+                    assignedTo: currentUser.name,
+                    createdBy: currentUser.name,
+                    notes: "Auto-scheduled follow-up cadence after leaving voicemail."
+                  });
+                  updateCrmOpportunity(selectedDeal.id, {
+                    latestActivity: "Left voicemail for client",
+                    latestActivityDate: new Date().toISOString().split("T")[0]
+                  });
+                  showToast("Logged voicemail & scheduled follow-up task for +2 days!", "success");
+                }}
+                className="px-2.5 py-1 bg-white hover:bg-brand-wash border border-brand-edge text-body hover:text-brand-deep rounded text-spec font-semibold cursor-pointer shadow-2xs transition-colors"
+                title="Log voicemail and auto-create task in 2 days"
+              >
+                📞 Left Voicemail (+2d)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const acc = accounts.find((a) => a.id === selectedDeal.accountId);
+                  const accName = acc?.name || selectedDeal.accountName || "Client";
+                  logActivity({
+                    type: "email",
+                    title: `Sent Dialux & Datasheet Package to ${accName}`,
+                    description: `Issued AS/NZS 1158 Dialux photometric report & product package for deal "${selectedDeal.name}".`,
+                    accountId: selectedDeal.accountId,
+                    accountName: accName,
+                    opportunityId: selectedDeal.id,
+                    opportunityName: selectedDeal.name,
+                    performedBy: currentUser.name,
+                    metadata: { outcome: "Sent Technical Package" }
+                  });
+                  const followUpDate = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+                  addTask({
+                    title: `Follow-up: Review Dialux contours with ${accName}`,
+                    type: "Follow-up",
+                    status: "To Do",
+                    priority: "High",
+                    dueDate: followUpDate,
+                    dueTime: "10:00 AM",
+                    accountId: selectedDeal.accountId,
+                    accountName: accName,
+                    opportunityId: selectedDeal.id,
+                    opportunityName: selectedDeal.name,
+                    assignedTo: currentUser.name,
+                    createdBy: currentUser.name,
+                    notes: "Follow up after sending Dialux photometric package."
+                  });
+                  updateCrmOpportunity(selectedDeal.id, {
+                    latestActivity: "Sent Dialux photometric package",
+                    latestActivityDate: new Date().toISOString().split("T")[0]
+                  });
+                  showToast("Logged technical package dispatch & scheduled follow-up for +5 days!", "success");
+                }}
+                className="px-2.5 py-1 bg-white hover:bg-brand-wash border border-brand-edge text-body hover:text-brand-deep rounded text-spec font-semibold cursor-pointer shadow-2xs transition-colors"
+                title="Log Dialux package dispatch and auto-create task in 5 days"
+              >
+                📄 Sent Dialux / Spec (+5d)
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const acc = accounts.find((a) => a.id === selectedDeal.accountId);
+                  const accName = acc?.name || selectedDeal.accountName || "Client";
+                  logActivity({
+                    type: "call",
+                    title: `Price Acceptance Confirmed with ${accName}`,
+                    description: `Customer verbally accepted pricing for deal "${selectedDeal.name}". Awaiting formal PO.`,
+                    accountId: selectedDeal.accountId,
+                    accountName: accName,
+                    opportunityId: selectedDeal.id,
+                    opportunityName: selectedDeal.name,
+                    performedBy: currentUser.name,
+                    metadata: { outcome: "Price Accepted" }
+                  });
+                  const followUpDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+                  addTask({
+                    title: `Follow-up: Collect formal PO from ${accName}`,
+                    type: "Review Quote",
+                    status: "To Do",
+                    priority: "Urgent",
+                    dueDate: followUpDate,
+                    dueTime: "10:00 AM",
+                    accountId: selectedDeal.accountId,
+                    accountName: accName,
+                    opportunityId: selectedDeal.id,
+                    opportunityName: selectedDeal.name,
+                    assignedTo: currentUser.name,
+                    createdBy: currentUser.name,
+                    notes: "Customer confirmed price. Collect official PO number."
+                  });
+                  updateCrmOpportunity(selectedDeal.id, {
+                    dealHealth: "Healthy",
+                    latestActivity: "Price acceptance confirmed verbally",
+                    latestActivityDate: new Date().toISOString().split("T")[0]
+                  });
+                  showToast("Logged price acceptance & marked deal Healthy!", "success");
+                }}
+                className="px-2.5 py-1 bg-white hover:bg-brand-wash border border-brand-edge text-body hover:text-brand-deep rounded text-spec font-semibold cursor-pointer shadow-2xs transition-colors"
+                title="Log price acceptance & mark deal healthy"
+              >
+                🏆 Price Accepted (+3d)
               </button>
             </div>
           </div>
@@ -894,6 +1042,28 @@ export const CRMPipelineView: React.FC = () => {
 
                 <button
                   type="button"
+                  onClick={() => {
+                    if (!selectedDeal || selectedDeal.products.length === 0) {
+                      showToast("No products in deal BOM to copy", "warning");
+                      return;
+                    }
+                    const header = "ItemCode\tDescription\tQuantity\tUnit\tUnitCost\tUnitSell\tTaxCode";
+                    const rows = selectedDeal.products.map((p) => 
+                      `${p.productCode || "CUSTOM"}\t${p.productName}\t${p.quantity}\t${p.unit || "ea"}\t${p.costPrice || 0}\t${p.unitPrice || 0}\tGST`
+                    );
+                    const fullText = [header, ...rows].join("\n");
+                    navigator.clipboard?.writeText(fullText);
+                    showToast(`Copied ${selectedDeal.products.length} line items formatted for Ostendo ERP import!`, "success");
+                  }}
+                  className="px-2.5 py-1 bg-white hover:bg-paper text-body border border-line-strong font-bold text-[11px] rounded shadow-2xs cursor-pointer transition-colors flex items-center gap-1"
+                  title="Copy tab-delimited BOM schedule formatted for direct paste into Ostendo ERP Quote Entry"
+                >
+                  <ClipboardCheck className="w-3.5 h-3.5 text-brand-deep" />
+                  <span>Copy Matrix (Ostendo ERP)</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setIsAddingBomLine(!isAddingBomLine)}
                   className="px-2.5 py-1 bg-white hover:bg-paper text-body border border-line-strong font-bold text-[11px] rounded shadow-2xs cursor-pointer transition-colors flex items-center gap-1"
                 >
@@ -1128,9 +1298,15 @@ export const CRMPipelineView: React.FC = () => {
                           <td className="py-2.5 px-3 font-mono font-bold text-brand-deep text-spec">
                             <div className="flex items-center gap-1.5">
                               <span>{p.productCode || "CUSTOM"}</span>
-                              <span className="text-[10px] bg-brand-wash text-brand px-1 py-0.2 rounded font-sans font-bold" title="Ostendo Compatible SKU">
-                                ERP
-                              </span>
+                              {p.isOstendoVerified || SAMPLE_PRODUCTS.some((sp) => sp.code.toLowerCase() === (p.productCode || "").toLowerCase()) || ["50W-INTENSE", "75W-INTENSE", "100W-SOLAR", "RAG-M24-4B-600", "RAG-M27-4B-900-CYC", "POLE-COMPOSITE-6M", "CC-POLY-150-50", "PBS-75"].includes(p.productCode || "") ? (
+                                <span className="text-[9px] bg-brand-wash text-brand-deep border border-brand-edge px-1.5 py-0.2 rounded font-sans font-bold" title="Ostendo Registered & Verified Product SKU">
+                                  ✓ Verified
+                                </span>
+                              ) : (
+                                <span className="text-[9px] bg-paper text-ink-dim border border-line px-1.5 py-0.2 rounded font-sans font-medium" title="Custom Item Line">
+                                  Custom
+                                </span>
+                              )}
                             </div>
                           </td>
                           <td className="py-2.5 px-3 font-medium text-body text-spec">

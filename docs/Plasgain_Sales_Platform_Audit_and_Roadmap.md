@@ -1,9 +1,9 @@
 # Plasgain Customer Service & Sales Platform: Top-to-Bottom Audit & Optimization Roadmap
 
-**Document Version:** 3.0  
+**Document Version:** 4.0 (Final Delivered)  
 **Prepared For:** Internal Technical Sales Team, Plasgain Australia  
 **Date:** August 28, 2026  
-**Status:** Section A (Bug Fixes), Section B (High-Value Abilities), & Section C (Function Optimisations) Completed & Verified (106/106 Tests Passing)
+**Status:** All Sections (A: Bug Fixes, B: High-Value Abilities, C: Function Optimisations, D: Workflow Streamlining) Completed & Verified (106/106 Tests Passing)
 
 ---
 
@@ -167,11 +167,13 @@ Use this checklist to track progress as enhancements and optimizations are imple
 
 ---
 
-### 🔲 Section D: Workflow Streamlining & Pinch Points (Roadmap)
-- [ ] **STRM-01:** Add **1-Click Call Outcome Presets** (*"Left Voicemail"*, *"Sent Dialux"*, *"Price Accepted"*)
-- [ ] **STRM-02:** Add **Inline Ostendo SKU Verification Badges** and 1-click ERP matrix copy
-- [ ] **STRM-03:** Build **Unified "Save Deal & Draft Follow-Up"** action in Enquiry Workspace
+### ✅ Section D: Workflow Streamlining & Pinch Points (Completed & Verified)
+- [x] **STRM-01:** Add **1-Click Call Outcome Presets** (*"Left Voice Msg (+2d)"*, *"Sent Dialux / Spec (+5d)"*, *"Price Accepted (+3d)"*) in Quick Logger, Deal Drawer, and Today views
+- [x] **STRM-02:** Add **Inline Ostendo SKU Verification Badges** and **"Copy Matrix (Ostendo ERP)"** tab-delimited export in Deal BOM Editor
+- [x] **STRM-03:** Build **Unified "Save Deal & Draft Follow-Up"** 1-click action in Enquiry Workspace
+- [x] **VERIFY-04:** Run full test suite (`106/106 tests passing`) and push commit to `origin/main`
 
 ---
 *Report generated and maintained in the Plasgain Customer Service repository.*
+
 

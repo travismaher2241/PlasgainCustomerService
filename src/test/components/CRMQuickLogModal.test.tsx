@@ -32,13 +32,13 @@ describe('CRMQuickLogModal Component', () => {
     expect(titleInput).toBeInTheDocument();
 
     // Switch to Email
-    const emailButton = screen.getByRole('button', { name: /email/i });
+    const emailButton = screen.getByRole('button', { name: /^email$/i });
     fireEvent.click(emailButton);
 
     expect(await screen.findByDisplayValue(/Email sent to City of Moreton Bay/i)).toBeInTheDocument();
 
     // Switch to Meeting
-    const meetingButton = screen.getByRole('button', { name: /meeting/i });
+    const meetingButton = screen.getByRole('button', { name: /^meeting$/i });
     fireEvent.click(meetingButton);
     expect(await screen.findByDisplayValue(/Meeting with City of Moreton Bay/i)).toBeInTheDocument();
   });
