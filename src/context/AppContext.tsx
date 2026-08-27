@@ -44,6 +44,7 @@ import {
   syncBatchToCloud,
   deleteDocFromCloud
 } from "../utils/firebase";
+import { resolveToolRoute } from "../utils/toolRegistry";
 
 export type NavTab =
   | "home"
@@ -66,7 +67,11 @@ export type ToolSubTab =
   | "plan-takeoff"
   | "cable-cover-calc"
   | "pole-spacing-calc"
-  | "wind-foundation-calc";
+  | "wind-foundation-calc"
+  | "solar-autonomy"
+  | "conflict-resolver"
+  | "quote-review"
+  | "unknown";
 
 /** Who is signed in. Editable in Settings; persisted per browser. */
 export interface UserProfile {
@@ -881,6 +886,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const lead = leads.find((l) => l.id === leadId);
     if (!lead) throw new Error("Lead not found");
 
+    // P0-17: Idempotency Guard - return existing linked IDs if already converted
+    if (lead.leadStatus === "Converted" && lead.convertedOpportunityId) {
+      showToast(`Lead "${lead.leadName}" is already converted.`, "info");
+      return {
+        accountId: lead.convertedAccountId || "",
+        contactId: lead.convertedContactId || "",
+        oppId: lead.convertedOpportunityId
+      };
+    }
+
     let accountId = targetAccountId;
     let accountName = lead.company;
 
@@ -1155,13 +1170,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast(`Document "${doc.title}" added to knowledge base`, "success");
   };
 
-  const navigateToWorkflow = (tab: NavTab, toolSub?: ToolSubTab, oppId?: string) => {
+  const navigateToWorkflow = (tab: NavTab, toolSub?: string, oppId?: string) => {
+    if (tab === "tools" && toolSub) {
+      const route = resolveToolRoute(toolSub);
+      if (route.isSupported) {
+        if (route.targetNavTab === "crm") {
+          navigateToCRM(route.targetCrmTab || "pipeline", oppId);
+          return;
+        }
+        setActiveTab(route.targetNavTab);
+        if (route.targetToolSubTab) {
+          setActiveToolTab(route.targetToolSubTab);
+        }
+        if (oppId) {
+          setSelectedOpportunityId(oppId);
+          setSelectedCrmOpportunityId(oppId);
+        }
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      } else {
+        setActiveTab("tools");
+        setActiveToolTab(toolSub as ToolSubTab);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        return;
+      }
+    }
+
     setActiveTab(tab);
     if (toolSub) {
-      setActiveToolTab(toolSub);
+      setActiveToolTab(toolSub as ToolSubTab);
     }
     if (oppId) {
       setSelectedOpportunityId(oppId);
+      setSelectedCrmOpportunityId(oppId);
     }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };

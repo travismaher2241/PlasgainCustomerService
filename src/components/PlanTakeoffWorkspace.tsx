@@ -217,6 +217,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
   const {
     showToast,
     addCrmOpportunity,
+    addAccount,
     navigateToCRM,
     currentUser,
     crmOpportunities,
@@ -414,12 +415,12 @@ export const PlanTakeoffWorkspace: React.FC = () => {
         customerName &&
         (a.name.toLowerCase().includes(customerName.toLowerCase()) ||
           customerName.toLowerCase().includes(a.name.toLowerCase()))
-    ) || accounts[0];
+    );
 
     setTakeoffSaveFormData({
       projectName: projectName || "Engineering Plan Take-off Project",
-      accountId: matchedAcc?.id || accounts[0]?.id || "",
-      accountName: matchedAcc?.name || customerName || "Council / Contractor",
+      accountId: matchedAcc?.id || "",
+      accountName: matchedAcc?.name || "",
       pipelineId: pipelines[0]?.id || "pipe-major-projects",
       stageId: pipelines[0]?.stages[2]?.id || "stage-solution",
       dealValue: 0
@@ -428,9 +429,54 @@ export const PlanTakeoffWorkspace: React.FC = () => {
     setIsTakeoffSaveModalOpen(true);
   };
 
+  const handleInlineCreateAccount = () => {
+    const newAccName = (customerName || "Council Authority").trim();
+    const newAccId = `acc-${Date.now()}`;
+    const isCouncil = newAccName.toLowerCase().includes("council") || newAccName.toLowerCase().includes("city") || newAccName.toLowerCase().includes("shire");
+    const isVic = newAccName.toLowerCase().includes("ballarat") || newAccName.toLowerCase().includes("geelong") || newAccName.toLowerCase().includes("melbourne") || newAccName.toLowerCase().includes("bendigo");
+
+    addAccount({
+      id: newAccId,
+      name: newAccName,
+      status: "Prospect",
+      industry: "Government & Public Infrastructure",
+      customerSegment: isCouncil ? "Local Government / Council" : "Civil Contractor",
+      territory: isVic ? "VIC/TAS" : "QLD/NT",
+      accountOwner: currentUser.name,
+      leadSource: "Plan Take-off Ingestion",
+      createdDate: new Date().toISOString().split("T")[0],
+      lastInteractionDate: new Date().toISOString().split("T")[0],
+      relationshipHealth: "Healthy",
+      tags: ["Plan Take-off", "Infrastructure"],
+      notes: `Created from plan take-off for project "${takeoffSaveFormData.projectName}"`,
+      metrics: {
+        openPipelineValue: Number(takeoffSaveFormData.dealValue) || 0,
+        totalDealsWon: 0,
+        activeDealsCount: 1,
+        totalEnquiries: 1
+      }
+    });
+
+    setTakeoffSaveFormData((prev) => ({
+      ...prev,
+      accountId: newAccId,
+      accountName: newAccName
+    }));
+
+    showToast(`Created and linked new CRM Account: "${newAccName}"!`, "success");
+  };
+
   const handleConfirmTakeoffSave = () => {
     if (!takeoffResult || !takeoffResult.billOfMaterials) return;
+    if (!takeoffSaveFormData.accountId) {
+      showToast("Please select or create an account before saving to CRM pipeline.", "error");
+      return;
+    }
     const acc = accounts.find((a) => a.id === takeoffSaveFormData.accountId);
+    if (!acc) {
+      showToast("Selected account was not found. Please choose an account.", "error");
+      return;
+    }
     const pipe = pipelines.find((p) => p.id === takeoffSaveFormData.pipelineId) || pipelines[0];
     const stage = pipe.stages.find((s) => s.id === takeoffSaveFormData.stageId) || pipe.stages[0];
 
@@ -438,8 +484,8 @@ export const PlanTakeoffWorkspace: React.FC = () => {
     const newDeal = {
       id: dealId,
       name: takeoffSaveFormData.projectName,
-      accountId: acc?.id || "acc-001",
-      accountName: acc?.name || takeoffSaveFormData.accountName,
+      accountId: acc.id,
+      accountName: acc.name,
       primaryContactId: "con-001",
       primaryContactName: "Engineering / Project Estimator",
       opportunityOwner: currentUser.name,
@@ -1108,47 +1154,84 @@ export const PlanTakeoffWorkspace: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                    Target Account
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-spec font-bold text-ink-dim uppercase">
+                    Target Customer Account *
                   </label>
-                  <select
-                    value={takeoffSaveFormData.accountId}
-                    onChange={(e) => {
-                      const acc = accounts.find((a) => a.id === e.target.value);
-                      setTakeoffSaveFormData({
-                        ...takeoffSaveFormData,
-                        accountId: e.target.value,
-                        accountName: acc?.name || ""
-                      });
-                    }}
-                    className="w-full p-2 text-meta rounded-edge border border-line bg-white focus:outline-none"
-                  >
-                    {accounts.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name} ({a.territory})
-                      </option>
-                    ))}
-                  </select>
+                  {customerName && !accounts.some(a => a.name.toLowerCase() === customerName.toLowerCase()) && (
+                    <button
+                      type="button"
+                      onClick={handleInlineCreateAccount}
+                      className="text-spec text-brand-deep font-bold hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Create "{customerName}"</span>
+                    </button>
+                  )}
                 </div>
+                <select
+                  value={takeoffSaveFormData.accountId}
+                  onChange={(e) => {
+                    const acc = accounts.find((a) => a.id === e.target.value);
+                    setTakeoffSaveFormData({
+                      ...takeoffSaveFormData,
+                      accountId: e.target.value,
+                      accountName: acc?.name || ""
+                    });
+                  }}
+                  className={`w-full p-2 text-meta rounded-edge border bg-white focus:outline-none ${
+                    !takeoffSaveFormData.accountId ? "border-soon bg-soon-wash/20 font-semibold" : "border-line font-medium"
+                  }`}
+                >
+                  <option value="">-- Select Customer Account (Required) --</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name} ({a.territory})
+                    </option>
+                  ))}
+                </select>
+                {!takeoffSaveFormData.accountId && (
+                  <p className="text-[11px] text-soon font-semibold mt-1">
+                    Please select an account or click "Create" above to avoid unlinked deals.
+                  </p>
+                )}
+                {(() => {
+                  const selAcc = accounts.find((a) => a.id === takeoffSaveFormData.accountId);
+                  if (
+                    selAcc &&
+                    customerName &&
+                    !selAcc.name.toLowerCase().includes(customerName.toLowerCase()) &&
+                    !customerName.toLowerCase().includes(selAcc.name.toLowerCase())
+                  ) {
+                    return (
+                      <div className="mt-2 p-2.5 bg-soon-wash border border-soon text-soon rounded text-spec flex items-start gap-2">
+                        <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                        <div>
+                          <strong>Account / Authority Conflict:</strong> Selected account "{selAcc.name}" ({selAcc.territory}) does not match drawing authority "{customerName}".
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
 
-                <div>
-                  <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                    Pipeline Stage
-                  </label>
-                  <select
-                    value={takeoffSaveFormData.stageId}
-                    onChange={(e) => setTakeoffSaveFormData({ ...takeoffSaveFormData, stageId: e.target.value })}
-                    className="w-full p-2 text-meta rounded-edge border border-line bg-white focus:outline-none"
-                  >
-                    {pipelines[0]?.stages.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.probability}%)
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              <div>
+                <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
+                  Pipeline Stage
+                </label>
+                <select
+                  value={takeoffSaveFormData.stageId}
+                  onChange={(e) => setTakeoffSaveFormData({ ...takeoffSaveFormData, stageId: e.target.value })}
+                  className="w-full p-2 text-meta rounded-edge border border-line bg-white focus:outline-none"
+                >
+                  {pipelines[0]?.stages.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.probability}%)
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -1174,13 +1257,18 @@ export const PlanTakeoffWorkspace: React.FC = () => {
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
               <button
                 onClick={() => setIsTakeoffSaveModalOpen(false)}
-                className="px-3 py-2 text-meta font-medium text-ink-dim hover:text-ink"
+                className="px-3 py-2 text-meta font-medium text-ink-dim hover:text-ink cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmTakeoffSave}
-                className="px-4 py-2 bg-brand-deep hover:bg-brand-deep text-white font-bold text-meta rounded-edge shadow-xs cursor-pointer flex items-center gap-1.5"
+                disabled={!takeoffSaveFormData.accountId}
+                className={`px-4 py-2 font-bold text-meta rounded-edge shadow-xs flex items-center gap-1.5 transition-colors ${
+                  takeoffSaveFormData.accountId
+                    ? "bg-brand-deep hover:bg-brand text-white cursor-pointer"
+                    : "bg-ink-faint text-white cursor-not-allowed opacity-75"
+                }`}
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Confirm &amp; Save Deal</span>

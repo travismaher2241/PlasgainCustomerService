@@ -682,6 +682,70 @@ export const SAMPLE_PRODUCTS: PlasgainProduct[] = [
     sourceUrl: "https://plasgain.com.au/light-pole-manufacturers/",
     status: "Current",
     authorityLevel: "4. Public Plasgain webpage"
+  },
+  {
+    id: "prod-cable-cover",
+    name: "AS 4702 Polymeric Cable Cover Mechanical Protection",
+    code: "CC-POLY-150-50 / PCC-300-6MM",
+    category: "Civil Underground Mechanical Protection",
+    application: [
+      "Civil electrical trenching (LV 240/415V & HV 11kV/22kV/33kV)",
+      "Solar park trenching & shared path conduit runs",
+      "Telecommunications & fibre optic warning protection",
+      "Direct replacement for brittle precast concrete slabs"
+    ],
+    lumens: "N/A (Civil Protection)",
+    cct: "N/A",
+    autonomy: "N/A",
+    battery: "N/A",
+    solarPanel: "N/A",
+    poleHeight: "Trench width: 150mm - 600mm. Thickness: 5mm (LV), 6mm (HV 11kV), 10mm (HV 33kV)",
+    ingressImpact: "AS 4702 Impact Resistance / High-density recycled polymer roll",
+    warranty: "50+ years underground design life",
+    keyFeatures: [
+      "Australian made from high-density recycled polymer conforming to AS 4702 mechanical impact protection standards",
+      "Over 90% manual handling weight reduction vs precast concrete slabs (eliminates back injury claims)",
+      "Supplied in continuous 20m interlocking rolls with bold cautionary legend ('ELECTRIC CABLE BELOW')",
+      "Impervious to soil acids, alkalis, moisture, and termite attack"
+    ],
+    limitations: [
+      "Select correct thickness: 5mm for LV 240/415V, 6mm or 10mm for HV networks"
+    ],
+    datasheetDoc: "Plasgain AS 4702 Polymeric Cable Cover Technical Datasheet",
+    sourceUrl: "https://plasgain.com.au/polymeric-cable-cover/",
+    status: "Current",
+    authorityLevel: "2. Current approved product datasheet",
+    standardCompliance: ["AS 4702:2000 (Polymeric Cable Cover)", "AS/NZS 3000 (Wiring Rules)", "WHS Manual Handling Safe"]
+  },
+  {
+    id: "prod-rag-bolt",
+    name: "Engineered Rag-bolt Foundation Assembly & J-Bolts",
+    code: "RAG-M24-4B-600",
+    category: "Structural Foundation Hardware",
+    application: [
+      "Baseplate pole installations (Regions A, B, C, D)",
+      "Rock or shallow soil conditions",
+      "Car parks and commercial hardstands"
+    ],
+    lumens: "N/A (Foundation Assembly)",
+    cct: "N/A",
+    autonomy: "N/A",
+    battery: "N/A",
+    solarPanel: "N/A",
+    poleHeight: "Suits 4.5m, 6m, 8m, 10m baseplate columns",
+    ingressImpact: "Grade 8.8 Structural Steel / Hot-dip galvanised per AS/NZS 4680",
+    warranty: "Certified to AS 1170.2 & AS 4100",
+    keyFeatures: [
+      "Includes 4x M24 (or M20) Grade 8.8 J-bolts with template jig plate, heavy washers, and lock nuts",
+      "Engineered to transfer overturning moment in high wind categories",
+      "Certified under AS 1170.2 for Region A inland and Region B/C coastal applications"
+    ],
+    limitations: ["Footing concrete volume must match local geotechnical soil classification"],
+    datasheetDoc: "Plasgain Structural Foundation Hardware Specification",
+    sourceUrl: "https://plasgain.com.au/foundation-hardware/",
+    status: "Current",
+    authorityLevel: "2. Current approved product datasheet",
+    standardCompliance: ["AS 1170.2:2021 (Wind Actions)", "AS 4100 (Steel Structures)", "AS/NZS 4680 (Galvanizing)"]
   }
 ];
 

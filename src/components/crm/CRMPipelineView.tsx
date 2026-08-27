@@ -38,6 +38,7 @@ import { CRMOpportunity, DealHealthRating, OpportunityProductLine } from "../../
 import { CustomerFollowUpModal } from "../CustomerFollowUpModal";
 import { DatasheetPackageModal } from "../DatasheetPackageModal";
 import { SAMPLE_PRODUCTS } from "../../data/mockData";
+import { validateDealValue, ValueBasis } from "../../utils/dealValueValidator";
 import {
   formatOstendoCSV,
   formatOstendoTabDelimited,
@@ -143,11 +144,22 @@ export const CRMPipelineView: React.FC = () => {
     accountId: accounts[0]?.id || "",
     primaryContactName: "",
     dealValue: 35000,
+    unitPrice: 1750,
+    quantity: 20,
+    valueBasis: "TOTAL" as ValueBasis,
     stageId: currentPipeline.stages[0]?.id || "stage-new",
     projectApplication: "Solar Pathway Lighting",
     expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
     notes: ""
   });
+
+  const dealValidation = React.useMemo(() => {
+    return validateDealValue({
+      enteredValue: newDealForm.valueBasis === "PER_UNIT" ? newDealForm.unitPrice : newDealForm.dealValue,
+      basis: newDealForm.valueBasis,
+      quantity: newDealForm.quantity
+    });
+  }, [newDealForm.valueBasis, newDealForm.unitPrice, newDealForm.dealValue, newDealForm.quantity]);
 
   const handleCreateDeal = (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,6 +167,7 @@ export const CRMPipelineView: React.FC = () => {
 
     const account = accounts.find((a) => a.id === newDealForm.accountId) || accounts[0];
     const stage = currentPipeline.stages.find((s) => s.id === newDealForm.stageId) || currentPipeline.stages[0];
+    const finalDealValue = dealValidation.effectiveTotal;
 
     const newDeal: CRMOpportunity = {
       id: `opp-${Date.now()}`,
@@ -167,8 +180,8 @@ export const CRMPipelineView: React.FC = () => {
       pipelineId: activePipelineId,
       stageId: stage.id,
       stageName: stage.name,
-      dealValue: Number(newDealForm.dealValue),
-      weightedValue: (Number(newDealForm.dealValue) * stage.probability) / 100,
+      dealValue: finalDealValue,
+      weightedValue: (finalDealValue * stage.probability) / 100,
       probability: stage.probability,
       forecastCategory: "Pipeline",
       expectedCloseDate: newDealForm.expectedCloseDate,
@@ -1438,16 +1451,123 @@ export const CRMPipelineView: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block font-semibold text-body mb-1">Estimated Deal Value ($ AUD) *</label>
-                  <input
-                    type="number"
-                    required
-                    value={newDealForm.dealValue}
-                    onChange={(e) => setNewDealForm({ ...newDealForm, dealValue: Number(e.target.value) })}
-                    className="w-full p-2 border border-line-strong rounded-edge"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block font-semibold text-body">
+                      Commercial Value Basis *
+                    </label>
+                    <div className="flex rounded border border-line overflow-hidden text-[11px] font-bold">
+                      <button
+                        type="button"
+                        onClick={() => setNewDealForm({ ...newDealForm, valueBasis: "TOTAL" })}
+                        className={`px-2 py-0.5 cursor-pointer ${
+                          newDealForm.valueBasis === "TOTAL"
+                            ? "bg-brand-deep text-white"
+                            : "bg-paper text-ink-dim hover:text-body"
+                        }`}
+                      >
+                        Project Total ($)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNewDealForm({ ...newDealForm, valueBasis: "PER_UNIT" })}
+                        className={`px-2 py-0.5 cursor-pointer ${
+                          newDealForm.valueBasis === "PER_UNIT"
+                            ? "bg-brand-deep text-white"
+                            : "bg-paper text-ink-dim hover:text-body"
+                        }`}
+                      >
+                        Per Unit ($/ea)
+                      </button>
+                    </div>
+                  </div>
+
+                  {newDealForm.valueBasis === "PER_UNIT" ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <input
+                          type="number"
+                          placeholder="Unit Price ($)"
+                          value={newDealForm.unitPrice}
+                          onChange={(e) => setNewDealForm({ ...newDealForm, unitPrice: Number(e.target.value) })}
+                          className="w-full p-2 border border-line-strong rounded-edge font-mono"
+                        />
+                        <span className="text-[10px] text-ink-dim font-bold">Unit Price ($/ea)</span>
+                      </div>
+                      <div>
+                        <input
+                          type="number"
+                          min={1}
+                          placeholder="Quantity"
+                          value={newDealForm.quantity}
+                          onChange={(e) => setNewDealForm({ ...newDealForm, quantity: Math.max(1, Number(e.target.value)) })}
+                          className="w-full p-2 border border-line-strong rounded-edge font-mono"
+                        />
+                        <span className="text-[10px] text-ink-dim font-bold">Quantity (Units)</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="col-span-2">
+                        <input
+                          type="number"
+                          required
+                          value={newDealForm.dealValue}
+                          onChange={(e) => setNewDealForm({ ...newDealForm, dealValue: Number(e.target.value) })}
+                          className="w-full p-2 border border-line-strong rounded-edge font-mono"
+                        />
+                        <span className="text-[10px] text-ink-dim font-bold">Project Total ($ AUD ex GST)</span>
+                      </div>
+                      <div>
+                        <input
+                          type="number"
+                          min={1}
+                          value={newDealForm.quantity}
+                          onChange={(e) => setNewDealForm({ ...newDealForm, quantity: Math.max(1, Number(e.target.value)) })}
+                          className="w-full p-2 border border-line-strong rounded-edge font-mono"
+                        />
+                        <span className="text-[10px] text-ink-dim font-bold">Qty (Units)</span>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-1 flex items-center justify-between text-spec font-bold text-ink-dim">
+                    <span>Calculated Deal Total: <strong className="text-body text-meta">${dealValidation.effectiveTotal.toLocaleString()}</strong></span>
+                    {newDealForm.quantity > 1 && (
+                      <span>(~${Math.round(dealValidation.effectiveUnitPrice).toLocaleString()}/unit)</span>
+                    )}
+                  </div>
                 </div>
               </div>
+
+              {/* Outlier Warning Banner (P0-18) */}
+              {dealValidation.isOutlier && (
+                <div className="p-3 bg-soon-wash border border-soon text-soon rounded-edge text-meta space-y-1.5 animate-in fade-in duration-150">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>Unusual Deal Value Notice</span>
+                  </div>
+                  <p className="text-spec text-body font-medium leading-relaxed">
+                    {dealValidation.warningMessage}
+                  </p>
+                  {dealValidation.suggestedCorrection && (
+                    <div className="pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewDealForm({
+                            ...newDealForm,
+                            valueBasis: dealValidation.suggestedCorrection!.basis,
+                            unitPrice: newDealForm.dealValue
+                          });
+                        }}
+                        className="px-2.5 py-1 bg-soon text-white text-spec font-bold rounded hover:bg-soon-hover cursor-pointer"
+                      >
+                        {dealValidation.suggestedCorrection.explanation}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

@@ -295,11 +295,43 @@ export const CRMLeadsView: React.FC = () => {
                   <UserCheck className="w-4 h-4" /> Convert to Deal &amp; Account
                 </button>
               ) : (
-                <span className="px-3 py-1 bg-brand-wash text-brand-deep text-meta font-bold rounded-edge flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Converted
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 bg-brand-wash text-brand-deep text-meta font-bold rounded-edge flex items-center gap-1 border border-brand-edge">
+                    <CheckCircle2 className="w-3.5 h-3.5" /> Converted
+                  </span>
+                  {selectedLead.convertedOpportunityId && (
+                    <button
+                      onClick={() => navigateToCRM("pipeline", selectedLead.convertedOpportunityId)}
+                      className="px-3 py-1.5 bg-brand-deep hover:bg-brand text-white text-spec font-bold rounded-edge shadow-xs flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <ArrowRight className="w-3.5 h-3.5" />
+                      <span>Open Deal</span>
+                    </button>
+                  )}
+                  {selectedLead.convertedAccountId && (
+                    <button
+                      onClick={() => navigateToCRM("accounts", selectedLead.convertedAccountId)}
+                      className="px-3 py-1.5 bg-white hover:bg-raised text-body text-spec font-bold rounded-edge border border-line flex items-center gap-1 cursor-pointer transition-colors"
+                    >
+                      <Building2 className="w-3.5 h-3.5 text-ink-dim" />
+                      <span>Open Account</span>
+                    </button>
+                  )}
+                </div>
               )}
             </div>
+
+            {/* P0-17: Linked Converted Record Confirmation */}
+            {selectedLead.leadStatus === "Converted" && (
+              <div className="p-3 bg-brand-wash/80 rounded-edge border border-brand-edge flex items-center justify-between text-meta">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-brand-deep shrink-0" />
+                  <span className="text-body font-semibold">
+                    This lead is linked to active CRM records. All activities and history are preserved.
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* FEAT-05: Smart Deduplication / Account Match Banner */}
             {matchedAccountInfo && selectedLead.leadStatus !== "Converted" && (

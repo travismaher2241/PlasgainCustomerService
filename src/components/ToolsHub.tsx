@@ -18,7 +18,12 @@ import {
   Building2,
   DollarSign,
   Package,
-  Check
+  Check,
+  Sun,
+  AlertTriangle,
+  AlertCircle,
+  Sparkles,
+  Search
 } from "lucide-react";
 import { useApp, ToolSubTab } from "../context/AppContext";
 import { PlanTakeoffWorkspace } from "./PlanTakeoffWorkspace";
@@ -247,22 +252,125 @@ export const ToolsHub: React.FC = () => {
   }, [windRegion, foundationPoleHeight, poleMaterial, foundationType, soilType, foundationQuantity, destState]);
 
   // -------------------------------------------------------------
+  // Tool 4: Solar Sizing & LiFePO4 Battery Autonomy Calculator (AS/NZS 4509)
+  // -------------------------------------------------------------
+  const [solarZone, setSolarZone] = useState<"QLD_NT" | "NSW_ACT" | "VIC_TAS" | "WA_SA">("QLD_NT");
+  const [solarWatts, setSolarWatts] = useState<number>(50);
+  const [solarProfile, setSolarProfile] = useState<"DUSK_DAWN_12H" | "PIR_PROFILE_SMART">("PIR_PROFILE_SMART");
+  const [solarAutonomyDays, setSolarAutonomyDays] = useState<number>(5);
+  const [solarQuantity, setSolarQuantity] = useState<number>(18);
+
+  const solarCalculations = useMemo(() => {
+    const zoneMap = {
+      QLD_NT: { name: "QLD / NT (Subtropical & Tropical)", psh: 5.2, desc: "High winter insolation (5.2 Peak Sun Hours)" },
+      NSW_ACT: { name: "NSW / ACT (Central East Coast)", psh: 4.5, desc: "Moderate winter insolation (4.5 Peak Sun Hours)" },
+      VIC_TAS: { name: "VIC / TAS (Southern Latitudes)", psh: 3.6, desc: "Low winter solar angle (3.6 Peak Sun Hours - requires oversized PV)" },
+      WA_SA: { name: "WA / SA (Western Sunbelt)", psh: 5.8, desc: "Very high insolation (5.8 Peak Sun Hours)" }
+    };
+
+    const z = zoneMap[solarZone];
+    const effectiveHours = solarProfile === "DUSK_DAWN_12H" ? 12.0 : 6.0 * 1.0 + 6.0 * 0.3; // 7.8 effective hours
+    const dailyWattHours = Math.round(solarWatts * effectiveHours);
+    const minBatteryStorageWh = Math.round((dailyWattHours * solarAutonomyDays) / 0.85); // 85% DoD
+    const minBatteryAh12V = Math.round(minBatteryStorageWh / 12.8);
+    const minPvWatts = Math.round((dailyWattHours * 1.35) / z.psh);
+
+    let luminaireSKU = "INTENSE-50W-3K";
+    let luminaireName = "Plasgain Intense Light 50W Solar (896Wh LiFePO4 / 130W PV)";
+    let unitPrice = 1850;
+
+    if (solarWatts >= 100 || minBatteryStorageWh > 1200) {
+      luminaireSKU = "PBS-125W-SOLAR";
+      luminaireName = "Plasgain Pro Blade Solar 125W (1536Wh LiFePO4 / 200W PV)";
+      unitPrice = 2450;
+    } else if (solarWatts >= 70 || minBatteryStorageWh > 900) {
+      luminaireSKU = "PBS-75W-SOLAR";
+      luminaireName = "Plasgain Pro Blade Solar 75W (1024Wh LiFePO4 / 150W PV)";
+      unitPrice = 1950;
+    }
+
+    return {
+      zoneName: z.name,
+      psh: z.psh,
+      zoneDesc: z.desc,
+      effectiveHours,
+      dailyWattHours,
+      minBatteryStorageWh,
+      minBatteryAh12V,
+      minPvWatts,
+      luminaireSKU,
+      luminaireName,
+      unitPrice,
+      totalPackageValue: unitPrice * solarQuantity
+    };
+  }, [solarZone, solarWatts, solarProfile, solarAutonomyDays, solarQuantity]);
+
+  // -------------------------------------------------------------
+  // Tool 5: Standards & Spec Conflict Resolver
+  // -------------------------------------------------------------
+  const [selectedConflictId, setSelectedConflictId] = useState<string>("fauna-cct");
+  const CONFLICT_SCENARIOS = [
+    {
+      id: "fauna-cct",
+      title: "5700K Daylight LED in Parkland vs Fauna Dark-Sky Overlay",
+      tenderClause: "Tender Clause 4.2: Supply and install 5700K Daylight LED fittings along riverside shared path.",
+      conflictType: "Environmental & Standard Conflict (AS 4282 & EPBC Act)",
+      riskSeverity: "HIGH — Non-Compliant with Council Dark-Sky Wildlife Overlays",
+      analysis: "5700K high blue-spectrum light disrupts circadian rhythms of nocturnal birds, glider possums, and bats. Municipal environmental overlays prohibit CCT above 3000K in public reserves.",
+      recommendedResolution: "Substitute 5700K with Plasgain 3000K Warm White or 2200K Amber-certified wildlife luminaires (Intense 50W 3000K). Provides 100% AS/NZS 1158 photometric compliance while achieving fauna sign-off.",
+      standardCitation: "AS 4282:2019 (Control of Obtrusive Light) & National Light Pollution Guidelines for Wildlife"
+    },
+    {
+      id: "c5-corrosion",
+      title: "Hot-Dip Galvanized Steel in C5 Severe Coastal Marine Zone",
+      tenderClause: "Tender Clause 8.1: Supply 6m Rag-bolt Baseplate Hot-Dip Galvanized Steel Poles within 200m of ocean surf beach.",
+      conflictType: "Corrosion Durability Conflict (AS/NZS 2312.2 / AS 4312)",
+      riskSeverity: "CRITICAL — Premature Structural Failure within 3 to 5 Years",
+      analysis: "Galvanized steel in C5-M (Marine coastal with high airborne salt spray) suffers severe zinc loss rates (4.2–8.4 µm/year), leading to red rust staining and baseplate corrosion within 3-5 years.",
+      recommendedResolution: "Quote Plasgain Class 1 Recycled Composite Plaspole (100% rust-proof, zero maintenance, non-conductive, 25-year structural warranty). Eliminates costly routine sandblasting and repainting.",
+      standardCitation: "AS/NZS 2312.2 & AS 4312 (Atmospheric Corrosivity Categories - C5-M)"
+    },
+    {
+      id: "spacing-lux",
+      title: "80m Pole Spacing with 4.5m Poles vs Category P4 Compliance",
+      tenderClause: "Tender Clause 6.3: Lighting poles to be spaced at 80m intervals along 3m shared cycleway.",
+      conflictType: "AS/NZS 1158.3.1 Photometric Illuminance Failure",
+      riskSeverity: "HIGH — Will Fail Council Compliance Audit & Dialux Certification",
+      analysis: "AS/NZS 1158.3.1 Table 2.1 requires maintained horizontal illuminance of 0.85 lux average and 0.17 lux point minimum (uniformity U_o ≤ 10). At 80m spacing on 4.5m poles, the mid-span illuminance drops below 0.04 lux (U_o > 25), creating dangerous dark blind spots for cyclists.",
+      recommendedResolution: "Adjust spacing to 40m–44m on 5.0m composite poles with Type 2 pathway asymmetric optics. Provides full certified Category P4 compliance at optimal capital cost.",
+      standardCitation: "AS/NZS 1158.3.1:2020 Table 2.1 (Pedestrian Category P4)"
+    },
+    {
+      id: "wind-cyclonic",
+      title: "Standard Inland Footing Detail in Cyclonic Region C (Townsville/Darwin)",
+      tenderClause: "Tender Clause 12.0: Concrete footing depth 0.8m x 350mm diameter per standard civil detail.",
+      conflictType: "Structural Wind Action Sizing Failure (AS 1170.2)",
+      riskSeverity: "CRITICAL — Risk of Pole Overturn in Category 3+ Cyclonic Event",
+      analysis: "Region C design wind speed is 69 m/s (248 km/h). Standard 0.8m inland footings cannot resist overturning moment from solar PV sail area during extreme wind gusts.",
+      recommendedResolution: "Specify certified Region C engineering foundation: Minimum 1.3m embedment depth x 450mm diameter footing with 4x M24 Grade 8.8 structural J-bolts (0.85 m³ 32 MPa concrete).",
+      standardCitation: "AS/NZS 1170.2:2021 (Structural Design Actions - Wind Actions)"
+    }
+  ];
+
+  // -------------------------------------------------------------
   // FEAT-01: 1-Click "Add Calculation to Active Quote / Deal" Modal State
   // -------------------------------------------------------------
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [modalSourceTool, setModalSourceTool] = useState<"cable-cover" | "pole-spacing" | "wind-foundation">("cable-cover");
+  const [modalSourceTool, setModalSourceTool] = useState<"cable-cover" | "pole-spacing" | "wind-foundation" | "solar-autonomy">("cable-cover");
   const [addMode, setAddMode] = useState<"existing" | "new">("existing");
   const [selectedDealId, setSelectedDealId] = useState(crmOpportunities[0]?.id || "");
   const [newDealName, setNewDealName] = useState("");
   const [selectedAccountId, setSelectedAccountId] = useState(accounts[0]?.id || "");
   const [selectedPipelineId, setSelectedPipelineId] = useState(pipelines[0]?.id || "pipe-major-projects");
 
-  const handleOpenAddModal = (source: "cable-cover" | "pole-spacing" | "wind-foundation") => {
+  const handleOpenAddModal = (source: "cable-cover" | "pole-spacing" | "wind-foundation" | "solar-autonomy") => {
     setModalSourceTool(source);
     if (source === "cable-cover") {
       setNewDealName(`Civil Cable Protection - ${trenchLengthMeters}m Trench`);
     } else if (source === "pole-spacing") {
       setNewDealName(`Pathway Solar Lighting - ${spacingCalculations.polesPerKm} Poles (${subCategory})`);
+    } else if (source === "solar-autonomy") {
+      setNewDealName(`Solar Lighting Package - ${solarQuantity}x ${solarWatts}W (${solarCalculations.zoneName})`);
     } else {
       setNewDealName(`Foundation & Pole Hardware - ${foundationQuantity}x ${foundationPoleHeight}m (${windRegion})`);
     }
@@ -332,6 +440,21 @@ export const ToolsHub: React.FC = () => {
         marginPercent: 32,
         isOstendoVerified: true,
         notes: `Wind: ${windRegion} (${foundationCalculations.windSpeed}) | Footing: ${foundationCalculations.footingDiameterMm}mm dia x ${foundationCalculations.embedmentDepthM}m depth (${foundationCalculations.concreteVolPerFootingM3}m3 concrete/footing).`
+      });
+    } else if (modalSourceTool === "solar-autonomy") {
+      linesToAdd.push({
+        id: `prod-calc-${Date.now()}-1`,
+        productCode: solarCalculations.luminaireSKU,
+        productName: solarCalculations.luminaireName,
+        category: "Solar Luminaire",
+        quantity: solarQuantity,
+        unit: "ea",
+        unitPrice: solarCalculations.unitPrice,
+        costPrice: Math.round(solarCalculations.unitPrice * 0.65),
+        totalPrice: solarQuantity * solarCalculations.unitPrice,
+        marginPercent: 35,
+        isOstendoVerified: true,
+        notes: `Solar Sizing: ${solarCalculations.zoneName} (${solarCalculations.psh} PSH) | Min PV: ${solarCalculations.minPvWatts}W | LiFePO4 Battery: ${solarCalculations.minBatteryStorageWh}Wh (${solarAutonomyDays} nights autonomy).`
       });
     }
 
@@ -467,6 +590,30 @@ export const ToolsHub: React.FC = () => {
         >
           <Wind className="w-4 h-4" />
           <span>Wind Region &amp; Foundation Hardware (AS 1170.2)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveToolTab("solar-autonomy" as ToolSubTab)}
+          className={`px-3.5 py-2 text-meta font-bold rounded-edge flex items-center gap-2 transition-colors cursor-pointer ${
+            activeToolTab === "solar-autonomy"
+              ? "bg-brand-deep text-white shadow-xs"
+              : "bg-white text-ink-dim hover:text-body hover:bg-raised border border-line"
+          }`}
+        >
+          <Sun className="w-4 h-4" />
+          <span>Solar PV &amp; Battery Autonomy (AS/NZS 4509)</span>
+        </button>
+
+        <button
+          onClick={() => setActiveToolTab("conflict-resolver" as ToolSubTab)}
+          className={`px-3.5 py-2 text-meta font-bold rounded-edge flex items-center gap-2 transition-colors cursor-pointer ${
+            activeToolTab === "conflict-resolver"
+              ? "bg-brand-deep text-white shadow-xs"
+              : "bg-white text-ink-dim hover:text-body hover:bg-raised border border-line"
+          }`}
+        >
+          <AlertTriangle className="w-4 h-4" />
+          <span>Standards &amp; Spec Conflict Resolver</span>
         </button>
       </div>
 
@@ -918,6 +1065,274 @@ export const ToolsHub: React.FC = () => {
         </div>
       )}
 
+      {/* Tab 5: Solar Sizing & LiFePO4 Battery Autonomy (AS/NZS 4509) */}
+      {activeToolTab === "solar-autonomy" && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1 bg-white p-5 rounded-panel border border-line shadow-xs space-y-4">
+            <h3 className="text-base font-bold text-body flex items-center gap-2">
+              <Sun className="w-4 h-4 text-brand-deep" />
+              Solar Site &amp; Load Parameters
+            </h3>
+
+            <div>
+              <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
+                Australian Solar Insolation Zone
+              </label>
+              <select
+                value={solarZone}
+                onChange={(e) => setSolarZone(e.target.value as any)}
+                className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
+              >
+                <option value="QLD_NT">QLD / NT (Tropical &amp; Subtropical - 5.2 PSH)</option>
+                <option value="NSW_ACT">NSW / ACT (Central East Coast - 4.5 PSH)</option>
+                <option value="VIC_TAS">VIC / TAS (Southern Latitudes - 3.6 PSH)</option>
+                <option value="WA_SA">WA / SA (Western Sunbelt - 5.8 PSH)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
+                Luminaire Nominal Wattage
+              </label>
+              <select
+                value={solarWatts}
+                onChange={(e) => setSolarWatts(Number(e.target.value))}
+                className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
+              >
+                <option value={50}>50 Watts (Plasgain Intense Standard - 7,500 lm)</option>
+                <option value={75}>75 Watts (Plasgain Pro Blade Area - 11,250 lm)</option>
+                <option value={100}>100 Watts (Plasgain Pro Blade Highway - 15,000 lm)</option>
+                <option value={125}>125 Watts (Plasgain Heavy Area - 18,750 lm)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
+                Night-time Operating Profile
+              </label>
+              <select
+                value={solarProfile}
+                onChange={(e) => setSolarProfile(e.target.value as any)}
+                className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
+              >
+                <option value="PIR_PROFILE_SMART">Smart Profile: 6h @ 100% + 6h @ 30% Dim PIR (~7.8h equiv)</option>
+                <option value="DUSK_DAWN_12H">Continuous Full Power: Dusk to Dawn (12.0h continuous)</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
+                  Autonomy Nights
+                </label>
+                <select
+                  value={solarAutonomyDays}
+                  onChange={(e) => setSolarAutonomyDays(Number(e.target.value))}
+                  className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
+                >
+                  <option value={3}>3 Nights (Standard QLD)</option>
+                  <option value={4}>4 Nights (Standard NSW)</option>
+                  <option value={5}>5 Nights (Standard VIC)</option>
+                  <option value={6}>6 Nights (Critical Infra)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
+                  Luminaire Quantity
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  value={solarQuantity}
+                  onChange={(e) => setSolarQuantity(Math.max(1, Number(e.target.value)))}
+                  className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-gradient-to-br from-brand-wash to-white p-6 rounded-panel border border-brand-edge shadow-xs space-y-4">
+              <div>
+                <span className="text-spec font-bold text-brand-deep uppercase">Clean Energy Off-Grid Sizing</span>
+                <h2 className="text-xl font-bold text-body">Solar PV &amp; LiFePO4 Autonomy Calculation (AS/NZS 4509)</h2>
+                <div className="text-[11px] text-ink-dim mt-0.5">{solarCalculations.zoneDesc}</div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                <div className="bg-white p-3.5 rounded-edge border border-line shadow-2xs">
+                  <div className="text-spec font-bold text-ink-dim uppercase">Daily Energy Draw</div>
+                  <div className="text-2xl font-bold text-body mt-1">
+                    {solarCalculations.dailyWattHours} Wh/day
+                  </div>
+                  <div className="text-[11px] text-ink-dim">Based on {solarCalculations.effectiveHours}h runtime</div>
+                </div>
+
+                <div className="bg-white p-3.5 rounded-edge border border-line shadow-2xs">
+                  <div className="text-spec font-bold text-ink-dim uppercase">Required Battery Storage</div>
+                  <div className="text-2xl font-bold text-brand-deep mt-1">
+                    {solarCalculations.minBatteryStorageWh} Wh
+                  </div>
+                  <div className="text-[11px] text-ink-dim">~{solarCalculations.minBatteryAh12V} Ah @ 12.8V ({solarAutonomyDays} nights @ 85% DoD)</div>
+                </div>
+
+                <div className="bg-white p-3.5 rounded-edge border border-line shadow-2xs">
+                  <div className="text-spec font-bold text-ink-dim uppercase">Minimum PV Panel</div>
+                  <div className="text-2xl font-bold text-brand mt-1">
+                    ≥ {solarCalculations.minPvWatts} Wp
+                  </div>
+                  <div className="text-[11px] text-ink-dim">Monocrystalline (1.35x Coulomb/dirt derate)</div>
+                </div>
+              </div>
+
+              <div className="p-3.5 bg-white rounded-edge border border-brand-edge text-meta space-y-1">
+                <div className="font-bold text-body flex items-center gap-1.5">
+                  <Package className="w-4 h-4 text-brand-deep" />
+                  <span>Matched Commercial Luminaire Package:</span>
+                </div>
+                <p className="text-ink-dim text-spec">
+                  • <strong>{solarQuantity}x</strong> {solarCalculations.luminaireName} (<strong>{solarCalculations.luminaireSKU}</strong>) @ ${solarCalculations.unitPrice}/ea<br />
+                  • Total Solar Package Scope: <strong>${solarCalculations.totalPackageValue.toLocaleString()}</strong> (ex GST)
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center justify-between border-t border-brand-edge">
+                <div className="text-spec text-ink-dim font-medium">
+                  Package Est: <strong className="text-body font-bold">${solarCalculations.totalPackageValue.toLocaleString()}</strong> (ex GST)
+                </div>
+                <button
+                  onClick={() => handleOpenAddModal("solar-autonomy")}
+                  className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-xs cursor-pointer flex items-center gap-1.5 transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add Solar Package to Deal</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 6: Standards & Specification Conflict Resolver */}
+      {activeToolTab === "conflict-resolver" && (
+        <div className="space-y-6">
+          <div className="bg-white p-6 rounded-panel border border-line shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-4">
+              <div>
+                <span className="text-spec font-bold text-urgent uppercase tracking-wide">
+                  Compliance &amp; Risk Safeguard
+                </span>
+                <h2 className="text-xl font-bold text-body">
+                  Standards &amp; Tender Specification Conflict Resolver
+                </h2>
+                <p className="text-meta text-ink-dim mt-0.5">
+                  Identify and resolve contradictory customer RFQ clauses against Australian Standards (AS/NZS 1158, AS 4282, AS 1170.2, AS/NZS 2312.2).
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 pt-2">
+              {/* Conflict Presets List */}
+              <div className="lg:col-span-1 space-y-2">
+                <label className="block text-spec font-bold text-ink-dim uppercase">
+                  Select Conflict Scenario
+                </label>
+                {CONFLICT_SCENARIOS.map((c) => {
+                  const isSelected = selectedConflictId === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => setSelectedConflictId(c.id)}
+                      className={`w-full text-left p-3 rounded-edge border text-meta transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-brand-wash border-brand-edge text-brand-deep font-bold shadow-2xs"
+                          : "bg-white border-line hover:bg-raised text-body font-medium"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className={`w-4 h-4 shrink-0 ${isSelected ? "text-brand-deep" : "text-ink-faint"}`} />
+                        <span className="line-clamp-2">{c.title}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Conflict Analysis & Resolution Display */}
+              {(() => {
+                const conf = CONFLICT_SCENARIOS.find((c) => c.id === selectedConflictId) || CONFLICT_SCENARIOS[0];
+                return (
+                  <div className="lg:col-span-3 space-y-4 bg-paper p-5 rounded-panel border border-line">
+                    <div className="flex items-start justify-between gap-3 border-b border-line pb-3">
+                      <div>
+                        <span className="inline-block px-2.5 py-0.5 rounded-full text-meta font-bold bg-urgent-wash text-urgent border border-urgent mb-1">
+                          {conf.riskSeverity}
+                        </span>
+                        <h3 className="text-lg font-bold text-body">{conf.title}</h3>
+                        <div className="text-spec text-ink-dim mt-0.5">{conf.conflictType}</div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 text-meta">
+                      <div className="p-3 bg-white rounded-edge border border-line">
+                        <span className="text-spec font-bold text-ink-dim uppercase block mb-0.5">Tender / Customer Clause</span>
+                        <p className="font-semibold text-body italic">"{conf.tenderClause}"</p>
+                      </div>
+
+                      <div className="p-3 bg-hold-wash rounded-edge border border-hold/70">
+                        <span className="text-spec font-bold text-hold uppercase block mb-0.5">Technical &amp; Standards Analysis</span>
+                        <p className="text-body leading-relaxed">{conf.analysis}</p>
+                      </div>
+
+                      <div className="p-3.5 bg-brand-wash rounded-edge border border-brand-edge space-y-2">
+                        <span className="text-spec font-bold text-brand-deep uppercase block">Recommended Sales Resolution &amp; Spec Substantiation</span>
+                        <p className="text-body font-medium leading-relaxed">{conf.recommendedResolution}</p>
+                        <div className="flex items-center gap-1.5 text-spec text-brand-deep font-bold pt-1 border-t border-brand-edge">
+                          <ShieldCheck className="w-4 h-4 shrink-0" />
+                          <span>Authoritative Citation: {conf.standardCitation}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fallback for Unsupported / Unknown Tool Routes (P0-11) */}
+      {![
+        "plan-takeoff",
+        "cable-cover-calc",
+        "pole-spacing-calc",
+        "wind-foundation-calc",
+        "solar-autonomy",
+        "conflict-resolver"
+      ].includes(activeToolTab) && (
+        <div className="p-8 bg-white rounded-panel border border-line shadow-xs text-center space-y-4 max-w-xl mx-auto my-8">
+          <div className="w-12 h-12 rounded-full bg-hold-wash text-hold mx-auto flex items-center justify-center">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-lg font-bold text-body">Tool Route Unavailable</h3>
+            <p className="text-meta text-ink-dim">
+              The requested tool <code className="px-1.5 py-0.5 bg-paper rounded text-body font-mono text-spec">"{activeToolTab}"</code> is not available or is undergoing scheduled maintenance.
+            </p>
+          </div>
+          <div className="pt-2">
+            <button
+              onClick={() => setActiveToolTab("plan-takeoff" as ToolSubTab)}
+              className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-xs cursor-pointer inline-flex items-center gap-2 transition-colors"
+            >
+              <ArrowRight className="w-4 h-4 rotate-180" />
+              <span>Return to Tools Hub</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* FEAT-01: Modal for Adding Calculation to Quote / Deal */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-chrome/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
@@ -1052,6 +1467,9 @@ export const ToolsHub: React.FC = () => {
                   )}
                   {modalSourceTool === "wind-foundation" && (
                     <span>• {foundationQuantity}x {foundationCalculations.hardwareName} ({foundationCalculations.hardwareSKU}) = <strong>${(foundationQuantity * foundationCalculations.hardwareUnitPrice).toLocaleString()}</strong></span>
+                  )}
+                  {modalSourceTool === "solar-autonomy" && (
+                    <span>• {solarQuantity}x {solarCalculations.luminaireName} ({solarCalculations.luminaireSKU}) = <strong>${solarCalculations.totalPackageValue.toLocaleString()}</strong></span>
                   )}
                 </div>
               </div>
