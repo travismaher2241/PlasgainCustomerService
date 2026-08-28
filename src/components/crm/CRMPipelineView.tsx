@@ -173,7 +173,10 @@ export const CRMPipelineView: React.FC = () => {
     e.preventDefault();
     if (!newDealForm.name.trim()) return;
 
-    const account = accounts.find((a) => a.id === newDealForm.accountId) || accounts[0];
+    const account = accounts.find((a) => a.id === newDealForm.accountId) || accounts[0] || {
+      id: `acc-cust-${Date.now()}`,
+      name: "Direct Commercial Client"
+    };
     const stage = currentPipeline.stages.find((s) => s.id === newDealForm.stageId) || currentPipeline.stages[0];
     const finalDealValue = dealValidation.effectiveTotal;
 
@@ -1428,61 +1431,89 @@ export const CRMPipelineView: React.FC = () => {
         </div>
       )}
 
-      {/* New Deal Modal */}
+      {/* New Deal Modal - Responsive Mobile-First Form */}
       {isNewDealModalOpen && (
-        <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between border-b border-line pb-3">
-              <h3 className="text-lg font-bold text-body">Create New Deal</h3>
+        <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[92dvh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-line px-4 sm:px-5 py-3.5 bg-white shrink-0">
+              <h3 className="text-lead font-bold text-ink">Create New Deal</h3>
               <button
+                type="button"
                 onClick={() => setIsNewDealModalOpen(false)}
-                className="text-ink-faint hover:text-ink-dim text-body"
+                className="p-1.5 -mr-1 text-ink-dim hover:text-ink hover:bg-hover rounded-full transition-colors cursor-pointer"
+                aria-label="Close dialog"
               >
-                ✕
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleCreateDeal} className="space-y-3.5 text-meta">
-              <div>
-                <label className="block font-semibold text-body mb-1">Opportunity / Project Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Waterfront Esplanade Solar Upgrade"
-                  value={newDealForm.name}
-                  onChange={(e) => setNewDealForm({ ...newDealForm, name: e.target.value })}
-                  className="w-full p-2 border border-line-strong rounded-edge"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            {/* Scrollable Modal Form Body */}
+            <form onSubmit={handleCreateDeal} className="flex flex-col flex-1 overflow-hidden min-h-0">
+              <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-4 text-meta">
+                {/* 1. Opportunity / Project Name */}
                 <div>
-                  <label className="block font-semibold text-body mb-1">Account *</label>
+                  <label htmlFor="deal-project-name" className="block text-spec font-bold text-ink mb-1.5">
+                    Opportunity / Project Name *
+                  </label>
+                  <input
+                    id="deal-project-name"
+                    type="text"
+                    required
+                    placeholder="e.g. Waterfront Esplanade Solar Upgrade"
+                    value={newDealForm.name}
+                    onChange={(e) => setNewDealForm({ ...newDealForm, name: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-surface border border-line-strong rounded-edge text-body text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
+                  />
+                </div>
+
+                {/* 2. Account */}
+                <div>
+                  <label htmlFor="deal-account-select" className="block text-spec font-bold text-ink mb-1.5">
+                    Account *
+                  </label>
                   <select
+                    id="deal-account-select"
                     value={newDealForm.accountId}
                     onChange={(e) => setNewDealForm({ ...newDealForm, accountId: e.target.value })}
-                    className="w-full p-2 border border-line-strong rounded-edge"
+                    className="w-full px-3.5 py-2.5 bg-surface border border-line-strong rounded-edge text-body text-ink focus:outline-none focus:border-brand-deep transition-colors cursor-pointer"
                   >
-                    {accounts.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name}
-                      </option>
-                    ))}
+                    {accounts.length === 0 ? (
+                      <option value="">No accounts available</option>
+                    ) : (
+                      accounts.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))
+                    )}
                   </select>
                 </div>
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block font-semibold text-body">
+
+                {/* 3. Dedicated DEAL VALUE Section */}
+                <div className="bg-raised/60 border border-line rounded-panel p-3.5 sm:p-4 space-y-3.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-spec font-bold text-ink uppercase tracking-wider">
+                      DEAL VALUE
+                    </span>
+                    <span className="text-[11px] font-semibold text-ink-dim">
+                      AUD ex GST
+                    </span>
+                  </div>
+
+                  {/* Value Basis Toggle */}
+                  <div>
+                    <label className="block text-spec font-bold text-ink mb-1.5">
                       Commercial Value Basis *
                     </label>
-                    <div className="flex rounded border border-line overflow-hidden text-[11px] font-bold">
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         type="button"
                         onClick={() => setNewDealForm({ ...newDealForm, valueBasis: "TOTAL" })}
-                        className={`px-2 py-0.5 cursor-pointer ${
+                        className={`py-2 px-3 rounded-edge font-bold text-spec transition-all flex items-center justify-center cursor-pointer border ${
                           newDealForm.valueBasis === "TOTAL"
-                            ? "bg-brand-deep text-white"
-                            : "bg-paper text-ink-dim hover:text-body"
+                            ? "bg-brand-deep text-white border-brand-deep shadow-xs"
+                            : "bg-surface text-ink-dim border-line hover:bg-hover hover:text-ink"
                         }`}
                       >
                         Project Total ($)
@@ -1490,10 +1521,10 @@ export const CRMPipelineView: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => setNewDealForm({ ...newDealForm, valueBasis: "PER_UNIT" })}
-                        className={`px-2 py-0.5 cursor-pointer ${
+                        className={`py-2 px-3 rounded-edge font-bold text-spec transition-all flex items-center justify-center cursor-pointer border ${
                           newDealForm.valueBasis === "PER_UNIT"
-                            ? "bg-brand-deep text-white"
-                            : "bg-paper text-ink-dim hover:text-body"
+                            ? "bg-brand-deep text-white border-brand-deep shadow-xs"
+                            : "bg-surface text-ink-dim border-line hover:bg-hover hover:text-ink"
                         }`}
                       >
                         Per Unit ($/ea)
@@ -1501,142 +1532,206 @@ export const CRMPipelineView: React.FC = () => {
                     </div>
                   </div>
 
-                  {newDealForm.valueBasis === "PER_UNIT" ? (
-                    <div className="grid grid-cols-2 gap-2">
+                  {/* Progressive Disclosure: Total vs Per Unit */}
+                  {newDealForm.valueBasis === "TOTAL" ? (
+                    <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-3">
                       <div>
-                        <input
-                          type="number"
-                          placeholder="Unit Price ($)"
-                          value={newDealForm.unitPrice}
-                          onChange={(e) => setNewDealForm({ ...newDealForm, unitPrice: Number(e.target.value) })}
-                          className="w-full p-2 border border-line-strong rounded-edge font-mono"
-                        />
-                        <span className="text-[10px] text-ink-dim font-bold">Unit Price ($/ea)</span>
+                        <label htmlFor="deal-total-val" className="block text-spec font-bold text-ink mb-1.5">
+                          Project Total ($ AUD ex GST) *
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-dim font-bold">$</span>
+                          <input
+                            id="deal-total-val"
+                            type="number"
+                            required
+                            min={0}
+                            step="any"
+                            value={newDealForm.dealValue || ""}
+                            onChange={(e) => setNewDealForm({ ...newDealForm, dealValue: Number(e.target.value) })}
+                            placeholder="35000"
+                            className="w-full pl-8 pr-3.5 py-2.5 bg-surface border border-line-strong rounded-edge font-mono text-body text-ink focus:outline-none focus:border-brand-deep"
+                          />
+                        </div>
                       </div>
+
                       <div>
+                        <label htmlFor="deal-qty-total" className="block text-spec font-bold text-ink mb-1.5">
+                          Quantity (Units) *
+                        </label>
                         <input
+                          id="deal-qty-total"
                           type="number"
+                          required
                           min={1}
-                          placeholder="Quantity"
-                          value={newDealForm.quantity}
+                          value={newDealForm.quantity || ""}
                           onChange={(e) => setNewDealForm({ ...newDealForm, quantity: Math.max(1, Number(e.target.value)) })}
-                          className="w-full p-2 border border-line-strong rounded-edge font-mono"
+                          placeholder="20"
+                          className="w-full px-3.5 py-2.5 bg-surface border border-line-strong rounded-edge font-mono text-body text-ink focus:outline-none focus:border-brand-deep"
                         />
-                        <span className="text-[10px] text-ink-dim font-bold">Quantity (Units)</span>
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="col-span-2">
+                    <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-3">
+                      <div>
+                        <label htmlFor="deal-unit-val" className="block text-spec font-bold text-ink mb-1.5">
+                          Unit Price ($ AUD ex GST) *
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-dim font-bold">$</span>
+                          <input
+                            id="deal-unit-val"
+                            type="number"
+                            required
+                            min={0}
+                            step="any"
+                            value={newDealForm.unitPrice || ""}
+                            onChange={(e) => setNewDealForm({ ...newDealForm, unitPrice: Number(e.target.value) })}
+                            placeholder="1750"
+                            className="w-full pl-8 pr-3.5 py-2.5 bg-surface border border-line-strong rounded-edge font-mono text-body text-ink focus:outline-none focus:border-brand-deep"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label htmlFor="deal-qty-unit" className="block text-spec font-bold text-ink mb-1.5">
+                          Quantity (Units) *
+                        </label>
                         <input
+                          id="deal-qty-unit"
                           type="number"
                           required
-                          value={newDealForm.dealValue}
-                          onChange={(e) => setNewDealForm({ ...newDealForm, dealValue: Number(e.target.value) })}
-                          className="w-full p-2 border border-line-strong rounded-edge font-mono"
-                        />
-                        <span className="text-[10px] text-ink-dim font-bold">Project Total ($ AUD ex GST)</span>
-                      </div>
-                      <div>
-                        <input
-                          type="number"
                           min={1}
-                          value={newDealForm.quantity}
+                          value={newDealForm.quantity || ""}
                           onChange={(e) => setNewDealForm({ ...newDealForm, quantity: Math.max(1, Number(e.target.value)) })}
-                          className="w-full p-2 border border-line-strong rounded-edge font-mono"
+                          placeholder="20"
+                          className="w-full px-3.5 py-2.5 bg-surface border border-line-strong rounded-edge font-mono text-body text-ink focus:outline-none focus:border-brand-deep"
                         />
-                        <span className="text-[10px] text-ink-dim font-bold">Qty (Units)</span>
                       </div>
                     </div>
                   )}
 
-                  <div className="mt-1 flex items-center justify-between text-spec font-bold text-ink-dim">
-                    <span>Calculated Deal Total: <strong className="text-body text-meta">${dealValidation.effectiveTotal.toLocaleString()}</strong></span>
-                    {newDealForm.quantity > 1 && (
-                      <span>(~${Math.round(dealValidation.effectiveUnitPrice).toLocaleString()}/unit)</span>
+                  {/* Read-Only Summary of Calculated Values */}
+                  <div className="bg-white border border-line rounded-edge p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
+                    <div>
+                      <span className="text-spec font-bold text-ink-dim block">Calculated Deal Value</span>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="text-lg font-bold text-ink font-mono">
+                          ${dealValidation.effectiveTotal.toLocaleString()}
+                        </span>
+                        <span className="text-spec text-ink-dim font-semibold">ex GST</span>
+                      </div>
+                    </div>
+                    {newDealForm.quantity > 0 && (
+                      <div className="text-spec font-semibold text-ink-dim">
+                        <span>Approx. <strong className="text-ink">${Math.round(dealValidation.effectiveUnitPrice).toLocaleString()}</strong> / unit</span>
+                      </div>
                     )}
                   </div>
-                </div>
-              </div>
 
-              {/* Outlier Warning Banner (P0-18) */}
-              {dealValidation.isOutlier && (
-                <div className="p-3 bg-soon-wash border border-soon text-soon rounded-edge text-meta space-y-1.5 animate-in fade-in duration-150">
-                  <div className="flex items-center gap-1.5 font-bold">
-                    <AlertTriangle className="w-4 h-4 shrink-0" />
-                    <span>Unusual Deal Value Notice</span>
-                  </div>
-                  <p className="text-spec text-body font-medium leading-relaxed">
-                    {dealValidation.warningMessage}
-                  </p>
-                  {dealValidation.suggestedCorrection && (
-                    <div className="pt-1">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setNewDealForm({
-                            ...newDealForm,
-                            valueBasis: dealValidation.suggestedCorrection!.basis,
-                            unitPrice: newDealForm.dealValue
-                          });
-                        }}
-                        className="px-2.5 py-1 bg-soon text-white text-spec font-bold rounded hover:bg-soon-hover cursor-pointer"
-                      >
-                        {dealValidation.suggestedCorrection.explanation}
-                      </button>
+                  {/* Outlier Warning Banner */}
+                  {dealValidation.isOutlier && (
+                    <div className="p-3 bg-soon-wash border border-soon text-soon rounded-edge text-meta space-y-1.5 animate-in fade-in duration-150">
+                      <div className="flex items-center gap-1.5 font-bold">
+                        <AlertTriangle className="w-4 h-4 shrink-0" />
+                        <span>Unusual Deal Value Notice</span>
+                      </div>
+                      <p className="text-spec text-body font-medium leading-relaxed">
+                        {dealValidation.warningMessage}
+                      </p>
+                      {dealValidation.suggestedCorrection && (
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setNewDealForm({
+                                ...newDealForm,
+                                valueBasis: dealValidation.suggestedCorrection!.basis,
+                                unitPrice: newDealForm.dealValue
+                              });
+                            }}
+                            className="px-2.5 py-1 bg-soon text-white text-spec font-bold rounded hover:bg-soon-hover cursor-pointer"
+                          >
+                            {dealValidation.suggestedCorrection.explanation}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-body mb-1">Initial Stage</label>
-                  <select
-                    value={newDealForm.stageId}
-                    onChange={(e) => setNewDealForm({ ...newDealForm, stageId: e.target.value })}
-                    className="w-full p-2 border border-line-strong rounded-edge"
-                  >
-                    {currentPipeline.stages.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name} ({s.probability}%)
-                      </option>
-                    ))}
-                  </select>
+                {/* 4. Initial Stage & Target Close Date */}
+                <div className="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-3.5">
+                  <div>
+                    <label htmlFor="deal-initial-stage" className="block text-spec font-bold text-ink mb-1.5">
+                      Initial Stage
+                    </label>
+                    <select
+                      id="deal-initial-stage"
+                      value={newDealForm.stageId}
+                      onChange={(e) => setNewDealForm({ ...newDealForm, stageId: e.target.value })}
+                      className="w-full px-3.5 py-2.5 bg-surface border border-line-strong rounded-edge text-body text-ink focus:outline-none focus:border-brand-deep cursor-pointer"
+                    >
+                      {currentPipeline.stages.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name} ({s.probability}%)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="deal-close-date" className="block text-spec font-bold text-ink mb-1.5">
+                      Target Close Date
+                    </label>
+                    <input
+                      id="deal-close-date"
+                      type="date"
+                      value={newDealForm.expectedCloseDate}
+                      onChange={(e) => setNewDealForm({ ...newDealForm, expectedCloseDate: e.target.value })}
+                      className="w-full px-3.5 py-2.5 bg-surface border border-line-strong rounded-edge text-body text-ink focus:outline-none focus:border-brand-deep"
+                    />
+                  </div>
                 </div>
+
+                {/* 5. Project Application */}
                 <div>
-                  <label className="block font-semibold text-body mb-1">Target Close Date</label>
+                  <label htmlFor="deal-project-app" className="block text-spec font-bold text-ink mb-1.5">
+                    Project Application
+                  </label>
                   <input
-                    type="date"
-                    value={newDealForm.expectedCloseDate}
-                    onChange={(e) => setNewDealForm({ ...newDealForm, expectedCloseDate: e.target.value })}
-                    className="w-full p-2 border border-line-strong rounded-edge"
+                    id="deal-project-app"
+                    type="text"
+                    list="deal-project-applications"
+                    placeholder="e.g. Solar Pathway Lighting (AS/NZS 1158 Cat P)"
+                    value={newDealForm.projectApplication}
+                    onChange={(e) => setNewDealForm({ ...newDealForm, projectApplication: e.target.value })}
+                    className="w-full px-3.5 py-2.5 bg-surface border border-line-strong rounded-edge text-body text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep"
                   />
+                  <datalist id="deal-project-applications">
+                    <option value="Solar Pathway Lighting (AS/NZS 1158 Cat P)" />
+                    <option value="Pedestrian Shared Trail" />
+                    <option value="Local Roads &amp; Intersections (Cat V / Cat P)" />
+                    <option value="Parks &amp; Open Spaces" />
+                    <option value="Commercial Car Parks" />
+                    <option value="Industrial / Resource Yards" />
+                    <option value="Highway &amp; Arterial Road Lighting" />
+                  </datalist>
                 </div>
               </div>
 
-              <div>
-                <label className="block font-semibold text-body mb-1">Project Application</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Pedestrian Shared Trail (AS/NZS 1158 Cat P)"
-                  value={newDealForm.projectApplication}
-                  onChange={(e) => setNewDealForm({ ...newDealForm, projectApplication: e.target.value })}
-                  className="w-full p-2 border border-line-strong rounded-edge"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
+              {/* Sticky Mobile/Desktop Action Footer */}
+              <div className="border-t border-line bg-surface/95 backdrop-blur-xs p-4 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 shrink-0">
                 <button
                   type="button"
                   onClick={() => setIsNewDealModalOpen(false)}
-                  className="px-4 py-2 text-ink-dim hover:text-ink"
+                  className="w-full sm:w-auto px-4 py-2.5 text-body font-bold text-ink-dim hover:text-ink hover:bg-hover rounded-edge transition-colors cursor-pointer text-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 font-semibold text-white bg-brand-deep rounded-edge hover:bg-brand-deep"
+                  className="w-full sm:w-auto px-5 py-2.5 text-body font-bold text-white bg-brand-deep hover:bg-brand rounded-edge shadow-xs transition-colors cursor-pointer text-center"
                 >
                   Save Opportunity
                 </button>

@@ -130,4 +130,57 @@ describe('CRM Deals Pipeline (Table-Only) & Navigation Suite', () => {
     expect(screen.getAllByText(/Competitor Intel/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Quick Log Interaction/i)).toBeInTheDocument();
   });
+
+  it('renders and submits Create New Deal modal with dedicated Deal Value section and progressive disclosure', () => {
+    render(
+      <AppProvider>
+        <CRMPipelineView />
+      </AppProvider>
+    );
+
+    // Open modal
+    const addDealBtn = screen.getByRole('button', { name: /\+ Add Deal/i });
+    fireEvent.click(addDealBtn);
+
+    // Modal title & close button
+    expect(screen.getByRole('heading', { level: 3, name: /Create New Deal/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Close dialog/i })).toBeInTheDocument();
+
+    // Form inputs exist in clear order
+    expect(screen.getByLabelText(/Opportunity \/ Project Name \*/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Account \*/i)).toBeInTheDocument();
+    expect(screen.getByText(/^DEAL VALUE$/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Project Total \(\$\)/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Per Unit \(\$\/ea\)/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Initial Stage/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Target Close Date/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Project Application/i)).toBeInTheDocument();
+
+    // Enter details
+    const nameInput = screen.getByLabelText(/Opportunity \/ Project Name \*/i);
+    fireEvent.change(nameInput, { target: { value: 'New Test Solar Project' } });
+
+    // Test Per Unit mode toggle
+    const perUnitBtn = screen.getByRole('button', { name: /Per Unit \(\$\/ea\)/i });
+    fireEvent.click(perUnitBtn);
+    expect(screen.getByLabelText(/Unit Price \(\$ AUD ex GST\) \*/i)).toBeInTheDocument();
+
+    // Enter unit price and qty
+    const unitPriceInput = screen.getByLabelText(/Unit Price \(\$ AUD ex GST\) \*/i);
+    const qtyInput = screen.getByLabelText(/Quantity \(Units\) \*/i);
+    fireEvent.change(unitPriceInput, { target: { value: '2000' } });
+    fireEvent.change(qtyInput, { target: { value: '10' } });
+
+    // Verify calculated deal value: 2000 * 10 = $20,000
+    expect(screen.getByText(/\$20,000/i)).toBeInTheDocument();
+    expect(screen.getByText(/Approx\./i)).toBeInTheDocument();
+
+    // Submit form
+    const saveBtn = screen.getByRole('button', { name: /Save Opportunity/i });
+    fireEvent.click(saveBtn);
+
+    // Modal should close and new deal should be in the table
+    expect(screen.queryByRole('heading', { level: 3, name: /Create New Deal/i })).not.toBeInTheDocument();
+    expect(screen.getAllByText(/New Test Solar Project/i).length).toBeGreaterThan(0);
+  });
 });
