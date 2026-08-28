@@ -36,7 +36,11 @@ class AnalysisStore {
     try {
       const records = await loadCollectionFromCloud<ProjectAnalysisRecord>(FIRESTORE_COLLECTION);
       if (records && records.length > 0) {
-        records.forEach((r) => this.inMemoryCache.set(r.id, r));
+        records.forEach((r) => {
+          if (!this.inMemoryCache.has(r.id)) {
+            this.inMemoryCache.set(r.id, r);
+          }
+        });
       }
       this.isInitialized = true;
     } catch (err) {
@@ -93,7 +97,11 @@ class AnalysisStore {
 
     // Refresh from cloud
     const all = await loadCollectionFromCloud<ProjectAnalysisRecord>(FIRESTORE_COLLECTION);
-    all.forEach((r) => this.inMemoryCache.set(r.id, r));
+    all.forEach((r) => {
+      if (!this.inMemoryCache.has(r.id)) {
+        this.inMemoryCache.set(r.id, r);
+      }
+    });
     const matching = all.filter((r) => r.projectId === projectId && (!analysisType || r.analysisType === analysisType));
     if (matching.length === 0) return undefined;
     return matching.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
@@ -102,7 +110,11 @@ class AnalysisStore {
   public async listByProject(projectId: string): Promise<ProjectAnalysisRecord[]> {
     const all = await loadCollectionFromCloud<ProjectAnalysisRecord>(FIRESTORE_COLLECTION);
     if (all && all.length > 0) {
-      all.forEach((r) => this.inMemoryCache.set(r.id, r));
+      all.forEach((r) => {
+        if (!this.inMemoryCache.has(r.id)) {
+          this.inMemoryCache.set(r.id, r);
+        }
+      });
     }
     return Array.from(this.inMemoryCache.values())
       .filter((r) => r.projectId === projectId)
@@ -112,9 +124,9 @@ class AnalysisStore {
   public async markStale(id: string): Promise<boolean> {
     const record = await this.getAnalysis(id);
     if (record) {
-      record.status = "stale";
-      this.inMemoryCache.set(id, record);
-      await saveDocToCloud(FIRESTORE_COLLECTION, id, record);
+      const updatedRecord: ProjectAnalysisRecord = { ...record, status: "stale" };
+      this.inMemoryCache.set(id, updatedRecord);
+      await saveDocToCloud(FIRESTORE_COLLECTION, id, updatedRecord);
       return true;
     }
     return false;

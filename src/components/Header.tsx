@@ -28,6 +28,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
     isCopilotOpen,
     setIsCopilotOpen,
     openEmailComposer,
+    isSidebarCollapsed,
+    toggleSidebar,
     selectedOpportunityId,
     opportunities,
     notifications,
@@ -86,10 +88,13 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
         <button
           type="button"
-          onClick={onToggleMobileMenu}
-          aria-label="Open navigation menu"
+          onClick={() => {
+            onToggleMobileMenu?.();
+            toggleSidebar();
+          }}
+          aria-label={isSidebarCollapsed ? "Expand navigation menu" : "Open navigation menu"}
           title="Open menu"
-          className="md:hidden p-1.5 text-ink-dim hover:text-ink rounded-edge hover:bg-paper cursor-pointer shrink-0 focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none"
+          className="p-1.5 text-ink-dim hover:text-ink rounded-edge hover:bg-paper cursor-pointer shrink-0 focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none transition-colors"
         >
           <Menu className="w-5 h-5" />
         </button>

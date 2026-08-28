@@ -1,10 +1,15 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Sidebar } from '../../components/Sidebar';
+import { Header } from '../../components/Header';
 import { AppProvider } from '../../context/AppContext';
 
 describe('Sidebar Component', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it('renders all core workspace navigation items', () => {
     render(
       <AppProvider>
@@ -39,5 +44,28 @@ describe('Sidebar Component', () => {
     const crmButton = screen.getByText('CRM Command Centre');
     fireEvent.click(crmButton);
     expect(setMobileOpen).toHaveBeenCalledWith(false);
+  });
+
+  it('toggles sidebar collapse on desktop button click and Ctrl+B shortcut', () => {
+    render(
+      <AppProvider>
+        <Sidebar />
+        <Header />
+      </AppProvider>
+    );
+
+    const collapseBtn = screen.getByRole('button', { name: /Collapse sidebar menu/i });
+    expect(collapseBtn).toBeInTheDocument();
+
+    // Click collapse
+    fireEvent.click(collapseBtn);
+
+    // Sidebar should be collapsed
+    const aside = screen.getByRole('navigation', { name: /Main Navigation/i });
+    expect(aside.className).toContain('w-16');
+
+    // Press Ctrl+B to expand
+    fireEvent.keyDown(window, { key: 'b', ctrlKey: true });
+    expect(aside.className).toContain('w-58');
   });
 });

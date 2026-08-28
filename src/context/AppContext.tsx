@@ -183,6 +183,10 @@ interface AppContextType {
   deleteTeamMember: (idOrName: string) => void;
   addTeamMember: (member: UserProfile) => void;
 
+  isSidebarCollapsed: boolean;
+  toggleSidebar: () => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
   activeCRMTab: CRMSubTab;
@@ -343,6 +347,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeToolTab, setActiveToolTab] = useState<ToolSubTab>("plan-takeoff");
 
   const [cloudSyncStatus, setCloudSyncStatus] = useState<"synced" | "syncing" | "offline" | "error">("syncing");
+
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("plasgain_sidebar_collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("plasgain_sidebar_collapsed", String(next));
+      return next;
+    });
+  };
+
+  const setSidebarCollapsed = (collapsed: boolean) => {
+    setIsSidebarCollapsed(collapsed);
+    localStorage.setItem("plasgain_sidebar_collapsed", String(collapsed));
+  };
 
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const openLoginModal = () => setIsLoginModalOpen(true);
@@ -1440,6 +1465,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider
       value={{
+        isSidebarCollapsed,
+        toggleSidebar,
+        setSidebarCollapsed,
         activeTab,
         setActiveTab,
         activeCRMTab,
