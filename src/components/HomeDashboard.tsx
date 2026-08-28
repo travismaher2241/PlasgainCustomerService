@@ -169,9 +169,16 @@ export const HomeDashboard: React.FC = () => {
                   <div className="space-y-1 min-w-0 flex-1">
                     {/* Top Row: Opportunity Name & Value */}
                     <div className="flex items-baseline justify-between gap-2">
-                      <h3 className="font-bold text-body text-ink group-hover:text-brand-deep transition-colors line-clamp-1">
-                        {idx + 1}. {opp.project}
-                      </h3>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="font-bold text-body text-ink group-hover:text-brand-deep transition-colors line-clamp-1">
+                          {idx + 1}. {opp.project}
+                        </h3>
+                        {(opp.id.startsWith("opp-sample") || opp.id.startsWith("mock") || (opp as any).isSample) && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                            Sample Demo
+                          </span>
+                        )}
+                      </div>
                       {opp.estimatedValue > 0 && (
                         <span className="text-spec font-bold text-ink-dim shrink-0">
                           ${opp.estimatedValue >= 1000000 ? `${(opp.estimatedValue / 1000000).toFixed(1)}m` : opp.estimatedValue.toLocaleString()}

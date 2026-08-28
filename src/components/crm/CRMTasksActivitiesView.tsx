@@ -45,9 +45,15 @@ export const CRMTasksActivitiesView: React.FC = () => {
   const [taskFilter, setTaskFilter] = useState<"all" | "pending" | "overdue" | "completed">("pending");
   const [assigneeFilter, setAssigneeFilter] = useState<"mine" | "all">("all");
   const [activitySortOrder, setActivitySortOrder] = useState<"newest" | "oldest">("newest");
+  const [activityTypeFilter, setActivityTypeFilter] = useState<string>("all");
+  const [activityAccountFilter, setActivityAccountFilter] = useState<string>("all");
+  const [activityOwnerFilter, setActivityOwnerFilter] = useState<string>("all");
+  const [activityPage, setActivityPage] = useState<number>(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
+
+  const ACTIVITY_PAGE_SIZE = 15;
 
   // Australia/Sydney timezone-aware today string (P1-03)
   const todayStr = getLocalDateInputValue();
@@ -77,12 +83,24 @@ export const CRMTasksActivitiesView: React.FC = () => {
   });
 
   const filteredActivities = activities.filter((act) => {
-    return (
+    const matchesSearch =
       act.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       act.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (act.accountName && act.accountName.toLowerCase().includes(searchQuery.toLowerCase()))
-    );
+      (act.accountName && act.accountName.toLowerCase().includes(searchQuery.toLowerCase()));
+
+    const matchesType = activityTypeFilter === "all" || act.type === activityTypeFilter;
+    const matchesAccount = activityAccountFilter === "all" || act.accountId === activityAccountFilter;
+    const matchesOwner = activityOwnerFilter === "all" || (act.performedBy && act.performedBy.toLowerCase().includes(activityOwnerFilter.toLowerCase()));
+
+    return matchesSearch && matchesType && matchesAccount && matchesOwner;
   });
+
+  const sortedActivities = sortActivitiesChronological(filteredActivities, activitySortOrder);
+  const totalActivityPages = Math.max(1, Math.ceil(sortedActivities.length / ACTIVITY_PAGE_SIZE));
+  const paginatedActivities = sortedActivities.slice(
+    (activityPage - 1) * ACTIVITY_PAGE_SIZE,
+    activityPage * ACTIVITY_PAGE_SIZE
+  );
 
   // FEAT-04: Batch Actions
   const handleSelectAll = () => {
@@ -402,44 +420,151 @@ export const CRMTasksActivitiesView: React.FC = () => {
           )}
         </div>
       ) : (
-        /* Activities Stream with Sort Control (P1-14) */
+        /* Activities Stream with Multi-Criteria Filters & Pagination (P1) */
         <div className="space-y-3">
-          <div className="flex items-center justify-between px-1">
-            <span className="text-spec font-bold uppercase text-ink-dim">
-              Activity History ({filteredActivities.length})
-            </span>
-            <div className="flex items-center gap-2">
-              <span className="text-spec text-ink-dim">Sort:</span>
-              <button
-                type="button"
-                onClick={() => setActivitySortOrder((prev) => (prev === "newest" ? "oldest" : "newest"))}
-                aria-label={`Sort activity history: currently ${activitySortOrder === "newest" ? "newest first" : "oldest first"}`}
-                className="px-2.5 py-1 text-spec font-bold rounded-edge bg-white border border-line hover:bg-raised text-brand-deep cursor-pointer flex items-center gap-1 shadow-2xs"
-              >
-                {activitySortOrder === "newest" ? "Newest First ▾" : "Oldest First ▴"}
-              </button>
+          {/* Multi-Criteria Filter Bar */}
+          <div className="bg-white p-3 rounded-panel border border-line shadow-2xs space-y-2.5">
+            <div className="flex flex-wrap items-center justify-between gap-2.5">
+              <div className="flex flex-wrap items-center gap-2 text-spec">
+                <span className="font-bold text-ink-dim uppercase">Filters:</span>
+
+                {/* Activity Type Filter */}
+                <select
+                  value={activityTypeFilter}
+                  onChange={(e) => {
+                    setActivityTypeFilter(e.target.value);
+                    setActivityPage(1);
+                  }}
+                  className="bg-surface border border-line-strong rounded px-2.5 py-1 text-ink font-medium cursor-pointer"
+                >
+                  <option value="all">All Types</option>
+                  <option value="call">Calls</option>
+                  <option value="email">Emails</option>
+                  <option value="meeting">Meetings</option>
+                  <option value="note">Notes</option>
+                  <option value="quote_sent">Quotes Sent</option>
+                  <option value="task">Tasks</option>
+                </select>
+
+                {/* Account Filter */}
+                <select
+                  value={activityAccountFilter}
+                  onChange={(e) => {
+                    setActivityAccountFilter(e.target.value);
+                    setActivityPage(1);
+                  }}
+                  className="bg-surface border border-line-strong rounded px-2.5 py-1 text-ink font-medium cursor-pointer max-w-[180px] truncate"
+                >
+                  <option value="all">All Accounts</option>
+                  {accounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.name}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Owner Filter */}
+                <select
+                  value={activityOwnerFilter}
+                  onChange={(e) => {
+                    setActivityOwnerFilter(e.target.value);
+                    setActivityPage(1);
+                  }}
+                  className="bg-surface border border-line-strong rounded px-2.5 py-1 text-ink font-medium cursor-pointer"
+                >
+                  <option value="all">All Reps</option>
+                  <option value="Travis">Travis Maher</option>
+                  <option value="Sarah">Sarah Reed</option>
+                  <option value="Rob">Rob Mitchell</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-spec text-ink-dim">Sort:</span>
+                <button
+                  type="button"
+                  onClick={() => setActivitySortOrder((prev) => (prev === "newest" ? "oldest" : "newest"))}
+                  aria-label={`Sort activity history: currently ${activitySortOrder === "newest" ? "newest first" : "oldest first"}`}
+                  className="px-2.5 py-1 text-spec font-bold rounded bg-surface border border-line hover:bg-raised text-brand-deep cursor-pointer flex items-center gap-1 shadow-2xs"
+                >
+                  {activitySortOrder === "newest" ? "Newest First ▾" : "Oldest First ▴"}
+                </button>
+              </div>
             </div>
           </div>
+
+          {/* Activity Cards List */}
           <div className="bg-white rounded-panel border border-line shadow-sm overflow-hidden divide-y divide-line">
-            {filteredActivities.length === 0 ? (
-              <div className="p-8 text-center text-meta text-ink-dim">No activities logged yet.</div>
+            {paginatedActivities.length === 0 ? (
+              <div className="p-8 text-center text-meta text-ink-dim">No activities match your current filter.</div>
             ) : (
-              sortActivitiesChronological(filteredActivities, activitySortOrder).map((act) => (
-                <div key={act.id} className="p-4 hover:bg-raised transition-colors space-y-1.5 text-meta">
-                  <div className="flex items-center justify-between text-ink-dim text-spec">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-body">{act.accountName || "General Touchpoint"}</span>
+              paginatedActivities.map((act) => (
+                <div key={act.id} className="p-4 hover:bg-raised transition-colors space-y-2 text-meta">
+                  <div className="flex items-center justify-between text-ink-dim text-spec flex-wrap gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-body text-ink">{act.accountName || "General Touchpoint"}</span>
                       {act.opportunityName && <span className="text-ink-faint">· {act.opportunityName}</span>}
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-raised text-ink border border-line uppercase">
+                        {act.type}
+                      </span>
                     </div>
                     <span>{new Date(act.timestamp).toLocaleString("en-AU", { dateStyle: "medium", timeStyle: "short" })}</span>
                   </div>
-                  <div className="text-body font-bold">{act.title}</div>
+
+                  <div className="text-body font-bold text-ink">{act.title}</div>
                   <p className="text-ink-dim leading-relaxed">{act.description}</p>
-                  <div className="text-spec text-ink-faint">Logged by: {act.performedBy}</div>
+
+                  <div className="flex items-center justify-between text-spec pt-1 flex-wrap gap-2 border-t border-line/60">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {(act.outcome || act.metadata?.outcome) && (
+                        <span className="text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-semibold text-[11px]">
+                          Outcome: {act.outcome || act.metadata?.outcome}
+                        </span>
+                      )}
+                      {act.nextAction && (
+                        <span className="text-brand-deep bg-brand-wash border border-brand-edge px-2 py-0.5 rounded font-semibold text-[11px]">
+                          Next: {act.nextAction}
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-ink-faint text-[11px]">
+                      Logged by: <strong className="text-ink">{act.performedBy}</strong>
+                    </div>
+                  </div>
                 </div>
               ))
             )}
           </div>
+
+          {/* Activity Pagination Controls */}
+          {totalActivityPages > 1 && (
+            <div className="flex items-center justify-between bg-white px-4 py-2.5 rounded-panel border border-line text-spec font-medium">
+              <span className="text-ink-dim">
+                Showing {((activityPage - 1) * ACTIVITY_PAGE_SIZE) + 1}–{Math.min(activityPage * ACTIVITY_PAGE_SIZE, filteredActivities.length)} of {filteredActivities.length} activities
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  disabled={activityPage <= 1}
+                  onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
+                  className="px-3 py-1 rounded border border-line disabled:opacity-40 hover:bg-raised cursor-pointer disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <span className="font-bold text-ink">
+                  {activityPage} / {totalActivityPages}
+                </span>
+                <button
+                  type="button"
+                  disabled={activityPage >= totalActivityPages}
+                  onClick={() => setActivityPage((p) => Math.min(totalActivityPages, p + 1))}
+                  className="px-3 py-1 rounded border border-line disabled:opacity-40 hover:bg-raised cursor-pointer disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

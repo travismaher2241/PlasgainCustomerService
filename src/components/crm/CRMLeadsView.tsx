@@ -62,9 +62,13 @@ export const CRMLeadsView: React.FC = () => {
     company: "",
     source: "Web Form" as const,
     enquiryType: "Solar Pathway Lighting" as const,
-    estimatedValue: 40000,
+    estimatedValue: "" as string | number,
+    estimatedValueBasis: "Estimate" as "Known" | "Estimate" | "Unknown",
+    territory: "QLD/NT" as "NSW/ACT" | "VIC/TAS" | "QLD/NT" | "WA" | "SA" | "National",
+    consentStatus: "Legitimate Interest" as "Consent Confirmed" | "Legitimate Interest" | "Pending Consent" | "Opted Out",
     location: "QLD",
-    notes: ""
+    notes: "",
+    nextAction: "Initial discovery call to confirm project scope"
   });
 
   const filteredLeads = useMemo(() => {
@@ -117,6 +121,10 @@ export const CRMLeadsView: React.FC = () => {
     e.preventDefault();
     if (!newLeadForm.company.trim()) return;
 
+    const parsedValue = Number(newLeadForm.estimatedValue);
+    const finalValue = isNaN(parsedValue) || parsedValue <= 0 ? 0 : parsedValue;
+    const valueBasis = finalValue > 0 ? newLeadForm.estimatedValueBasis : "Unknown";
+
     const newL: CRMLead = {
       id: `lead-${Date.now()}`,
       leadName: newLeadForm.leadName || `${newLeadForm.company} Lighting Project`,
@@ -127,15 +135,18 @@ export const CRMLeadsView: React.FC = () => {
       source: newLeadForm.source,
       enquiryType: newLeadForm.enquiryType,
       productInterest: ["Intense 50W Solar"],
-      estimatedValue: Number(newLeadForm.estimatedValue),
+      estimatedValue: finalValue,
+      estimatedValueBasis: valueBasis,
+      territory: newLeadForm.territory,
+      consentStatus: newLeadForm.consentStatus,
       assignedSalesperson: currentUser.name,
       leadStatus: "New",
-      leadScore: 65,
-      leadScoreRating: "Warm",
+      leadScore: finalValue > 50000 ? 75 : 60,
+      leadScoreRating: finalValue > 50000 ? "Hot" : "Warm",
       scoringFactors: [
         { factor: "Inbound Submission", scoreDelta: +25, reason: "Direct customer enquiry" },
-        { factor: "Estimated Project Value", scoreDelta: +20, reason: "Substantial luminaire scope" },
-        { factor: "Contact Information", scoreDelta: +20, reason: "Verified contact details provided" }
+        { factor: "Estimated Project Value", scoreDelta: +20, reason: "Commercial scope recorded" },
+        { factor: "Contact Information", scoreDelta: +15, reason: "Verified contact details provided" }
       ],
       urgency: "Within 1 Month",
       location: newLeadForm.location,
@@ -143,7 +154,7 @@ export const CRMLeadsView: React.FC = () => {
       dateReceived: new Date().toISOString().split("T")[0],
       lastActivity: "Lead received",
       lastActivityDate: new Date().toISOString().split("T")[0],
-      nextAction: "Initial phone discovery and qualification call",
+      nextAction: newLeadForm.nextAction || "Initial phone discovery and qualification call",
       nextActionDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0]
     };
 
@@ -646,22 +657,36 @@ export const CRMLeadsView: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block font-semibold text-body mb-1">Estimated Value ($)</label>
+                  <label className="block font-semibold text-body mb-1">Estimated Value ($ AUD)</label>
                   <input
                     type="number"
+                    min={0}
+                    placeholder="e.g. 25000"
                     value={newLeadForm.estimatedValue}
-                    onChange={(e) => setNewLeadForm({ ...newLeadForm, estimatedValue: Number(e.target.value) })}
-                    className="w-full p-2 border border-line-strong rounded-edge"
+                    onChange={(e) => setNewLeadForm({ ...newLeadForm, estimatedValue: e.target.value })}
+                    className="w-full p-2 border border-line-strong rounded-edge font-mono"
                   />
+                </div>
+                <div>
+                  <label className="block font-semibold text-body mb-1">Value Basis</label>
+                  <select
+                    value={newLeadForm.estimatedValueBasis}
+                    onChange={(e) => setNewLeadForm({ ...newLeadForm, estimatedValueBasis: e.target.value as any })}
+                    className="w-full p-2 border border-line-strong rounded-edge text-spec font-semibold cursor-pointer"
+                  >
+                    <option value="Estimate">Estimate</option>
+                    <option value="Known">Known (Client Confirmed)</option>
+                    <option value="Unknown">Unknown (Discovery Pending)</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block font-semibold text-body mb-1">Enquiry Type</label>
                   <select
                     value={newLeadForm.enquiryType}
                     onChange={(e) => setNewLeadForm({ ...newLeadForm, enquiryType: e.target.value as any })}
-                    className="w-full p-2 border border-line-strong rounded-edge"
+                    className="w-full p-2 border border-line-strong rounded-edge cursor-pointer"
                   >
                     <option value="Solar Pathway Lighting">Solar Pathway Lighting</option>
                     <option value="Roadway & Streetlight">Roadway &amp; Streetlight</option>
@@ -671,10 +696,51 @@ export const CRMLeadsView: React.FC = () => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-body mb-1">Territory</label>
+                  <select
+                    value={newLeadForm.territory}
+                    onChange={(e) => setNewLeadForm({ ...newLeadForm, territory: e.target.value as any })}
+                    className="w-full p-2 border border-line-strong rounded-edge cursor-pointer"
+                  >
+                    <option value="NSW/ACT">NSW/ACT</option>
+                    <option value="VIC/TAS">VIC/TAS</option>
+                    <option value="QLD/NT">QLD/NT</option>
+                    <option value="WA">WA</option>
+                    <option value="SA">SA</option>
+                    <option value="National">National</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-body mb-1">Privacy / Consent Status</label>
+                  <select
+                    value={newLeadForm.consentStatus}
+                    onChange={(e) => setNewLeadForm({ ...newLeadForm, consentStatus: e.target.value as any })}
+                    className="w-full p-2 border border-line-strong rounded-edge cursor-pointer text-spec"
+                  >
+                    <option value="Legitimate Interest">Legitimate Interest (B2B Tender)</option>
+                    <option value="Consent Confirmed">Consent Confirmed (Inbound Opt-in)</option>
+                    <option value="Pending Consent">Pending Consent</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-body mb-1">Immediate Next Action</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Schedule technical scoping call"
+                  value={newLeadForm.nextAction}
+                  onChange={(e) => setNewLeadForm({ ...newLeadForm, nextAction: e.target.value })}
+                  className="w-full p-2 border border-line-strong rounded-edge text-meta"
+                />
+              </div>
+
               <div>
                 <label className="block font-semibold text-body mb-1">Enquiry Details &amp; Requirements</label>
                 <textarea
-                  rows={3}
+                  rows={2}
                   placeholder="Paste raw email or tender spec details..."
                   value={newLeadForm.notes}
                   onChange={(e) => setNewLeadForm({ ...newLeadForm, notes: e.target.value })}

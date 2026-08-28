@@ -147,15 +147,16 @@ export const CRMPipelineView: React.FC = () => {
   const totalTableWeighted = filteredDeals.reduce((sum, d) => sum + (d.weightedValue || 0), 0);
   const selectedDeal = crmOpportunities.find((d) => d.id === selectedCrmOpportunityId);
 
-  // New Deal Form State
+  // New Deal Form State (P1: Zero Fabrication Defaults)
   const [newDealForm, setNewDealForm] = useState({
     name: "",
     accountId: accounts[0]?.id || "",
     primaryContactName: "",
-    dealValue: 35000,
-    unitPrice: 1750,
-    quantity: 20,
+    dealValue: "" as string | number,
+    unitPrice: "" as string | number,
+    quantity: "" as string | number,
     valueBasis: "TOTAL" as ValueBasis,
+    commercialState: "Estimate" as "Known" | "Estimate" | "Unknown",
     stageId: currentPipeline.stages[0]?.id || "stage-new",
     projectApplication: "Solar Pathway Lighting",
     expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -163,10 +164,12 @@ export const CRMPipelineView: React.FC = () => {
   });
 
   const dealValidation = React.useMemo(() => {
+    const rawVal = newDealForm.valueBasis === "PER_UNIT" ? Number(newDealForm.unitPrice) || 0 : Number(newDealForm.dealValue) || 0;
+    const qty = Number(newDealForm.quantity) || 1;
     return validateDealValue({
-      enteredValue: newDealForm.valueBasis === "PER_UNIT" ? newDealForm.unitPrice : newDealForm.dealValue,
+      enteredValue: rawVal,
       basis: newDealForm.valueBasis,
-      quantity: newDealForm.quantity
+      quantity: qty
     });
   }, [newDealForm.valueBasis, newDealForm.unitPrice, newDealForm.dealValue, newDealForm.quantity]);
 
@@ -179,7 +182,9 @@ export const CRMPipelineView: React.FC = () => {
       name: "Direct Commercial Client"
     };
     const stage = currentPipeline.stages.find((s) => s.id === newDealForm.stageId) || currentPipeline.stages[0];
-    const finalDealValue = dealValidation.effectiveTotal;
+    const rawVal = newDealForm.valueBasis === "PER_UNIT" ? Number(newDealForm.unitPrice) : Number(newDealForm.dealValue);
+    const finalDealValue = isNaN(rawVal) || rawVal <= 0 ? 0 : dealValidation.effectiveTotal;
+    const commercialBasis = finalDealValue > 0 ? newDealForm.commercialState : "Unknown";
 
     const newDeal: CRMOpportunity = {
       id: `opp-${Date.now()}`,
@@ -193,6 +198,7 @@ export const CRMPipelineView: React.FC = () => {
       stageId: stage.id,
       stageName: stage.name,
       dealValue: finalDealValue,
+      dealValueBasis: commercialBasis,
       weightedValue: (finalDealValue * stage.probability) / 100,
       probability: stage.probability,
       forecastCategory: "Pipeline",
@@ -1521,7 +1527,7 @@ export const CRMPipelineView: React.FC = () => {
                   {/* Value Basis Toggle */}
                   <div>
                     <label className="block text-spec font-bold text-ink mb-1.5">
-                      Commercial Value Basis *
+                      Commercial Calculation Method *
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
@@ -1549,24 +1555,39 @@ export const CRMPipelineView: React.FC = () => {
                     </div>
                   </div>
 
+                  {/* Commercial Value Basis (P1: Known, Estimate, Unknown) */}
+                  <div>
+                    <label className="block text-spec font-bold text-ink mb-1.5">
+                      Commercial Value Basis (Confidence) *
+                    </label>
+                    <select
+                      value={newDealForm.commercialState}
+                      onChange={(e) => setNewDealForm({ ...newDealForm, commercialState: e.target.value as any })}
+                      className="w-full px-3.5 py-2 bg-surface border border-line-strong rounded-edge text-spec text-ink font-semibold focus:outline-none focus:border-brand-deep cursor-pointer"
+                    >
+                      <option value="Estimate">Estimate (Preliminary / Budgetary)</option>
+                      <option value="Known">Known (Client Confirmed / Formal Specification)</option>
+                      <option value="Unknown">Unknown (Pending Discovery / Scope TBD)</option>
+                    </select>
+                  </div>
+
                   {/* Progressive Disclosure: Total vs Per Unit */}
                   {newDealForm.valueBasis === "TOTAL" ? (
                     <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-3">
                       <div>
                         <label htmlFor="deal-total-val" className="block text-spec font-bold text-ink mb-1.5">
-                          Project Total ($ AUD ex GST) *
+                          Project Total ($ AUD ex GST)
                         </label>
                         <div className="relative">
                           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-dim font-bold">$</span>
                           <input
                             id="deal-total-val"
                             type="number"
-                            required
                             min={0}
                             step="any"
-                            value={newDealForm.dealValue || ""}
-                            onChange={(e) => setNewDealForm({ ...newDealForm, dealValue: Number(e.target.value) })}
-                            placeholder="35000"
+                            value={newDealForm.dealValue}
+                            onChange={(e) => setNewDealForm({ ...newDealForm, dealValue: e.target.value })}
+                            placeholder="e.g. 25000"
                             className="w-full pl-8 pr-3.5 py-2.5 bg-surface border border-line-strong rounded-edge font-mono text-body text-ink focus:outline-none focus:border-brand-deep"
                           />
                         </div>
@@ -1574,16 +1595,15 @@ export const CRMPipelineView: React.FC = () => {
 
                       <div>
                         <label htmlFor="deal-qty-total" className="block text-spec font-bold text-ink mb-1.5">
-                          Quantity (Units) *
+                          Quantity (Units)
                         </label>
                         <input
                           id="deal-qty-total"
                           type="number"
-                          required
                           min={1}
-                          value={newDealForm.quantity || ""}
-                          onChange={(e) => setNewDealForm({ ...newDealForm, quantity: Math.max(1, Number(e.target.value)) })}
-                          placeholder="20"
+                          value={newDealForm.quantity}
+                          onChange={(e) => setNewDealForm({ ...newDealForm, quantity: e.target.value })}
+                          placeholder="e.g. 10"
                           className="w-full px-3.5 py-2.5 bg-surface border border-line-strong rounded-edge font-mono text-body text-ink focus:outline-none focus:border-brand-deep"
                         />
                       </div>
@@ -1592,19 +1612,18 @@ export const CRMPipelineView: React.FC = () => {
                     <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-3">
                       <div>
                         <label htmlFor="deal-unit-val" className="block text-spec font-bold text-ink mb-1.5">
-                          Unit Price ($ AUD ex GST) *
+                          Unit Price ($ AUD ex GST)
                         </label>
                         <div className="relative">
                           <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-dim font-bold">$</span>
                           <input
                             id="deal-unit-val"
                             type="number"
-                            required
                             min={0}
                             step="any"
-                            value={newDealForm.unitPrice || ""}
-                            onChange={(e) => setNewDealForm({ ...newDealForm, unitPrice: Number(e.target.value) })}
-                            placeholder="1750"
+                            value={newDealForm.unitPrice}
+                            onChange={(e) => setNewDealForm({ ...newDealForm, unitPrice: e.target.value })}
+                            placeholder="e.g. 1650"
                             className="w-full pl-8 pr-3.5 py-2.5 bg-surface border border-line-strong rounded-edge font-mono text-body text-ink focus:outline-none focus:border-brand-deep"
                           />
                         </div>
@@ -1612,16 +1631,15 @@ export const CRMPipelineView: React.FC = () => {
 
                       <div>
                         <label htmlFor="deal-qty-unit" className="block text-spec font-bold text-ink mb-1.5">
-                          Quantity (Units) *
+                          Quantity (Units)
                         </label>
                         <input
                           id="deal-qty-unit"
                           type="number"
-                          required
                           min={1}
-                          value={newDealForm.quantity || ""}
-                          onChange={(e) => setNewDealForm({ ...newDealForm, quantity: Math.max(1, Number(e.target.value)) })}
-                          placeholder="20"
+                          value={newDealForm.quantity}
+                          onChange={(e) => setNewDealForm({ ...newDealForm, quantity: e.target.value })}
+                          placeholder="e.g. 10"
                           className="w-full px-3.5 py-2.5 bg-surface border border-line-strong rounded-edge font-mono text-body text-ink focus:outline-none focus:border-brand-deep"
                         />
                       </div>
@@ -1637,9 +1655,12 @@ export const CRMPipelineView: React.FC = () => {
                           ${dealValidation.effectiveTotal.toLocaleString()}
                         </span>
                         <span className="text-spec text-ink-dim font-semibold">ex GST</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-raised text-ink-dim border border-line">
+                          {newDealForm.commercialState}
+                        </span>
                       </div>
                     </div>
-                    {newDealForm.quantity > 0 && (
+                    {Number(newDealForm.quantity) > 0 && dealValidation.effectiveTotal > 0 && (
                       <div className="text-spec font-semibold text-ink-dim">
                         <span>Approx. <strong className="text-ink">${Math.round(dealValidation.effectiveUnitPrice).toLocaleString()}</strong> / unit</span>
                       </div>

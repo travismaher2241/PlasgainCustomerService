@@ -1572,6 +1572,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logActivity = (activityData: Omit<CRMActivity, "id" | "timestamp">) => {
+    // P1: Deduplicate rapid identical technical draft / copy events (within 10 minutes)
+    const isTechnicalDraft =
+      activityData.title.toLowerCase().includes("ai email draft") ||
+      activityData.title.toLowerCase().includes("copied to clipboard");
+
+    if (isTechnicalDraft) {
+      const existingRecent = activities.find((a) => {
+        const matchesTitle = a.title === activityData.title && a.accountId === activityData.accountId;
+        const timeDiff = Math.abs(Date.now() - new Date(a.timestamp).getTime());
+        return matchesTitle && timeDiff < 10 * 60 * 1000;
+      });
+      if (existingRecent) {
+        return; // Suppress duplicate spam
+      }
+    }
+
     const newAct: CRMActivity = {
       ...activityData,
       id: `act-${Date.now()}`,

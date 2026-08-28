@@ -30,6 +30,8 @@ export interface CopilotMessage {
   role: "user" | "assistant";
   content: string;
   citations?: CopilotCitation[];
+  isError?: boolean;
+  failedPrompt?: string;
 }
 
 export const GlobalCopilot: React.FC = () => {
@@ -61,6 +63,8 @@ export const GlobalCopilot: React.FC = () => {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [copilotState, setCopilotState] = useState<"ready" | "working" | "offline" | "failed">("ready");
+  const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
   const [viewingDoc, setViewingDoc] = useState<ControlledDocument | null>(null);
 
   // Active abort controller for stream cancellation (P2-01)
@@ -146,6 +150,7 @@ export const GlobalCopilot: React.FC = () => {
     setMessages([...updatedMessages, initialAssistantMsg]);
     setInput("");
     setIsLoading(true);
+    setCopilotState("working");
 
     try {
       let streamedText = "";
@@ -177,6 +182,8 @@ export const GlobalCopilot: React.FC = () => {
             });
           },
           onComplete: (completedData) => {
+            setCopilotState("ready");
+            setLastFailedPrompt(null);
             setMessages((prev) => {
               const copy = [...prev];
               if (copy[assistantIndex]) {
@@ -202,19 +209,26 @@ export const GlobalCopilot: React.FC = () => {
           return copy;
         });
       }
+      setCopilotState("ready");
+      setLastFailedPrompt(null);
     } catch (err: any) {
       if (err?.name === "AbortError" || abortController.signal.aborted) {
         // Safe cancellation
+        setCopilotState("ready");
         return;
       }
       console.error(err);
+      setCopilotState("failed");
+      setLastFailedPrompt(textToSend);
       showToast(err?.message || "Copilot communication error", "error");
       setMessages((prev) => {
         const copy = [...prev];
         if (copy[assistantIndex]) {
           copy[assistantIndex] = {
             role: "assistant",
-            content: "I ran into a connection issue while streaming the answer. Please retry shortly."
+            content: "I ran into a connection issue while generating the answer.",
+            isError: true,
+            failedPrompt: textToSend
           };
         }
         return copy;
@@ -274,8 +288,24 @@ export const GlobalCopilot: React.FC = () => {
             <div>
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-meta">Plasgain Sales Copilot</span>
-                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-chrome text-brand-lift border border-brand-deep">
-                  STREAMING
+                <span
+                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded border uppercase tracking-wider ${
+                    copilotState === "working"
+                      ? "bg-amber-500/20 text-amber-300 border-amber-500/40 animate-pulse"
+                      : copilotState === "failed"
+                      ? "bg-red-500/20 text-red-300 border-red-500/40"
+                      : copilotState === "offline"
+                      ? "bg-slate-500/20 text-slate-300 border-slate-500/40"
+                      : "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                  }`}
+                >
+                  {copilotState === "working"
+                    ? "Working"
+                    : copilotState === "failed"
+                    ? "Failed — Retry"
+                    : copilotState === "offline"
+                    ? "Offline"
+                    : "Ready"}
                 </span>
               </div>
               <span className="text-spec text-ink-faint block truncate max-w-[200px]">
@@ -349,10 +379,27 @@ export const GlobalCopilot: React.FC = () => {
                 className={`max-w-[85%] p-3 rounded-edge leading-relaxed ${
                   m.role === "user"
                     ? "bg-brand-deep text-white rounded-br-xs"
+                    : m.isError
+                    ? "bg-red-50 text-red-900 border border-red-200 shadow-2xs rounded-bl-xs"
                     : "bg-white text-body border border-line shadow-2xs rounded-bl-xs"
                 }`}
               >
                 <div>{m.content}</div>
+
+                {/* Inline Retry Action on Failed Messages (P1) */}
+                {m.isError && (
+                  <div className="mt-2.5 pt-2 border-t border-red-200 flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-red-700 font-semibold">Response interrupted</span>
+                    <button
+                      type="button"
+                      onClick={() => handleSend(m.failedPrompt || lastFailedPrompt || "")}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded bg-red-600 hover:bg-red-700 text-white cursor-pointer transition-colors shadow-2xs"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Retry</span>
+                    </button>
+                  </div>
+                )}
 
                 {/* P2-12: Auditable Citations Pills */}
                 {m.citations && m.citations.length > 0 && (

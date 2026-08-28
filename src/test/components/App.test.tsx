@@ -3,12 +3,13 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 import App from '../../App';
 
-describe('Main App Component', () => {
+describe('App Component Layout and Navigation', () => {
   it('renders main layout with default home view', async () => {
     render(<App />);
 
     expect(screen.getAllByText(/PLASGAIN/i)[0]).toBeInTheDocument();
-    expect(await screen.findByRole('heading', { name: /need you today|clear/i }, { timeout: 10000 })).toBeInTheDocument();
+    const heading = await screen.findByRole('heading', { level: 1 }, { timeout: 10000 });
+    expect(heading).toHaveTextContent(/clear|attention/i);
   }, 15000);
 
   it('switches tabs smoothly via sidebar navigation', async () => {
@@ -18,7 +19,7 @@ describe('Main App Component', () => {
     const crmNav = screen.getByRole('button', { name: /CRM Command Centre/i });
     fireEvent.click(crmNav);
 
-    expect(await screen.findByText(/Today's Focus|Today \/ Focus/i, {}, { timeout: 10000 })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /Deals Pipeline/i }, { timeout: 10000 })).toBeInTheDocument();
 
     // Click Tools Hub
     const toolsNav = screen.getByRole('button', { name: /^Tools$/i });

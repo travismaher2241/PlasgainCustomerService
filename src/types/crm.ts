@@ -145,6 +145,10 @@ export interface CRMLead {
   enquiryType: "Solar Pathway Lighting" | "Roadway & Streetlight" | "Car Park & Area" | "CCTV & Security" | "Composite Poles" | "General";
   productInterest: string[];
   estimatedValue: number;
+  estimatedValueBasis?: "Known" | "Estimate" | "Unknown";
+  territory?: "NSW/ACT" | "VIC/TAS" | "QLD/NT" | "WA" | "SA" | "National";
+  consentStatus?: "Consent Confirmed" | "Legitimate Interest" | "Pending Consent" | "Opted Out";
+  isDraft?: boolean;
   assignedSalesperson: string;
   leadStatus: LeadStatus;
   leadScore: number;
@@ -219,6 +223,8 @@ export interface CRMOpportunity {
   stageId: string;
   stageName: string;
   dealValue: number;
+  dealValueBasis?: "Known" | "Estimate" | "Unknown";
+  isDraft?: boolean;
   totalCostValue?: number;
   grossMarginPercent?: number;
   weightedValue: number;
@@ -273,6 +279,9 @@ export interface CRMActivity {
   performedBy: string;
   authorId?: string;
   isImmutable?: boolean;
+  outcome?: string;
+  nextAction?: string;
+  nextActionDate?: string;
   timestamp: string;
   metadata?: {
     callDurationMinutes?: number;

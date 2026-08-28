@@ -10,6 +10,17 @@ export interface ControlledDocument {
   reviewExpiryDate: string;
   source: string;
   uploader: string;
+  versionOwner?: string;
+  checksum?: string;
+  fileSizeBytes?: number;
+  mimeType?: string;
+  fileName?: string;
+  isExternalMetadataOnly?: boolean;
+  validationResult?: {
+    isValid: boolean;
+    checkedAt: string;
+    notes: string;
+  };
   approvalStatus: "Draft" | "Pending Review" | "Approved" | "Superseded" | "Expired" | "Rejected";
   supersededById?: string;
   fileUrl: string;

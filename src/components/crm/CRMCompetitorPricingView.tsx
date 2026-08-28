@@ -43,7 +43,7 @@ export const CRMCompetitorPricingView: React.FC = () => {
   const [priceBasisFilter, setPriceBasisFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
 
-  // Modal State
+  // Modal State (P1: Zero Fabrication Defaults)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<CompetitorPricingRecord | null>(null);
   const [formState, setFormState] = useState({
@@ -52,7 +52,7 @@ export const CRMCompetitorPricingView: React.FC = () => {
     opportunityName: "",
     competitorName: "",
     competitorProduct: "",
-    price: 1850,
+    price: "" as string | number,
     plasgainQuotedPrice: "" as string | number,
     currency: "AUD",
     priceBasis: "Per Unit" as CompetitorPriceBasis,
@@ -97,7 +97,7 @@ export const CRMCompetitorPricingView: React.FC = () => {
       opportunityName: "",
       competitorName: "",
       competitorProduct: "",
-      price: 1850,
+      price: "",
       plasgainQuotedPrice: "",
       currency: "AUD",
       priceBasis: "Per Unit",
@@ -554,8 +554,9 @@ export const CRMCompetitorPricingView: React.FC = () => {
                     step="0.01"
                     min="0.01"
                     required
+                    placeholder="e.g. 1850.00"
                     value={formState.price}
-                    onChange={(e) => setFormState({ ...formState, price: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => setFormState({ ...formState, price: e.target.value })}
                     className="w-full p-2 bg-paper rounded-edge border border-line font-bold text-urgent text-meta"
                   />
                 </div>

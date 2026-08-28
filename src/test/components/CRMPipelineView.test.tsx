@@ -163,11 +163,11 @@ describe('CRM Deals Pipeline (Table-Only) & Navigation Suite', () => {
     // Test Per Unit mode toggle
     const perUnitBtn = screen.getByRole('button', { name: /Per Unit \(\$\/ea\)/i });
     fireEvent.click(perUnitBtn);
-    expect(screen.getByLabelText(/Unit Price \(\$ AUD ex GST\) \*/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Unit Price \(\$ AUD ex GST\)/i)).toBeInTheDocument();
 
     // Enter unit price and qty
-    const unitPriceInput = screen.getByLabelText(/Unit Price \(\$ AUD ex GST\) \*/i);
-    const qtyInput = screen.getByLabelText(/Quantity \(Units\) \*/i);
+    const unitPriceInput = screen.getByLabelText(/Unit Price \(\$ AUD ex GST\)/i);
+    const qtyInput = screen.getByLabelText(/Quantity \(Units\)/i);
     fireEvent.change(unitPriceInput, { target: { value: '2000' } });
     fireEvent.change(qtyInput, { target: { value: '10' } });
 

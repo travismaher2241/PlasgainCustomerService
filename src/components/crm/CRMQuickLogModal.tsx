@@ -124,7 +124,7 @@ export const CRMQuickLogModal: React.FC = () => {
     logActivity({
       type,
       title: title.trim(),
-      description: description.trim(),
+      description: description.trim() || `Recorded ${type} with ${targetContact ? `${targetContact.firstName} ${targetContact.lastName}` : targetAccount?.name || "client"}. Outcome: ${outcome}.`,
       accountId: targetAccount?.id,
       accountName: targetAccount?.name,
       opportunityId: targetOpp?.id,
@@ -132,6 +132,11 @@ export const CRMQuickLogModal: React.FC = () => {
       contactId: targetContact?.id,
       contactName: targetContact ? `${targetContact.firstName} ${targetContact.lastName}` : undefined,
       performedBy: currentUser.name,
+      authorId: currentUser.id,
+      isImmutable: true,
+      outcome,
+      nextAction: scheduleFollowUp ? `Follow-up required by ${followUpDate}` : undefined,
+      nextActionDate: scheduleFollowUp ? followUpDate : undefined,
       metadata: {
         outcome
       }
