@@ -97,7 +97,7 @@ export const CRMQuickLogModal: React.FC = () => {
       setIsTitleManuallyEdited(false);
       setDescription("");
       setOutcome("Connected / Positive");
-      setScheduleFollowUp(true);
+      setScheduleFollowUp(false);
       setFollowUpDate(addDaysLocal(3));
       setModalMode("log");
 

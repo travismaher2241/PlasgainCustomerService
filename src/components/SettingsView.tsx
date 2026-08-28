@@ -59,10 +59,6 @@ export const SettingsView: React.FC = () => {
 
   const handleResetData = async () => {
     await clearAllWorkspaceData();
-    showToast("Workspace & cloud data cleared", "info");
-    setTimeout(() => {
-      window.location.reload();
-    }, 400);
   };
 
   return (

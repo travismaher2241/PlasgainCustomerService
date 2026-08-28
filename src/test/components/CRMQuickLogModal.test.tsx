@@ -87,17 +87,18 @@ describe('CRMQuickLogModal Component', () => {
 
     fireEvent.click(screen.getByTestId('open-log-btn'));
 
-    // Check follow-up controls
+    // Check follow-up controls (default is false)
+    expect(screen.getByLabelText(/Schedule follow-up/i)).not.toBeChecked();
+    expect(screen.queryByLabelText(/Follow-up due date/i)).not.toBeInTheDocument();
+
+    // Toggle follow-up on
+    fireEvent.click(screen.getByLabelText(/Schedule follow-up/i));
     expect(screen.getByLabelText(/Schedule follow-up/i)).toBeChecked();
     expect(screen.getByLabelText(/Follow-up due date/i)).toBeInTheDocument();
 
     expect(screen.getByRole('button', { name: /Tomorrow/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /In 2 days/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /In 1 week/i })).toBeInTheDocument();
-
-    // Toggle follow-up off
-    fireEvent.click(screen.getByLabelText(/Schedule follow-up/i));
-    expect(screen.queryByLabelText(/Follow-up due date/i)).not.toBeInTheDocument();
   });
 
   it('submits activity log successfully and creates follow-up task when checked', () => {

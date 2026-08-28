@@ -486,15 +486,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Known sample prefixes to permanently filter and purge from legacy caches and Firestore
-  const KNOWN_SAMPLE_PREFIXES = ["acc-00", "opp-00", "lead-00", "con-00", "task-00", "act-00", "comp-00", "notif-"];
+  const KNOWN_SAMPLE_PREFIXES = ["acc-00", "opp-00", "lead-00", "con-00", "task-00", "act-00", "comp-00", "notif-", "sample-"];
 
   const isSampleRecord = (item: any): boolean => {
     if (!item) return false;
+    if (item.isSample === true) return true;
     const id = String(item.id || "").toLowerCase();
     const accountId = String(item.accountId || "").toLowerCase();
     const dealId = String(item.dealId || item.opportunityId || "").toLowerCase();
+    const title = String(item.title || item.name || "").toLowerCase();
 
-    return KNOWN_SAMPLE_PREFIXES.some((p) => id.startsWith(p) || accountId.startsWith(p) || dealId.startsWith(p));
+    if (KNOWN_SAMPLE_PREFIXES.some((p) => id.startsWith(p) || accountId.startsWith(p) || dealId.startsWith(p))) {
+      return true;
+    }
+
+    if (title === "call with client" || title === "follow-up: call with client" || title === "account note: client") {
+      return true;
+    }
+
+    return false;
   };
 
   // Load Relational CRM Data from LocalStorage (with sample filtering)
@@ -1326,7 +1336,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const clearAllWorkspaceData = async () => {
-    localStorage.clear();
+    // 1. Immediately zero-out React state
     setAccounts([]);
     setCrmOpportunities([]);
     setContacts([]);
@@ -1339,17 +1349,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setSelectedCrmOpportunityId(null);
     setSelectedOpportunityId(null);
 
-    // Purge all Firestore collections
-    await Promise.all([
-      clearCollectionFromCloud("crm_accounts"),
-      clearCollectionFromCloud("crm_deals"),
-      clearCollectionFromCloud("crm_contacts"),
-      clearCollectionFromCloud("crm_leads"),
-      clearCollectionFromCloud("crm_activities"),
-      clearCollectionFromCloud("crm_tasks"),
-      clearCollectionFromCloud("opportunities"),
-      clearCollectionFromCloud("competitor_pricing")
-    ]);
+    // 2. Clear localStorage and write empty arrays so no key resurrects defaults
+    localStorage.clear();
+    localStorage.setItem("plasgain_crm_accounts", "[]");
+    localStorage.setItem("plasgain_crm_deals", "[]");
+    localStorage.setItem("plasgain_crm_contacts", "[]");
+    localStorage.setItem("plasgain_crm_leads", "[]");
+    localStorage.setItem("plasgain_crm_activities", "[]");
+    localStorage.setItem("plasgain_crm_tasks", "[]");
+    localStorage.setItem("plasgain_notifications", "[]");
+    localStorage.setItem("plasgain_competitor_pricing", "[]");
+    localStorage.setItem("plasgain_opportunities", "[]");
+
+    // 3. Purge all Firestore collections
+    try {
+      await Promise.all([
+        clearCollectionFromCloud("crm_accounts"),
+        clearCollectionFromCloud("crm_deals"),
+        clearCollectionFromCloud("crm_contacts"),
+        clearCollectionFromCloud("crm_leads"),
+        clearCollectionFromCloud("crm_activities"),
+        clearCollectionFromCloud("crm_tasks"),
+        clearCollectionFromCloud("opportunities"),
+        clearCollectionFromCloud("competitor_pricing")
+      ]);
+    } catch (err) {
+      console.warn("[Firebase] Error during clearAllWorkspaceData cloud purge:", err);
+    }
 
     showToast("Workspace & cloud data completely cleared", "info");
   };
