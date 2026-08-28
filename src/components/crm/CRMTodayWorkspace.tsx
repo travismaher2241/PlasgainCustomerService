@@ -396,17 +396,17 @@ export const CRMTodayWorkspace: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto pb-12">
+    <div className="space-y-4 max-w-7xl mx-auto pb-12 w-full min-w-0">
       {/* 1. Compact Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-3 border-b border-line">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-3 border-b border-line w-full min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="text-xl font-bold text-ink tracking-tight">Today's Focus</h1>
           <p className="text-spec text-ink-dim mt-0.5">
             {formattedToday} · Here's what needs your attention.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap shrink-0">
           <button
             type="button"
             onClick={() => openQuickLog("task")}
@@ -427,15 +427,15 @@ export const CRMTodayWorkspace: React.FC = () => {
       </div>
 
       {/* 2. Needs Attention Filter Strip (Responsive wrap, no horizontal swipe) */}
-      <div className="flex flex-wrap items-center gap-1.5 py-0.5">
+      <div className="flex flex-wrap items-center gap-1.5 py-0.5 w-full min-w-0">
         <span className="text-spec font-semibold text-ink-dim uppercase tracking-[0.08em] shrink-0 mr-1 hidden sm:inline">
           Needs attention:
         </span>
 
         {overdueTasksCount === 0 && followUpsDueCount === 0 && quotesAwaitingCount === 0 && newLeadsCount === 0 ? (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-spec font-bold bg-brand-wash text-brand-deep border border-brand-edge">
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-spec font-bold bg-brand-wash text-brand-deep border border-brand-edge">
             <CheckCircle2 className="w-3.5 h-3.5" />
-            <span>✓ No overdue work · All caught up</span>
+            <span>✓ No overdue work</span>
           </div>
         ) : (
           <>

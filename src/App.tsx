@@ -41,8 +41,8 @@ const MainLayout: React.FC = () => {
         <Header onToggleMobileMenu={() => setMobileMenuOpen(true)} />
 
         {/* Dynamic Main Workspace Stage */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          <div className="max-w-7xl mx-auto w-full">
+        <main className={`flex-1 overflow-y-auto ${activeTab === "crm" ? "p-0" : "p-4 sm:p-6 lg:p-8"}`}>
+          <div className={`${activeTab === "crm" ? "w-full min-w-0" : "max-w-7xl mx-auto w-full min-w-0"}`}>
             <Suspense fallback={<ViewLoadingFallback />}>
               {activeTab === "home" && <HomeDashboard />}
               {activeTab === "crm" && <CRMCommandCenter />}

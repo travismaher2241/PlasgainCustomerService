@@ -232,7 +232,7 @@ export const CRMCompetitorPricingView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 max-w-7xl mx-auto pb-16 w-full min-w-0">
       
       {/* Top Banner & Actions */}
       <div className="bg-white p-6 rounded-panel border border-line shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">

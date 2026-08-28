@@ -272,10 +272,10 @@ export const CRMPipelineView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto pb-16">
+    <div className="space-y-4 max-w-7xl mx-auto pb-16 w-full min-w-0">
       {/* 1. Page Header & Primary Action */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-line">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-line w-full min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="text-xl font-bold text-ink tracking-tight">Deals Pipeline</h1>
           <p className="text-spec text-ink-dim mt-0.5">
             Manage opportunities from enquiry through to close.
