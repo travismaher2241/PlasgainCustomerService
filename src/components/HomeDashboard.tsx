@@ -6,26 +6,17 @@ import {
   FileText,
   PhoneCall,
   ClipboardCheck,
-  Clock,
-  AlertCircle,
   CheckCircle2,
   ArrowRight,
   Sparkles,
   Layers,
-  Building,
-  Calendar,
   ChevronDown,
   Mail,
-  Scale,
   KanbanSquare,
   ShieldCheck,
-  TrendingUp,
-  Filter,
-  Check,
-  UserCheck,
   Briefcase
 } from "lucide-react";
-import { useApp, ToolSubTab } from "../context/AppContext";
+import { useApp } from "../context/AppContext";
 import { Surface, ListRow, Chip, Tone } from "./ui/Surface";
 import { Opportunity } from "../types";
 import { isDueWithinBusinessDays } from "../utils/dateUtils";
@@ -33,7 +24,7 @@ import { isDueWithinBusinessDays } from "../utils/dateUtils";
 export type UserRole = "customer_service" | "sales" | "sales_manager" | "technical";
 
 const SECONDARY_BTN =
-  "px-2.5 py-1.5 rounded-edge text-meta font-medium text-ink-dim border border-line-strong hover:text-ink hover:border-ink-faint transition-colors cursor-pointer items-center gap-1.5 whitespace-nowrap flex";
+  "min-h-[44px] px-3 py-2 sm:min-h-0 sm:px-2.5 sm:py-1.5 rounded-edge text-meta font-medium text-ink-dim border border-line-strong hover:text-ink hover:border-ink-faint transition-colors cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap flex";
 
 export const HomeDashboard: React.FC = () => {
   const {
@@ -42,7 +33,6 @@ export const HomeDashboard: React.FC = () => {
     opportunities,
     setSelectedOpportunityId,
     openQuickLog,
-    showToast,
     currentUser
   } = useApp();
 
@@ -52,15 +42,6 @@ export const HomeDashboard: React.FC = () => {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
   const [isMoreToolsOpen, setIsMoreToolsOpen] = useState(false);
 
-  // Time-aware greeting
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
-  }, []);
-
-  // Category counts based on actual opportunities data
   // Helper to format due date readable
   const formatDeadline = (dateStr?: string) => {
     if (!dateStr) return null;
@@ -72,7 +53,6 @@ export const HomeDashboard: React.FC = () => {
     }
   };
 
-  // --- Urgency -------------------------------------------------------------
   // Whole days from today to the quote deadline. Negative means overdue.
   const daysUntilDeadline = (dateStr?: string): number | null => {
     if (!dateStr) return null;
@@ -94,7 +74,7 @@ export const HomeDashboard: React.FC = () => {
     return "clear";
   };
 
-  // Plain English, because "Due 25 Aug" hides that 25 Aug has already passed.
+  // Plain English deadline label
   const deadlineLabel = (opp: Opportunity): string | null => {
     const days = daysUntilDeadline(opp.quoteDeadline);
     if (days === null) return null;
@@ -117,7 +97,6 @@ export const HomeDashboard: React.FC = () => {
     return counts;
   }, [opportunities]);
 
-  // One example per bucket, so each cell can say which record it means.
   const exampleFor = (u: Urgency): Opportunity | undefined =>
     opportunities.find((o) => urgencyOf(o) === u);
 
@@ -127,12 +106,11 @@ export const HomeDashboard: React.FC = () => {
     if (totalNeedingAction === 0) return "Nothing is overdue and no quote deadline falls inside three days.";
     if (urgencyCounts.overdue > 0) {
       const n = urgencyCounts.overdue;
-      return `${n} quote${n === 1 ? " is" : "s are"} already overdue. Sorted by deadline, then by what is blocking the quote.`;
+      return `${n} quote${n === 1 ? " is" : "s are"} already overdue. Sorted by deadline, then by blockers.`;
     }
-    return "Sorted by deadline, then by what is blocking the quote.";
+    return "Sorted by deadline, then by quote stage.";
   };
 
-  // Urgency is Home's domain language; Tone is the shared visual vocabulary.
   const TONE: Record<Urgency, Tone> = {
     overdue: "urgent",
     soon: "soon",
@@ -140,8 +118,7 @@ export const HomeDashboard: React.FC = () => {
     clear: "neutral"
   };
 
-
-  // P1-15: Pending Quotes KPI calculated using real 5-business-day deadlines (excluding weekends)
+  // Pending Quotes KPI calculated using real 5-business-day deadlines
   const pendingQuotesDue5BusinessDays = useMemo(() => {
     return opportunities.filter(
       (opp) =>
@@ -151,19 +128,19 @@ export const HomeDashboard: React.FC = () => {
     );
   }, [opportunities]);
 
-  // P1-16: Role-specific prioritisation explanation helper
+  // Role-specific prioritisation explanation helper
   const getPrioritisationExplanation = (opp: Opportunity, role: UserRole): string => {
     const days = daysUntilDeadline(opp.quoteDeadline);
     const valueStr = opp.estimatedValue > 0 ? `$${opp.estimatedValue.toLocaleString()}` : "";
 
     switch (role) {
       case "sales":
-        if (days !== null && days < 0) return `Quote overdue by ${Math.abs(days)} day(s) — commercial closing urgency for ${valueStr}`;
+        if (days !== null && days < 0) return `Quote overdue by ${Math.abs(days)} day(s) — commercial urgency (${valueStr})`;
         if (days !== null && days <= 5) return `Quote due in ${days} business day(s) — priority tender pricing (${valueStr})`;
-        return `Active commercial opportunity — pipeline value ${valueStr || "standard"}`;
+        return `Active commercial opportunity — value ${valueStr || "standard"}`;
 
       case "technical":
-        if (opp.stage === "Technical Review") return `Engineering review active — AS/NZS 1158 Dialux calculation & compliance statement required`;
+        if (opp.stage === "Technical Review") return `Engineering review active — AS/NZS 1158 Dialux calculation required`;
         if (opp.productsConsidered && opp.productsConsidered.length > 0) return `Technical scope: ${opp.productsConsidered.length} luminaire / pole specifications`;
         return `Engineering compliance & photometric verification`;
 
@@ -203,8 +180,6 @@ export const HomeDashboard: React.FC = () => {
   }, [opportunities, pendingQuotesDue5BusinessDays]);
 
   // Priority item scoring & filtering based on role and selected attention filter
-  // The queue is ordered by urgency first — an overdue quote outranks anything
-  // the role lens would otherwise surface. The lens then breaks ties.
   const priorityItems = useMemo(() => {
     let list = [...opportunities];
 
@@ -234,7 +209,6 @@ export const HomeDashboard: React.FC = () => {
 
     return list
       .sort((a, b) => {
-        // If a specific category filter is active, rank by urgency rank first
         if (selectedCategoryFilter) {
           const rank = URGENCY_RANK[urgencyOf(a)] - URGENCY_RANK[urgencyOf(b)];
           if (rank !== 0) return rank;
@@ -244,16 +218,13 @@ export const HomeDashboard: React.FC = () => {
           return roleTiebreak(a, b);
         }
 
-        // Default role-lens prioritisation
         if (selectedRole === "sales_manager") {
-          // Manager prioritises highest value portfolio deals first
           const valueDiff = (b.estimatedValue || 0) - (a.estimatedValue || 0);
           if (valueDiff !== 0) return valueDiff;
           return URGENCY_RANK[urgencyOf(a)] - URGENCY_RANK[urgencyOf(b)];
         }
 
         if (selectedRole === "technical") {
-          // Technical prioritises Technical Review and Dialux verification first
           const tRank = (o: Opportunity) => (o.stage === "Technical Review" ? 0 : o.productsConsidered?.length ? 1 : 2);
           const diff = tRank(a) - tRank(b);
           if (diff !== 0) return diff;
@@ -261,7 +232,6 @@ export const HomeDashboard: React.FC = () => {
         }
 
         if (selectedRole === "customer_service") {
-          // Customer Service prioritises Inbound Enquiries and Customer Blockers first
           const csRank = (o: Opportunity) => {
             if (o.stage === "New Enquiry") return 0;
             if (o.stage === "Awaiting Information" || o.status === "Pending Customer") return 1;
@@ -273,7 +243,6 @@ export const HomeDashboard: React.FC = () => {
           return URGENCY_RANK[urgencyOf(a)] - URGENCY_RANK[urgencyOf(b)];
         }
 
-        // Sales default: urgency (overdue / soon) then imminent deadline then deal value
         const rank = URGENCY_RANK[urgencyOf(a)] - URGENCY_RANK[urgencyOf(b)];
         if (rank !== 0) return rank;
         const da = daysUntilDeadline(a.quoteDeadline);
@@ -310,35 +279,52 @@ export const HomeDashboard: React.FC = () => {
     openQuickLog("follow_up", undefined, opp.id);
   };
 
-
-
   return (
-    <div className="space-y-7 max-w-7xl mx-auto">
-      {/* 1. SITUATION — states what is actually true, in display type */}
-      <section className="relative overflow-hidden pb-6 border-b border-line">
-        {/* Lux pool: light falling from a luminaire. The one decorative move. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -left-[10%] -top-[60%] right-[30%] h-64 bg-[radial-gradient(ellipse_50%_100%_at_30%_0%,var(--color-brand-wash),transparent_72%)]"
-        ></div>
-
-        <div className="relative flex flex-col lg:flex-row lg:items-end lg:justify-between gap-5">
-          <div className="min-w-0">
-            <h1 className="text-head sm:text-display font-semibold">
-              {totalNeedingAction === 0 ? (
-                <>You&apos;re <span className="text-brand-deep">clear</span>{firstName ? `, ${firstName}` : ""}.</>
-              ) : (
-                <>
-                  {totalNeedingAction} thing{totalNeedingAction === 1 ? "" : "s"} need you{" "}
-                  <span className="text-brand-deep">today</span>.
-                </>
-              )}
+    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto pb-12">
+      {/* 1. TOP HEADER & COMPACT STATUS BANNER */}
+      <section className="space-y-3 pb-3 border-b border-line">
+        {/* Status Strip: Compact on zero-state */}
+        {totalNeedingAction === 0 ? (
+          <div className="flex items-center gap-2 p-3 bg-emerald-50 border border-emerald-200 rounded-edge text-meta">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <h1 className="font-bold text-emerald-950 text-base sm:text-lead inline">
+                You&apos;re clear{firstName ? `, ${firstName}` : ""}.
+              </h1>
+              <span className="text-emerald-800 ml-1.5 hidden xs:inline">
+                Nothing overdue or due soon.
+              </span>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-1">
+            <h1 className="text-xl sm:text-head font-bold text-ink tracking-tight">
+              {totalNeedingAction} item{totalNeedingAction === 1 ? "" : "s"} need you today
             </h1>
-            <p className="mt-2 text-meta text-ink-dim max-w-[60ch]">{situation()}</p>
+            <p className="text-spec text-ink-dim">{situation()}</p>
+          </div>
+        )}
+
+        {/* Responsive Role / Department View Selector */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-1">
+          {/* Mobile Dropdown Selector (< 640px) */}
+          <div className="flex sm:hidden items-center gap-2 w-full">
+            <span className="text-spec font-bold uppercase text-ink-dim shrink-0">View:</span>
+            <select
+              value={selectedRole}
+              onChange={(e) => setSelectedRole(e.target.value as UserRole)}
+              aria-label="Select department view"
+              className="text-spec font-bold text-ink bg-white border border-line rounded-edge px-3 py-2 focus:outline-none focus:border-brand-deep cursor-pointer flex-1 min-h-[44px]"
+            >
+              <option value="customer_service">Customer Service</option>
+              <option value="sales">Sales</option>
+              <option value="technical">Technical</option>
+              <option value="sales_manager">Management</option>
+            </select>
           </div>
 
-          {/* Role lens — tabs, not pill toggles */}
-          <div className="flex shrink-0" role="group" aria-label="View lens">
+          {/* Desktop Segmented Buttons (>= 640px) */}
+          <div className="hidden sm:flex shrink-0 border border-line rounded-edge overflow-hidden bg-raised p-0.5" role="group" aria-label="Department view tabs">
             {([
               ["customer_service", "Customer Service"],
               ["sales", "Sales"],
@@ -349,106 +335,99 @@ export const HomeDashboard: React.FC = () => {
                 key={role}
                 onClick={() => setSelectedRole(role)}
                 aria-pressed={selectedRole === role}
-                className={`u-eyebrow px-3 py-2 border cursor-pointer transition-colors ${
+                className={`px-3 py-1.5 text-spec font-bold rounded cursor-pointer transition-all ${
                   selectedRole === role
-                    ? "bg-surface text-body border-line border-b-surface"
-                    : "bg-transparent text-ink-faint border-transparent border-b-line hover:text-ink"
+                    ? "bg-white text-body shadow-xs text-brand-deep"
+                    : "text-ink-dim hover:text-ink bg-transparent"
                 }`}
               >
                 {label}
               </button>
             ))}
           </div>
-        </div>
-      </section>
 
-      {/* 2. URGENCY STRIP — derived from deadlines, not pipeline stage */}
-      <section aria-labelledby="urgency-heading">
-        <h2 id="urgency-heading" className="sr-only">
-          Work by urgency
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-px bg-line border border-line">
-          {([
-            ["overdue", "Overdue", "overdue"],
-            ["soon", "Due within 3 days", "soon"],
-            ["hold", "With customer", "hold"]
-          ] as [Urgency, string, string][]).map(([key, label, filterKey]) => {
-            const count = urgencyCounts[key as "overdue" | "soon" | "hold"];
-            const example = exampleFor(key);
-            const isActive = selectedCategoryFilter === filterKey;
-            return (
-              <button
-                key={key}
-                onClick={() => toggleCategoryFilter(filterKey)}
-                aria-pressed={isActive}
-                disabled={count === 0}
-                className={`text-left px-4 py-3.5 flex flex-col gap-1 transition-colors ${
-                  count === 0
-                    ? "bg-surface cursor-default"
-                    : isActive
-                    ? "bg-raised cursor-pointer ring-1 ring-inset ring-brand-edge"
-                    : "bg-surface hover:bg-raised cursor-pointer"
-                }`}
-              >
-                <div className="flex items-baseline gap-2">
-                  <span
-                    className={`u-data text-head leading-none font-medium ${
-                      count === 0
-                        ? "text-ink-faint"
-                        : key === "overdue"
-                        ? "text-urgent"
-                        : key === "soon"
-                        ? "text-soon"
-                        : "text-hold"
-                    }`}
-                  >
-                    {count}
-                  </span>
-                  <span className="u-eyebrow text-ink-dim">{label}</span>
-                </div>
-                <span className="text-spec text-ink-faint truncate">
-                  {count === 0
-                    ? "Nothing here"
-                    : example
-                    ? `${example.project}${
-                        deadlineLabel(example) ? " — " + deadlineLabel(example) : ""
-                      }`
-                    : ""}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
+          {/* Active Category Filter Chips (if problems exist) */}
+          {totalNeedingAction > 0 && (
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {urgencyCounts.overdue > 0 && (
+                <button
+                  type="button"
+                  onClick={() => toggleCategoryFilter("overdue")}
+                  className={`px-2.5 py-1 rounded-full text-spec font-bold transition-all cursor-pointer ${
+                    selectedCategoryFilter === "overdue"
+                      ? "bg-urgent text-white"
+                      : "bg-urgent-wash text-urgent hover:bg-urgent hover:text-white"
+                  }`}
+                >
+                  🔴 {urgencyCounts.overdue} Overdue
+                </button>
+              )}
 
-      {/* 3. PRIORITY QUEUE — one surface, ruled rows, severity stripe */}
-      <section aria-labelledby="queue-heading">
-        <div className="flex items-baseline gap-3 mb-3">
-          <h2 id="queue-heading" className="text-lead font-semibold">
-            Priority queue
-          </h2>
-          <span className="u-data text-spec text-ink-faint uppercase tracking-[0.09em]">
-            {priorityItems.length} {priorityItems.length === 1 ? "record" : "records"}
-          </span>
-          {selectedCategoryFilter && (
-            <button
-              onClick={() => setSelectedCategoryFilter(null)}
-              className="text-spec text-brand-deep hover:underline font-medium cursor-pointer"
-            >
-              Clear filter
-            </button>
+              {urgencyCounts.soon > 0 && (
+                <button
+                  type="button"
+                  onClick={() => toggleCategoryFilter("soon")}
+                  className={`px-2.5 py-1 rounded-full text-spec font-bold transition-all cursor-pointer ${
+                    selectedCategoryFilter === "soon"
+                      ? "bg-soon text-white"
+                      : "bg-soon-wash text-soon hover:bg-soon hover:text-white"
+                  }`}
+                >
+                  🟠 {urgencyCounts.soon} Due soon
+                </button>
+              )}
+
+              {urgencyCounts.hold > 0 && (
+                <button
+                  type="button"
+                  onClick={() => toggleCategoryFilter("hold")}
+                  className={`px-2.5 py-1 rounded-full text-spec font-bold transition-all cursor-pointer ${
+                    selectedCategoryFilter === "hold"
+                      ? "bg-hold text-white"
+                      : "bg-hold-wash text-hold hover:bg-hold hover:text-white"
+                  }`}
+                >
+                  🟣 {urgencyCounts.hold} With customer
+                </button>
+              )}
+
+              {selectedCategoryFilter && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategoryFilter(null)}
+                  className="px-2 py-0.5 text-[11px] font-bold text-ink-dim hover:text-ink underline cursor-pointer"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           )}
+        </div>
+      </section>
+
+      {/* 2. PRIORITY QUEUE — Moved High Up for Immediate Focus */}
+      <section aria-labelledby="queue-heading" className="space-y-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-baseline gap-2">
+            <h2 id="queue-heading" className="text-base sm:text-lead font-bold text-ink">
+              Priority queue
+            </h2>
+            <span className="text-spec font-bold text-ink-dim">
+              ({priorityItems.length} {priorityItems.length === 1 ? "record" : "records"})
+            </span>
+          </div>
+
           <button
             onClick={() => navigateToCRM("pipeline")}
-            className="ml-auto text-meta font-medium text-brand-deep hover:underline flex items-center gap-1 cursor-pointer"
+            className="text-spec font-bold text-brand-deep hover:underline flex items-center gap-1 cursor-pointer shrink-0 min-h-[44px] sm:min-h-0 py-2 sm:py-0"
           >
-            <span>All deals pipeline</span>
+            <span>View all deals</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
 
         {priorityItems.length > 0 ? (
-          <Surface>
+          <Surface className="divide-y divide-line overflow-hidden rounded-panel border border-line">
             {priorityItems.map((opp) => {
               const urgency = urgencyOf(opp);
               const label = deadlineLabel(opp);
@@ -459,97 +438,112 @@ export const HomeDashboard: React.FC = () => {
                   key={opp.id}
                   tone={TONE[urgency]}
                   actions={
-                    <>
+                    <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap w-full sm:w-auto mt-2 sm:mt-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-line/60 justify-end">
                       <button
                         onClick={() => handlePrepCall(opp.id)}
                         className={SECONDARY_BTN}
                         title="Prepare AI call script & questions"
                       >
-                        <PhoneCall className="w-3 h-3" />
+                        <PhoneCall className="w-3.5 h-3.5" />
                         <span>Prep call</span>
                       </button>
 
                       {canReview ? (
                         <button
                           onClick={() => handleReviewQuote(opp.id)}
-                          className={`${SECONDARY_BTN} hidden sm:flex`}
+                          className={SECONDARY_BTN}
                           title="Review quote parameters against specs"
                         >
-                          <ClipboardCheck className="w-3 h-3" />
+                          <ClipboardCheck className="w-3.5 h-3.5" />
                           <span>Review</span>
                         </button>
                       ) : (
                         <button
                           onClick={() => handleFollowUp(opp)}
-                          className={`${SECONDARY_BTN} hidden sm:flex`}
+                          className={SECONDARY_BTN}
                           title="Log or schedule follow-up"
                         >
-                          <Mail className="w-3 h-3" />
+                          <Mail className="w-3.5 h-3.5" />
                           <span>Follow-up</span>
                         </button>
                       )}
 
                       <button
                         onClick={() => handleOpenOpportunity(opp.id)}
-                        className="px-3 py-1.5 rounded-edge text-meta font-semibold text-white bg-brand-deep border border-brand-deep hover:bg-brand hover:border-brand transition-colors cursor-pointer whitespace-nowrap"
+                        className="min-h-[44px] px-4 py-2 sm:min-h-0 sm:px-3 sm:py-1.5 rounded-edge text-meta font-bold text-white bg-brand-deep border border-brand-deep hover:bg-brand hover:border-brand transition-colors cursor-pointer whitespace-nowrap shadow-2xs"
                       >
                         Open
                       </button>
-                    </>
+                    </div>
                   }
                 >
-                  <div className="flex items-center gap-2.5 flex-wrap">
-                    <h3 className="text-body font-semibold truncate">{opp.project}</h3>
-                    {label && <Chip tone={TONE[urgency]}>{label}</Chip>}
-                    <Chip>{opp.stage}</Chip>
-                    {opp.estimatedValue > 0 && (
-                      <span className="u-data text-meta text-ink-dim">
-                        ${opp.estimatedValue.toLocaleString()}
-                      </span>
-                    )}
-                  </div>
+                  <div className="space-y-1.5 min-w-0">
+                    {/* Top Row: Opportunity Name & Value */}
+                    <div className="flex items-start justify-between gap-2">
+                      <h3 className="text-body font-bold text-ink line-clamp-2 leading-snug">
+                        {opp.project}
+                      </h3>
+                      {opp.estimatedValue > 0 && (
+                        <span className="text-body font-bold text-brand-deep shrink-0">
+                          ${opp.estimatedValue.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
 
-                  <p className="mt-1.5 text-meta text-ink-dim flex flex-wrap items-baseline gap-x-2">
-                    <span className="font-medium text-ink">{opp.customerCompany}</span>
-                    <span className="text-ink-faint">·</span>
-                    <span>{opp.contactName}</span>
-                    {opp.location && (
-                      <>
-                        <span className="text-ink-faint">·</span>
-                        <span>{opp.location}</span>
-                      </>
-                    )}
-                  </p>
-
-                  {opp.nextAction && (
-                    <p className="mt-2.5 pl-3 border-l-2 border-brand-edge text-meta text-ink-dim">
-                      <span className="font-medium text-ink">Next: </span>
-                      {opp.nextAction}
+                    {/* Sub Row: Customer Company & Contact */}
+                    <p className="text-spec text-ink-dim flex flex-wrap items-center gap-x-1.5">
+                      <span className="font-semibold text-ink">{opp.customerCompany}</span>
+                      {opp.contactName && (
+                        <>
+                          <span className="text-ink-faint">·</span>
+                          <span>{opp.contactName}</span>
+                        </>
+                      )}
+                      {opp.location && (
+                        <>
+                          <span className="text-ink-faint">·</span>
+                          <span>{opp.location}</span>
+                        </>
+                      )}
                     </p>
-                  )}
 
-                  {/* P1-16: Role-specific prioritisation explanation badge */}
-                  <div className="mt-2 text-spec px-2.5 py-1 rounded bg-raised border border-line text-ink-dim flex items-center gap-1.5 flex-wrap">
-                    <span className="font-semibold text-body">Prioritisation Reason:</span>
-                    <span>{getPrioritisationExplanation(opp, selectedRole)}</span>
+                    {/* Status & Deadline Badges */}
+                    <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                      <Chip>{opp.stage}</Chip>
+                      {label && <Chip tone={TONE[urgency]}>{label}</Chip>}
+                    </div>
+
+                    {/* Next Action */}
+                    {opp.nextAction && (
+                      <p className="mt-1.5 pl-2.5 border-l-2 border-brand-edge text-spec text-ink-dim">
+                        <span className="font-bold text-ink">Next: </span>
+                        {opp.nextAction}
+                      </p>
+                    )}
+
+                    {/* Prioritisation Reason */}
+                    <div className="mt-1.5 text-[11px] px-2 py-0.5 rounded bg-raised border border-line text-ink-dim flex items-center gap-1 flex-wrap">
+                      <span className="font-bold text-body">Why this matters:</span>
+                      <span>{getPrioritisationExplanation(opp, selectedRole)}</span>
+                    </div>
                   </div>
                 </ListRow>
               );
             })}
           </Surface>
         ) : (
-          <Surface className="px-5 py-8 text-center">
-            <CheckCircle2 className="w-5 h-5 text-brand-deep mx-auto mb-2.5" />
-            <h3 className="text-body font-semibold">Nothing waiting on you</h3>
-            <p className="mt-1 text-meta text-ink-dim max-w-md mx-auto">
+          <Surface className="px-4 py-6 text-center rounded-panel border border-line">
+            <CheckCircle2 className="w-5 h-5 text-brand-deep mx-auto mb-2" />
+            <h3 className="text-body font-bold">Nothing waiting on you</h3>
+            <p className="mt-0.5 text-spec text-ink-dim max-w-md mx-auto">
               {selectedCategoryFilter
-                ? "No records in this bucket. Clear the filter to see the full queue."
+                ? "No records in this bucket. Clear filter to see all items."
                 : "No quote deadline falls inside three days and nothing is overdue."}
             </p>
             {selectedCategoryFilter && (
               <button
                 onClick={() => setSelectedCategoryFilter(null)}
-                className="mt-3 text-meta text-brand-deep font-medium hover:underline cursor-pointer"
+                className="mt-2.5 text-spec text-brand-deep font-bold hover:underline cursor-pointer"
               >
                 Clear filter
               </button>
@@ -558,19 +552,19 @@ export const HomeDashboard: React.FC = () => {
         )}
       </section>
 
-      {/* 4. COMPACT QUICK ACTIONS ROW */}
-      <section aria-labelledby="quick-actions-heading" className="space-y-2">
+      {/* 3. COMPACT QUICK ACTIONS ROW */}
+      <section aria-labelledby="quick-actions-heading" className="space-y-2 pt-2">
         <div className="flex items-center justify-between">
           <h2
             id="quick-actions-heading"
-            className="text-meta font-bold uppercase tracking-wider"
+            className="text-spec font-bold uppercase tracking-wider text-ink-dim"
           >
             Quick Actions
           </h2>
-          <span className="text-spec text-ink-faint font-medium">Common operational workflows</span>
+          <span className="text-[11px] text-ink-faint font-medium">Common operational workflows</span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
           {/* Action 1: New Enquiry */}
           <button
             onClick={() => navigateToWorkflow("new-enquiry")}
@@ -583,8 +577,8 @@ export const HomeDashboard: React.FC = () => {
               <ArrowRight className="w-3.5 h-3.5 text-ink-faint group-hover:text-brand-deep group-hover:translate-x-0.5 transition-all" />
             </div>
             <div className="mt-1">
-              <div className="text-meta font-bold group-hover:text-brand-deep">New Enquiry</div>
-              <div className="text-spec text-ink-dim truncate">Analyse customer specifications</div>
+              <div className="text-spec font-bold group-hover:text-brand-deep">New Enquiry</div>
+              <div className="text-[11px] text-ink-dim truncate">Analyse customer specifications</div>
             </div>
           </button>
 
@@ -600,8 +594,8 @@ export const HomeDashboard: React.FC = () => {
               <ArrowRight className="w-3.5 h-3.5 text-ink-faint group-hover:text-brand-deep group-hover:translate-x-0.5 transition-all" />
             </div>
             <div className="mt-1">
-              <div className="text-meta font-bold group-hover:text-brand-deep">Find Product</div>
-              <div className="text-spec text-ink-dim truncate">Match solar & commercial luminaires</div>
+              <div className="text-spec font-bold group-hover:text-brand-deep">Find Product</div>
+              <div className="text-[11px] text-ink-dim truncate">Match solar &amp; commercial luminaires</div>
             </div>
           </button>
 
@@ -617,8 +611,8 @@ export const HomeDashboard: React.FC = () => {
               <ArrowRight className="w-3.5 h-3.5 text-ink-faint group-hover:text-brand-deep group-hover:translate-x-0.5 transition-all" />
             </div>
             <div className="mt-1">
-              <div className="text-meta font-bold group-hover:text-brand-deep">Analyse Tender</div>
-              <div className="text-spec text-ink-dim truncate">Extract council RFQ standards</div>
+              <div className="text-spec font-bold group-hover:text-brand-deep">Analyse Tender</div>
+              <div className="text-[11px] text-ink-dim truncate">Extract council RFQ standards</div>
             </div>
           </button>
 
@@ -634,8 +628,8 @@ export const HomeDashboard: React.FC = () => {
               <ArrowRight className="w-3.5 h-3.5 text-ink-faint group-hover:text-brand-deep group-hover:translate-x-0.5 transition-all" />
             </div>
             <div className="mt-1">
-              <div className="text-meta font-bold group-hover:text-brand-deep">Solar Sizing</div>
-              <div className="text-spec text-ink-dim truncate">Battery autonomy & PV calculator</div>
+              <div className="text-spec font-bold group-hover:text-brand-deep">Solar Sizing</div>
+              <div className="text-[11px] text-ink-dim truncate">Battery autonomy &amp; PV calculator</div>
             </div>
           </button>
 
@@ -656,8 +650,8 @@ export const HomeDashboard: React.FC = () => {
                 />
               </div>
               <div className="mt-1">
-                <div className="text-meta font-bold">More Tools</div>
-                <div className="text-spec text-ink-dim truncate">Calculators, Catalogues, CRM...</div>
+                <div className="text-spec font-bold">More Tools</div>
+                <div className="text-[11px] text-ink-dim truncate">Calculators, Catalogues, CRM...</div>
               </div>
             </button>
 
@@ -669,17 +663,17 @@ export const HomeDashboard: React.FC = () => {
                     setIsMoreToolsOpen(false);
                     navigateToWorkflow("tools", "wind-pole-sizing");
                   }}
-                  className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
+                  className="w-full px-3.5 py-2 text-left text-spec font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
                 >
                   <ShieldCheck className="w-3.5 h-3.5 text-ink-faint" />
-                  <span>Wind Region & Pole Sizing</span>
+                  <span>Wind Region &amp; Pole Sizing</span>
                 </button>
                 <button
                   onClick={() => {
                     setIsMoreToolsOpen(false);
                     navigateToWorkflow("tools", "cable-cover-calc");
                   }}
-                  className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
+                  className="w-full px-3.5 py-2 text-left text-spec font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
                 >
                   <Layers className="w-3.5 h-3.5 text-ink-faint" />
                   <span>Polymeric Cable Cover Calc</span>
@@ -687,29 +681,19 @@ export const HomeDashboard: React.FC = () => {
                 <button
                   onClick={() => {
                     setIsMoreToolsOpen(false);
-                    navigateToWorkflow("tools", "conflict-resolver");
-                  }}
-                  className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
-                >
-                  <AlertCircle className="w-3.5 h-3.5 text-ink-faint" />
-                  <span>Conflict & Spec Resolver</span>
-                </button>
-                <button
-                  onClick={() => {
-                    setIsMoreToolsOpen(false);
                     navigateToWorkflow("documents");
                   }}
-                  className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer border-t border-line"
+                  className="w-full px-3.5 py-2 text-left text-spec font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer border-t border-line"
                 >
                   <BookOpen className="w-3.5 h-3.5 text-ink-faint" />
-                  <span>Product Catalogues & PDFs</span>
+                  <span>Product Catalogues &amp; PDFs</span>
                 </button>
                 <button
                   onClick={() => {
                     setIsMoreToolsOpen(false);
                     navigateToCRM("today");
                   }}
-                  className="w-full px-3.5 py-2 text-left text-meta font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
+                  className="w-full px-3.5 py-2 text-left text-spec font-medium hover:bg-raised hover:text-brand-deep flex items-center gap-2.5 cursor-pointer"
                 >
                   <KanbanSquare className="w-3.5 h-3.5 text-ink-faint" />
                   <span>CRM Command Centre</span>
@@ -720,65 +704,65 @@ export const HomeDashboard: React.FC = () => {
         </div>
       </section>
 
-      {/* 5. WORKLOAD & PIPELINE OVERVIEW (Quiet, Grounded Context) */}
-      <section aria-labelledby="pipeline-overview-heading" className="space-y-2">
+      {/* 4. WORKLOAD & PIPELINE OVERVIEW */}
+      <section aria-labelledby="pipeline-overview-heading" className="space-y-2 pt-2">
         <div className="flex items-center justify-between">
           <h2
             id="pipeline-overview-heading"
-            className="text-meta font-bold uppercase tracking-wider"
+            className="text-spec font-bold uppercase tracking-wider text-ink-dim"
           >
-            Pipeline & Workload Overview
+            Pipeline Overview
           </h2>
           <button
             onClick={() => navigateToCRM("pipeline")}
-            className="text-meta font-semibold text-brand-deep hover:underline cursor-pointer"
+            className="text-spec font-bold text-brand-deep hover:underline cursor-pointer"
           >
             Open Full CRM &rarr;
           </button>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           <div
             onClick={() => navigateToCRM("pipeline")}
-            className="bg-white p-3.5 rounded-panel border border-line hover:border-line-strong transition-colors cursor-pointer"
+            className="bg-white p-3 rounded-panel border border-line hover:border-line-strong transition-colors cursor-pointer shadow-2xs"
           >
-            <div className="text-spec font-semibold text-ink-dim">Active Deals</div>
-            <div className="text-xl font-black text-body mt-0.5">{opportunities.length}</div>
-            <div className="text-spec text-ink-faint mt-0.5">Across all stages</div>
+            <div className="text-[11px] font-bold text-ink-dim uppercase">Active Deals</div>
+            <div className="text-lg font-black text-body mt-0.5">{opportunities.length}</div>
+            <div className="text-[11px] text-ink-faint mt-0.5">Across all stages</div>
           </div>
 
           <div
             onClick={() => navigateToCRM("pipeline")}
-            className="bg-white p-3.5 rounded-panel border border-line hover:border-line-strong transition-colors cursor-pointer"
+            className="bg-white p-3 rounded-panel border border-line hover:border-line-strong transition-colors cursor-pointer shadow-2xs"
           >
-            <div className="text-spec font-semibold text-ink-dim">In Technical Review</div>
-            <div className="text-xl font-black text-hold mt-0.5">
+            <div className="text-[11px] font-bold text-ink-dim uppercase">Tech Review</div>
+            <div className="text-lg font-black text-hold mt-0.5">
               {attentionMetrics.techReview.length}
             </div>
-            <div className="text-spec text-ink-faint mt-0.5">Dialux / Photometrics</div>
+            <div className="text-[11px] text-ink-faint mt-0.5">Dialux / Photometrics</div>
           </div>
 
           <div
             onClick={() => navigateToCRM("pipeline")}
-            className="bg-white p-3.5 rounded-panel border border-line hover:border-line-strong transition-colors cursor-pointer"
+            className="bg-white p-3 rounded-panel border border-line hover:border-line-strong transition-colors cursor-pointer shadow-2xs"
           >
-            <div className="text-spec font-semibold text-ink-dim">Pending Quotes</div>
-            <div className="text-xl font-black text-urgent mt-0.5">
+            <div className="text-[11px] font-bold text-ink-dim uppercase">Pending Quotes</div>
+            <div className="text-lg font-black text-urgent mt-0.5">
               {attentionMetrics.quoteDueSoon.length}
             </div>
-            <div className="text-spec text-ink-faint mt-0.5">Due within 5 business days</div>
+            <div className="text-[11px] text-ink-faint mt-0.5">Due in 5 business days</div>
           </div>
 
           <div
             onClick={() => navigateToWorkflow("crm")}
-            className="bg-white p-3.5 rounded-panel border border-line hover:border-line-strong transition-colors cursor-pointer"
+            className="bg-white p-3 rounded-panel border border-line hover:border-line-strong transition-colors cursor-pointer shadow-2xs"
           >
-            <div className="text-spec font-semibold text-ink-dim">Sales Intelligence</div>
-            <div className="text-xl font-black text-brand-deep mt-0.5 flex items-center gap-1">
+            <div className="text-[11px] font-bold text-ink-dim uppercase">Standards Check</div>
+            <div className="text-lg font-black text-brand-deep mt-0.5 flex items-center gap-1">
               <span>98%</span>
-              <span className="text-meta font-semibold text-brand-deep">Healthy</span>
+              <span className="text-spec font-bold text-brand-deep">Healthy</span>
             </div>
-            <div className="text-spec text-ink-faint mt-0.5">AS/NZS 1158 Standards Checked</div>
+            <div className="text-[11px] text-ink-faint mt-0.5">AS/NZS 1158 Verified</div>
           </div>
         </div>
       </section>

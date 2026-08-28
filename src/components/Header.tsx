@@ -2,16 +2,9 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   Search,
   Sparkles,
-  Mail,
   Menu,
   Bell,
-  TrendingUp,
   Check,
-  ExternalLink,
-  X,
-  AlertTriangle,
-  Info,
-  CheckCircle2,
   Archive,
   ArrowRight
 } from "lucide-react";
@@ -84,7 +77,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
   });
 
   return (
-    <header className="h-13.5 bg-surface border-b border-line px-3 sm:px-6 flex items-center justify-between gap-3 shrink-0 sticky top-0 z-30 min-w-0">
+    <header className="h-14 bg-surface border-b border-line px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-3 shrink-0 sticky top-0 z-30 min-w-0">
+      {/* Left: Mobile Menu & Clean Page Title */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
         <button
           type="button"
@@ -94,18 +88,20 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           }}
           aria-label={isSidebarCollapsed ? "Expand navigation menu" : "Open navigation menu"}
           title="Open menu"
-          className="p-1.5 text-ink-dim hover:text-ink rounded-edge hover:bg-paper cursor-pointer shrink-0 focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none transition-colors"
+          className="min-h-[44px] min-w-[44px] p-2 text-ink-dim hover:text-ink rounded-edge hover:bg-paper cursor-pointer shrink-0 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none transition-colors"
         >
           <Menu className="w-5 h-5" />
         </button>
 
-        {/* Breadcrumb (P1-11) */}
-        <div className="flex items-center gap-1.5 text-meta text-ink-dim truncate min-w-0">
-          <span className="font-semibold text-body shrink-0">{getTabDisplayName(activeTab)}</span>
+        {/* Page Identity & Breadcrumb */}
+        <div className="flex items-center gap-1.5 text-meta text-ink-dim min-w-0">
+          <span className="font-bold text-body text-ink text-base sm:text-lead shrink-0">
+            {getTabDisplayName(activeTab)}
+          </span>
           {activeTab === "new-enquiry" && (
             <>
-              <span className="text-ink-faint px-0.5">/</span>
-              <span className="truncate text-ink font-medium">
+              <span className="text-ink-faint px-0.5 hidden xs:inline">/</span>
+              <span className="truncate text-ink font-medium hidden xs:inline">
                 {currentOpp ? currentOpp.project : "New Sales Enquiry"}
               </span>
             </>
@@ -121,46 +117,47 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0">
+      {/* Right: Actions (Streamlined on Mobile to Search + Alerts) */}
+      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
         {/* Search */}
         <button
           type="button"
           onClick={() => setIsSearchOpen(true)}
           aria-label="Open search dialog (Command-K)"
-          className="flex items-center gap-2 text-meta text-ink-faint bg-paper hover:bg-raised px-2.5 py-1.5 rounded-edge border border-line hover:border-line-strong transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none"
+          className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center gap-2 text-meta text-ink-faint bg-paper hover:bg-raised px-2.5 py-2 sm:py-1.5 rounded-edge border border-line hover:border-line-strong transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none"
         >
-          <Search className="w-3.5 h-3.5" />
+          <Search className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-ink-dim" />
           <span className="hidden sm:inline">Search specs, terms &amp; docs</span>
           <kbd className="u-data hidden sm:inline-block ml-1 px-1 text-[0.625rem] text-ink-faint border border-line-strong rounded-[2px]">
             ⌘K
           </kbd>
         </button>
 
-        {/* Global AI Email Composer Entry Point */}
+        {/* Global AI Email Composer Entry Point (Desktop Only) */}
         <button
           type="button"
           onClick={() => openEmailComposer()}
           aria-label="Write AI Email"
           title="Compose grounded AI email (Cold Outreach or Project Enquiry)"
-          className="flex items-center gap-1.5 text-meta font-bold text-brand-deep bg-brand-wash hover:bg-brand-wash/80 px-2.5 py-1.5 rounded-edge border border-brand-edge shadow-2xs transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none"
+          className="hidden sm:flex items-center gap-1.5 text-meta font-bold text-brand-deep bg-brand-wash hover:bg-brand-wash/80 px-2.5 py-1.5 rounded-edge border border-brand-edge shadow-2xs transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none"
         >
           <Sparkles className="w-3.5 h-3.5 text-brand" />
-          <span className="hidden sm:inline">Write AI Email</span>
+          <span>Write AI Email</span>
         </button>
 
-        {/* Team Notifications & Alerts Bell (P1-05 & P1-13) */}
+        {/* Team Notifications & Alerts Bell */}
         <div className="relative" ref={dropdownRef}>
           <button
             type="button"
             onClick={() => setIsAlertsOpen(!isAlertsOpen)}
             aria-label={`Team Notifications: ${unreadNotificationsCount} unread`}
             aria-expanded={isAlertsOpen}
-            className="p-2 rounded-edge text-ink-dim hover:text-ink bg-paper hover:bg-raised border border-line transition-colors relative cursor-pointer focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none"
+            className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 p-2.5 sm:p-2 rounded-edge text-ink-dim hover:text-ink bg-paper hover:bg-raised border border-line transition-colors relative cursor-pointer flex items-center justify-center focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none"
             title="Team Notifications & Operational Alerts"
           >
             <Bell className="w-4 h-4" />
             {unreadNotificationsCount > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-urgent text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs animate-pulse">
+              <span className="absolute 1 top-1 right-1 w-4 h-4 bg-urgent text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs animate-pulse">
                 {unreadNotificationsCount}
               </span>
             )}
@@ -168,11 +165,11 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
 
           {/* Alerts Dropdown Modal */}
           {isAlertsOpen && (
-            <div className="absolute right-0 mt-2 w-84 sm:w-96 bg-white rounded-panel shadow-xl border border-line overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
+            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-panel shadow-xl border border-line overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
               <div className="p-3 bg-raised border-b border-line flex items-center justify-between">
                 <div className="flex items-center gap-2 font-bold text-meta text-body">
                   <Bell className="w-4 h-4 text-brand-deep" />
-                  <span>Team Notifications & Alerts</span>
+                  <span>Team Notifications &amp; Alerts</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
@@ -200,43 +197,29 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
                     {filterTab === "unread" ? "No unread notifications." : "No active team notifications."}
                   </div>
                 ) : (
-                  displayedNotifications.slice(0, 8).map((notif) => (
+                  displayedNotifications.map((notif) => (
                     <div
                       key={notif.id}
-                      className={`p-3 space-y-1.5 transition-colors ${
-                        !notif.isRead ? "bg-brand-wash/20" : "bg-white hover:bg-raised/40"
-                      }`}
+                      className={`p-3 transition-colors ${notif.isRead ? "bg-white" : "bg-brand-wash/30"}`}
                     >
-                      <div className="flex items-center justify-between text-spec">
-                        <div className="flex items-center gap-1.5">
-                          {notif.type === "warning" && <AlertTriangle className="w-3.5 h-3.5 text-urgent" />}
-                          {notif.type === "action_required" && <CheckCircle2 className="w-3.5 h-3.5 text-soon" />}
-                          {notif.type === "info" && <TrendingUp className="w-3.5 h-3.5 text-brand-deep" />}
-                          {notif.type === "success" && <Check className="w-3.5 h-3.5 text-emerald-600" />}
-                          <span className="font-bold text-body text-spec uppercase">
-                            {notif.title}
-                          </span>
-                        </div>
-                        <span className="text-ink-faint text-[11px]">
-                          {notif.timestamp || (notif.createdAt ? new Date(notif.createdAt).toLocaleDateString("en-AU") : "Recently")}
-                        </span>
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-bold text-body text-ink line-clamp-1">{notif.title}</span>
+                        <span className="text-spec text-ink-faint shrink-0">{notif.createdAt}</span>
                       </div>
+                      <p className="mt-1 text-spec text-ink-dim line-clamp-2">{notif.message}</p>
 
-                      <p className="text-spec text-body font-medium leading-relaxed">
-                        {notif.message}
-                      </p>
-
-                      <div className="flex items-center justify-between pt-1 text-spec">
+                      <div className="mt-2.5 flex items-center justify-between text-spec">
                         {notif.linkTo ? (
                           <button
                             onClick={() => {
-                              if (!notif.isRead) markNotificationRead(notif.id);
                               setIsAlertsOpen(false);
-                              navigateToCRM(notif.linkTo!.view as any, notif.linkTo!.id);
+                              if (notif.linkTo?.opportunityId) {
+                                navigateToCRM("pipeline", notif.linkTo.opportunityId);
+                              }
                             }}
-                            className="font-bold text-brand-deep hover:underline flex items-center gap-1 cursor-pointer"
+                            className="text-brand-deep font-bold hover:underline flex items-center gap-1 cursor-pointer"
                           >
-                            <span>Open Record</span>
+                            <span>View Deal</span>
                             <ArrowRight className="w-3 h-3" />
                           </button>
                         ) : (
@@ -281,11 +264,11 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           )}
         </div>
 
-        {/* Copilot */}
+        {/* Copilot (Desktop Entry) */}
         <button
           onClick={() => setIsCopilotOpen(!isCopilotOpen)}
           aria-pressed={isCopilotOpen}
-          className={`flex items-center gap-1.5 px-3 py-1.5 text-meta font-semibold rounded-edge transition-colors cursor-pointer border ${
+          className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-meta font-semibold rounded-edge transition-colors cursor-pointer border ${
             isCopilotOpen
               ? "bg-chrome border-chrome text-chrome-text"
               : "bg-brand-deep border-brand-deep text-white hover:bg-brand hover:border-brand"
