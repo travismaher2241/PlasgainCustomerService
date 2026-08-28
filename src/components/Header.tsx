@@ -87,7 +87,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           onClick={onToggleMobileMenu}
           aria-label="Open navigation menu"
           title="Open menu"
-          className="md:hidden p-1.5 text-ink-dim hover:text-ink rounded-edge hover:bg-paper cursor-pointer shrink-0"
+          className="md:hidden p-1.5 text-ink-dim hover:text-ink rounded-edge hover:bg-paper cursor-pointer shrink-0 focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none"
         >
           <Menu className="w-5 h-5" />
         </button>
@@ -120,7 +120,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           type="button"
           onClick={() => setIsSearchOpen(true)}
           aria-label="Open search dialog (Command-K)"
-          className="flex items-center gap-2 text-meta text-ink-faint bg-paper hover:bg-raised px-2.5 py-1.5 rounded-edge border border-line hover:border-line-strong transition-colors cursor-pointer"
+          className="flex items-center gap-2 text-meta text-ink-faint bg-paper hover:bg-raised px-2.5 py-1.5 rounded-edge border border-line hover:border-line-strong transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none"
         >
           <Search className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Search specs, terms &amp; docs</span>
@@ -136,7 +136,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
             onClick={() => setIsAlertsOpen(!isAlertsOpen)}
             aria-label={`Team Notifications: ${unreadNotificationsCount} unread`}
             aria-expanded={isAlertsOpen}
-            className="p-2 rounded-edge text-ink-dim hover:text-ink bg-paper hover:bg-raised border border-line transition-colors relative cursor-pointer"
+            className="p-2 rounded-edge text-ink-dim hover:text-ink bg-paper hover:bg-raised border border-line transition-colors relative cursor-pointer focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none"
             title="Team Notifications & Operational Alerts"
           >
             <Bell className="w-4 h-4" />

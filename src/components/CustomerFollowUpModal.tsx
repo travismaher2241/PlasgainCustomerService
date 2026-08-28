@@ -70,6 +70,16 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
     if (initialQuoteRef) setQuoteRef(initialQuoteRef);
   }, [initialContactName, initialCompanyName, initialProjectName, initialQuoteRef]);
 
+  const senderName = currentUser.name?.trim() || "";
+  const senderEmail = currentUser.email?.trim() || "";
+  const senderPhone = currentUser.phone?.trim() || undefined;
+
+  const profileValidationError = !senderName
+    ? "Your sender profile is incomplete. Add your name in Settings before copying or sending this email."
+    : !senderEmail
+    ? "Your sender profile is incomplete. Add your email address in Settings before copying or sending this email."
+    : null;
+
   const generatedEmail = useMemo(() => {
     return generateCustomerFollowUpEmail({
       cadence,
@@ -79,15 +89,15 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
       projectName,
       quoteRef,
       productsList: initialProducts,
-      senderName: currentUser.name || "Plasgain Customer Service",
-      senderEmail: currentUser.email || "sales@plasgain.com.au",
-      senderPhone: currentUser.phone || undefined,
+      senderName,
+      senderEmail,
+      senderPhone,
       companyAbn: "12 345 678 910",
       leadTime,
       warranty,
       customNote
     });
-  }, [cadence, contactName, contactEmail, companyName, projectName, quoteRef, initialProducts, currentUser, leadTime, warranty, customNote]);
+  }, [cadence, contactName, contactEmail, companyName, projectName, quoteRef, initialProducts, senderName, senderEmail, senderPhone, leadTime, warranty, customNote]);
 
   const [editableBody, setEditableBody] = useState(generatedEmail.body);
   const [editableSubject, setEditableSubject] = useState(generatedEmail.subject);
@@ -101,6 +111,10 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
   if (!isOpen) return null;
 
   const handleCopyEmail = () => {
+    if (profileValidationError) {
+      showToast(profileValidationError, "error");
+      return;
+    }
     const fullText = `Subject: ${editableSubject}\n\n${editableBody}`;
     navigator.clipboard.writeText(fullText);
     showToast("Copied follow-up email to clipboard!", "success");
@@ -289,13 +303,21 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
             </div>
           </div>
 
-          {!currentUser.phone && (
+          {profileValidationError ? (
+            <div className="p-3 bg-red-50 border border-red-300 rounded-edge text-meta text-red-900 flex items-start gap-2.5">
+              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <strong className="font-bold">Sender Profile Incomplete: </strong>
+                <span>{profileValidationError}</span>
+              </div>
+            </div>
+          ) : !currentUser.phone ? (
             <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-edge text-spec text-amber-900 flex items-center justify-between">
               <span>
                 <strong>Profile Tip:</strong> Direct phone number is not set in Settings. Your email address ({currentUser.email || "sales@plasgain.com.au"}) is used in the signature.
               </span>
             </div>
-          )}
+          ) : null}
 
           {/* Email Subject & Body Preview */}
           <div className="space-y-2">
@@ -327,17 +349,35 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
           <div className="flex items-center gap-2">
             <button
               onClick={handleCopyEmail}
-              className="px-3.5 py-2 bg-white hover:bg-raised text-meta font-bold rounded-edge border border-line flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+              disabled={Boolean(profileValidationError)}
+              title={profileValidationError || "Copy email to clipboard"}
+              className={`px-3.5 py-2 text-meta font-bold rounded-edge border flex items-center gap-1.5 shadow-2xs transition-colors ${
+                profileValidationError
+                  ? "bg-paper text-ink-faint border-line cursor-not-allowed"
+                  : "bg-white hover:bg-raised text-body border-line cursor-pointer"
+              }`}
             >
               <Copy className="w-3.5 h-3.5 text-ink-dim" />
               <span>Copy Email Text</span>
             </button>
 
             <a
-              href={mailtoUrl}
-              target="_blank"
+              href={profileValidationError ? "#" : mailtoUrl}
+              target={profileValidationError ? "_self" : "_blank"}
               rel="noopener noreferrer"
-              className="px-3.5 py-2 bg-paper hover:bg-raised text-meta font-bold rounded-edge border border-line flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors text-body"
+              aria-disabled={Boolean(profileValidationError)}
+              title={profileValidationError || "Open mail client"}
+              onClick={(e) => {
+                if (profileValidationError) {
+                  e.preventDefault();
+                  showToast(profileValidationError, "error");
+                }
+              }}
+              className={`px-3.5 py-2 text-meta font-bold rounded-edge border flex items-center gap-1.5 shadow-2xs transition-colors ${
+                profileValidationError
+                  ? "bg-paper text-ink-faint border-line cursor-not-allowed pointer-events-none"
+                  : "bg-paper hover:bg-raised text-body border-line cursor-pointer"
+              }`}
             >
               <ExternalLink className="w-3.5 h-3.5 text-ink-dim" />
               <span>Open in Outlook / Mail Client</span>

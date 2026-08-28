@@ -226,8 +226,8 @@ export function generateCustomerFollowUpEmail(options: {
   const company = options.companyName?.trim() || "your team";
   const project = options.projectName?.trim() || "your public lighting project";
   const quoteRef = options.quoteRef?.trim() || "our recent quote";
-  const sender = options.senderName?.trim() || "Plasgain Customer Service";
-  const senderEmail = options.senderEmail?.trim() || "sales@plasgain.com.au";
+  const sender = options.senderName?.trim() || "";
+  const senderEmail = options.senderEmail?.trim() || "";
   const senderPhone = options.senderPhone?.trim();
   const contactLine = senderPhone ? `${senderEmail} | ${senderPhone}` : senderEmail;
   const leadTimeStr = options.leadTime?.trim() || "approximately 2–3 weeks from order confirmation";
@@ -236,6 +236,8 @@ export function generateCustomerFollowUpEmail(options: {
     options.productsList && options.productsList.length > 0
       ? options.productsList.slice(0, 3).join(", ")
       : "Plasgain Solar Lighting & Civil Systems";
+
+  const signoffLines = [sender, "Plasgain Customer Service & Engineering", contactLine].filter(Boolean).join("\n");
 
   let subject = "";
   let body = "";
@@ -256,9 +258,7 @@ ${options.customNote ? `${options.customNote}
 
 ` : ""}Kind regards,
 
-${sender}
-Plasgain Customer Service & Engineering
-${contactLine}`;
+${signoffLines}`;
   } else if (options.cadence === "day14") {
     subject = `Technical Review & Engineering Support - ${project} ${options.quoteRef ? `[${quoteRef}]` : ""}`;
     body = `Hi ${contact},
@@ -275,12 +275,10 @@ ${options.customNote ? `${options.customNote}
 
 ` : ""}Best regards,
 
-${sender}
-Plasgain Customer Service & Engineering
-${contactLine}`;
+${signoffLines}`;
   } else {
     // Urgent / Tender Closing
-    subject = `Tender Closing Check-in: ${project} ${options.quoteRef ? `[${quoteRef}]` : ""}`;
+    subject = `Tender Closing Check-in: ${project} ${options.quoteRef ? `[${quoteRef}] ` : ""}`;
     body = `Hi ${contact},
 
 With tender submission deadlines approaching for ${project}, I wanted to make sure you have all the required documentation from Plasgain.
@@ -296,9 +294,7 @@ ${options.customNote ? `${options.customNote}
 
 ` : ""}Kind regards,
 
-${sender}
-Plasgain Customer Service & Engineering
-${contactLine}`;
+${signoffLines}`;
   }
 
   const recipient = options.contactEmail?.trim() || "";

@@ -164,7 +164,7 @@ export const GlobalCopilot: React.FC = () => {
           type="button"
           onClick={() => setIsCopilotOpen(false)}
           aria-label="Close Copilot"
-          className="text-ink-faint hover:text-white p-1 rounded transition-colors cursor-pointer"
+          className="text-ink-faint hover:text-white p-1 rounded transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-brand-lift focus-visible:outline-none"
           title="Close Copilot (Esc)"
         >
           <X className="w-4 h-4" />
@@ -192,7 +192,7 @@ export const GlobalCopilot: React.FC = () => {
               <button
                 type="button"
                 onClick={togglePinCopilotContext}
-                className={`text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none ${
                   isCopilotContextPinned
                     ? "bg-brand text-white border-brand"
                     : "bg-white text-ink-dim hover:text-body border-line"
@@ -204,7 +204,7 @@ export const GlobalCopilot: React.FC = () => {
               <button
                 type="button"
                 onClick={clearCopilotContext}
-                className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white text-urgent border border-urgent/30 hover:bg-urgent-wash transition-colors cursor-pointer"
+                className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white text-urgent border border-urgent/30 hover:bg-urgent-wash transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-urgent focus-visible:outline-none"
                 title="Clear active record context"
               >
                 Clear

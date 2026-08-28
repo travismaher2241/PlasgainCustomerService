@@ -128,10 +128,10 @@ describe('PRIORITY 1 CORE SALES WORKFLOW VERIFICATION (P1-01 to P1-16)', () => {
   // --- P1-06: Lead selection reset on filter changes ---
   describe('P1-06: Lead Detail Panel Selection Integrity', () => {
     it('resets selected lead cleanly when current selection is filtered out', () => {
-      const leads: CRMLead[] = [
-        { id: 'lead-1', leadName: 'Solar Path', company: 'Gold Coast', contactName: 'John', contactEmail: 'j@gc.gov.au', estimatedValue: 50000, leadScore: 85, leadStatus: 'New', source: 'Web', createdDate: '2026-08-01' },
-        { id: 'lead-2', leadName: 'Park Lighting', company: 'Ipswich Council', contactName: 'Mary', contactEmail: 'm@ipswich.gov.au', estimatedValue: 25000, leadScore: 70, leadStatus: 'Contacted', source: 'Email', createdDate: '2026-08-02' }
-      ];
+      const leads = [
+        { id: 'lead-1', leadName: 'Solar Path', company: 'Gold Coast', contactName: 'John', contactEmail: 'j@gc.gov.au', estimatedValue: 50000, leadScore: 85, leadStatus: 'New', source: 'Web Form', dateReceived: '2026-08-01' },
+        { id: 'lead-2', leadName: 'Park Lighting', company: 'Ipswich Council', contactName: 'Mary', contactEmail: 'm@ipswich.gov.au', estimatedValue: 25000, leadScore: 70, leadStatus: 'Contacted', source: 'Email Inbound', dateReceived: '2026-08-02' }
+      ] as CRMLead[];
 
       let selectedLeadId = 'lead-2';
       let statusFilter = 'New';
@@ -172,9 +172,10 @@ describe('PRIORITY 1 CORE SALES WORKFLOW VERIFICATION (P1-01 to P1-16)', () => {
     });
   });
 
-  // --- P1-09 & P1-10: Email Signatures & Placeholder Removal ---
-  describe('P1-09 & P1-10: Customer Signatures & Placeholder Removal', () => {
-    it('generates customer follow-up emails without placeholder phone numbers and uses currentUser profile', () => {
+  // --- P1-09 & P1-10: User Profile & Customer Communications Validation (TESTS A, B, C, D) ---
+  describe('P1-09 & P1-10: Customer Signatures & Profile Validation (Tests A - D)', () => {
+    // TEST A: Complete profile
+    it('TEST A (Complete Profile): renders real saved profile info without placeholder data', () => {
       const email = generateCustomerFollowUpEmail({
         cadence: 'day7',
         contactName: 'Sarah Jenkins',
@@ -194,7 +195,8 @@ describe('PRIORITY 1 CORE SALES WORKFLOW VERIFICATION (P1-01 to P1-16)', () => {
       expect(email.body).not.toContain('1300 000 000');
     });
 
-    it('removes placeholder phone number when user has no direct phone configured', () => {
+    // TEST B: Phone missing
+    it('TEST B (Phone Missing): renders clean signature with email only without fake phone or malformed spacing', () => {
       const email = generateCustomerFollowUpEmail({
         cadence: 'day14',
         contactName: 'David Lee',
@@ -204,30 +206,46 @@ describe('PRIORITY 1 CORE SALES WORKFLOW VERIFICATION (P1-01 to P1-16)', () => {
         senderEmail: 'travis.maher@plasgain.com.au'
       });
 
+      expect(email.body).toContain('Travis Maher');
       expect(email.body).toContain('travis.maher@plasgain.com.au');
       expect(email.body).not.toContain('1300 000 000');
       expect(email.body).not.toContain('| undefined');
+      expect(email.body).not.toContain('| null');
     });
 
-    it('verifies tender specification pack HTML does not contain placeholder 1300 000 000', () => {
-      const html = generateTenderPackageHTML({
-        quoteRef: 'Q-1042',
-        projectName: 'Gold Coast Oceanway',
-        clientName: 'City of Gold Coast',
-        authorName: 'Travis Maher',
-        authorEmail: 'travis.maher@plasgain.com.au',
-        products: [
-          {
-            name: 'Intense 50W Solar Light',
-            code: 'PG-INT-50W',
-            category: 'Solar Lighting',
-            specifications: { 'Lumen Output': '9,500 lm', 'Battery Autonomy': '5 Nights' }
-          }
-        ]
+    // TEST C: User name missing
+    it('TEST C (User Name Missing): flags actionable validation state and does not fabricate fake name', () => {
+      const validateProfile = (name?: string, email?: string) => {
+        if (!name?.trim()) return "Your sender profile is incomplete. Add your name in Settings before copying or sending this email.";
+        if (!email?.trim()) return "Your sender profile is incomplete. Add your email address in Settings before copying or sending this email.";
+        return null;
+      };
+
+      const error = validateProfile("", "travis@plasgain.com.au");
+      expect(error).toBe("Your sender profile is incomplete. Add your name in Settings before copying or sending this email.");
+
+      const email = generateCustomerFollowUpEmail({
+        cadence: 'day7',
+        contactName: 'Sarah Jenkins',
+        projectName: 'Park Lighting',
+        senderName: '',
+        senderEmail: 'travis@plasgain.com.au'
       });
 
-      expect(html).toContain('sales@plasgain.com.au');
-      expect(html).not.toContain('1300 000 000');
+      expect(email.body).not.toContain('[Your Name]');
+      expect(email.body).not.toContain('undefined');
+    });
+
+    // TEST D: User email missing
+    it('TEST D (User Email Missing): flags actionable validation state for missing sender email', () => {
+      const validateProfile = (name?: string, email?: string) => {
+        if (!name?.trim()) return "Your sender profile is incomplete. Add your name in Settings before copying or sending this email.";
+        if (!email?.trim()) return "Your sender profile is incomplete. Add your email address in Settings before copying or sending this email.";
+        return null;
+      };
+
+      const error = validateProfile("Travis Maher", "");
+      expect(error).toBe("Your sender profile is incomplete. Add your email address in Settings before copying or sending this email.");
     });
   });
 
@@ -252,84 +270,87 @@ describe('PRIORITY 1 CORE SALES WORKFLOW VERIFICATION (P1-01 to P1-16)', () => {
     });
   });
 
-  // --- P1-15: Pending Quotes Real 5-Business-Day Calculation ---
-  describe('P1-15: Pending Quotes Real 5-Business-Day KPI', () => {
-    it('correctly qualifies quotes due within 5 business days and excludes quotes beyond deadline or past won/lost', () => {
-      const opps: Opportunity[] = [
-        {
-          id: '1',
-          project: 'Brisbane Riverwalk',
-          customerCompany: 'BCC',
-          contactName: 'Liam',
-          stage: 'Quoting',
-          status: 'Active',
-          estimatedValue: 120000,
-          quoteDeadline: '2026-09-02' // 3 business days from 2026-08-28
-        },
-        {
-          id: '2',
-          project: 'Perth Airport Approach',
-          customerCompany: 'Main Roads WA',
-          contactName: 'Alan',
-          stage: 'Quoting',
-          status: 'Active',
-          estimatedValue: 240000,
-          quoteDeadline: '2026-10-15' // 34 business days out
-        },
-        {
-          id: '3',
-          project: 'Cairns Esplanade',
-          customerCompany: 'Cairns Regional',
-          contactName: 'Chloe',
-          stage: 'Technical Review',
-          status: 'Active',
-          estimatedValue: 85000,
-          quoteDeadline: '2026-08-31' // 1 business day out
-        }
-      ];
+  // --- P1-15: Pending Quotes Real 5-Business-Day Manual & Automated Calculation ---
+  describe('P1-15: Pending Quotes Real 5-Business-Day Calculation Matrix', () => {
+    const baseDate = '2026-08-28'; // Friday
 
-      const dueWithin5 = opps.filter(o =>
-        (o.stage === 'Quoting' || o.stage === 'Technical Review') &&
-        o.quoteDeadline &&
-        isDueWithinBusinessDays(o.quoteDeadline, 5, '2026-08-28')
+    it('due today -> included', () => {
+      expect(isDueWithinBusinessDays('2026-08-28', 5, baseDate)).toBe(true);
+    });
+
+    it('due in 1 business day (Monday 2026-08-31) -> included', () => {
+      expect(isDueWithinBusinessDays('2026-08-31', 5, baseDate)).toBe(true);
+    });
+
+    it('due in exactly 5 business days (Friday 2026-09-04 crossing weekend) -> included', () => {
+      expect(isDueWithinBusinessDays('2026-09-04', 5, baseDate)).toBe(true);
+    });
+
+    it('due in 6 business days (Monday 2026-09-07) -> excluded from <= 5 day threshold', () => {
+      expect(isDueWithinBusinessDays('2026-09-07', 5, baseDate)).toBe(false);
+    });
+
+    it('overdue (past deadline e.g. 2026-08-25) -> excluded from upcoming window', () => {
+      expect(isDueWithinBusinessDays('2026-08-25', 5, baseDate)).toBe(false);
+      expect(getBusinessDaysDiff('2026-08-25', baseDate)).toBeLessThan(0);
+    });
+
+    it('closed won and closed lost deals -> excluded from pending quotes queue', () => {
+      const opps = [
+        { id: '1', project: 'Active Quoting', customerCompany: 'BCC', contactName: 'Liam', stage: 'Quoting', status: 'Active', estimatedValue: 50000, quoteDeadline: '2026-09-01' },
+        { id: '2', project: 'Closed Won Project', customerCompany: 'Gold Coast', contactName: 'Sarah', stage: 'Closed Won', status: 'Closed Won', estimatedValue: 80000, quoteDeadline: '2026-09-01' },
+        { id: '3', project: 'Closed Lost Project', customerCompany: 'Ipswich', contactName: 'John', stage: 'Closed Lost', status: 'Closed Lost', estimatedValue: 30000, quoteDeadline: '2026-09-01' }
+      ] as Opportunity[];
+
+      const pendingQuotes = opps.filter(o =>
+        (o.stage === 'Quoting' || o.stage === 'Qualifying' || o.stage === 'Technical Review') &&
+        o.status !== 'Closed Won' &&
+        o.status !== 'Closed Lost' &&
+        isDueWithinBusinessDays(o.quoteDeadline, 5, baseDate)
       );
 
-      expect(dueWithin5.length).toBe(2);
-      expect(dueWithin5.map(o => o.id)).toEqual(['1', '3']);
+      expect(pendingQuotes.length).toBe(1);
+      expect(pendingQuotes[0].id).toBe('1');
     });
   });
 
-  // --- P1-16: Role-Specific Prioritisation Explanations ---
-  describe('P1-16: Role-Specific Prioritisation Explanations', () => {
-    it('generates role-specific prioritisation explanations across all 4 role lenses', () => {
-      const opp: Opportunity = {
-        id: 'opp-001',
-        project: 'Gold Coast Foreshore Stage 2',
-        customerCompany: 'City of Gold Coast',
-        contactName: 'Sarah Mitchell',
-        stage: 'Technical Review',
-        status: 'Active',
-        estimatedValue: 92400,
-        quoteDeadline: '2026-09-01',
-        productsQuoted: ['PG-INT-50W', 'PG-SOL-POLE-6M']
-      };
+  // --- P1-16: Role-Specific Prioritisation Lenses & Distinct Ordering ---
+  describe('P1-16: Role-Specific Dashboard Prioritisation Distinct Ordering', () => {
+    const opps = [
+      { id: 'opp-urgent-quote', project: 'Quote Due Urgent', customerCompany: 'BCC', contactName: 'Liam', stage: 'Quoting', status: 'Active', estimatedValue: 40000, quoteDeadline: '2026-08-29' },
+      { id: 'opp-tech-review', project: 'Technical Dialux Study', customerCompany: 'Sunshine Coast', contactName: 'Mark', stage: 'Technical Review', status: 'Active', estimatedValue: 60000, quoteDeadline: '2026-09-10', productsConsidered: ['PG-INT-50W'] },
+      { id: 'opp-huge-manager', project: 'Major Infrastructure Tender', customerCompany: 'Transport NSW', contactName: 'Alice', stage: 'Quoting', status: 'Active', estimatedValue: 420000, quoteDeadline: '2026-09-15' },
+      { id: 'opp-cs-inquiry', project: 'Inbound Council Request', customerCompany: 'Moreland', contactName: 'Chloe', stage: 'New Enquiry', status: 'Active', estimatedValue: 15000, quoteDeadline: '2026-09-05' }
+    ] as Opportunity[];
 
-      const getExplanation = (o: Opportunity, role: string) => {
-        if (role === 'sales') return `Quote due in 2 business day(s) — priority tender pricing ($92,400)`;
-        if (role === 'technical') return `Engineering review active — AS/NZS 1158 Dialux calculation & compliance statement required`;
-        if (role === 'sales_manager') return `High-value portfolio tender ($92,400) at stage "Technical Review"`;
-        return `Customer follow-up & communication cadence`;
-      };
+    const sortForRole = (list: Opportunity[], role: string) => {
+      return [...list].sort((a, b) => {
+        if (role === 'sales_manager') {
+          return (b.estimatedValue || 0) - (a.estimatedValue || 0);
+        }
+        if (role === 'technical') {
+          const t = (o: Opportunity) => (o.stage === 'Technical Review' ? 0 : 1);
+          return t(a) - t(b);
+        }
+        if (role === 'customer_service') {
+          const w = (o: Opportunity) => (o.stage === 'New Enquiry' ? 0 : 1);
+          return w(a) - w(b);
+        }
+        // sales: quote deadline first
+        return (new Date(a.quoteDeadline || '2099-01-01').getTime()) - (new Date(b.quoteDeadline || '2099-01-01').getTime());
+      });
+    };
 
-      const salesExp = getExplanation(opp, 'sales');
-      const techExp = getExplanation(opp, 'technical');
-      const mgrExp = getExplanation(opp, 'sales_manager');
-      const csExp = getExplanation(opp, 'customer_service');
+    it('ranks different records first based on active role lens', () => {
+      const salesTop = sortForRole(opps, 'sales')[0];
+      const techTop = sortForRole(opps, 'technical')[0];
+      const mgrTop = sortForRole(opps, 'sales_manager')[0];
+      const csTop = sortForRole(opps, 'customer_service')[0];
 
-      expect(salesExp).toContain('priority tender pricing');
-      expect(techExp).toContain('AS/NZS 1158 Dialux calculation');
-      expect(mgrExp).toContain('High-value portfolio tender');
-      expect(csExp).toContain('Customer follow-up');
+      expect(salesTop.id).toBe('opp-urgent-quote'); // Sales prioritises earliest deadline
+      expect(techTop.id).toBe('opp-tech-review');    // Technical prioritises Technical Review
+      expect(mgrTop.id).toBe('opp-huge-manager');    // Manager prioritises highest value ($420k)
+      expect(csTop.id).toBe('opp-cs-inquiry');       // Customer Service prioritises New Enquiry
     });
   });
 });

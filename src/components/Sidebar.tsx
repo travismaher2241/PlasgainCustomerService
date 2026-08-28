@@ -19,20 +19,66 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) => {
   const { activeTab, setActiveTab, currentUser } = useApp();
+  const sidebarRef = React.useRef<HTMLElement>(null);
+  const previouslyFocusedElementRef = React.useRef<HTMLElement | null>(null);
 
-  // Lock body scroll and listen for Escape key when mobile menu is open (P1-12)
+  // Focus management, focus trap, lock body scroll and listen for Escape key when mobile menu is open (P1-12)
   React.useEffect(() => {
     if (mobileOpen) {
+      previouslyFocusedElementRef.current = document.activeElement as HTMLElement | null;
       document.body.style.overflow = "hidden";
+
+      // Focus first interactive element inside drawer
+      const timer = setTimeout(() => {
+        if (sidebarRef.current) {
+          const focusable = sidebarRef.current.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          );
+          if (focusable.length > 0) {
+            focusable[0].focus();
+          }
+        }
+      }, 50);
+
       const handleKeyDown = (e: KeyboardEvent) => {
         if (e.key === "Escape") {
           setMobileOpen?.(false);
+          return;
+        }
+
+        // Focus trap inside drawer
+        if (e.key === "Tab" && sidebarRef.current) {
+          const focusable = (
+            Array.from(
+              sidebarRef.current.querySelectorAll(
+                'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+              )
+            ) as HTMLElement[]
+          ).filter((el: HTMLElement) => el.offsetParent !== null);
+
+          if (focusable.length === 0) return;
+
+          const firstElement = focusable[0];
+          const lastElement = focusable[focusable.length - 1];
+
+          if (e.shiftKey && document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+          } else if (!e.shiftKey && document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+          }
         }
       };
+
       window.addEventListener("keydown", handleKeyDown);
       return () => {
+        clearTimeout(timer);
         document.body.style.overflow = "";
         window.removeEventListener("keydown", handleKeyDown);
+        if (previouslyFocusedElementRef.current && typeof previouslyFocusedElementRef.current.focus === "function") {
+          previouslyFocusedElementRef.current.focus();
+        }
       };
     } else {
       document.body.style.overflow = "";
@@ -73,7 +119,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
       )}
 
       <aside
-        role="navigation"
+        ref={sidebarRef}
+        role={mobileOpen ? "dialog" : "navigation"}
+        aria-modal={mobileOpen ? "true" : undefined}
         aria-label="Main Navigation"
         className={`w-58 bg-chrome border-r border-chrome-line flex flex-col shrink-0 h-screen sticky top-0 transition-transform duration-200 z-50 ${
           mobileOpen ? "fixed inset-y-0 left-0 translate-x-0 shadow-2xl" : "hidden md:flex"
@@ -88,7 +136,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
               type="button"
               onClick={() => setMobileOpen(false)}
               aria-label="Close navigation menu"
-              className="md:hidden text-chrome-dim hover:text-chrome-text p-1 cursor-pointer"
+              className="md:hidden text-chrome-dim hover:text-chrome-text p-1 cursor-pointer focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none rounded-edge"
               title="Close menu"
             >
               <X className="w-5 h-5" />

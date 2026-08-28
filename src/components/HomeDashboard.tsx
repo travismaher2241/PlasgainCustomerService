@@ -164,7 +164,7 @@ export const HomeDashboard: React.FC = () => {
 
       case "technical":
         if (opp.stage === "Technical Review") return `Engineering review active — AS/NZS 1158 Dialux calculation & compliance statement required`;
-        if (opp.productsQuoted && opp.productsQuoted.length > 0) return `Technical scope: ${opp.productsQuoted.length} luminaire / pole specifications`;
+        if (opp.productsConsidered && opp.productsConsidered.length > 0) return `Technical scope: ${opp.productsConsidered.length} luminaire / pole specifications`;
         return `Engineering compliance & photometric verification`;
 
       case "sales_manager":
@@ -234,16 +234,54 @@ export const HomeDashboard: React.FC = () => {
 
     return list
       .sort((a, b) => {
+        // If a specific category filter is active, rank by urgency rank first
+        if (selectedCategoryFilter) {
+          const rank = URGENCY_RANK[urgencyOf(a)] - URGENCY_RANK[urgencyOf(b)];
+          if (rank !== 0) return rank;
+          const da = daysUntilDeadline(a.quoteDeadline);
+          const db = daysUntilDeadline(b.quoteDeadline);
+          if (da !== null && db !== null && da !== db) return da - db;
+          return roleTiebreak(a, b);
+        }
+
+        // Default role-lens prioritisation
+        if (selectedRole === "sales_manager") {
+          // Manager prioritises highest value portfolio deals first
+          const valueDiff = (b.estimatedValue || 0) - (a.estimatedValue || 0);
+          if (valueDiff !== 0) return valueDiff;
+          return URGENCY_RANK[urgencyOf(a)] - URGENCY_RANK[urgencyOf(b)];
+        }
+
+        if (selectedRole === "technical") {
+          // Technical prioritises Technical Review and Dialux verification first
+          const tRank = (o: Opportunity) => (o.stage === "Technical Review" ? 0 : o.productsConsidered?.length ? 1 : 2);
+          const diff = tRank(a) - tRank(b);
+          if (diff !== 0) return diff;
+          return URGENCY_RANK[urgencyOf(a)] - URGENCY_RANK[urgencyOf(b)];
+        }
+
+        if (selectedRole === "customer_service") {
+          // Customer Service prioritises Inbound Enquiries and Customer Blockers first
+          const csRank = (o: Opportunity) => {
+            if (o.stage === "New Enquiry") return 0;
+            if (o.stage === "Awaiting Information" || o.status === "Pending Customer") return 1;
+            if (o.stage === "Follow-Up") return 2;
+            return 3;
+          };
+          const diff = csRank(a) - csRank(b);
+          if (diff !== 0) return diff;
+          return URGENCY_RANK[urgencyOf(a)] - URGENCY_RANK[urgencyOf(b)];
+        }
+
+        // Sales default: urgency (overdue / soon) then imminent deadline then deal value
         const rank = URGENCY_RANK[urgencyOf(a)] - URGENCY_RANK[urgencyOf(b)];
         if (rank !== 0) return rank;
-
         const da = daysUntilDeadline(a.quoteDeadline);
         const db = daysUntilDeadline(b.quoteDeadline);
         if (da !== null && db !== null && da !== db) return da - db;
         if (da !== null && db === null) return -1;
         if (da === null && db !== null) return 1;
-
-        return roleTiebreak(a, b);
+        return (b.estimatedValue || 0) - (a.estimatedValue || 0);
       })
       .slice(0, 5);
   }, [opportunities, selectedCategoryFilter, selectedRole]);
