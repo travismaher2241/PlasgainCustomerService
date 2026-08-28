@@ -9,8 +9,8 @@ const QuickLogTestWrapper: React.FC = () => {
 
   React.useEffect(() => {
     addAccount({
-      id: 'acc-test-123',
-      name: 'City of Moreton Bay',
+      id: 'acc-custom-123',
+      name: 'Sunshine Coast Council',
       status: 'Active',
       industry: 'Government',
       customerSegment: 'Local Government / Council',
@@ -25,18 +25,23 @@ const QuickLogTestWrapper: React.FC = () => {
 
   return (
     <div>
-      <button onClick={() => openQuickLog('call', 'acc-test-123')} data-testid="open-log-btn">
+      <button
+        data-testid="open-log-btn"
+        onClick={() => openQuickLog("call", "acc-custom-123")}
+      >
         Open Log
       </button>
-      <div data-testid="activities-count">{activities.length}</div>
-      <div data-testid="tasks-count">{tasks.length}</div>
       <CRMQuickLogModal />
     </div>
   );
 };
 
 describe('CRMQuickLogModal Component', () => {
-  it('opens and updates activity title dynamically when switching activity types', async () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('renders primary interaction fields and dynamic auto-title', async () => {
     render(
       <AppProvider>
         <QuickLogTestWrapper />
@@ -47,19 +52,19 @@ describe('CRMQuickLogModal Component', () => {
     fireEvent.click(screen.getByTestId('open-log-btn'));
     expect(screen.getByText(/Quick Log Activity/i)).toBeInTheDocument();
 
-    const titleInput = await screen.findByDisplayValue(/Call with City of Moreton Bay/i);
+    const titleInput = await screen.findByDisplayValue(/Call with Sunshine Coast Council/i);
     expect(titleInput).toBeInTheDocument();
 
     // Switch to Email
     const emailButton = screen.getByRole('button', { name: /^email$/i });
     fireEvent.click(emailButton);
 
-    expect(await screen.findByDisplayValue(/Email sent to City of Moreton Bay/i)).toBeInTheDocument();
+    expect(await screen.findByDisplayValue(/Email sent to Sunshine Coast Council/i)).toBeInTheDocument();
 
     // Switch to Meeting
     const meetingButton = screen.getByRole('button', { name: /^meeting$/i });
     fireEvent.click(meetingButton);
-    expect(await screen.findByDisplayValue(/Meeting with City of Moreton Bay/i)).toBeInTheDocument();
+    expect(await screen.findByDisplayValue(/Meeting with Sunshine Coast Council/i)).toBeInTheDocument();
   });
 
   it('does NOT render 1-click outcome presets or Dialux shortcuts', () => {

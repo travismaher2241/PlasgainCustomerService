@@ -7,10 +7,10 @@ import { AppProvider } from '../../context/AppContext';
 
 const testDeals = [
   {
-    id: "opp-1",
-    accountId: "acc-1",
-    accountName: "City of Moreton Bay",
-    name: "Lake Samsonvale Shared Trail",
+    id: "opp-custom-1",
+    accountId: "acc-custom-1",
+    accountName: "Sunshine Coast Council",
+    name: "Coastal Pathway Solar Lighting",
     stageId: "stage-new",
     stageName: "New Opportunity",
     pipelineId: "pipe-major-projects",

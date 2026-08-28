@@ -485,8 +485,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem("plasgain_active_user_id");
   };
 
-  // Known sample prefixes to permanently filter and purge from legacy caches and Firestore
+  // Known sample prefixes and exact legacy seed IDs/names to permanently purge from legacy caches and Firestore
   const KNOWN_SAMPLE_PREFIXES = ["acc-00", "opp-00", "lead-00", "con-00", "task-00", "act-00", "comp-00", "notif-", "sample-"];
+  const KNOWN_SAMPLE_IDS = new Set([
+    "acc-1", "acc-2", "acc-3", "acc-4", "acc-5", "acc-6", "acc-7", "acc-8",
+    "opp-1", "opp-2", "opp-3", "opp-4", "opp-5", "opp-6", "opp-7", "opp-8",
+    "con-1", "con-2", "con-3", "con-4", "con-5", "con-6", "con-7", "con-8",
+    "lead-1", "lead-2", "lead-3", "lead-4", "lead-5",
+    "task-1", "task-2", "task-3", "task-4", "task-5",
+    "act-1", "act-2", "act-3", "act-4", "act-5",
+    "comp-1", "comp-2", "comp-3"
+  ]);
+  const KNOWN_SAMPLE_NAMES = [
+    "city of moreton bay",
+    "downer edi works",
+    "aeria commercial precinct",
+    "m1 pacific motorway upgrade",
+    "lake samsonvale shared trail",
+    "stockland retail car park",
+    "john holland rail",
+    "energy queensland wholesalers",
+    "rexel electrical supplies",
+    "city of gold coast",
+    "call with client",
+    "follow-up: call with client",
+    "account note: client"
+  ];
 
   const isSampleRecord = (item: any): boolean => {
     if (!item) return false;
@@ -495,12 +519,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const accountId = String(item.accountId || "").toLowerCase();
     const dealId = String(item.dealId || item.opportunityId || "").toLowerCase();
     const title = String(item.title || item.name || "").toLowerCase();
+    const accountName = String(item.accountName || item.companyName || item.company || "").toLowerCase();
 
     if (KNOWN_SAMPLE_PREFIXES.some((p) => id.startsWith(p) || accountId.startsWith(p) || dealId.startsWith(p))) {
       return true;
     }
 
-    if (title === "call with client" || title === "follow-up: call with client" || title === "account note: client") {
+    if (KNOWN_SAMPLE_IDS.has(id) || KNOWN_SAMPLE_IDS.has(accountId) || KNOWN_SAMPLE_IDS.has(dealId)) {
+      return true;
+    }
+
+    if (KNOWN_SAMPLE_NAMES.some((name) => title.includes(name) || accountName.includes(name))) {
       return true;
     }
 
