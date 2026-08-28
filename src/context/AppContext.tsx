@@ -37,6 +37,7 @@ import {
   INITIAL_TASKS
 } from "../data/crmMockData";
 import { CRMIntelligenceEngine } from "../utils/crmIntelligence";
+import { normalizeNotification, getUnreadNotificationsCount } from "../utils/notificationUtils";
 import {
   saveDocToCloud,
   loadDocFromCloud,
@@ -79,6 +80,7 @@ export interface UserProfile {
   role: string;
   location: string;
   email: string;
+  phone?: string;
 }
 
 
@@ -255,6 +257,10 @@ interface AppContextType {
   // Global Copilot Drawer
   isCopilotOpen: boolean;
   setIsCopilotOpen: (open: boolean) => void;
+  isCopilotContextPinned: boolean;
+  setIsCopilotContextPinned: (pinned: boolean) => void;
+  clearCopilotContext: () => void;
+  togglePinCopilotContext: () => void;
 
   // Global Search Modal
   isSearchOpen: boolean;
@@ -287,7 +293,7 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [activeTab, setActiveTab] = useState<NavTab>("home");
+  const [activeTab, setActiveTabState] = useState<NavTab>("home");
   const [activeCRMTab, setActiveCRMTab] = useState<CRMSubTab>("today");
   const [activeToolTab, setActiveToolTab] = useState<ToolSubTab>("plan-takeoff");
 
@@ -421,12 +427,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   } | null>(null);
 
   
-  // Server-backed Notifications
+  // Server-backed Notifications with canonical normalization (P1-05)
   const [serverNotifications, setServerNotifications] = useState<CRMNotification[]>([]);
-  const unreadNotificationsCount = useMemo(() => {
-    return (serverNotifications || []).filter((n) => !n.isRead && !n.isArchived).length;
-  }, [serverNotifications]);
   const [copilotCustomContext, setCopilotCustomContext] = useState<string | null>(null);
+  const [isCopilotContextPinned, setIsCopilotContextPinned] = useState(false);
+
+  const clearCopilotContext = () => {
+    setCopilotCustomContext(null);
+    setSelectedOpportunityId(null);
+    setSelectedCrmOpportunityId(null);
+    setIsCopilotContextPinned(false);
+  };
+
+  const togglePinCopilotContext = () => {
+    setIsCopilotContextPinned((prev) => !prev);
+  };
 
   const fetchNotifications = async () => {
     try {
@@ -434,7 +449,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const res = await fetch(getApiUrl("/api/notifications"));
       if (res.ok) {
         const data = await res.json();
-        if (data.notifications) setServerNotifications(data.notifications);
+        if (data.notifications) setServerNotifications(data.notifications.map(normalizeNotification));
       }
     } catch (err) {
       // Ignored in offline / test mode
@@ -442,10 +457,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const markNotificationRead = async (id: string) => {
+    setServerNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true, readAt: new Date().toISOString() } : n))
+    );
+    setLocalNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, isRead: true, readAt: new Date().toISOString() } : n))
+    );
     try {
-      const res = await fetch(getApiUrl(`/api/notifications/${id}/read`), { method: "PATCH" });
-      if (res.ok) {
-        setServerNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+      if (typeof window !== "undefined") {
+        await fetch(getApiUrl(`/api/notifications/${id}/read`), { method: "PATCH" });
       }
     } catch (err) {
       console.error("Error marking notification read:", err);
@@ -453,10 +473,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const markAllNotificationsRead = async () => {
+    setServerNotifications((prev) =>
+      prev.map((n) => ({ ...n, isRead: true, readAt: new Date().toISOString() }))
+    );
+    setLocalNotifications((prev) =>
+      prev.map((n) => ({ ...n, isRead: true, readAt: new Date().toISOString() }))
+    );
     try {
-      const res = await fetch(getApiUrl("/api/notifications/mark-all-read"), { method: "POST" });
-      if (res.ok) {
-        setServerNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+      if (typeof window !== "undefined") {
+        await fetch(getApiUrl("/api/notifications/mark-all-read"), { method: "POST" });
       }
     } catch (err) {
       console.error("Error marking all notifications read:", err);
@@ -464,10 +489,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const archiveNotification = async (id: string) => {
+    setServerNotifications((prev) => prev.filter((n) => n.id !== id));
+    setLocalNotifications((prev) => prev.filter((n) => n.id !== id));
     try {
-      const res = await fetch(getApiUrl(`/api/notifications/${id}/archive`), { method: "PATCH" });
-      if (res.ok) {
-        setServerNotifications(prev => prev.filter(n => n.id !== id));
+      if (typeof window !== "undefined") {
+        await fetch(getApiUrl(`/api/notifications/${id}/archive`), { method: "PATCH" });
       }
     } catch (err) {
       console.error("Error archiving notification:", err);
@@ -623,7 +649,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Fallback initial notifications
   const [localNotifications, setLocalNotifications] = useState<CRMNotification[]>([
-
     {
       id: "notif-1",
       title: "Quote Follow-Up Overdue",
@@ -631,7 +656,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       timestamp: "Today",
       type: "warning",
       isRead: false,
-      linkTo: { view: "opportunities", id: "opp-003" }
+      isArchived: false,
+      createdAt: new Date().toISOString(),
+      linkTo: { view: "pipeline", id: "opp-003" }
     },
     {
       id: "notif-2",
@@ -640,9 +667,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       timestamp: "Today",
       type: "action_required",
       isRead: false,
+      isArchived: false,
+      createdAt: new Date().toISOString(),
       linkTo: { view: "leads", id: "lead-001" }
     }
   ]);
+
+  const activeNotifications = useMemo(() => {
+    const list = serverNotifications.length > 0 ? serverNotifications : localNotifications;
+    return list.map(normalizeNotification);
+  }, [serverNotifications, localNotifications]);
+
+  const unreadNotificationsCount = useMemo(() => {
+    return getUnreadNotificationsCount(activeNotifications);
+  }, [activeNotifications]);
+
+  const setActiveTab = (tab: NavTab) => {
+    setActiveTabState(tab);
+    // Clear stale deal/opportunity context on unrelated workspace navigation when not pinned (P1-07)
+    if (!isCopilotContextPinned) {
+      if (tab === "settings" || tab === "home" || tab === "tools" || tab === "new-enquiry") {
+        setSelectedOpportunityId(null);
+        setSelectedCrmOpportunityId(null);
+        setCopilotCustomContext(null);
+      }
+    }
+  };
 
   const [toast, setToast] = useState<{ message: string; type: "success" | "info" | "warning" | "error" } | null>(null);
 
@@ -1227,17 +1277,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider
       value={{
-        currentUser,
-        updateCurrentUser,
-        resetCurrentUser,
-        cloudSyncStatus,
-        syncAllWithCloud,
         activeTab,
         setActiveTab,
         activeCRMTab,
         setActiveCRMTab,
         activeToolTab,
         setActiveToolTab,
+        cloudSyncStatus,
+        syncAllWithCloud,
+        currentUser,
+        updateCurrentUser,
+        resetCurrentUser,
         opportunities,
         setOpportunities,
         addOpportunity,
@@ -1276,7 +1326,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activePipelineId,
         setActivePipelineId,
         nextBestActions,
-        notifications: serverNotifications.length > 0 ? serverNotifications : localNotifications,
+        notifications: activeNotifications,
         unreadNotificationsCount,
         markNotificationRead,
         markAllNotificationsRead,
@@ -1302,6 +1352,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setExplainingTerm,
         isCopilotOpen,
         setIsCopilotOpen,
+        isCopilotContextPinned,
+        setIsCopilotContextPinned,
+        clearCopilotContext,
+        togglePinCopilotContext,
         isSearchOpen,
         setIsSearchOpen,
         quickLogModal,

@@ -228,7 +228,8 @@ export function generateCustomerFollowUpEmail(options: {
   const quoteRef = options.quoteRef?.trim() || "our recent quote";
   const sender = options.senderName?.trim() || "Plasgain Customer Service";
   const senderEmail = options.senderEmail?.trim() || "sales@plasgain.com.au";
-  const senderPhone = options.senderPhone?.trim() || "1300 000 000";
+  const senderPhone = options.senderPhone?.trim();
+  const contactLine = senderPhone ? `${senderEmail} | ${senderPhone}` : senderEmail;
   const leadTimeStr = options.leadTime?.trim() || "approximately 2–3 weeks from order confirmation";
   const warrantyStr = options.warranty?.trim() || "Plasgain Manufacturer Warranty";
   const productsStr =
@@ -257,7 +258,7 @@ ${options.customNote ? `${options.customNote}
 
 ${sender}
 Plasgain Customer Service & Engineering
-${senderEmail} | ${senderPhone}`;
+${contactLine}`;
   } else if (options.cadence === "day14") {
     subject = `Technical Review & Engineering Support - ${project} ${options.quoteRef ? `[${quoteRef}]` : ""}`;
     body = `Hi ${contact},
@@ -276,7 +277,7 @@ ${options.customNote ? `${options.customNote}
 
 ${sender}
 Plasgain Customer Service & Engineering
-${senderEmail} | ${senderPhone}`;
+${contactLine}`;
   } else {
     // Urgent / Tender Closing
     subject = `Tender Closing Check-in: ${project} ${options.quoteRef ? `[${quoteRef}]` : ""}`;
@@ -297,7 +298,7 @@ ${options.customNote ? `${options.customNote}
 
 ${sender}
 Plasgain Customer Service & Engineering
-${senderEmail} | ${senderPhone}`;
+${contactLine}`;
   }
 
   const recipient = options.contactEmail?.trim() || "";
@@ -409,7 +410,7 @@ export function generateTenderPackageHTML(options: {
     </div>
 
     <div class="footer">
-      Plasgain Australia • ABN 12 345 678 910 • sales@plasgain.com.au • 1300 000 000 • www.plasgain.com.au
+      Plasgain Australia • ABN 12 345 678 910 • sales@plasgain.com.au • www.plasgain.com.au
     </div>
   </div>
 

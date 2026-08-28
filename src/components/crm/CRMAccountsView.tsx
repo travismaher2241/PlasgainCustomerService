@@ -31,6 +31,8 @@ import {
 import { useApp } from "../../context/AppContext";
 import { Account, CRMContact, CRMOpportunity, RelationshipHealth, CompetitorPricingRecord, CompetitorPriceBasis, CompetitorGstStatus, CompetitorSourceType, CompetitorPricingStatus, AccountIntelligenceSummary } from "../../types/crm";
 import { CRMContactModal } from "./CRMContactModal";
+import { getLocalDateInputValue } from "../../utils/dateUtils";
+import { sortActivitiesChronological } from "../../utils/activityUtils";
 
 export const CRMAccountsView: React.FC = () => {
   const {
@@ -165,7 +167,7 @@ export const CRMAccountsView: React.FC = () => {
     gstStatus: "Ex GST" as CompetitorGstStatus,
     quantity: "" as string | number,
     sourceType: "Customer Verbal" as CompetitorSourceType,
-    observedDate: new Date().toISOString().split("T")[0],
+    observedDate: getLocalDateInputValue(),
     notes: "",
     status: "Active" as CompetitorPricingStatus
   });
@@ -181,7 +183,7 @@ export const CRMAccountsView: React.FC = () => {
       gstStatus: "Ex GST",
       quantity: "",
       sourceType: "Customer Verbal",
-      observedDate: new Date().toISOString().split("T")[0],
+      observedDate: getLocalDateInputValue(),
       notes: "",
       status: "Active"
     });
@@ -292,7 +294,10 @@ export const CRMAccountsView: React.FC = () => {
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId) || accounts[0];
   const accountContacts = contacts.filter((c) => c.accountId === selectedAccount?.id);
   const accountDeals = crmOpportunities.filter((d) => d.accountId === selectedAccount?.id);
-  const accountActivities = activities.filter((act) => act.accountId === selectedAccount?.id);
+  const accountActivities = sortActivitiesChronological(
+    activities.filter((act) => act.accountId === selectedAccount?.id),
+    "newest"
+  );
   const accountTasks = tasks.filter((t) => t.accountId === selectedAccount?.id);
   const accountCompetitorPricing = competitorPricingRecords.filter((r) => r.accountId === selectedAccount?.id);
 

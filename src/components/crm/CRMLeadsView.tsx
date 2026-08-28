@@ -61,16 +61,22 @@ export const CRMLeadsView: React.FC = () => {
     notes: ""
   });
 
-  const filteredLeads = leads.filter((l) => {
-    const matchesSearch =
-      l.leadName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      l.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      l.contactName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || l.leadStatus === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredLeads = useMemo(() => {
+    return leads.filter((l) => {
+      const matchesSearch =
+        l.leadName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        l.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        l.contactName.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === "all" || l.leadStatus === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [leads, searchQuery, statusFilter]);
 
-  const selectedLead = leads.find((l) => l.id === selectedLeadId) || filteredLeads[0];
+  const selectedLead = useMemo(() => {
+    if (filteredLeads.length === 0) return null;
+    const inFiltered = filteredLeads.find((l) => l.id === selectedLeadId);
+    return inFiltered || filteredLeads[0];
+  }, [filteredLeads, selectedLeadId]);
 
   // FEAT-05: Deduplication & Smart Domain Matching
   const matchedAccountInfo = useMemo(() => {
@@ -269,7 +275,17 @@ export const CRMLeadsView: React.FC = () => {
         </div>
 
         {/* Right Side: Lead 360 & Qualification Workspace (7 Columns) */}
-        {selectedLead && (
+        {!selectedLead ? (
+          <div className="lg:col-span-7 bg-white rounded-panel border border-line shadow-sm p-12 text-center space-y-3 flex flex-col items-center justify-center min-h-[360px]">
+            <div className="w-12 h-12 rounded-full bg-paper flex items-center justify-center text-ink-dim mx-auto">
+              <Search className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-body">Select a result</h3>
+            <p className="text-meta text-ink-dim max-w-sm mx-auto">
+              No matching lead found for current filters. Adjust your search or select a lead from the list to view qualification details.
+            </p>
+          </div>
+        ) : (
           <div className="lg:col-span-7 bg-white rounded-panel border border-line shadow-sm p-6 space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-line pb-4">

@@ -26,6 +26,9 @@ export const GlobalCopilot: React.FC = () => {
     contacts,
     competitorPricingRecords,
     copilotCustomContext,
+    isCopilotContextPinned,
+    clearCopilotContext,
+    togglePinCopilotContext,
     showToast
   } = useApp();
 
@@ -126,8 +129,18 @@ export const GlobalCopilot: React.FC = () => {
     }
   };
 
+  const activeContextName =
+    copilotCustomContext ||
+    (currentDeal ? `${currentDeal.name} (${currentDeal.accountName})` : currentAccount ? currentAccount.name : "General Assistant (No Deal Attached)");
+  const hasActiveContext = Boolean(copilotCustomContext || currentDeal || currentAccount);
+
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-96 max-w-[calc(100vw-2rem)] bg-white rounded-panel shadow-2xl border border-line flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-200">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Plasgain Sales Copilot"
+      className="fixed bottom-4 right-4 z-50 w-96 max-w-[calc(100vw-2rem)] bg-white rounded-panel shadow-2xl border border-line flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 duration-200"
+    >
       {/* Copilot Header - Editorial Dark */}
       <div className="bg-[#0F172A] p-4 text-white flex items-center justify-between border-b border-chrome-line">
         <div className="flex items-center gap-2.5">
@@ -141,25 +154,64 @@ export const GlobalCopilot: React.FC = () => {
                 LIVE
               </span>
             </div>
-            <span
-              className="text-spec text-ink-faint block truncate max-w-[200px]"
-              title={
-                copilotCustomContext ||
-                (currentDeal ? `${currentDeal.name} (${currentDeal.accountName})` : currentAccount ? currentAccount.name : "No customer context")
-              }
-            >
-              Context: {copilotCustomContext || (currentDeal ? currentDeal.name : currentAccount ? currentAccount.name : activeTab === "product-finder" ? "Product Selection Wizard" : "General Guidance")}
+            <span className="text-spec text-ink-faint block truncate max-w-[200px]">
+              AI Sales &amp; Standards Copilot
             </span>
           </div>
         </div>
 
         <button
+          type="button"
           onClick={() => setIsCopilotOpen(false)}
+          aria-label="Close Copilot"
           className="text-ink-faint hover:text-white p-1 rounded transition-colors cursor-pointer"
           title="Close Copilot (Esc)"
         >
           <X className="w-4 h-4" />
         </button>
+      </div>
+
+      {/* Explicit Context & Pinning Bar (P1-08) */}
+      <div className="bg-paper px-3 py-2 border-b border-line flex items-center justify-between text-spec">
+        <div className="flex items-center gap-1.5 truncate min-w-0">
+          {isCopilotContextPinned ? (
+            <span className="text-brand-deep font-bold flex items-center gap-1 shrink-0">
+              📌 Pinned:
+            </span>
+          ) : (
+            <span className="text-ink-dim font-semibold shrink-0">Using context:</span>
+          )}
+          <span className="font-bold text-body truncate" title={activeContextName}>
+            {activeContextName}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1.5 shrink-0 ml-2">
+          {hasActiveContext && (
+            <>
+              <button
+                type="button"
+                onClick={togglePinCopilotContext}
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
+                  isCopilotContextPinned
+                    ? "bg-brand text-white border-brand"
+                    : "bg-white text-ink-dim hover:text-body border-line"
+                }`}
+                title={isCopilotContextPinned ? "Unpin context" : "Pin context across screen navigation"}
+              >
+                {isCopilotContextPinned ? "Unpin" : "Pin"}
+              </button>
+              <button
+                type="button"
+                onClick={clearCopilotContext}
+                className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white text-urgent border border-urgent/30 hover:bg-urgent-wash transition-colors cursor-pointer"
+                title="Clear active record context"
+              >
+                Clear
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Messages */}

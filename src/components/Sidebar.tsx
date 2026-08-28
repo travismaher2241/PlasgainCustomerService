@@ -20,6 +20,25 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) => {
   const { activeTab, setActiveTab, currentUser } = useApp();
 
+  // Lock body scroll and listen for Escape key when mobile menu is open (P1-12)
+  React.useEffect(() => {
+    if (mobileOpen) {
+      document.body.style.overflow = "hidden";
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === "Escape") {
+          setMobileOpen?.(false);
+        }
+      };
+      window.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.body.style.overflow = "";
+        window.removeEventListener("keydown", handleKeyDown);
+      };
+    } else {
+      document.body.style.overflow = "";
+    }
+  }, [mobileOpen, setMobileOpen]);
+
   const navItems: {
     id: NavTab;
     label: string;
@@ -43,25 +62,39 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
   };
 
   return (
-    <aside
-      className={`w-58 bg-chrome border-r border-chrome-line flex flex-col shrink-0 h-screen sticky top-0 transition-transform duration-200 z-50 ${
-        mobileOpen ? "fixed inset-y-0 left-0 translate-x-0" : "hidden md:flex"
-      }`}
-    >
-      {/* Brand lockup */}
-      <div className="px-4.5 pt-5.5 pb-6 flex items-start justify-between">
-        <PlasgainLockup />
+    <>
+      {/* Blocking Backdrop Overlay for Mobile Drawer (P1-12) */}
+      {mobileOpen && (
+        <div
+          onClick={() => setMobileOpen?.(false)}
+          className="fixed inset-0 bg-chrome/70 backdrop-blur-xs z-40 md:hidden animate-in fade-in duration-150"
+          aria-hidden="true"
+        />
+      )}
 
-        {setMobileOpen && (
-          <button
-            onClick={() => setMobileOpen(false)}
-            className="md:hidden text-chrome-dim hover:text-chrome-text p-1 cursor-pointer"
-            title="Close menu"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        )}
-      </div>
+      <aside
+        role="navigation"
+        aria-label="Main Navigation"
+        className={`w-58 bg-chrome border-r border-chrome-line flex flex-col shrink-0 h-screen sticky top-0 transition-transform duration-200 z-50 ${
+          mobileOpen ? "fixed inset-y-0 left-0 translate-x-0 shadow-2xl" : "hidden md:flex"
+        }`}
+      >
+        {/* Brand lockup */}
+        <div className="px-4.5 pt-5.5 pb-6 flex items-start justify-between">
+          <PlasgainLockup />
+
+          {setMobileOpen && (
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              aria-label="Close navigation menu"
+              className="md:hidden text-chrome-dim hover:text-chrome-text p-1 cursor-pointer"
+              title="Close menu"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+        </div>
 
       {/* Navigation */}
       <nav className="flex-1 flex flex-col gap-px px-2.5 overflow-y-auto">
@@ -123,5 +156,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
         </div>
       </div>
     </aside>
+    </>
   );
 };

@@ -28,6 +28,7 @@ import {
 import { useApp, ToolSubTab } from "../context/AppContext";
 import { Surface, ListRow, Chip, Tone } from "./ui/Surface";
 import { Opportunity } from "../types";
+import { isDueWithinBusinessDays } from "../utils/dateUtils";
 
 export type UserRole = "customer_service" | "sales" | "sales_manager" | "technical";
 
@@ -140,10 +141,45 @@ export const HomeDashboard: React.FC = () => {
   };
 
 
-  const attentionMetrics = useMemo(() => {
-    const quoteDueSoon = opportunities.filter(
-      (o) => o.stage === "Quoting" || o.stage === "Qualifying"
+  // P1-15: Pending Quotes KPI calculated using real 5-business-day deadlines (excluding weekends)
+  const pendingQuotesDue5BusinessDays = useMemo(() => {
+    return opportunities.filter(
+      (opp) =>
+        (opp.stage === "Quoting" || opp.stage === "Qualifying" || opp.stage === "Technical Review") &&
+        opp.quoteDeadline &&
+        isDueWithinBusinessDays(opp.quoteDeadline, 5)
     );
+  }, [opportunities]);
+
+  // P1-16: Role-specific prioritisation explanation helper
+  const getPrioritisationExplanation = (opp: Opportunity, role: UserRole): string => {
+    const days = daysUntilDeadline(opp.quoteDeadline);
+    const valueStr = opp.estimatedValue > 0 ? `$${opp.estimatedValue.toLocaleString()}` : "";
+
+    switch (role) {
+      case "sales":
+        if (days !== null && days < 0) return `Quote overdue by ${Math.abs(days)} day(s) — commercial closing urgency for ${valueStr}`;
+        if (days !== null && days <= 5) return `Quote due in ${days} business day(s) — priority tender pricing (${valueStr})`;
+        return `Active commercial opportunity — pipeline value ${valueStr || "standard"}`;
+
+      case "technical":
+        if (opp.stage === "Technical Review") return `Engineering review active — AS/NZS 1158 Dialux calculation & compliance statement required`;
+        if (opp.productsQuoted && opp.productsQuoted.length > 0) return `Technical scope: ${opp.productsQuoted.length} luminaire / pole specifications`;
+        return `Engineering compliance & photometric verification`;
+
+      case "sales_manager":
+        return `High-value portfolio tender (${valueStr || "$0"}) at stage "${opp.stage}"`;
+
+      case "customer_service":
+      default:
+        if (opp.stage === "New Enquiry") return `Inbound enquiry — response SLA target < 4 business hours`;
+        if (opp.stage === "Awaiting Information") return `Awaiting customer drawing package / soil parameters`;
+        return `Customer follow-up & communication cadence`;
+    }
+  };
+
+  const attentionMetrics = useMemo(() => {
+    const quoteDueSoon = pendingQuotesDue5BusinessDays;
     const techReview = opportunities.filter((o) => o.stage === "Technical Review");
     const waitingCustomer = opportunities.filter(
       (o) => o.stage === "Awaiting Information" || o.status === "Pending Customer"
@@ -164,7 +200,7 @@ export const HomeDashboard: React.FC = () => {
         newEnquiries.length +
         followUpOverdue.length
     };
-  }, [opportunities]);
+  }, [opportunities, pendingQuotesDue5BusinessDays]);
 
   // Priority item scoring & filtering based on role and selected attention filter
   // The queue is ordered by urgency first — an overdue quote outranks anything
@@ -453,6 +489,12 @@ export const HomeDashboard: React.FC = () => {
                       {opp.nextAction}
                     </p>
                   )}
+
+                  {/* P1-16: Role-specific prioritisation explanation badge */}
+                  <div className="mt-2 text-spec px-2.5 py-1 rounded bg-raised border border-line text-ink-dim flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-body">Prioritisation Reason:</span>
+                    <span>{getPrioritisationExplanation(opp, selectedRole)}</span>
+                  </div>
                 </ListRow>
               );
             })}

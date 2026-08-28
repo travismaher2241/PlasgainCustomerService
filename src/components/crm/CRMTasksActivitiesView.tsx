@@ -23,6 +23,9 @@ import {
 import { useApp } from "../../context/AppContext";
 import { CRMTask, TaskPriority, TaskType } from "../../types/crm";
 
+import { getLocalDateInputValue, addDaysLocal } from "../../utils/dateUtils";
+import { sortActivitiesChronological } from "../../utils/activityUtils";
+
 export const CRMTasksActivitiesView: React.FC = () => {
   const {
     tasks,
@@ -40,11 +43,13 @@ export const CRMTasksActivitiesView: React.FC = () => {
   const [activeSubTab, setActiveSubTab] = useState<"tasks" | "activities">("tasks");
   const [taskFilter, setTaskFilter] = useState<"all" | "pending" | "overdue" | "completed">("pending");
   const [assigneeFilter, setAssigneeFilter] = useState<"mine" | "all">("all");
+  const [activitySortOrder, setActivitySortOrder] = useState<"newest" | "oldest">("newest");
   const [searchQuery, setSearchQuery] = useState("");
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  // Australia/Sydney timezone-aware today string (P1-03)
+  const todayStr = getLocalDateInputValue();
 
   const [newTaskForm, setNewTaskForm] = useState({
     title: "",
@@ -104,7 +109,7 @@ export const CRMTasksActivitiesView: React.FC = () => {
   };
 
   const handleBatchPostpone = (days: number) => {
-    const newDueDate = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    const newDueDate = addDaysLocal(days);
     selectedTaskIds.forEach((id) => {
       updateTask(id, { dueDate: newDueDate, isOverdue: false });
     });
@@ -372,36 +377,64 @@ export const CRMTasksActivitiesView: React.FC = () => {
           )}
         </div>
       ) : (
-        /* Activities Stream */
-        <div className="bg-white rounded-panel border border-line shadow-sm overflow-hidden divide-y divide-line">
-          {filteredActivities.length === 0 ? (
-            <div className="p-8 text-center text-meta text-ink-dim">No activities logged yet.</div>
-          ) : (
-            filteredActivities.map((act) => (
-              <div key={act.id} className="p-4 hover:bg-raised transition-colors space-y-1.5 text-meta">
-                <div className="flex items-center justify-between text-ink-dim text-spec">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-body">{act.accountName || "General Touchpoint"}</span>
-                    {act.opportunityName && <span className="text-ink-faint">· {act.opportunityName}</span>}
+        /* Activities Stream with Sort Control (P1-14) */
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-spec font-bold uppercase text-ink-dim">
+              Activity History ({filteredActivities.length})
+            </span>
+            <div className="flex items-center gap-2">
+              <span className="text-spec text-ink-dim">Sort:</span>
+              <button
+                type="button"
+                onClick={() => setActivitySortOrder((prev) => (prev === "newest" ? "oldest" : "newest"))}
+                aria-label={`Sort activity history: currently ${activitySortOrder === "newest" ? "newest first" : "oldest first"}`}
+                className="px-2.5 py-1 text-spec font-bold rounded-edge bg-white border border-line hover:bg-raised text-brand-deep cursor-pointer flex items-center gap-1 shadow-2xs"
+              >
+                {activitySortOrder === "newest" ? "Newest First ▾" : "Oldest First ▴"}
+              </button>
+            </div>
+          </div>
+          <div className="bg-white rounded-panel border border-line shadow-sm overflow-hidden divide-y divide-line">
+            {filteredActivities.length === 0 ? (
+              <div className="p-8 text-center text-meta text-ink-dim">No activities logged yet.</div>
+            ) : (
+              sortActivitiesChronological(filteredActivities, activitySortOrder).map((act) => (
+                <div key={act.id} className="p-4 hover:bg-raised transition-colors space-y-1.5 text-meta">
+                  <div className="flex items-center justify-between text-ink-dim text-spec">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-body">{act.accountName || "General Touchpoint"}</span>
+                      {act.opportunityName && <span className="text-ink-faint">· {act.opportunityName}</span>}
+                    </div>
+                    <span>{new Date(act.timestamp).toLocaleString("en-AU", { dateStyle: "medium", timeStyle: "short" })}</span>
                   </div>
-                  <span>{new Date(act.timestamp).toLocaleString("en-AU", { dateStyle: "medium", timeStyle: "short" })}</span>
+                  <div className="text-body font-bold">{act.title}</div>
+                  <p className="text-ink-dim leading-relaxed">{act.description}</p>
+                  <div className="text-spec text-ink-faint">Logged by: {act.performedBy}</div>
                 </div>
-                <div className="text-body font-bold">{act.title}</div>
-                <p className="text-ink-dim leading-relaxed">{act.description}</p>
-                <div className="text-spec text-ink-faint">Logged by: {act.performedBy}</div>
-              </div>
-            ))
-          )}
+              ))
+            )}
+          </div>
         </div>
       )}
 
       {/* New Task Modal */}
       {isNewTaskModalOpen && (
-        <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="create-task-title"
+          className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+        >
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between border-b border-line pb-3">
-              <h3 className="text-lg font-bold text-body">Create Task</h3>
-              <button onClick={() => setIsNewTaskModalOpen(false)} className="text-ink-faint hover:text-ink-dim text-body cursor-pointer">
+              <h3 id="create-task-title" className="text-lg font-bold text-body">Create Task</h3>
+              <button
+                type="button"
+                onClick={() => setIsNewTaskModalOpen(false)}
+                aria-label="Close modal"
+                className="text-ink-faint hover:text-ink-dim text-body cursor-pointer p-1"
+              >
                 ✕
               </button>
             </div>

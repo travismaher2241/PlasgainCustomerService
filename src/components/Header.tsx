@@ -80,30 +80,46 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
   });
 
   return (
-    <header className="h-13.5 bg-surface border-b border-line px-4 sm:px-6.5 flex items-center gap-4 shrink-0 sticky top-0 z-30">
-      <button
-        onClick={onToggleMobileMenu}
-        className="md:hidden p-2 -ml-2 text-ink-dim hover:text-ink rounded-edge hover:bg-paper cursor-pointer"
-        title="Open menu"
-      >
-        <Menu className="w-5 h-5" />
-      </button>
+    <header className="h-13.5 bg-surface border-b border-line px-3 sm:px-6 flex items-center justify-between gap-3 shrink-0 sticky top-0 z-30 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+        <button
+          type="button"
+          onClick={onToggleMobileMenu}
+          aria-label="Open navigation menu"
+          title="Open menu"
+          className="md:hidden p-1.5 text-ink-dim hover:text-ink rounded-edge hover:bg-paper cursor-pointer shrink-0"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
 
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1.5 text-meta text-ink-dim truncate min-w-0">
-        <span className="font-semibold text-body">{getTabDisplayName(activeTab)}</span>
-        <span className="text-ink-faint px-1">/</span>
-        <span className="truncate">
-          {activeTab === "new-enquiry" && currentOpp
-            ? currentOpp.project
-            : "Commercial & Solar Lighting"}
-        </span>
+        {/* Breadcrumb (P1-11) */}
+        <div className="flex items-center gap-1.5 text-meta text-ink-dim truncate min-w-0">
+          <span className="font-semibold text-body shrink-0">{getTabDisplayName(activeTab)}</span>
+          {activeTab === "new-enquiry" && (
+            <>
+              <span className="text-ink-faint px-0.5">/</span>
+              <span className="truncate text-ink font-medium">
+                {currentOpp ? currentOpp.project : "New Sales Enquiry"}
+              </span>
+            </>
+          )}
+          {activeTab !== "new-enquiry" && (
+            <>
+              <span className="text-ink-faint px-0.5 hidden sm:inline">/</span>
+              <span className="truncate hidden sm:inline text-ink-faint">
+                Plasgain Australia
+              </span>
+            </>
+          )}
+        </div>
       </div>
 
-      <div className="flex items-center gap-2 shrink-0 ml-auto">
+      <div className="flex items-center gap-2 shrink-0">
         {/* Search */}
         <button
+          type="button"
           onClick={() => setIsSearchOpen(true)}
+          aria-label="Open search dialog (Command-K)"
           className="flex items-center gap-2 text-meta text-ink-faint bg-paper hover:bg-raised px-2.5 py-1.5 rounded-edge border border-line hover:border-line-strong transition-colors cursor-pointer"
         >
           <Search className="w-3.5 h-3.5" />
@@ -113,10 +129,13 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           </kbd>
         </button>
 
-        {/* Team Notifications & Alerts Bell */}
+        {/* Team Notifications & Alerts Bell (P1-05 & P1-13) */}
         <div className="relative" ref={dropdownRef}>
           <button
+            type="button"
             onClick={() => setIsAlertsOpen(!isAlertsOpen)}
+            aria-label={`Team Notifications: ${unreadNotificationsCount} unread`}
+            aria-expanded={isAlertsOpen}
             className="p-2 rounded-edge text-ink-dim hover:text-ink bg-paper hover:bg-raised border border-line transition-colors relative cursor-pointer"
             title="Team Notifications & Operational Alerts"
           >

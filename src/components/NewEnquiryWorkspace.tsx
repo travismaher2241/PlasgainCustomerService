@@ -207,6 +207,8 @@ export const NewEnquiryWorkspace: React.FC = () => {
     } else {
       setSelectedQuestions([...selectedQuestions, qText]);
     }
+  };
+
   const handleInlineCreateAccount = () => {
     const compName = rawEnquiryInput.company.trim();
     if (!compName) {

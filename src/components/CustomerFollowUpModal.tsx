@@ -80,8 +80,8 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
       quoteRef,
       productsList: initialProducts,
       senderName: currentUser.name || "Plasgain Customer Service",
-      senderEmail: (currentUser as any).email || "sales@plasgain.com.au",
-      senderPhone: (currentUser as any).phone || "1300 000 000",
+      senderEmail: currentUser.email || "sales@plasgain.com.au",
+      senderPhone: currentUser.phone || undefined,
       companyAbn: "12 345 678 910",
       leadTime,
       warranty,
@@ -144,7 +144,12 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
   const mailtoUrl = `mailto:?subject=${encodeURIComponent(editableSubject)}&body=${encodeURIComponent(editableBody)}`;
 
   return (
-    <div className="fixed inset-0 bg-chrome/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="follow-up-generator-title"
+      className="fixed inset-0 bg-chrome/60 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+    >
       <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl border border-line overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
         
         {/* Header */}
@@ -152,14 +157,18 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
           <div className="flex items-center gap-2.5">
             <Mail className="w-5 h-5 text-brand-deep" />
             <div>
-              <h3 className="font-bold text-lg text-body">Customer Follow-Up Generator</h3>
+              <h3 id="follow-up-generator-title" className="font-bold text-lg text-body">
+                Customer Follow-Up Generator
+              </h3>
               <p className="text-spec text-ink-dim">
                 Tailored follow-up sequences referencing Ostendo ERP quotes and quoted Plasgain products.
               </p>
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
+            aria-label="Close modal"
             className="text-ink-faint hover:text-ink p-1 rounded cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -279,6 +288,14 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
               />
             </div>
           </div>
+
+          {!currentUser.phone && (
+            <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-edge text-spec text-amber-900 flex items-center justify-between">
+              <span>
+                <strong>Profile Tip:</strong> Direct phone number is not set in Settings. Your email address ({currentUser.email || "sales@plasgain.com.au"}) is used in the signature.
+              </span>
+            </div>
+          )}
 
           {/* Email Subject & Body Preview */}
           <div className="space-y-2">

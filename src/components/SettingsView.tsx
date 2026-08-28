@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   ShieldCheck,
   Database,
@@ -44,7 +44,8 @@ export const SettingsView: React.FC = () => {
     savedDraft.name !== currentUser.name ||
     savedDraft.role !== currentUser.role ||
     savedDraft.location !== currentUser.location ||
-    savedDraft.email !== currentUser.email;
+    savedDraft.email !== currentUser.email ||
+    (savedDraft.phone || "") !== (currentUser.phone || "");
 
   const nameError = savedDraft.name.trim().length === 0 ? "Your name is required." : null;
 
@@ -55,7 +56,8 @@ export const SettingsView: React.FC = () => {
       name: savedDraft.name.trim(),
       role: savedDraft.role.trim(),
       location: savedDraft.location.trim(),
-      email: savedDraft.email.trim()
+      email: savedDraft.email.trim(),
+      phone: (savedDraft.phone || "").trim()
     });
     setSavedAt(new Date().toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }));
     showToast("Profile updated & saved to Cloud Firestore", "success");
@@ -204,6 +206,20 @@ export const SettingsView: React.FC = () => {
                   onChange={(e) => setDraftState({ ...savedDraft, email: e.target.value })}
                   className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
                   placeholder="you@plasgain.com.au"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label htmlFor="profile-phone" className="u-eyebrow text-ink-dim block mb-1.5">
+                  Direct Phone / Mobile (For Customer Email Signatures)
+                </label>
+                <input
+                  id="profile-phone"
+                  type="tel"
+                  value={savedDraft.phone || ""}
+                  onChange={(e) => setDraftState({ ...savedDraft, phone: e.target.value })}
+                  className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
+                  placeholder="e.g. +61 3 9000 0000 or 0412 345 678"
                 />
               </div>
             </div>

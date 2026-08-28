@@ -23,6 +23,7 @@ import {
   CompetitorSourceType,
   CompetitorPricingStatus
 } from "../../types/crm";
+import { getLocalDateInputValue } from "../../utils/dateUtils";
 
 export const CRMCompetitorPricingView: React.FC = () => {
   const {
@@ -58,7 +59,7 @@ export const CRMCompetitorPricingView: React.FC = () => {
     gstStatus: "Ex GST" as CompetitorGstStatus,
     quantity: "" as string | number,
     sourceType: "Customer Verbal" as CompetitorSourceType,
-    observedDate: new Date().toISOString().split("T")[0],
+    observedDate: getLocalDateInputValue(),
     notes: "",
     status: "Active" as CompetitorPricingStatus
   });
@@ -103,7 +104,7 @@ export const CRMCompetitorPricingView: React.FC = () => {
       gstStatus: "Ex GST",
       quantity: "",
       sourceType: "Customer Verbal",
-      observedDate: new Date().toISOString().split("T")[0],
+      observedDate: getLocalDateInputValue(),
       notes: "",
       status: "Active"
     });
