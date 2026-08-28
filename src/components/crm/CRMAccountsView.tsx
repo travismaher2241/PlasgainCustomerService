@@ -391,7 +391,7 @@ export const CRMAccountsView: React.FC = () => {
       {/* Main 2-Column Split: Account List vs 360 Workspace */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Side: Directory & Search (4 Columns) */}
-        <div className="lg:col-span-4 bg-white rounded-panel border border-line shadow-sm overflow-hidden flex flex-col h-[780px]">
+        <div className="lg:col-span-4 bg-white rounded-panel border border-line shadow-sm overflow-hidden flex flex-col h-auto max-h-[460px] lg:h-[780px] lg:max-h-none">
           {/* Filters */}
           <div className="p-3.5 border-b border-line space-y-2.5 bg-raised">
             <div className="relative">
@@ -450,11 +450,27 @@ export const CRMAccountsView: React.FC = () => {
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <div className="space-y-0.5">
-                        <div className="text-meta font-bold leading-snug">{acc.name}</div>
+                      <div className="space-y-0.5 min-w-0 flex-1">
+                        <div className="text-meta font-bold leading-snug truncate">{acc.name}</div>
                         <div className="text-spec text-ink-dim">{acc.customerSegment} · {acc.territory}</div>
                       </div>
-                      {getHealthBadge(acc.relationshipHealth)}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {getHealthBadge(acc.relationshipHealth)}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`Are you sure you want to delete "${acc.name}" and all associated records?`)) {
+                              deleteAccount(acc.id);
+                            }
+                          }}
+                          className="p-1.5 text-ink-dim hover:text-urgent hover:bg-urgent-wash rounded-edge border border-line/60 hover:border-urgent/40 transition-colors cursor-pointer"
+                          title={`Delete ${acc.name}`}
+                          aria-label={`Delete ${acc.name}`}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                     <div className="mt-2 flex items-center justify-between text-spec text-ink-dim">
                       <span>Pipeline: <strong className="text-body font-semibold">${(acc.metrics?.openPipelineValue || 0).toLocaleString()}</strong></span>
@@ -551,10 +567,12 @@ export const CRMAccountsView: React.FC = () => {
                         deleteAccount(selectedAccount.id);
                       }
                     }}
-                    className="p-1.5 text-meta font-semibold text-ink-dim hover:text-urgent hover:bg-urgent-wash border border-line rounded-edge transition-colors cursor-pointer"
+                    className="px-2.5 py-1.5 text-meta font-semibold text-ink-dim hover:text-urgent hover:bg-urgent-wash border border-line rounded-edge transition-colors cursor-pointer flex items-center gap-1"
                     title="Delete this account from workspace"
+                    aria-label={`Delete ${selectedAccount.name}`}
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
                   </button>
                 </div>
               </div>
