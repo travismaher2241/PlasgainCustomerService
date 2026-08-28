@@ -18,7 +18,8 @@ import {
   NextBestActionItem,
   CRMNotification,
   CompetitorPricingRecord,
-  CompetitorPricingAlert
+  CompetitorPricingAlert,
+  EmailComposerLaunchContext
 } from "../types/crm";
 import {
   SAMPLE_OPPORTUNITIES,
@@ -280,6 +281,12 @@ interface AppContextType {
   openQuickLog: (type: "call" | "note" | "meeting" | "email" | "task" | "follow_up", accountId?: string, oppId?: string, contactId?: string) => void;
   closeQuickLog: () => void;
 
+  // AI Email Composer Modal
+  isEmailComposerOpen: boolean;
+  emailComposerLaunchContext: EmailComposerLaunchContext | null;
+  openEmailComposer: (context?: EmailComposerLaunchContext) => void;
+  closeEmailComposer: () => void;
+
   // Notification / Toast
   toast: { message: string; type: "success" | "info" | "warning" | "error" } | null;
   showToast: (message: string, type?: "success" | "info" | "warning" | "error") => void;
@@ -428,6 +435,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     opportunityId?: string;
     contactId?: string;
   } | null>(null);
+
+  // AI Email Composer Modal State
+  const [isEmailComposerOpen, setIsEmailComposerOpen] = useState<boolean>(false);
+  const [emailComposerLaunchContext, setEmailComposerLaunchContext] = useState<EmailComposerLaunchContext | null>(null);
+
+  const openEmailComposer = (context?: EmailComposerLaunchContext) => {
+    setEmailComposerLaunchContext(context || null);
+    setIsEmailComposerOpen(true);
+  };
+
+  const closeEmailComposer = () => {
+    setIsEmailComposerOpen(false);
+    setEmailComposerLaunchContext(null);
+  };
 
   
   // Server-backed Notifications with canonical normalization (P1-05)
@@ -1383,6 +1404,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         quickLogModal,
         openQuickLog,
         closeQuickLog,
+        isEmailComposerOpen,
+        emailComposerLaunchContext,
+        openEmailComposer,
+        closeEmailComposer,
         toast,
         showToast,
         navigateToWorkflow,

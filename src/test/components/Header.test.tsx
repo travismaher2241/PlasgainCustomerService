@@ -14,6 +14,7 @@ describe('Header Component', () => {
 
     expect(screen.getByText(/^Dashboard$/i)).toBeInTheDocument();
     expect(screen.getByText(/Search specs, terms & docs/i)).toBeInTheDocument();
+    expect(screen.getByText(/Write AI Email/i)).toBeInTheDocument();
     expect(screen.queryByText(/Lighting terms/i)).not.toBeInTheDocument();
     expect(screen.getByText('Ask Copilot')).toBeInTheDocument();
   });

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   Search,
   Sparkles,
+  Mail,
   Menu,
   Bell,
   TrendingUp,
@@ -26,6 +27,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
     setIsSearchOpen,
     isCopilotOpen,
     setIsCopilotOpen,
+    openEmailComposer,
     selectedOpportunityId,
     opportunities,
     notifications,
@@ -127,6 +129,18 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           <kbd className="u-data hidden sm:inline-block ml-1 px-1 text-[0.625rem] text-ink-faint border border-line-strong rounded-[2px]">
             ⌘K
           </kbd>
+        </button>
+
+        {/* Global AI Email Composer Entry Point */}
+        <button
+          type="button"
+          onClick={() => openEmailComposer()}
+          aria-label="Write AI Email"
+          title="Compose grounded AI email (Cold Outreach or Project Enquiry)"
+          className="flex items-center gap-1.5 text-meta font-bold text-brand-deep bg-brand-wash hover:bg-brand-wash/80 px-2.5 py-1.5 rounded-edge border border-brand-edge shadow-2xs transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-brand" />
+          <span className="hidden sm:inline">Write AI Email</span>
         </button>
 
         {/* Team Notifications & Alerts Bell (P1-05 & P1-13) */}

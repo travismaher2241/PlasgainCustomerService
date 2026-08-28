@@ -61,6 +61,7 @@ export const CRMPipelineView: React.FC = () => {
     setActivePipelineId,
     accounts,
     openQuickLog,
+    openEmailComposer,
     navigateToCRM,
     logActivity,
     addTask,
@@ -547,6 +548,35 @@ export const CRMPipelineView: React.FC = () => {
               <p className="text-meta text-ink-dim mt-0.5">{selectedDeal.projectApplication} · {selectedDeal.location}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => {
+                  openEmailComposer({
+                    defaultMode: "project-enquiry",
+                    opportunityId: selectedDeal.id,
+                    accountId: selectedDeal.accountId,
+                    companyName: selectedDeal.accountName,
+                    contactId: selectedDeal.primaryContactId,
+                    contactName: selectedDeal.primaryContactName,
+                    contactEmail: selectedDeal.primaryContactEmail,
+                    contactRole: selectedDeal.primaryContactRole || "Estimator / Project Manager",
+                    projectName: selectedDeal.name,
+                    projectLocation: selectedDeal.location,
+                    projectNotes: `${selectedDeal.customerNeed || ""} | ${selectedDeal.notes || ""}`,
+                    productsQuoted: (selectedDeal.products || []).map((p) => ({
+                      productCode: p.productCode,
+                      productName: p.productName,
+                      quantity: p.quantity
+                    })),
+                    recentActivities: [selectedDeal.latestActivity || ""].filter(Boolean),
+                    desiredOutcome: "Ask about the lighting package"
+                  });
+                }}
+                className="px-3 py-1.5 text-meta font-bold bg-brand-wash text-brand-deep border border-brand-edge rounded-edge hover:bg-brand-wash/80 transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                title="Draft an AI enquiry email regarding this project lighting package"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-brand" />
+                <span>Project Enquiry Email</span>
+              </button>
               <button
                 onClick={() => setIsFollowUpModalOpen(true)}
                 className="px-3 py-1.5 text-meta font-bold bg-soon-wash text-soon border border-soon/30 rounded-edge hover:bg-soon transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"

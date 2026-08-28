@@ -36,6 +36,7 @@ export const CRMLeadsView: React.FC = () => {
     accounts,
     contacts,
     openQuickLog,
+    openEmailComposer,
     navigateToCRM,
     currentUser,
     showToast
@@ -325,14 +326,42 @@ export const CRMLeadsView: React.FC = () => {
                 </div>
               </div>
 
-              {selectedLead.leadStatus !== "Converted" ? (
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={handleOpenConvertModal}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 text-meta font-bold text-white bg-brand-deep rounded-edge hover:bg-brand shadow-sm transition-colors cursor-pointer"
+                  onClick={() => {
+                    const hasProject = Boolean(
+                      selectedLead.projectInterest ||
+                      selectedLead.notes?.toLowerCase().includes("project") ||
+                      selectedLead.notes?.toLowerCase().includes("tender") ||
+                      selectedLead.enquiryType?.toLowerCase().includes("project")
+                    );
+                    openEmailComposer({
+                      defaultMode: hasProject ? "project-enquiry" : "cold-outreach",
+                      leadId: selectedLead.id,
+                      contactName: selectedLead.leadName,
+                      contactEmail: selectedLead.email,
+                      companyName: selectedLead.company,
+                      projectLocation: selectedLead.location,
+                      enquiryType: selectedLead.enquiryType,
+                      projectNotes: selectedLead.notes,
+                      desiredOutcome: selectedLead.nextAction || "Introduce Plasgain"
+                    });
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 text-meta font-bold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash/80 shadow-2xs transition-colors cursor-pointer"
+                  title="Draft grounded AI outreach or project enquiry email"
                 >
-                  <UserCheck className="w-4 h-4" /> Convert to Deal &amp; Account
+                  <Sparkles className="w-4 h-4 text-brand" />
+                  <span>Draft AI Email</span>
                 </button>
-              ) : (
+
+                {selectedLead.leadStatus !== "Converted" ? (
+                  <button
+                    onClick={handleOpenConvertModal}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 text-meta font-bold text-white bg-brand-deep rounded-edge hover:bg-brand shadow-sm transition-colors cursor-pointer"
+                  >
+                    <UserCheck className="w-4 h-4" /> Convert to Deal &amp; Account
+                  </button>
+                ) : (
                 <div className="flex items-center gap-2">
                   <span className="px-3 py-1 bg-brand-wash text-brand-deep text-meta font-bold rounded-edge flex items-center gap-1 border border-brand-edge">
                     <CheckCircle2 className="w-3.5 h-3.5" /> Converted
@@ -358,6 +387,7 @@ export const CRMLeadsView: React.FC = () => {
                 </div>
               )}
             </div>
+          </div>
 
             {/* P0-17: Linked Converted Record Confirmation */}
             {selectedLead.leadStatus === "Converted" && (

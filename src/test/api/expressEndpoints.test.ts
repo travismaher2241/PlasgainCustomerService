@@ -130,6 +130,16 @@ const AI_ROUTES: { name: string; path: string; body: Record<string, unknown> }[]
     name: 'copilot/chat',
     path: '/api/copilot/chat',
     body: { message: 'How do I position Intense 50W?', activeScreen: 'Product Finder' }
+  },
+  {
+    name: 'email/research-and-draft',
+    path: '/api/email/research-and-draft',
+    body: { mode: 'cold-outreach', researchSubject: 'BMD Group' }
+  },
+  {
+    name: 'email/refine-draft',
+    path: '/api/email/refine-draft',
+    body: { currentDraft: { subject: 'Intro', body: 'Draft body text' }, refineAction: 'shorter' }
   }
 ];
 
@@ -258,9 +268,24 @@ describe('Input validation rejects unusable requests', () => {
           }
         }
       });
-    // Validation passes, so it reaches the AI and reports it unavailable.
     expect(res.status).toBe(503);
     expect(res.body.degraded).toBe(true);
+  });
+
+  it('email/research-and-draft rejects requests with missing research subject', async () => {
+    const res = await request(app)
+      .post('/api/email/research-and-draft')
+      .send({ mode: 'cold-outreach' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/research subject/i);
+  });
+
+  it('email/refine-draft rejects requests with missing draft body', async () => {
+    const res = await request(app)
+      .post('/api/email/refine-draft')
+      .send({ refineAction: 'shorter' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/current email body/i);
   });
 
   it('validate-test still 404s for an unknown test id', async () => {

@@ -417,3 +417,72 @@ export interface CompetitorPricingAlert {
   createdAt: string;
   isRead: boolean;
 }
+
+export type EmailComposerMode = "cold-outreach" | "project-enquiry";
+
+export interface EmailComposerLaunchContext {
+  defaultMode?: EmailComposerMode;
+  accountId?: string;
+  contactId?: string;
+  leadId?: string;
+  opportunityId?: string;
+  companyName?: string;
+  companyWebsite?: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactRole?: string;
+  projectName?: string;
+  projectLocation?: string;
+  projectUrl?: string;
+  projectNotes?: string;
+  enquiryType?: string;
+  rawContent?: string;
+  productsQuoted?: Array<{ productCode?: string; productName: string; quantity?: number }>;
+  recentActivities?: string[];
+  customerSegment?: string;
+  industry?: string;
+  territory?: string;
+  desiredOutcome?: string;
+}
+
+export interface ResearchConfirmedFact {
+  text: string;
+  sourceIds: string[];
+}
+
+export interface ResearchInference {
+  text: string;
+  reason: string;
+  confidence: "high" | "medium" | "low";
+}
+
+export interface ResearchPlasgainRelevance {
+  text: string;
+  basis: "CRM" | "Plasgain Knowledge Base" | "Public Research";
+}
+
+export interface ResearchSourceItem {
+  id: string;
+  title: string;
+  url: string;
+  publisher: string;
+}
+
+export interface AIEmailResearchResult {
+  researchStatus: "complete" | "partial" | "unavailable";
+  researchSummary: {
+    confirmedFacts: ResearchConfirmedFact[];
+    inferences: ResearchInference[];
+    unknowns: string[];
+    plasgainRelevance: ResearchPlasgainRelevance[];
+    recommendedSalesAngle: string;
+    confidence: "high" | "medium" | "low";
+  };
+  sources: ResearchSourceItem[];
+  draft: {
+    subjectOptions: string[];
+    selectedSubject: string;
+    body: string;
+    recommendedOutcome: string;
+  };
+}

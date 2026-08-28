@@ -52,6 +52,7 @@ export const CRMAccountsView: React.FC = () => {
     updateContact,
     deleteContact,
     openQuickLog,
+    openEmailComposer,
     navigateToCRM,
     currentUser,
     competitorPricingRecords,
@@ -486,6 +487,36 @@ export const CRMAccountsView: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const accountContacts = contacts.filter((c) => c.accountId === selectedAccount.id);
+                      const firstContact = accountContacts[0];
+                      const accountOpps = crmOpportunities.filter((o) => o.accountId === selectedAccount.id);
+                      const accountActs = activities.filter((a) => a.accountId === selectedAccount.id);
+
+                      openEmailComposer({
+                        defaultMode: "cold-outreach",
+                        accountId: selectedAccount.id,
+                        companyName: selectedAccount.name,
+                        companyWebsite: selectedAccount.website,
+                        contactId: firstContact?.id,
+                        contactName: firstContact ? `${firstContact.firstName} ${firstContact.lastName}` : undefined,
+                        contactEmail: firstContact?.email,
+                        contactRole: firstContact?.jobTitle,
+                        customerSegment: selectedAccount.customerSegment,
+                        industry: selectedAccount.industry,
+                        territory: selectedAccount.territory,
+                        projectNotes: selectedAccount.notes,
+                        productsQuoted: accountOpps.flatMap((o) => o.products || []),
+                        recentActivities: accountActs.slice(0, 5).map((a) => `${a.type}: ${a.title} (${a.date})`)
+                      });
+                    }}
+                    className="px-3 py-1.5 text-meta font-bold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash/80 shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                    title="Draft grounded AI outreach email for this account"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-brand" />
+                    <span>AI Email</span>
+                  </button>
                   <button
                     onClick={() => openQuickLog("call", selectedAccount.id)}
                     className="px-3 py-1.5 text-meta font-semibold bg-white border border-line-strong rounded-edge hover:bg-raised shadow-sm"
