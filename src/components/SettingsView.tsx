@@ -4,7 +4,8 @@ import {
   Database,
   RefreshCw,
   CheckCircle2,
-  BookOpen
+  BookOpen,
+  LogIn
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { SAMPLE_OPPORTUNITIES } from "../data/mockData";
@@ -20,7 +21,8 @@ export const SettingsView: React.FC = () => {
     updateCurrentUser,
     resetCurrentUser,
     cloudSyncStatus,
-    syncAllWithCloud
+    syncAllWithCloud,
+    openLoginModal
   } = useApp();
 
   // Edits are held locally so a half-typed name never lands on saved records.
@@ -82,13 +84,23 @@ export const SettingsView: React.FC = () => {
 
       {/* Your details */}
       <section aria-labelledby="profile-heading">
-        <div className="flex items-baseline gap-3 mb-3">
-          <h2 id="profile-heading" className="text-lead font-semibold text-ink">
-            Your details
-          </h2>
-          <span className="u-data text-spec text-ink-faint uppercase tracking-[0.09em]">
-            Stamped on records you create
-          </span>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-baseline gap-3">
+            <h2 id="profile-heading" className="text-lead font-semibold text-ink">
+              Your details
+            </h2>
+            <span className="u-data text-spec text-ink-faint uppercase tracking-[0.09em] hidden sm:inline">
+              Stamped on records you create
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={openLoginModal}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-spec font-bold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash/80 transition-colors cursor-pointer"
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            <span>Switch Account / Sign In</span>
+          </button>
         </div>
 
         <Surface>

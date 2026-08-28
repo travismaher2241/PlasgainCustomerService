@@ -127,7 +127,35 @@ export function crmOpportunityToOpportunity(crmOpp: CRMOpportunity): Opportunity
   };
 }
 
+export const PRESET_TEAM_MEMBERS: UserProfile[] = [
+  {
+    id: "user-travis-maher",
+    name: "Travis Maher",
+    role: "Internal Sales",
+    location: "Drouin",
+    email: "travis@plasgain.com.au",
+    phone: "0412 345 678"
+  },
+  {
+    id: "user-sarah-reed",
+    name: "Sarah Reed",
+    role: "Internal Sales",
+    location: "Melbourne",
+    email: "sarah.reed@plasgain.com.au",
+    phone: "+61 3 9000 1122"
+  },
+  {
+    id: "user-rob-mitchell",
+    name: "Rob Mitchell",
+    role: "Sales Director",
+    location: "Sydney",
+    email: "rob.mitchell@plasgain.com.au",
+    phone: "+61 400 999 888"
+  }
+];
+
 export const DEFAULT_USER_PROFILE: UserProfile = {
+  id: "user-sarah-reed",
   name: "Sarah Reed",
   role: "Internal Sales",
   location: "Melbourne",
@@ -147,6 +175,10 @@ interface AppContextType {
   currentUser: UserProfile;
   updateCurrentUser: (updates: Partial<UserProfile>) => void;
   resetCurrentUser: () => void;
+  isLoginModalOpen: boolean;
+  openLoginModal: () => void;
+  closeLoginModal: () => void;
+  loginAsUser: (profile: UserProfile) => void;
 
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
@@ -309,26 +341,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [cloudSyncStatus, setCloudSyncStatus] = useState<"synced" | "syncing" | "offline" | "error">("syncing");
 
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const openLoginModal = () => setIsLoginModalOpen(true);
+  const closeLoginModal = () => setIsLoginModalOpen(false);
+
   const [currentUser, setCurrentUser] = useState<UserProfile>(() => {
     try {
       const saved = localStorage.getItem("plasgain_user_profile");
-      return saved ? { ...DEFAULT_USER_PROFILE, ...JSON.parse(saved) } : DEFAULT_USER_PROFILE;
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && parsed.name) {
+          return { ...DEFAULT_USER_PROFILE, ...parsed };
+        }
+      }
+      return DEFAULT_USER_PROFILE;
     } catch {
       return DEFAULT_USER_PROFILE;
     }
   });
 
+  const loginAsUser = (profile: UserProfile) => {
+    const userId = profile.id || `user-${profile.name.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
+    const userWithId: UserProfile = { ...profile, id: userId };
+    setCurrentUser(userWithId);
+    localStorage.setItem("plasgain_user_profile", JSON.stringify(userWithId));
+    localStorage.setItem("plasgain_active_user_id", userId);
+    saveDocToCloud("users", userId, userWithId);
+    setIsLoginModalOpen(false);
+  };
+
   const updateCurrentUser = (updates: Partial<UserProfile>) => {
     setCurrentUser((prev) => {
       const next = { ...prev, ...updates };
-      saveDocToCloud("settings", "user_profile", next);
+      const userId = next.id || `user-${next.name.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
+      next.id = userId;
+      localStorage.setItem("plasgain_user_profile", JSON.stringify(next));
+      localStorage.setItem("plasgain_active_user_id", userId);
+      saveDocToCloud("users", userId, next);
       return next;
     });
   };
 
   const resetCurrentUser = () => {
     setCurrentUser(DEFAULT_USER_PROFILE);
-    saveDocToCloud("settings", "user_profile", DEFAULT_USER_PROFILE);
+    localStorage.setItem("plasgain_user_profile", JSON.stringify(DEFAULT_USER_PROFILE));
+    localStorage.removeItem("plasgain_active_user_id");
   };
 
   // Load Relational CRM Data from LocalStorage or Defaults
@@ -780,12 +837,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         setCloudSyncStatus("syncing");
 
-        // 1. User Profile
-        const cloudUser = await loadDocFromCloud<UserProfile>("settings", "user_profile");
-        if (cloudUser && isMounted) {
-          setCurrentUser((prev) => ({ ...prev, ...cloudUser }));
-        } else {
-          await saveDocToCloud("settings", "user_profile", currentUser);
+        // 1. User Profile Sync (per user rather than generic global override)
+        const localUserRaw = localStorage.getItem("plasgain_user_profile");
+        const parsedLocal = localUserRaw ? JSON.parse(localUserRaw) : null;
+        const activeUserId = localStorage.getItem("plasgain_active_user_id") ||
+          parsedLocal?.id ||
+          (parsedLocal?.name && parsedLocal.name !== DEFAULT_USER_PROFILE.name
+            ? `user-${parsedLocal.name.toLowerCase().replace(/[^a-z0-9]/g, "-")}`
+            : null);
+
+        if (activeUserId) {
+          const cloudUser = await loadDocFromCloud<UserProfile>("users", activeUserId);
+          if (cloudUser && cloudUser.name && isMounted) {
+            setCurrentUser((prev) => ({ ...prev, ...cloudUser, id: activeUserId }));
+          } else if (parsedLocal && isMounted) {
+            await saveDocToCloud("users", activeUserId, { ...parsedLocal, id: activeUserId });
+          }
         }
 
         // 2. Accounts
@@ -1328,6 +1395,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         currentUser,
         updateCurrentUser,
         resetCurrentUser,
+        isLoginModalOpen,
+        openLoginModal,
+        closeLoginModal,
+        loginAsUser,
         opportunities,
         setOpportunities,
         addOpportunity,

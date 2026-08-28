@@ -7,7 +7,8 @@ import {
   BookOpen,
   Wrench,
   SlidersHorizontal,
-  X
+  X,
+  LogIn
 } from "lucide-react";
 import { useApp, NavTab, initialsOf } from "../context/AppContext";
 import { PlasgainLockup } from "./PlasgainMark";
@@ -18,7 +19,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) => {
-  const { activeTab, setActiveTab, currentUser } = useApp();
+  const { activeTab, setActiveTab, currentUser, openLoginModal } = useApp();
   const sidebarRef = React.useRef<HTMLElement>(null);
   const previouslyFocusedElementRef = React.useRef<HTMLElement | null>(null);
 
@@ -188,20 +189,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
         })}
       </nav>
 
-      {/* Who is signed in */}
-      <div className="mt-auto mx-4.5 py-3.5 border-t border-chrome-line flex items-center gap-2.5">
-        <div className="u-data w-7.5 h-7.5 rounded-[2px] bg-brand-deep text-white flex items-center justify-center text-spec font-semibold shrink-0">
-          {initialsOf(currentUser.name)}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="text-meta font-semibold text-chrome-text truncate leading-tight">
-            {currentUser.name.trim() || "Unnamed user"}
+      {/* Who is signed in / Switch User button */}
+      <div className="mt-auto mx-4.5 py-3.5 border-t border-chrome-line">
+        <button
+          type="button"
+          onClick={() => {
+            openLoginModal();
+            if (setMobileOpen) setMobileOpen(false);
+          }}
+          className="w-full flex items-center gap-2.5 p-1.5 -mx-1.5 rounded-edge hover:bg-chrome-line/40 transition-colors text-left group cursor-pointer"
+          title="Switch user account or update details"
+        >
+          <div className="u-data w-7.5 h-7.5 rounded-[2px] bg-brand-deep text-white flex items-center justify-center text-spec font-semibold shrink-0 group-hover:bg-brand transition-colors">
+            {initialsOf(currentUser.name)}
           </div>
-          <div className="u-data text-[0.625rem] text-chrome-dim truncate">
-            {[currentUser.role, currentUser.location].filter((v) => v.trim()).join(" · ") ||
-              "No role set"}
+          <div className="min-w-0 flex-1">
+            <div className="text-meta font-semibold text-chrome-text truncate leading-tight flex items-center justify-between">
+              <span className="truncate">{currentUser.name.trim() || "Unnamed user"}</span>
+              <LogIn className="w-3.5 h-3.5 text-chrome-dim opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-1" />
+            </div>
+            <div className="u-data text-[0.625rem] text-chrome-dim truncate">
+              {[currentUser.role, currentUser.location].filter((v) => v.trim()).join(" · ") ||
+                "No role set"}
+            </div>
           </div>
-        </div>
+        </button>
       </div>
     </aside>
     </>

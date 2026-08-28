@@ -17,6 +17,7 @@ const AIEmailComposerModal = lazy(() => import("./components/AIEmailComposerModa
 const GlobalCopilot = lazy(() => import("./components/GlobalCopilot").then(m => ({ default: m.GlobalCopilot })));
 const ExplainTermModal = lazy(() => import("./components/ExplainTermModal").then(m => ({ default: m.ExplainTermModal })));
 const GlobalSearchModal = lazy(() => import("./components/GlobalSearchModal").then(m => ({ default: m.GlobalSearchModal })));
+const UserLoginModal = lazy(() => import("./components/UserLoginModal").then(m => ({ default: m.UserLoginModal })));
 
 const ViewLoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center min-h-[350px] w-full" data-testid="view-loading-spinner">
@@ -58,6 +59,7 @@ const MainLayout: React.FC = () => {
       {/* Interactive Overlays */}
       <Suspense fallback={null}>
         <AIEmailComposerModal />
+        <UserLoginModal />
         <GlobalCopilot />
         <ExplainTermModal />
         <GlobalSearchModal />
