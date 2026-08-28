@@ -31,7 +31,8 @@ import {
   RefreshCw,
   Phone,
   Zap,
-  ClipboardCheck
+  ClipboardCheck,
+  X
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { CRMOpportunity, DealHealthRating, OpportunityProductLine } from "../../types/crm";
@@ -69,7 +70,7 @@ export const CRMPipelineView: React.FC = () => {
     showToast
   } = useApp();
 
-  const [viewMode, setViewMode] = useState<"kanban" | "table">("kanban");
+  const [stageFilter, setStageFilter] = useState("all");
   const [sortColumn, setSortColumn] = useState<string>("dealValue");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
 
@@ -125,7 +126,8 @@ export const CRMPipelineView: React.FC = () => {
       deal.accountName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       deal.projectApplication.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesHealth = healthFilter === "all" || deal.dealHealth === healthFilter;
-    return matchesPipeline && matchesSearch && matchesHealth;
+    const matchesStage = stageFilter === "all" || deal.stageId === stageFilter;
+    return matchesPipeline && matchesSearch && matchesHealth && matchesStage;
   });
 
   // Sorted deals for table view
@@ -267,76 +269,66 @@ export const CRMPipelineView: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      {/* Top Header & Pipeline Selector */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-line pb-4">
+    <div className="space-y-4 max-w-7xl mx-auto pb-16">
+      {/* 1. Page Header & Primary Action */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-line">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-meta font-semibold px-2 py-0.5 rounded bg-paper">
-              Pipeline Management
-            </span>
-            <select
-              value={activePipelineId}
-              onChange={(e) => setActivePipelineId(e.target.value)}
-              className="text-meta font-bold bg-white border border-line rounded-edge px-2.5 py-1 focus:ring-2 focus:ring-brand"
-            >
-              {pipelines.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
-          <h1 className="text-2xl font-bold text-body tracking-tight">Deals & Opportunities Pipeline</h1>
-          <p className="text-meta text-ink-dim">{currentPipeline.description}</p>
+          <h1 className="text-xl font-bold text-ink tracking-tight">Deals Pipeline</h1>
+          <p className="text-spec text-ink-dim mt-0.5">
+            Manage opportunities from enquiry through to close.
+          </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center bg-paper p-1 rounded-edge border border-line">
-            <button
-              onClick={() => setViewMode("kanban")}
-              className={`px-3 py-1 text-meta font-semibold rounded-edge transition-colors flex items-center gap-1.5 ${
-                viewMode === "kanban" ? "bg-white text-body shadow-xs" : "text-ink-dim hover:text-ink"
-              }`}
-            >
-              <Kanban className="w-3.5 h-3.5" /> Kanban
-            </button>
-            <button
-              onClick={() => setViewMode("table")}
-              className={`px-3 py-1 text-meta font-semibold rounded-edge transition-colors flex items-center gap-1.5 ${
-                viewMode === "table" ? "bg-white text-body shadow-xs" : "text-ink-dim hover:text-ink"
-              }`}
-            >
-              <ListFilter className="w-3.5 h-3.5" /> Table
-            </button>
-          </div>
-
-          <button
-            onClick={() => setIsNewDealModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-meta font-semibold text-white bg-brand-deep rounded-edge hover:bg-brand-deep shadow-sm transition-colors"
-          >
-            <Plus className="w-4 h-4" /> Add Deal
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setIsNewDealModalOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-spec font-bold text-white bg-brand-deep rounded-edge hover:bg-brand transition-colors shadow-2xs cursor-pointer self-start sm:self-auto"
+        >
+          <Plus className="w-4 h-4" />
+          <span>+ Add Deal</span>
+        </button>
       </div>
 
-      {/* Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-panel border border-line shadow-xs">
-        <div className="flex items-center gap-2 flex-1 max-w-md">
-          <Search className="w-4 h-4 text-ink-faint" />
-          <input
-            type="text"
-            placeholder="Search deals by project, account, application..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full text-meta bg-transparent focus:outline-none"
-          />
-        </div>
+      {/* 2. Pipeline Selector & Filters Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-3 rounded-panel border border-line shadow-2xs">
         <div className="flex items-center gap-2">
+          <span className="text-spec font-bold uppercase text-ink-dim shrink-0">Pipeline:</span>
+          <select
+            value={activePipelineId}
+            onChange={(e) => setActivePipelineId(e.target.value)}
+            aria-label="Select Pipeline"
+            className="text-spec font-bold text-ink bg-paper border border-line rounded-edge px-2.5 py-1.5 focus:outline-none focus:border-brand-deep cursor-pointer"
+          >
+            {pipelines.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap flex-1 md:justify-end">
+          <div className="flex items-center gap-1.5 bg-paper border border-line rounded-edge px-2.5 py-1.5 flex-1 max-w-xs">
+            <Search className="w-3.5 h-3.5 text-ink-faint shrink-0" />
+            <input
+              type="text"
+              placeholder="Search opportunities..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full text-spec bg-transparent focus:outline-none placeholder:text-ink-faint text-ink"
+            />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery("")} className="text-ink-dim hover:text-ink cursor-pointer">
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
           <select
             value={healthFilter}
             onChange={(e) => setHealthFilter(e.target.value)}
-            className="text-meta py-1 px-2.5 bg-raised border border-line rounded-edge"
+            aria-label="Filter by Deal Health"
+            className="text-spec font-medium text-ink bg-paper border border-line rounded-edge px-2.5 py-1.5 focus:outline-none focus:border-brand-deep cursor-pointer"
           >
             <option value="all">All Deal Health</option>
             <option value="Healthy">Healthy</option>
@@ -344,195 +336,163 @@ export const CRMPipelineView: React.FC = () => {
             <option value="At Risk">At Risk</option>
             <option value="Stalled">Stalled</option>
           </select>
+
+          <select
+            value={stageFilter}
+            onChange={(e) => setStageFilter(e.target.value)}
+            aria-label="Filter by Stage"
+            className="text-spec font-medium text-ink bg-paper border border-line rounded-edge px-2.5 py-1.5 focus:outline-none focus:border-brand-deep cursor-pointer"
+          >
+            <option value="all">All Stages</option>
+            {currentPipeline.stages.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
-      {/* Kanban Board View */}
-      {viewMode === "kanban" ? (
-        <div className="flex gap-4 overflow-x-auto pb-6 pt-2 items-start min-h-[600px]">
-          {currentPipeline.stages.map((stage) => {
-            const stageDeals = filteredDeals.filter((d) => d.stageId === stage.id);
-            const stageValue = stageDeals.reduce((sum, d) => sum + (d.dealValue || 0), 0);
-
-            return (
-              <div
-                key={stage.id}
-                className="w-76 shrink-0 bg-paper rounded-panel border border-line p-3 flex flex-col max-h-[calc(100vh-280px)]"
-              >
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <div className="flex items-center gap-1.5">
-                    <h3 className="font-bold text-body text-meta">{stage.name}</h3>
-                    <span className="text-spec font-semibold px-2 py-0.5 rounded-full bg-raised text-ink-dim">
-                      {stageDeals.length}
-                    </span>
-                  </div>
-                  <span className="text-spec font-medium text-ink-dim">{stage.probability}%</span>
-                </div>
-
-                <div className="text-spec text-ink-dim font-medium px-1 mb-3">
-                  ${stageValue.toLocaleString()}
-                </div>
-
-                <div className="space-y-3 overflow-y-auto flex-1 pr-1">
-                  {stageDeals.map((deal) => {
-                    const currentStageIdx = currentPipeline.stages.findIndex((s) => s.id === deal.stageId);
-                    const hasNextStage = currentStageIdx >= 0 && currentStageIdx < currentPipeline.stages.length - 1;
-                    const nextStageObj = hasNextStage ? currentPipeline.stages[currentStageIdx + 1] : null;
-
-                    return (
-                      <div
-                        key={deal.id}
-                        onClick={() => setSelectedCrmOpportunityId(deal.id)}
-                        className={`p-3.5 bg-white rounded-edge border transition-all cursor-pointer shadow-2xs hover:shadow-xs hover:border-brand-edge ${
-                          selectedCrmOpportunityId === deal.id ? "ring-2 ring-brand border-brand" : "border-line"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2 mb-1.5">
-                          <span className="text-spec font-bold text-ink-dim truncate">{deal.accountName}</span>
-                          {getHealthBadge(deal.dealHealth)}
-                        </div>
-
-                        <h4 className="font-bold text-body text-meta line-clamp-2 mb-2">{deal.name}</h4>
-
-                        <div className="flex items-center justify-between pt-2 border-t border-line text-spec">
-                          <span className="font-bold text-body">${deal.dealValue.toLocaleString()}</span>
-                          <span className="text-ink-dim">{deal.expectedCloseDate}</span>
-                        </div>
-
-                        {deal.nextAction && (
-                          <div className="mt-2 text-[11px] text-brand-deep bg-brand-wash px-2 py-1 rounded truncate">
-                            Next: {deal.nextAction}
-                          </div>
-                        )}
-
-                        {/* OPT-04: 1-Click Action Bar on Kanban Card */}
-                        <div className="mt-2.5 pt-2 border-t border-line/60 flex items-center justify-between gap-1 text-spec">
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openQuickLog("call", deal.accountId, deal.id);
-                              }}
-                              className="p-1 text-ink-dim hover:text-brand-deep hover:bg-brand-wash rounded cursor-pointer transition-colors"
-                              title="Quick log customer call"
-                            >
-                              <Phone className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openQuickLog("email", deal.accountId, deal.id);
-                              }}
-                              className="p-1 text-ink-dim hover:text-brand-deep hover:bg-brand-wash rounded cursor-pointer transition-colors"
-                              title="Log customer touchpoint"
-                            >
-                              <Mail className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-
-                          {hasNextStage && nextStageObj ? (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleStageChange(deal.id, nextStageObj.id);
-                                showToast(`Advanced "${deal.name}" to ${nextStageObj.name}!`, "success");
-                              }}
-                              className="px-2 py-0.5 text-[11px] font-bold text-brand-deep bg-brand-wash hover:bg-brand-wash/80 border border-brand-edge rounded flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
-                              title={`Advance to ${nextStageObj.name}`}
-                            >
-                              <span>Advance</span>
-                              <ArrowRight className="w-3 h-3" />
-                            </button>
-                          ) : (
-                            <span className="text-[10px] font-bold text-brand-deep bg-brand-wash px-1.5 py-0.5 rounded border border-brand-edge">
-                              Active Stage
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        /* Table View */
-        <div className="bg-white rounded-panel border border-line shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-meta">
-              <thead>
-                <tr className="bg-raised border-b border-line text-spec font-bold text-ink-dim uppercase select-none">
-                  <th onClick={() => handleSort("name")} className="text-left py-3 px-4 cursor-pointer hover:text-brand-deep">
-                    Opportunity {sortColumn === "name" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th onClick={() => handleSort("accountName")} className="text-left py-3 px-3 cursor-pointer hover:text-brand-deep">
-                    Account {sortColumn === "accountName" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th onClick={() => handleSort("stageName")} className="text-left py-3 px-3 cursor-pointer hover:text-brand-deep">
-                    Stage {sortColumn === "stageName" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th onClick={() => handleSort("dealValue")} className="text-right py-3 px-3 cursor-pointer hover:text-brand-deep">
-                    Value {sortColumn === "dealValue" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th onClick={() => handleSort("weightedValue")} className="text-right py-3 px-3 cursor-pointer hover:text-brand-deep">
-                    Weighted {sortColumn === "weightedValue" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th onClick={() => handleSort("expectedCloseDate")} className="text-left py-3 px-3 cursor-pointer hover:text-brand-deep">
-                    Close Date {sortColumn === "expectedCloseDate" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th onClick={() => handleSort("dealHealth")} className="text-center py-3 px-3 cursor-pointer hover:text-brand-deep">
-                    Health {sortColumn === "dealHealth" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                  </th>
-                  <th className="text-left py-3 px-4">Next Action</th>
+      {/* 3. Pure Table View (Canonical CRM View) */}
+      <div className="bg-white rounded-panel border border-line shadow-xs overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-meta">
+            <thead>
+              <tr className="bg-raised border-b border-line text-spec font-bold text-ink-dim uppercase select-none">
+                <th onClick={() => handleSort("name")} className="text-left py-3 px-4 cursor-pointer hover:text-brand-deep">
+                  Opportunity {sortColumn === "name" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                </th>
+                <th onClick={() => handleSort("accountName")} className="text-left py-3 px-3 cursor-pointer hover:text-brand-deep">
+                  Account {sortColumn === "accountName" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                </th>
+                <th onClick={() => handleSort("stageName")} className="text-left py-3 px-3 cursor-pointer hover:text-brand-deep">
+                  Stage {sortColumn === "stageName" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                </th>
+                <th onClick={() => handleSort("dealValue")} className="text-right py-3 px-3 cursor-pointer hover:text-brand-deep">
+                  Value {sortColumn === "dealValue" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                </th>
+                <th onClick={() => handleSort("weightedValue")} className="text-right py-3 px-3 cursor-pointer hover:text-brand-deep hidden sm:table-cell">
+                  Weighted {sortColumn === "weightedValue" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                </th>
+                <th onClick={() => handleSort("expectedCloseDate")} className="text-left py-3 px-3 cursor-pointer hover:text-brand-deep hidden md:table-cell">
+                  Close Date {sortColumn === "expectedCloseDate" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                </th>
+                <th onClick={() => handleSort("dealHealth")} className="text-center py-3 px-3 cursor-pointer hover:text-brand-deep">
+                  Health {sortColumn === "dealHealth" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
+                </th>
+                <th className="text-left py-3 px-4 hidden lg:table-cell">Next Action</th>
+                <th className="text-right py-3 px-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {sortedDeals.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="p-8 text-center text-ink-dim">
+                    <p className="font-bold text-body">No deals found matching your search or filters.</p>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
-                {sortedDeals.map((deal) => (
+              ) : (
+                sortedDeals.map((deal) => (
                   <tr
                     key={deal.id}
                     onClick={() => setSelectedCrmOpportunityId(deal.id)}
                     className={`hover:bg-raised/50 cursor-pointer transition-colors ${
-                      selectedCrmOpportunityId === deal.id ? "bg-brand-wash/30" : ""
+                      selectedCrmOpportunityId === deal.id ? "bg-brand-wash/40" : ""
                     }`}
                   >
-                    <td className="py-3 px-4 font-bold text-body">{deal.name}</td>
-                    <td className="py-3 px-3 text-ink-dim">{deal.accountName}</td>
-                    <td className="py-3 px-3">
-                      <span className="font-semibold px-2 py-0.5 rounded bg-paper border border-line text-spec">
-                        {deal.stageName}
-                      </span>
+                    <td className="py-3 px-4">
+                      <div className="font-bold text-body text-ink">{deal.name}</div>
+                      <div className="text-spec text-ink-dim">{deal.projectApplication}</div>
                     </td>
-                    <td className="py-3 px-3 text-right font-bold text-body">${deal.dealValue.toLocaleString()}</td>
-                    <td className="py-3 px-3 text-right font-semibold text-brand-deep">${deal.weightedValue.toLocaleString()}</td>
-                    <td className="py-3 px-3 text-ink-dim text-spec">{deal.expectedCloseDate}</td>
-                    <td className="py-3 px-3 text-center">{getHealthBadge(deal.dealHealth)}</td>
-                    <td className="py-3 px-4 text-spec text-ink-dim truncate max-w-xs">{deal.nextAction || "-"}</td>
+                    <td className="py-3 px-3">
+                      <span className="font-semibold text-ink-dim">{deal.accountName}</span>
+                    </td>
+                    <td className="py-3 px-3">
+                      {/* Direct Interactive Stage Switcher */}
+                      <select
+                        value={deal.stageId}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => {
+                          handleStageChange(deal.id, e.target.value);
+                          const targetStage = currentPipeline.stages.find((s) => s.id === e.target.value);
+                          if (targetStage) {
+                            showToast(`Updated "${deal.name}" stage to ${targetStage.name}!`, "success");
+                          }
+                        }}
+                        aria-label={`Change stage for ${deal.name}`}
+                        className="text-spec font-bold text-ink bg-paper hover:bg-raised border border-line rounded px-2 py-1 cursor-pointer focus:outline-none focus:border-brand-deep"
+                      >
+                        {currentPipeline.stages.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.name} ({s.probability}%)
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="py-3 px-3 text-right font-bold text-body">
+                      ${deal.dealValue.toLocaleString()}
+                    </td>
+                    <td className="py-3 px-3 text-right font-semibold text-brand-deep hidden sm:table-cell">
+                      ${deal.weightedValue.toLocaleString()}
+                    </td>
+                    <td className="py-3 px-3 text-ink-dim text-spec hidden md:table-cell">
+                      {deal.expectedCloseDate}
+                    </td>
+                    <td className="py-3 px-3 text-center">
+                      {getHealthBadge(deal.dealHealth)}
+                    </td>
+                    <td className="py-3 px-4 text-spec text-ink-dim truncate max-w-xs hidden lg:table-cell">
+                      {deal.nextAction || "-"}
+                    </td>
+                    <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openQuickLog("call", deal.accountId, deal.id)}
+                          className="p-1.5 text-ink-dim hover:text-brand-deep hover:bg-brand-wash rounded-edge border border-transparent hover:border-brand-edge transition-colors cursor-pointer"
+                          title="Log Call"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openQuickLog("email", deal.accountId, deal.id)}
+                          className="p-1.5 text-ink-dim hover:text-brand-deep hover:bg-brand-wash rounded-edge border border-transparent hover:border-brand-edge transition-colors cursor-pointer"
+                          title="Log Email"
+                        >
+                          <Mail className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedCrmOpportunityId(deal.id)}
+                          className="p-1.5 text-brand-deep hover:bg-brand-wash rounded-edge border border-transparent hover:border-brand-edge transition-colors cursor-pointer"
+                          title="View Deal 360°"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-raised/70 border-t-2 border-line font-bold text-body">
-                <tr>
-                  <td className="py-3 px-4" colSpan={3}>
-                    Total Pipeline ({filteredDeals.length} Deals)
-                  </td>
-                  <td className="py-3 px-3 text-right text-brand-deep font-bold">
-                    ${totalTableValue.toLocaleString()}
-                  </td>
-                  <td className="py-3 px-3 text-right text-brand-deep font-bold">
-                    ${totalTableWeighted.toLocaleString()}
-                  </td>
-                  <td colSpan={3}></td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>
+                ))
+              )}
+            </tbody>
+            <tfoot className="bg-raised/70 border-t-2 border-line font-bold text-body">
+              <tr>
+                <td className="py-3 px-4" colSpan={3}>
+                  Total Pipeline ({filteredDeals.length} Deals)
+                </td>
+                <td className="py-3 px-3 text-right text-brand-deep font-bold">
+                  ${totalTableValue.toLocaleString()}
+                </td>
+                <td className="py-3 px-3 text-right text-brand-deep font-bold hidden sm:table-cell">
+                  ${totalTableWeighted.toLocaleString()}
+                </td>
+                <td colSpan={4}></td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
-      )}
+      </div>
 
       {/* Selected Deal Detail Drawer / Modal */}
       {selectedDeal && (
