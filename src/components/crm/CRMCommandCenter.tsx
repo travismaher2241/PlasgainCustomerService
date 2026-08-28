@@ -52,7 +52,7 @@ export const CRMCommandCenter: React.FC = () => {
     (l) => l.leadStatus !== "Converted" && l.leadStatus !== "Unqualified" && l.leadScore >= 70
   ).length;
 
-  const isMoreTabActive = activeCRMTab === "tasks" || activeCRMTab === "competitor-pricing";
+  const isMoreTabActive = activeCRMTab === "leads" || activeCRMTab === "tasks" || activeCRMTab === "competitor-pricing";
 
   return (
     <div className="min-h-screen bg-raised">
@@ -61,19 +61,21 @@ export const CRMCommandCenter: React.FC = () => {
         <div className="max-w-7xl mx-auto px-3 sm:px-6">
           <div className="flex items-center justify-between h-11">
             
-            {/* Unified Non-Duplicated CRM Destination Navigation */}
-            <div className="flex items-center gap-1 py-1">
+            {/* Unified Responsive CRM Destination Navigation */}
+            <div className="flex items-center gap-1 sm:gap-1.5 py-1">
+              {/* 1. Today's Focus (Always visible) */}
               <button
                 type="button"
                 onClick={() => setActiveCRMTab("today")}
-                className={`px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                className={`px-2 sm:px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "today"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <Sun className="w-3.5 h-3.5" />
-                <span>Today's Focus</span>
+                <span className="hidden sm:inline">Today's Focus</span>
+                <span className="sm:hidden">Today</span>
                 {nextBestActions.length > 0 && (
                   <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeCRMTab === "today" ? "bg-chrome text-white font-semibold" : "bg-line text-ink font-semibold"}`}>
                     {nextBestActions.length}
@@ -81,36 +83,48 @@ export const CRMCommandCenter: React.FC = () => {
                 )}
               </button>
 
+              {/* 2. Accounts (Always visible) */}
               <button
                 type="button"
                 onClick={() => setActiveCRMTab("accounts")}
-                className={`px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                className={`px-2 sm:px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "accounts"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <Building2 className="w-3.5 h-3.5" />
-                <span>Accounts ({accounts.length})</span>
+                <span>Accounts</span>
+                {accounts.length > 0 && (
+                  <span className="hidden sm:inline text-[11px] opacity-80">({accounts.length})</span>
+                )}
               </button>
 
+              {/* 3. Deals Pipeline (Always visible) */}
               <button
                 type="button"
                 onClick={() => setActiveCRMTab("pipeline")}
-                className={`px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                className={`px-2 sm:px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "pipeline"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <Kanban className="w-3.5 h-3.5" />
-                <span>Deals Pipeline ({crmOpportunities.filter((d) => d.stageId !== "stage-won" && d.stageId !== "stage-lost").length})</span>
+                <span className="hidden sm:inline">Deals Pipeline</span>
+                <span className="sm:hidden">Deals</span>
+                {crmOpportunities.filter((d) => d.stageId !== "stage-won" && d.stageId !== "stage-lost").length > 0 && (
+                  <span className="hidden sm:inline text-[11px] opacity-80">
+                    ({crmOpportunities.filter((d) => d.stageId !== "stage-won" && d.stageId !== "stage-lost").length})
+                  </span>
+                )}
               </button>
 
+              {/* 4. Leads Hub (Desktop only; on Mobile lives in More) */}
               <button
                 type="button"
                 onClick={() => setActiveCRMTab("leads")}
-                className={`px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                className={`hidden lg:flex px-2.5 py-1 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "leads"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
@@ -125,7 +139,7 @@ export const CRMCommandCenter: React.FC = () => {
                 )}
               </button>
 
-              {/* Direct Desktop Tab: Tasks & Log */}
+              {/* 5. Direct Desktop Tab: Tasks & Log */}
               <button
                 type="button"
                 onClick={() => setActiveCRMTab("tasks")}
@@ -144,7 +158,7 @@ export const CRMCommandCenter: React.FC = () => {
                 )}
               </button>
 
-              {/* Direct Desktop Tab: Competitor Intel */}
+              {/* 6. Direct Desktop Tab: Competitor Intel */}
               <button
                 type="button"
                 onClick={() => setActiveCRMTab("competitor-pricing")}
@@ -155,7 +169,10 @@ export const CRMCommandCenter: React.FC = () => {
                 }`}
               >
                 <TrendingUp className="w-3.5 h-3.5" />
-                <span>Competitor Intel ({competitorPricingRecords.length})</span>
+                <span>Competitor Intel</span>
+                {competitorPricingRecords.length > 0 && (
+                  <span className="text-[11px] opacity-80">({competitorPricingRecords.length})</span>
+                )}
               </button>
 
               {/* Mobile / Tablet Responsive More Menu (< 1024px) */}
@@ -163,7 +180,7 @@ export const CRMCommandCenter: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
-                  className={`px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                  className={`px-2 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1 cursor-pointer ${
                     isMoreTabActive
                       ? "bg-brand-deep text-white shadow-xs"
                       : "text-ink-dim hover:text-ink hover:bg-paper border border-line"
@@ -171,29 +188,37 @@ export const CRMCommandCenter: React.FC = () => {
                   aria-expanded={isMoreMenuOpen}
                   aria-label="More CRM destinations"
                 >
-                  <span>{activeCRMTab === "tasks" ? "Tasks" : activeCRMTab === "competitor-pricing" ? "Intel" : "More"}</span>
+                  <span>
+                    {activeCRMTab === "leads"
+                      ? "Leads"
+                      : activeCRMTab === "tasks"
+                      ? "Tasks"
+                      : activeCRMTab === "competitor-pricing"
+                      ? "Intel"
+                      : "More"}
+                  </span>
                   <ChevronDown className="w-3 h-3" />
                 </button>
 
                 {isMoreMenuOpen && (
-                  <div className="absolute right-0 top-full mt-1 w-48 bg-surface rounded-edge border border-line shadow-lg py-1 z-30 text-spec">
+                  <div className="absolute left-0 sm:right-0 sm:left-auto top-full mt-1 w-52 bg-surface rounded-edge border border-line shadow-lg py-1 z-30 text-spec">
                     <button
                       type="button"
                       onClick={() => {
-                        setActiveCRMTab("tasks");
+                        setActiveCRMTab("leads");
                         setIsMoreMenuOpen(false);
                       }}
                       className={`w-full px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
-                        activeCRMTab === "tasks" ? "bg-brand-wash text-brand-deep font-bold" : "text-ink hover:bg-hover"
+                        activeCRMTab === "leads" ? "bg-brand-wash text-brand-deep font-bold" : "text-ink hover:bg-hover"
                       }`}
                     >
                       <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-brand-deep" />
-                        <span>Tasks &amp; Log</span>
+                        <Flame className="w-3.5 h-3.5 text-brand-deep" />
+                        <span>Leads Hub</span>
                       </div>
-                      {overdueCount > 0 && (
-                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-urgent text-white font-bold">
-                          {overdueCount}
+                      {hotLeadsCount > 0 && (
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-brand-deep text-white font-bold">
+                          {hotLeadsCount}
                         </span>
                       )}
                     </button>

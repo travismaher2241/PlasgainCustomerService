@@ -38,7 +38,7 @@ export const CRMQuickLogModal: React.FC = () => {
   const [isTitleManuallyEdited, setIsTitleManuallyEdited] = useState(false);
   const [description, setDescription] = useState("");
   const [outcome, setOutcome] = useState("Connected / Positive");
-  const [scheduleFollowUp, setScheduleFollowUp] = useState(true);
+  const [scheduleFollowUp, setScheduleFollowUp] = useState(false);
   const [followUpDate, setFollowUpDate] = useState(() => addDaysLocal(3));
 
   // Resolved CRM records

@@ -56,6 +56,20 @@ interface UnifiedWorkItem {
   isCompleted?: boolean;
 }
 
+function formatHumanDate(dateStr?: string): string {
+  if (!dateStr) return "";
+  try {
+    const parts = dateStr.split("-");
+    if (parts.length !== 3) return dateStr;
+    const [y, m, d] = parts.map(Number);
+    if (!y || !m || !d) return dateStr;
+    const date = new Date(y, m - 1, d);
+    return date.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
+  } catch {
+    return dateStr;
+  }
+}
+
 export const CRMTodayWorkspace: React.FC = () => {
   const {
     accounts,
@@ -134,13 +148,56 @@ export const CRMTodayWorkspace: React.FC = () => {
     ).length;
   }, [crmOpportunities]);
 
-  // 2. Build Unified Work Items Queue
+  // 2. Build Unified Work Items Queue with complete cross-source deduplication
   const unifiedWorkQueue = useMemo(() => {
     const items: UnifiedWorkItem[] = [];
+    const seenTaskIds = new Set<string>();
+    const seenDealIds = new Set<string>();
+    const seenLeadIds = new Set<string>();
 
-    // A. Next Best Actions (AI / Rule based)
+    // A. CRM Tasks (Manual / Scheduled) - authoritative user tasks
+    tasks.forEach((task) => {
+      if (task.status === "Completed" || task.status === "Cancelled" || snoozedIds.has(task.id)) return;
+      seenTaskIds.add(task.id);
+      if (task.dealId) seenDealIds.add(task.dealId);
+
+      const isOverdue = task.dueDate < todayStr;
+      const isToday = task.dueDate === todayStr;
+      const isHighPriority = task.priority === "High" || task.priority === "Urgent";
+
+      let priorityTier: PriorityTier = "normal";
+      if (isOverdue || isHighPriority) priorityTier = "do_now";
+      else if (isToday) priorityTier = "today";
+
+      const matchedAccount = task.accountId ? accounts.find((a) => a.id === task.accountId) : undefined;
+      const matchedDeal = task.dealId ? crmOpportunities.find((d) => d.id === task.dealId) : undefined;
+
+      items.push({
+        id: task.id,
+        sourceType: "task",
+        title: task.title,
+        entityName: task.accountName || matchedAccount?.name || matchedDeal?.name || "General Task",
+        entityType: task.dealId ? "Opportunity" : "Account",
+        entityId: task.dealId || task.accountId,
+        accountId: task.accountId,
+        dealId: task.dealId,
+        context: task.description || (isOverdue ? `Overdue since ${formatHumanDate(task.dueDate)}` : `Due ${formatHumanDate(task.dueDate)}`),
+        reason: isOverdue ? "Overdue commitment directly impacting customer confidence and sales momentum." : "Scheduled priority customer commitment.",
+        dueDate: task.dueDate,
+        urgency: isOverdue ? "Immediate" : isToday ? "Today" : "Normal",
+        priorityTier,
+        category: task.taskType || "Task",
+        primaryActionType: task.taskType === "Call" ? "call" : task.taskType === "Email" ? "email" : "complete",
+        primaryActionLabel: task.taskType === "Call" ? "Log Call" : task.taskType === "Email" ? "Write Email" : "Complete",
+        isCompleted: task.status === "Completed"
+      });
+    });
+
+    // B. Next Best Actions (AI / Rule based) - skip if task or deal is already represented
     nextBestActions.forEach((nba) => {
       if (snoozedIds.has(nba.id)) return;
+      if (nba.relatedEntityType === "Task" && seenTaskIds.has(nba.relatedEntityId)) return;
+      if (nba.relatedEntityType === "Opportunity" && seenDealIds.has(nba.relatedEntityId)) return;
 
       const matchedDeal = nba.relatedEntityType === "Opportunity" ? crmOpportunities.find((d) => d.id === nba.relatedEntityId) : undefined;
       const matchedAccount = nba.relatedEntityType === "Account" ? accounts.find((a) => a.id === nba.relatedEntityId) : matchedDeal ? accounts.find((a) => a.id === matchedDeal.accountId) : undefined;
@@ -148,8 +205,10 @@ export const CRMTodayWorkspace: React.FC = () => {
       const isQuote = nba.category === "Quote Follow-up";
       const isUrgent = nba.urgency === "Immediate";
 
-      let priorityTier: PriorityTier = isUrgent || (matchedDeal && matchedDeal.dealValue >= 50000) ? "do_now" : "today";
+      let priorityTier: PriorityTier = isUrgent || (matchedDeal && (matchedDeal.dealValue || 0) >= 50000) ? "do_now" : "today";
       if (nba.category === "Missing Action") priorityTier = "do_now";
+
+      if (matchedDeal) seenDealIds.add(matchedDeal.id);
 
       items.push({
         id: nba.id,
@@ -174,95 +233,59 @@ export const CRMTodayWorkspace: React.FC = () => {
       });
     });
 
-    // B. CRM Tasks (Manual / Scheduled)
-    tasks.forEach((task) => {
-      if (task.status === "Completed" || task.status === "Cancelled" || snoozedIds.has(task.id)) return;
-
-      const isOverdue = task.dueDate < todayStr;
-      const isToday = task.dueDate === todayStr;
-      const isHighPriority = task.priority === "High" || task.priority === "Urgent";
-
-      let priorityTier: PriorityTier = "normal";
-      if (isOverdue || isHighPriority) priorityTier = "do_now";
-      else if (isToday) priorityTier = "today";
-
-      const matchedAccount = task.accountId ? accounts.find((a) => a.id === task.accountId) : undefined;
-      const matchedDeal = task.dealId ? crmOpportunities.find((d) => d.id === task.dealId) : undefined;
-
-      items.push({
-        id: task.id,
-        sourceType: "task",
-        title: task.title,
-        entityName: task.accountName || matchedAccount?.name || matchedDeal?.name || "General Task",
-        entityType: task.dealId ? "Opportunity" : "Account",
-        entityId: task.dealId || task.accountId,
-        accountId: task.accountId,
-        dealId: task.dealId,
-        context: task.description || (isOverdue ? `Overdue since ${task.dueDate}` : `Due on ${task.dueDate}`),
-        dueDate: task.dueDate,
-        urgency: isOverdue ? "Immediate" : isToday ? "Today" : "Normal",
-        priorityTier,
-        category: task.taskType || "Task",
-        primaryActionType: task.taskType === "Call" ? "call" : task.taskType === "Email" ? "email" : "complete",
-        primaryActionLabel: task.taskType === "Call" ? "Log Call" : task.taskType === "Email" ? "Write Email" : "Complete",
-        isCompleted: task.status === "Completed"
-      });
-    });
-
-    // C. At-Risk or Stalled Deals without explicit NBAs
+    // C. At-Risk or Stalled Deals without explicit NBAs or tasks
     crmOpportunities.forEach((deal) => {
       if (deal.stageId === "stage-won" || deal.stageId === "stage-lost" || snoozedIds.has(`deal-${deal.id}`)) return;
+      if (seenDealIds.has(deal.id)) return;
       if (deal.dealHealth === "At Risk" || deal.dealHealth === "Stalled") {
-        // avoid duplicating if already in items
-        if (!items.some((i) => i.dealId === deal.id)) {
-          items.push({
-            id: `deal-health-${deal.id}`,
-            sourceType: "deal",
-            title: `Unblock ${deal.dealHealth} Deal ($${deal.dealValue.toLocaleString()})`,
-            entityName: deal.name,
-            entityType: "Opportunity",
-            entityId: deal.id,
-            accountId: deal.accountId,
-            dealId: deal.id,
-            context: `${deal.accountName} · In ${deal.stageName} for ${deal.daysInCurrentStage} days`,
-            reason: `Deal is marked ${deal.dealHealth}. Immediate stakeholder check-in recommended.`,
-            value: deal.dealValue,
-            urgency: "Immediate",
-            priorityTier: "do_now",
-            category: "Stalled Deal",
-            contactName: deal.primaryContactName,
-            contactEmail: deal.primaryContactEmail,
-            quoteRef: deal.quoteNumber,
-            primaryActionType: "open",
-            primaryActionLabel: "Open Deal"
-          });
-        }
+        seenDealIds.add(deal.id);
+        items.push({
+          id: `deal-health-${deal.id}`,
+          sourceType: "deal",
+          title: `Unblock ${deal.dealHealth} Deal ($${(deal.dealValue || 0).toLocaleString()})`,
+          entityName: deal.name,
+          entityType: "Opportunity",
+          entityId: deal.id,
+          accountId: deal.accountId,
+          dealId: deal.id,
+          context: `${deal.accountName} · In ${deal.stageName} for ${deal.daysInCurrentStage} days`,
+          reason: `Deal is marked ${deal.dealHealth}. Immediate stakeholder check-in recommended.`,
+          value: deal.dealValue,
+          urgency: "Immediate",
+          priorityTier: "do_now",
+          category: "Stalled Deal",
+          contactName: deal.primaryContactName,
+          contactEmail: deal.primaryContactEmail,
+          quoteRef: deal.quoteNumber,
+          primaryActionType: "open",
+          primaryActionLabel: "Open Deal"
+        });
       }
     });
 
     // D. New High Intent Leads
     leads.forEach((lead) => {
       if (lead.leadStatus === "Converted" || lead.leadStatus === "Unqualified" || snoozedIds.has(`lead-${lead.id}`)) return;
+      if (seenLeadIds.has(lead.id)) return;
       if (lead.leadScore >= 70 || lead.leadStatus === "New") {
-        if (!items.some((i) => i.entityId === lead.id)) {
-          items.push({
-            id: `lead-hot-${lead.id}`,
-            sourceType: "lead",
-            title: `Contact High-Intent Lead (${lead.leadScore}/100)`,
-            entityName: `${lead.firstName} ${lead.lastName} · ${lead.companyName}`,
-            entityType: "Lead",
-            entityId: lead.id,
-            context: `${lead.projectName || "Inbound Project"} · ${lead.projectLocation || "VIC"}`,
-            reason: `Score ${lead.leadScore}. ${lead.notes || "High commercial intent detected."}`,
-            urgency: lead.leadScore >= 80 ? "Immediate" : "Today",
-            priorityTier: lead.leadScore >= 80 ? "do_now" : "today",
-            category: "New Lead",
-            contactName: `${lead.firstName} ${lead.lastName}`,
-            contactEmail: lead.email,
-            primaryActionType: "call",
-            primaryActionLabel: "Log Call"
-          });
-        }
+        seenLeadIds.add(lead.id);
+        items.push({
+          id: `lead-hot-${lead.id}`,
+          sourceType: "lead",
+          title: `Contact High-Intent Lead (${lead.leadScore}/100)`,
+          entityName: `${lead.firstName} ${lead.lastName} · ${lead.companyName || lead.company}`,
+          entityType: "Lead",
+          entityId: lead.id,
+          context: `${lead.projectName || "Inbound Project"} · ${lead.projectLocation || "VIC"}`,
+          reason: `Score ${lead.leadScore}. ${lead.notes || "High commercial intent detected."}`,
+          urgency: lead.leadScore >= 80 ? "Immediate" : "Today",
+          priorityTier: lead.leadScore >= 80 ? "do_now" : "today",
+          category: "New Lead",
+          contactName: `${lead.firstName} ${lead.lastName}`,
+          contactEmail: lead.email,
+          primaryActionType: "call",
+          primaryActionLabel: "Log Call"
+        });
       }
     });
 
@@ -284,9 +307,8 @@ export const CRMTodayWorkspace: React.FC = () => {
 
   // 3. Hero Item: The Single Most Urgent / High Value Next Best Action
   const heroItem = useMemo(() => {
-    // Find top "do_now" item with a high value or quote follow-up
-    const topItem = unifiedWorkQueue.find((i) => i.priorityTier === "do_now") || unifiedWorkQueue[0];
-    return topItem || null;
+    if (unifiedWorkQueue.length === 0) return null;
+    return unifiedWorkQueue.find((i) => i.priorityTier === "do_now") || unifiedWorkQueue[0] || null;
   }, [unifiedWorkQueue]);
 
   // 4. Filtered Work Queue based on active pill and search query
@@ -318,10 +340,15 @@ export const CRMTodayWorkspace: React.FC = () => {
     });
   }, [unifiedWorkQueue, activeFilter, searchQuery, todayStr]);
 
+  // Work items for list below Hero Card (omit the hero item if spotlighted above so it's not duplicated)
+  const workListItems = useMemo(() => {
+    return filteredQueue.filter((item) => !heroItem || item.id !== heroItem.id);
+  }, [filteredQueue, heroItem]);
+
   // Group filtered items by Priority Tier
-  const doNowItems = filteredQueue.filter((i) => i.priorityTier === "do_now");
-  const todayItems = filteredQueue.filter((i) => i.priorityTier === "today");
-  const laterItems = filteredQueue.filter((i) => i.priorityTier === "normal" || i.priorityTier === "waiting");
+  const doNowItems = workListItems.filter((i) => i.priorityTier === "do_now");
+  const todayItems = workListItems.filter((i) => i.priorityTier === "today");
+  const laterItems = workListItems.filter((i) => i.priorityTier === "normal" || i.priorityTier === "waiting");
 
   // Handler for primary actions
   const handlePrimaryAction = (item: UnifiedWorkItem) => {
@@ -399,85 +426,94 @@ export const CRMTodayWorkspace: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Compact "Needs Attention" Filter Strip */}
-      <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none">
+      {/* 2. Needs Attention Filter Strip (Responsive wrap, no horizontal swipe) */}
+      <div className="flex flex-wrap items-center gap-1.5 py-0.5">
         <span className="text-spec font-semibold text-ink-dim uppercase tracking-[0.08em] shrink-0 mr-1 hidden sm:inline">
           Needs attention:
         </span>
 
-        <button
-          type="button"
-          onClick={() => setActiveFilter(activeFilter === "overdue" ? "all" : "overdue")}
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-spec font-bold border transition-all cursor-pointer shrink-0 ${
-            activeFilter === "overdue"
-              ? "bg-urgent text-white border-urgent shadow-xs"
-              : overdueTasksCount > 0
-              ? "bg-urgent-wash text-urgent border-urgent/30 hover:border-urgent"
-              : "bg-paper text-ink-dim border-line opacity-75"
-          }`}
-        >
-          <span className={`w-2 h-2 rounded-full ${overdueTasksCount > 0 ? "bg-urgent" : "bg-emerald-500"}`} />
-          <span>{overdueTasksCount > 0 ? `${overdueTasksCount} Overdue` : "✓ No overdue work"}</span>
-        </button>
+        {overdueTasksCount === 0 && followUpsDueCount === 0 && quotesAwaitingCount === 0 && newLeadsCount === 0 ? (
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-spec font-bold bg-brand-wash text-brand-deep border border-brand-edge">
+            <CheckCircle2 className="w-3.5 h-3.5" />
+            <span>✓ No overdue work · All caught up</span>
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => setActiveFilter(activeFilter === "overdue" ? "all" : "overdue")}
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-spec font-bold border transition-all cursor-pointer ${
+                activeFilter === "overdue"
+                  ? "bg-urgent text-white border-urgent shadow-xs"
+                  : overdueTasksCount > 0
+                  ? "bg-urgent-wash text-urgent border-urgent/30 hover:border-urgent"
+                  : "bg-brand-wash text-brand-deep border-brand-edge"
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${overdueTasksCount > 0 ? "bg-urgent" : "bg-brand-deep"}`} />
+              <span>{overdueTasksCount > 0 ? `${overdueTasksCount} Overdue` : "✓ No overdue work"}</span>
+            </button>
 
-        <button
-          type="button"
-          onClick={() => setActiveFilter(activeFilter === "followups" ? "all" : "followups")}
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-spec font-bold border transition-all cursor-pointer shrink-0 ${
-            activeFilter === "followups"
-              ? "bg-soon text-white border-soon shadow-xs"
-              : followUpsDueCount > 0
-              ? "bg-soon-wash text-soon border-soon/30 hover:border-soon"
-              : "bg-paper text-ink-dim border-line"
-          }`}
-        >
-          <span className="w-2 h-2 rounded-full bg-soon" />
-          <span>{followUpsDueCount} Follow-ups Due</span>
-        </button>
+            {followUpsDueCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setActiveFilter(activeFilter === "followups" ? "all" : "followups")}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-spec font-bold border transition-all cursor-pointer ${
+                  activeFilter === "followups"
+                    ? "bg-soon text-white border-soon shadow-xs"
+                    : "bg-soon-wash text-soon border-soon/30 hover:border-soon"
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-soon" />
+                <span>{followUpsDueCount} Follow-ups Due</span>
+              </button>
+            )}
 
-        <button
-          type="button"
-          onClick={() => setActiveFilter(activeFilter === "quotes" ? "all" : "quotes")}
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-spec font-bold border transition-all cursor-pointer shrink-0 ${
-            activeFilter === "quotes"
-              ? "bg-purple-700 text-white border-purple-700 shadow-xs"
-              : quotesAwaitingCount > 0
-              ? "bg-purple-50 text-purple-700 border-purple-200 hover:border-purple-400"
-              : "bg-paper text-ink-dim border-line"
-          }`}
-        >
-          <span className="w-2 h-2 rounded-full bg-purple-600" />
-          <span>{quotesAwaitingCount} Quotes Awaiting Response</span>
-        </button>
+            {quotesAwaitingCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setActiveFilter(activeFilter === "quotes" ? "all" : "quotes")}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-spec font-bold border transition-all cursor-pointer ${
+                  activeFilter === "quotes"
+                    ? "bg-purple-700 text-white border-purple-700 shadow-xs"
+                    : "bg-purple-50 text-purple-700 border-purple-200 hover:border-purple-400"
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-purple-600" />
+                <span>{quotesAwaitingCount} Quotes Awaiting Response</span>
+              </button>
+            )}
 
-        <button
-          type="button"
-          onClick={() => setActiveFilter(activeFilter === "leads" ? "all" : "leads")}
-          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-spec font-bold border transition-all cursor-pointer shrink-0 ${
-            activeFilter === "leads"
-              ? "bg-brand-deep text-white border-brand-deep shadow-xs"
-              : newLeadsCount > 0
-              ? "bg-brand-wash text-brand-deep border-brand-edge hover:border-brand-deep"
-              : "bg-paper text-ink-dim border-line"
-          }`}
-        >
-          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          <span>{newLeadsCount} New Leads</span>
-        </button>
+            {newLeadsCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setActiveFilter(activeFilter === "leads" ? "all" : "leads")}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-spec font-bold border transition-all cursor-pointer ${
+                  activeFilter === "leads"
+                    ? "bg-brand-deep text-white border-brand-deep shadow-xs"
+                    : "bg-brand-wash text-brand-deep border-brand-edge hover:border-brand-deep"
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>{newLeadsCount} New Leads</span>
+              </button>
+            )}
+          </>
+        )}
 
         {activeFilter !== "all" && (
           <button
             type="button"
             onClick={() => setActiveFilter("all")}
-            className="text-spec font-semibold text-ink-dim hover:text-ink underline ml-1 cursor-pointer shrink-0"
+            className="text-spec font-semibold text-ink-dim hover:text-ink underline ml-1 cursor-pointer"
           >
             Clear filter
           </button>
         )}
       </div>
 
-      {/* 3. Hero Content: NEXT BEST ACTION Card */}
-      {heroItem && (
+      {/* 3. Hero Content: NEXT BEST ACTION Card or Clean All-Clear Card */}
+      {heroItem ? (
         <div className="bg-white rounded-panel border-2 border-brand-edge shadow-sm overflow-hidden animate-in fade-in duration-200">
           <div className="bg-gradient-to-r from-brand-wash via-white to-white px-4 py-3 border-b border-brand-edge flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
@@ -562,6 +598,12 @@ export const CRMTodayWorkspace: React.FC = () => {
             </div>
           </div>
         </div>
+      ) : (
+        <div className="bg-white rounded-panel border border-line p-5 text-center flex flex-col items-center justify-center min-h-[110px]">
+          <CheckCircle2 className="w-6 h-6 text-brand-deep mb-1.5" />
+          <h2 className="text-body font-bold text-ink">No priority action right now</h2>
+          <p className="text-spec text-ink-dim mt-0.5">You're all caught up on critical customer follow-ups and deals.</p>
+        </div>
       )}
 
       {/* 4. Single Unified Work Queue: "YOUR WORK TODAY" */}
@@ -572,7 +614,7 @@ export const CRMTodayWorkspace: React.FC = () => {
             <Calendar className="w-4 h-4 text-brand-deep shrink-0" />
             <h2 className="text-lead font-bold text-ink">Your Work Today</h2>
             <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-chrome-line text-chrome-text">
-              {filteredQueue.length} items
+              {workListItems.length} items
             </span>
           </div>
 
@@ -598,11 +640,11 @@ export const CRMTodayWorkspace: React.FC = () => {
 
         {/* Unified Work Items List */}
         <div className="divide-y divide-line">
-          {filteredQueue.length === 0 ? (
-            <div className="p-8 text-center text-ink-dim space-y-2">
-              <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-              <p className="font-bold text-body text-ink">All caught up!</p>
-              <p className="text-spec">No tasks or urgent actions match the selected filter.</p>
+          {workListItems.length === 0 ? (
+            <div className="p-8 text-center text-ink-dim space-y-1.5">
+              <CheckCircle2 className="w-7 h-7 text-brand-deep mx-auto" />
+              <p className="font-bold text-body text-ink">No tasks due today</p>
+              <p className="text-spec">All customer quotes, tasks, and follow-ups are up to date.</p>
             </div>
           ) : (
             <>
@@ -819,7 +861,7 @@ const WorkItemRow: React.FC<WorkItemRowProps> = ({
             {/* Urgency Badge */}
             {item.dueDate && item.dueDate < todayStr && (
               <span className="text-[11px] font-bold text-urgent bg-urgent-wash px-1.5 py-0.2 rounded">
-                Overdue ({item.dueDate})
+                Overdue ({formatHumanDate(item.dueDate)})
               </span>
             )}
             {item.category && (

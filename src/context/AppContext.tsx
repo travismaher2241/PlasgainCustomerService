@@ -491,7 +491,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const isSampleRecord = (item: any): boolean => {
     if (!item) return false;
     const id = String(item.id || "").toLowerCase();
-    return KNOWN_SAMPLE_PREFIXES.some((p) => id.startsWith(p));
+    const accountId = String(item.accountId || "").toLowerCase();
+    const dealId = String(item.dealId || item.opportunityId || "").toLowerCase();
+
+    return KNOWN_SAMPLE_PREFIXES.some((p) => id.startsWith(p) || accountId.startsWith(p) || dealId.startsWith(p));
   };
 
   // Load Relational CRM Data from LocalStorage (with sample filtering)
