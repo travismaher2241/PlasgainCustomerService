@@ -44,23 +44,23 @@ export const CRMCommandCenter: React.FC = () => {
   return (
     <div className="min-h-screen bg-raised">
       {/* Top CRM Navigation Bar */}
-      <div className="bg-white border-b border-line sticky top-0 z-20 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-14">
+      <div className="bg-white border-b border-line sticky top-0 z-20 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6">
+          <div className="flex items-center justify-between h-11">
             {/* Left CRM Tabs */}
-            <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto py-2">
+            <div className="flex items-center gap-1 overflow-x-auto py-1 scrollbar-none">
               <button
                 onClick={() => setActiveCRMTab("today")}
-                className={`px-3 py-1.5 rounded-edge text-meta font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                className={`px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "today"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <Sun className="w-3.5 h-3.5" />
-                Today / Focus
+                <span>Today's Focus</span>
                 {nextBestActions.length > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-spec ${activeCRMTab === "today" ? "bg-chrome text-white font-semibold" : "bg-line text-ink font-semibold"}`}>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeCRMTab === "today" ? "bg-chrome text-white font-semibold" : "bg-line text-ink font-semibold"}`}>
                     {nextBestActions.length}
                   </span>
                 )}
@@ -68,40 +68,40 @@ export const CRMCommandCenter: React.FC = () => {
 
               <button
                 onClick={() => setActiveCRMTab("accounts")}
-                className={`px-3 py-1.5 rounded-edge text-meta font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                className={`px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "accounts"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <Building2 className="w-3.5 h-3.5" />
-                Accounts 360° ({accounts.length})
+                <span>Accounts ({accounts.length})</span>
               </button>
 
               <button
                 onClick={() => setActiveCRMTab("pipeline")}
-                className={`px-3 py-1.5 rounded-edge text-meta font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                className={`px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "pipeline"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <Kanban className="w-3.5 h-3.5" />
-                Deals Pipeline ({crmOpportunities.filter((d) => d.stageId !== "stage-won" && d.stageId !== "stage-lost").length})
+                <span>Deals Pipeline ({crmOpportunities.filter((d) => d.stageId !== "stage-won" && d.stageId !== "stage-lost").length})</span>
               </button>
 
               <button
                 onClick={() => setActiveCRMTab("leads")}
-                className={`px-3 py-1.5 rounded-edge text-meta font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                className={`px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "leads"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <Flame className="w-3.5 h-3.5" />
-                Leads Hub
+                <span>Leads Hub</span>
                 {hotLeadsCount > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-spec ${activeCRMTab === "leads" ? "bg-chrome text-white font-semibold" : "bg-line text-ink font-semibold"}`}>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeCRMTab === "leads" ? "bg-chrome text-white font-semibold" : "bg-line text-ink font-semibold"}`}>
                     {hotLeadsCount}
                   </span>
                 )}
@@ -109,16 +109,16 @@ export const CRMCommandCenter: React.FC = () => {
 
               <button
                 onClick={() => setActiveCRMTab("tasks")}
-                className={`px-3 py-1.5 rounded-edge text-meta font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                className={`px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "tasks"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                Tasks & Log
+                <span>Tasks &amp; Log</span>
                 {overdueCount > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-spec ${activeCRMTab === "tasks" ? "bg-chrome text-white font-semibold" : "bg-line text-ink font-semibold"}`}>
+                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeCRMTab === "tasks" ? "bg-chrome text-white font-semibold" : "bg-line text-ink font-semibold"}`}>
                     {overdueCount}
                   </span>
                 )}
@@ -126,14 +126,14 @@ export const CRMCommandCenter: React.FC = () => {
 
               <button
                 onClick={() => setActiveCRMTab("competitor-pricing")}
-                className={`px-3 py-1.5 rounded-edge text-meta font-bold transition-all flex items-center gap-1.5 shrink-0 ${
+                className={`px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "competitor-pricing"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <TrendingUp className="w-3.5 h-3.5" />
-                Competitor Intel ({competitorPricingRecords.length})
+                <span>Competitor Intel ({competitorPricingRecords.length})</span>
               </button>
             </div>
 
@@ -141,10 +141,10 @@ export const CRMCommandCenter: React.FC = () => {
             <div className="hidden sm:flex items-center gap-2">
               <button
                 onClick={() => openQuickLog("call")}
-                className="inline-flex items-center gap-1 px-3 py-1.5 text-meta font-semibold bg-paper hover:bg-line rounded-edge transition-colors"
+                className="inline-flex items-center gap-1 px-2.5 py-1 text-spec font-semibold text-ink bg-paper hover:bg-raised border border-line rounded-edge transition-colors cursor-pointer"
               >
                 <Phone className="w-3 h-3 text-brand-deep" />
-                Quick Log
+                <span>Quick Log</span>
               </button>
             </div>
           </div>
@@ -152,7 +152,7 @@ export const CRMCommandCenter: React.FC = () => {
       </div>
 
       {/* Main CRM Tab View Render */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-5">
         <Suspense
           fallback={
             <div className="flex items-center justify-center min-h-[300px] w-full">

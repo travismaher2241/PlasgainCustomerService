@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Sun,
   AlertTriangle,
@@ -11,14 +11,50 @@ import {
   TrendingUp,
   DollarSign,
   Briefcase,
-  Layers,
   ChevronRight,
   Phone,
-  Plus
+  Plus,
+  Mail,
+  MoreHorizontal,
+  Check,
+  Filter,
+  X,
+  ExternalLink,
+  Kanban,
+  FileText,
+  Clock3
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
-import { StatStrip } from "../ui/Surface";
+import { CustomerFollowUpModal, CustomerFollowUpModalProps } from "../CustomerFollowUpModal";
 import { CRMIntelligenceEngine } from "../../utils/crmIntelligence";
+import { NextBestActionItem, CRMOpportunity, CRMTask, CRMLead } from "../../types/crm";
+
+type FilterCategory = "all" | "overdue" | "followups" | "quotes" | "leads";
+type PriorityTier = "do_now" | "today" | "normal" | "waiting";
+
+interface UnifiedWorkItem {
+  id: string;
+  sourceType: "nba" | "task" | "deal" | "lead" | "alert";
+  title: string;
+  entityName: string;
+  entityType?: "Opportunity" | "Account" | "Lead" | "Task";
+  entityId?: string;
+  accountId?: string;
+  dealId?: string;
+  context: string;
+  reason?: string;
+  value?: number;
+  urgency: "Immediate" | "Today" | "Normal" | "Waiting";
+  priorityTier: PriorityTier;
+  dueDate?: string;
+  category: string;
+  quoteRef?: string;
+  contactName?: string;
+  contactEmail?: string;
+  primaryActionType: "followup" | "call" | "email" | "open" | "complete";
+  primaryActionLabel: string;
+  isCompleted?: boolean;
+}
 
 export const CRMTodayWorkspace: React.FC = () => {
   const {
@@ -31,441 +67,833 @@ export const CRMTodayWorkspace: React.FC = () => {
     toggleTaskComplete,
     navigateToCRM,
     openQuickLog,
+    openEmailComposer,
     competitorAlerts,
     markCompetitorAlertRead,
     unreadCompetitorAlertsCount
   } = useApp();
 
-  const [filterOwner, setFilterOwner] = useState<string>("all");
+  const [activeFilter, setActiveFilter] = useState<FilterCategory>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [snoozedIds, setSnoozedIds] = useState<Set<string>>(new Set());
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+
+  // Follow-up modal state
+  const [followUpModalProps, setFollowUpModalProps] = useState<CustomerFollowUpModalProps>({
+    isOpen: false,
+    onClose: () => setFollowUpModalProps((prev) => ({ ...prev, isOpen: false }))
+  });
+
   const todayStr = new Date().toISOString().split("T")[0];
+  const formattedToday = new Date().toLocaleDateString("en-AU", {
+    weekday: "long",
+    day: "numeric",
+    month: "long"
+  });
 
-  // Metrics
-  const totalPipelineValue = crmOpportunities
-    .filter((d) => d.stageId !== "stage-won" && d.stageId !== "stage-lost")
-    .reduce((sum, d) => sum + (d.dealValue || 0), 0);
+  // 1. Calculate Metrics for Snapshot & Attention Counts
+  const totalPipelineValue = useMemo(() => {
+    return crmOpportunities
+      .filter((d) => d.stageId !== "stage-won" && d.stageId !== "stage-lost")
+      .reduce((sum, d) => sum + (d.dealValue || 0), 0);
+  }, [crmOpportunities]);
 
-  const weightedPipelineValue = crmOpportunities
-    .filter((d) => d.stageId !== "stage-won" && d.stageId !== "stage-lost")
-    .reduce((sum, d) => sum + ((d.dealValue || 0) * (d.probability || 0)) / 100, 0);
+  const weightedPipelineValue = useMemo(() => {
+    return crmOpportunities
+      .filter((d) => d.stageId !== "stage-won" && d.stageId !== "stage-lost")
+      .reduce((sum, d) => sum + ((d.dealValue || 0) * (d.probability || 0)) / 100, 0);
+  }, [crmOpportunities]);
 
-  const overdueTasks = tasks.filter(
-    (t) => t.status !== "Completed" && t.status !== "Cancelled" && t.dueDate < todayStr
-  );
+  const overdueTasksCount = useMemo(() => {
+    return tasks.filter(
+      (t) => t.status !== "Completed" && t.status !== "Cancelled" && t.dueDate < todayStr
+    ).length;
+  }, [tasks, todayStr]);
 
-  const todayTasks = tasks.filter(
-    (t) => t.status !== "Completed" && t.status !== "Cancelled" && t.dueDate === todayStr
-  );
+  const quotesAwaitingCount = useMemo(() => {
+    return crmOpportunities.filter(
+      (d) => d.quoteStatus === "Sent" && d.stageId !== "stage-won" && d.stageId !== "stage-lost"
+    ).length;
+  }, [crmOpportunities]);
 
-  const hotDeals = crmOpportunities
-    .filter(
-      (d) =>
-        d.stageId !== "stage-won" &&
-        d.stageId !== "stage-lost" &&
-        ((d.dealValue >= 50000 && d.probability >= 50) || d.stageId === "stage-negotiation" || d.stageId === "stage-review")
-    )
-    .sort((a, b) => b.dealValue - a.dealValue);
+  const followUpsDueCount = useMemo(() => {
+    const quoteNBAs = nextBestActions.filter((a) => a.category === "Quote Follow-up").length;
+    const followUpTasks = tasks.filter(
+      (t) => t.status !== "Completed" && t.status !== "Cancelled" && (t.taskType === "Follow-up" || t.dueDate <= todayStr)
+    ).length;
+    return Math.max(quoteNBAs, followUpTasks);
+  }, [nextBestActions, tasks, todayStr]);
 
-  const atRiskDeals = crmOpportunities.filter(
-    (d) => d.stageId !== "stage-won" && d.stageId !== "stage-lost" && (d.dealHealth === "At Risk" || d.dealHealth === "Stalled")
-  );
+  const newLeadsCount = useMemo(() => {
+    return leads.filter((l) => l.leadStatus === "New" || (l.leadScore >= 70 && l.leadStatus !== "Converted")).length;
+  }, [leads]);
 
-  const newHotLeads = leads.filter(
-    (l) => l.leadStatus !== "Converted" && l.leadStatus !== "Unqualified" && l.leadScore >= 70
-  );
+  const atRiskDealsCount = useMemo(() => {
+    return crmOpportunities.filter(
+      (d) => d.stageId !== "stage-won" && d.stageId !== "stage-lost" && (d.dealHealth === "At Risk" || d.dealHealth === "Stalled")
+    ).length;
+  }, [crmOpportunities]);
 
-  const recentActivities = [...activities]
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-    .slice(0, 6);
+  // 2. Build Unified Work Items Queue
+  const unifiedWorkQueue = useMemo(() => {
+    const items: UnifiedWorkItem[] = [];
+
+    // A. Next Best Actions (AI / Rule based)
+    nextBestActions.forEach((nba) => {
+      if (snoozedIds.has(nba.id)) return;
+
+      const matchedDeal = nba.relatedEntityType === "Opportunity" ? crmOpportunities.find((d) => d.id === nba.relatedEntityId) : undefined;
+      const matchedAccount = nba.relatedEntityType === "Account" ? accounts.find((a) => a.id === nba.relatedEntityId) : matchedDeal ? accounts.find((a) => a.id === matchedDeal.accountId) : undefined;
+
+      const isQuote = nba.category === "Quote Follow-up";
+      const isUrgent = nba.urgency === "Immediate";
+
+      let priorityTier: PriorityTier = isUrgent || (matchedDeal && matchedDeal.dealValue >= 50000) ? "do_now" : "today";
+      if (nba.category === "Missing Action") priorityTier = "do_now";
+
+      items.push({
+        id: nba.id,
+        sourceType: "nba",
+        title: nba.title,
+        entityName: nba.relatedEntityName,
+        entityType: nba.relatedEntityType,
+        entityId: nba.relatedEntityId,
+        accountId: matchedAccount?.id,
+        dealId: matchedDeal?.id,
+        context: nba.description,
+        reason: nba.reason,
+        value: matchedDeal?.dealValue,
+        urgency: nba.urgency,
+        priorityTier,
+        category: nba.category,
+        quoteRef: matchedDeal?.quoteNumber,
+        contactName: matchedDeal?.primaryContactName,
+        contactEmail: matchedDeal?.primaryContactEmail,
+        primaryActionType: isQuote ? "followup" : matchedDeal ? "open" : "call",
+        primaryActionLabel: isQuote ? "Follow Up" : matchedDeal ? "Open Deal" : "Action"
+      });
+    });
+
+    // B. CRM Tasks (Manual / Scheduled)
+    tasks.forEach((task) => {
+      if (task.status === "Completed" || task.status === "Cancelled" || snoozedIds.has(task.id)) return;
+
+      const isOverdue = task.dueDate < todayStr;
+      const isToday = task.dueDate === todayStr;
+      const isHighPriority = task.priority === "High" || task.priority === "Urgent";
+
+      let priorityTier: PriorityTier = "normal";
+      if (isOverdue || isHighPriority) priorityTier = "do_now";
+      else if (isToday) priorityTier = "today";
+
+      const matchedAccount = task.accountId ? accounts.find((a) => a.id === task.accountId) : undefined;
+      const matchedDeal = task.dealId ? crmOpportunities.find((d) => d.id === task.dealId) : undefined;
+
+      items.push({
+        id: task.id,
+        sourceType: "task",
+        title: task.title,
+        entityName: task.accountName || matchedAccount?.name || matchedDeal?.name || "General Task",
+        entityType: task.dealId ? "Opportunity" : "Account",
+        entityId: task.dealId || task.accountId,
+        accountId: task.accountId,
+        dealId: task.dealId,
+        context: task.description || (isOverdue ? `Overdue since ${task.dueDate}` : `Due on ${task.dueDate}`),
+        dueDate: task.dueDate,
+        urgency: isOverdue ? "Immediate" : isToday ? "Today" : "Normal",
+        priorityTier,
+        category: task.taskType || "Task",
+        primaryActionType: task.taskType === "Call" ? "call" : task.taskType === "Email" ? "email" : "complete",
+        primaryActionLabel: task.taskType === "Call" ? "Log Call" : task.taskType === "Email" ? "Write Email" : "Complete",
+        isCompleted: task.status === "Completed"
+      });
+    });
+
+    // C. At-Risk or Stalled Deals without explicit NBAs
+    crmOpportunities.forEach((deal) => {
+      if (deal.stageId === "stage-won" || deal.stageId === "stage-lost" || snoozedIds.has(`deal-${deal.id}`)) return;
+      if (deal.dealHealth === "At Risk" || deal.dealHealth === "Stalled") {
+        // avoid duplicating if already in items
+        if (!items.some((i) => i.dealId === deal.id)) {
+          items.push({
+            id: `deal-health-${deal.id}`,
+            sourceType: "deal",
+            title: `Unblock ${deal.dealHealth} Deal ($${deal.dealValue.toLocaleString()})`,
+            entityName: deal.name,
+            entityType: "Opportunity",
+            entityId: deal.id,
+            accountId: deal.accountId,
+            dealId: deal.id,
+            context: `${deal.accountName} · In ${deal.stageName} for ${deal.daysInCurrentStage} days`,
+            reason: `Deal is marked ${deal.dealHealth}. Immediate stakeholder check-in recommended.`,
+            value: deal.dealValue,
+            urgency: "Immediate",
+            priorityTier: "do_now",
+            category: "Stalled Deal",
+            contactName: deal.primaryContactName,
+            contactEmail: deal.primaryContactEmail,
+            quoteRef: deal.quoteNumber,
+            primaryActionType: "open",
+            primaryActionLabel: "Open Deal"
+          });
+        }
+      }
+    });
+
+    // D. New High Intent Leads
+    leads.forEach((lead) => {
+      if (lead.leadStatus === "Converted" || lead.leadStatus === "Unqualified" || snoozedIds.has(`lead-${lead.id}`)) return;
+      if (lead.leadScore >= 70 || lead.leadStatus === "New") {
+        if (!items.some((i) => i.entityId === lead.id)) {
+          items.push({
+            id: `lead-hot-${lead.id}`,
+            sourceType: "lead",
+            title: `Contact High-Intent Lead (${lead.leadScore}/100)`,
+            entityName: `${lead.firstName} ${lead.lastName} · ${lead.companyName}`,
+            entityType: "Lead",
+            entityId: lead.id,
+            context: `${lead.projectName || "Inbound Project"} · ${lead.projectLocation || "VIC"}`,
+            reason: `Score ${lead.leadScore}. ${lead.notes || "High commercial intent detected."}`,
+            urgency: lead.leadScore >= 80 ? "Immediate" : "Today",
+            priorityTier: lead.leadScore >= 80 ? "do_now" : "today",
+            category: "New Lead",
+            contactName: `${lead.firstName} ${lead.lastName}`,
+            contactEmail: lead.email,
+            primaryActionType: "call",
+            primaryActionLabel: "Log Call"
+          });
+        }
+      }
+    });
+
+    // Sort items by priority tier and value
+    const tierOrder: Record<PriorityTier, number> = {
+      do_now: 0,
+      today: 1,
+      normal: 2,
+      waiting: 3
+    };
+
+    return items.sort((a, b) => {
+      if (tierOrder[a.priorityTier] !== tierOrder[b.priorityTier]) {
+        return tierOrder[a.priorityTier] - tierOrder[b.priorityTier];
+      }
+      return (b.value || 0) - (a.value || 0);
+    });
+  }, [nextBestActions, tasks, crmOpportunities, accounts, leads, snoozedIds, todayStr]);
+
+  // 3. Hero Item: The Single Most Urgent / High Value Next Best Action
+  const heroItem = useMemo(() => {
+    // Find top "do_now" item with a high value or quote follow-up
+    const topItem = unifiedWorkQueue.find((i) => i.priorityTier === "do_now") || unifiedWorkQueue[0];
+    return topItem || null;
+  }, [unifiedWorkQueue]);
+
+  // 4. Filtered Work Queue based on active pill and search query
+  const filteredQueue = useMemo(() => {
+    return unifiedWorkQueue.filter((item) => {
+      // Category Filter
+      if (activeFilter === "overdue") {
+        if (item.urgency !== "Immediate" && (!item.dueDate || item.dueDate >= todayStr)) return false;
+      } else if (activeFilter === "followups") {
+        if (item.category !== "Quote Follow-up" && item.primaryActionType !== "followup") return false;
+      } else if (activeFilter === "quotes") {
+        if (!item.quoteRef && item.category !== "Quote Follow-up") return false;
+      } else if (activeFilter === "leads") {
+        if (item.sourceType !== "lead" && item.category !== "New Lead") return false;
+      }
+
+      // Search Filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return (
+          item.title.toLowerCase().includes(q) ||
+          item.entityName.toLowerCase().includes(q) ||
+          item.context.toLowerCase().includes(q) ||
+          (item.reason && item.reason.toLowerCase().includes(q))
+        );
+      }
+
+      return true;
+    });
+  }, [unifiedWorkQueue, activeFilter, searchQuery, todayStr]);
+
+  // Group filtered items by Priority Tier
+  const doNowItems = filteredQueue.filter((i) => i.priorityTier === "do_now");
+  const todayItems = filteredQueue.filter((i) => i.priorityTier === "today");
+  const laterItems = filteredQueue.filter((i) => i.priorityTier === "normal" || i.priorityTier === "waiting");
+
+  // Handler for primary actions
+  const handlePrimaryAction = (item: UnifiedWorkItem) => {
+    if (item.primaryActionType === "followup") {
+      setFollowUpModalProps({
+        isOpen: true,
+        onClose: () => setFollowUpModalProps((prev) => ({ ...prev, isOpen: false })),
+        dealId: item.dealId,
+        accountId: item.accountId,
+        initialContactName: item.contactName || "",
+        initialCompanyName: item.entityName || "",
+        initialProjectName: item.entityName || "",
+        initialQuoteRef: item.quoteRef || "",
+        initialContactEmail: item.contactEmail || ""
+      });
+    } else if (item.primaryActionType === "call") {
+      openQuickLog("call", item.accountId, item.dealId);
+    } else if (item.primaryActionType === "email") {
+      openEmailComposer({
+        emailType: "cold_outreach",
+        researchSubject: item.entityName,
+        targetContactName: item.contactName,
+        targetContactEmail: item.contactEmail,
+        accountId: item.accountId,
+        opportunityId: item.dealId
+      });
+    } else if (item.primaryActionType === "open") {
+      if (item.entityType === "Opportunity" && item.dealId) {
+        navigateToCRM("pipeline", item.dealId);
+      } else if (item.entityType === "Account" && item.accountId) {
+        navigateToCRM("accounts", item.accountId);
+      } else if (item.entityType === "Lead" && item.entityId) {
+        navigateToCRM("leads", item.entityId);
+      } else {
+        navigateToCRM("pipeline", item.entityId);
+      }
+    } else if (item.primaryActionType === "complete" && item.sourceType === "task") {
+      toggleTaskComplete(item.id);
+    }
+  };
+
+  const handleSnooze = (id: string) => {
+    setSnoozedIds((prev) => new Set([...prev, id]));
+    setActiveMenuId(null);
+  };
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-16">
-      {/* Header & Greetings */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-line pb-6">
+    <div className="space-y-4 max-w-7xl mx-auto pb-12">
+      {/* 1. Compact Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pb-3 border-b border-line">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-meta font-semibold bg-brand-wash text-brand-deep border border-brand-edge">
-              <Sun className="w-3.5 h-3.5 text-brand-deep" />
-              Sales Command Centre
-            </span>
-            <span className="text-meta text-ink-dim">
-              {new Date().toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-            </span>
-          </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-body tracking-tight">
-            Today's Focus & Action Center
-          </h1>
-          <p className="text-body text-ink-dim mt-0.5">
-            Answer the 5 daily questions: Who needs me? What deals matter? What needs to happen next?
+          <h1 className="text-xl font-bold text-ink tracking-tight">Today's Focus</h1>
+          <p className="text-spec text-ink-dim mt-0.5">
+            {formattedToday} · Here's what needs your attention.
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           <button
-            onClick={() => openQuickLog("call")}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-meta font-semibold bg-white border border-line-strong rounded-edge hover:bg-raised shadow-sm transition-colors"
-          >
-            <Phone className="w-3.5 h-3.5 text-hold" />
-            + Log Call
-          </button>
-          <button
+            type="button"
             onClick={() => openQuickLog("task")}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-meta font-semibold bg-white border border-line-strong rounded-edge hover:bg-raised shadow-sm transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-spec font-bold text-ink bg-white border border-line-strong rounded-edge hover:bg-hover hover:border-ink-faint transition-colors shadow-2xs cursor-pointer"
           >
-            <CheckCircle2 className="w-3.5 h-3.5 text-brand-deep" />
-            + New Task
+            <Plus className="w-3.5 h-3.5 text-brand-deep" />
+            <span>+ Task</span>
           </button>
           <button
+            type="button"
             onClick={() => navigateToCRM("pipeline")}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-meta font-semibold text-white bg-brand-deep rounded-edge hover:bg-brand-deep shadow-sm transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-spec font-bold text-white bg-brand-deep rounded-edge hover:bg-brand transition-colors shadow-2xs cursor-pointer"
           >
-            <Plus className="w-3.5 h-3.5" />
-            View Pipeline
+            <Kanban className="w-3.5 h-3.5" />
+            <span>View Pipeline</span>
           </button>
         </div>
       </div>
 
-      {/* Headline figures — one plane, not four cards */}
-      <StatStrip
-        cells={[
-          {
-            value: `$${totalPipelineValue.toLocaleString()}`,
-            label: "Open pipeline",
-            note: `$${Math.round(weightedPipelineValue).toLocaleString()} weighted forecast`,
-            tone: "neutral"
-          },
-          {
-            value: atRiskDeals.length + overdueTasks.length,
-            label: "Needs attention",
-            note: `${atRiskDeals.length} stalled · ${overdueTasks.length} overdue tasks`,
-            tone: "urgent"
-          },
-          {
-            value: newHotLeads.length,
-            label: "Hot inbound leads",
-            note: "High-intent council & civil projects",
-            tone: "soon"
-          },
-          {
-            value: nextBestActions.length,
-            label: "Next best actions",
-            note: "Ranked by deal value and time in stage",
-            tone: "brand"
-          }
-        ]}
-      />
+      {/* 2. Compact "Needs Attention" Filter Strip */}
+      <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none">
+        <span className="text-spec font-semibold text-ink-dim uppercase tracking-[0.08em] shrink-0 mr-1 hidden sm:inline">
+          Needs attention:
+        </span>
 
-      {/* Main Grid: Priority Actions vs Today's Schedule */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left 2 Columns: Next Best Actions & Deals Requiring Attention */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* New Competitor Pricing Intelligence Section */}
-          {competitorAlerts && competitorAlerts.length > 0 && (
-            <div className="bg-white rounded-panel border border-brand-edge shadow-sm overflow-hidden">
-              <div className="bg-gradient-to-r from-brand-wash via-white to-white px-5 py-4 border-b border-brand-edge flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-brand-deep rounded-edge text-white">
-                    <TrendingUp className="w-4 h-4 text-cyan-200" />
-                  </div>
-                  <div>
-                    <h2 className="text-base font-bold text-body">New Competitor Pricing Intelligence</h2>
-                    <p className="text-meta text-ink-dim">Market price points and competitor quotes observed by the team</p>
-                  </div>
-                </div>
-                {unreadCompetitorAlertsCount > 0 && (
-                  <span className="text-meta font-bold text-brand-deep bg-brand-wash px-2.5 py-0.5 rounded-full border border-brand-edge">
-                    {unreadCompetitorAlertsCount} New Alerts
-                  </span>
-                )}
+        <button
+          type="button"
+          onClick={() => setActiveFilter(activeFilter === "overdue" ? "all" : "overdue")}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-spec font-bold border transition-all cursor-pointer shrink-0 ${
+            activeFilter === "overdue"
+              ? "bg-urgent text-white border-urgent shadow-xs"
+              : overdueTasksCount > 0
+              ? "bg-urgent-wash text-urgent border-urgent/30 hover:border-urgent"
+              : "bg-paper text-ink-dim border-line opacity-75"
+          }`}
+        >
+          <span className={`w-2 h-2 rounded-full ${overdueTasksCount > 0 ? "bg-urgent" : "bg-emerald-500"}`} />
+          <span>{overdueTasksCount > 0 ? `${overdueTasksCount} Overdue` : "✓ No overdue work"}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveFilter(activeFilter === "followups" ? "all" : "followups")}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-spec font-bold border transition-all cursor-pointer shrink-0 ${
+            activeFilter === "followups"
+              ? "bg-soon text-white border-soon shadow-xs"
+              : followUpsDueCount > 0
+              ? "bg-soon-wash text-soon border-soon/30 hover:border-soon"
+              : "bg-paper text-ink-dim border-line"
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-soon" />
+          <span>{followUpsDueCount} Follow-ups Due</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveFilter(activeFilter === "quotes" ? "all" : "quotes")}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-spec font-bold border transition-all cursor-pointer shrink-0 ${
+            activeFilter === "quotes"
+              ? "bg-purple-700 text-white border-purple-700 shadow-xs"
+              : quotesAwaitingCount > 0
+              ? "bg-purple-50 text-purple-700 border-purple-200 hover:border-purple-400"
+              : "bg-paper text-ink-dim border-line"
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-purple-600" />
+          <span>{quotesAwaitingCount} Quotes Awaiting Response</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveFilter(activeFilter === "leads" ? "all" : "leads")}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-spec font-bold border transition-all cursor-pointer shrink-0 ${
+            activeFilter === "leads"
+              ? "bg-brand-deep text-white border-brand-deep shadow-xs"
+              : newLeadsCount > 0
+              ? "bg-brand-wash text-brand-deep border-brand-edge hover:border-brand-deep"
+              : "bg-paper text-ink-dim border-line"
+          }`}
+        >
+          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          <span>{newLeadsCount} New Leads</span>
+        </button>
+
+        {activeFilter !== "all" && (
+          <button
+            type="button"
+            onClick={() => setActiveFilter("all")}
+            className="text-spec font-semibold text-ink-dim hover:text-ink underline ml-1 cursor-pointer shrink-0"
+          >
+            Clear filter
+          </button>
+        )}
+      </div>
+
+      {/* 3. Hero Content: NEXT BEST ACTION Card */}
+      {heroItem && (
+        <div className="bg-white rounded-panel border-2 border-brand-edge shadow-sm overflow-hidden animate-in fade-in duration-200">
+          <div className="bg-gradient-to-r from-brand-wash via-white to-white px-4 py-3 border-b border-brand-edge flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className="p-1 bg-brand-deep text-white rounded shrink-0">
+                <Sparkles className="w-4 h-4 text-cyan-200" />
               </div>
-
-              <div className="divide-y divide-line">
-                {competitorAlerts.slice(0, 4).map((alert) => (
-                  <div
-                    key={alert.id}
-                    className={`p-4 hover:bg-raised transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                      !alert.isRead ? "bg-brand-wash/15" : ""
-                    }`}
-                  >
-                    <div className="space-y-1 max-w-xl">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-body text-meta">{alert.competitorName}</span>
-                        <span className="text-spec font-mono font-semibold text-brand-deep bg-brand-wash px-2 py-0.5 rounded">
-                          {alert.competitorProduct}
-                        </span>
-                        <span className="text-meta text-ink-dim">for <strong>{alert.accountName}</strong></span>
-                      </div>
-                      <p className="text-body font-bold text-brand-deep">
-                        ${alert.price.toLocaleString("en-AU", { minimumFractionDigits: 2 })} {alert.priceBasis && `(${alert.priceBasis})`}
-                      </p>
-                      <p className="text-spec text-ink-dim">
-                        {alert.message} · <span className="text-ink-faint">Observed: {new Date(alert.createdAt).toLocaleDateString("en-AU")}</span>
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                      <button
-                        onClick={() => {
-                          if (!alert.isRead) markCompetitorAlertRead(alert.id);
-                          navigateToCRM("accounts", alert.accountId);
-                        }}
-                        className="px-3 py-1.5 text-meta font-bold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash transition-colors flex items-center gap-1 cursor-pointer"
-                      >
-                        <span>View Account Intel</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                      {!alert.isRead && (
-                        <button
-                          onClick={() => markCompetitorAlertRead(alert.id)}
-                          className="px-2.5 py-1.5 text-spec text-ink-dim hover:text-ink hover:bg-raised rounded-edge border border-line cursor-pointer font-semibold"
-                        >
-                          Mark Read
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              <div>
+                <span className="u-eyebrow text-brand-deep text-[0.6875rem] tracking-[0.1em] font-bold">
+                  NEXT BEST ACTION
+                </span>
               </div>
             </div>
-          )}
 
-          {/* Next Best Actions Section */}
-          <div className="bg-white rounded-panel border border-hold shadow-sm overflow-hidden">
-            <div className="bg-gradient-to-r from-hold/80 via-white to-white px-5 py-4 border-b border-hold flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-hold rounded-edge text-white">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-body">Recommended Next Actions</h2>
-                  <p className="text-meta text-ink-dim">Prioritised sales follow-ups and customer activities</p>
-                </div>
-              </div>
-              <span className="text-meta font-medium text-hold bg-hold-wash px-2 py-0.5 rounded-full">
-                {nextBestActions.length} Priority Items
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-urgent-wash text-urgent border border-urgent/20">
+                {heroItem.urgency === "Immediate" ? "🔴 High Urgency" : "🟠 Due Today"}
               </span>
-            </div>
-
-            <div className="divide-y divide-line">
-              {nextBestActions.length === 0 ? (
-                <div className="p-8 text-center text-ink-dim text-body">
-                  <CheckCircle2 className="w-8 h-8 text-brand mx-auto mb-2" />
-                  All active deals and tasks have up-to-date next actions. Great job!
-                </div>
-              ) : (
-                nextBestActions.map((action) => (
-                  <div key={action.id} className="p-4 hover:bg-raised transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="space-y-1 max-w-xl">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`text-spec font-semibold px-2 py-0.5 rounded-full ${
-                            action.urgency === "Immediate"
-                              ? "bg-urgent-wash text-urgent"
-                              : "bg-soon-wash text-soon"
-                          }`}
-                        >
-                          {action.urgency}
-                        </span>
-                        <span className="text-meta font-medium text-ink-dim bg-paper px-2 py-0.5 rounded">
-                          {action.category}
-                        </span>
-                        <span className="text-meta font-semibold">{action.relatedEntityName}</span>
-                      </div>
-                      <p className="text-body font-semibold">{action.title}</p>
-                      <p className="text-meta text-ink-dim">{action.description}</p>
-                      <p className="text-spec text-ink-dim italic flex items-center gap-1">
-                        <span className="font-medium text-hold">Why:</span> {action.reason}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                      <button
-                        onClick={() => {
-                          if (action.relatedEntityType === "Opportunity") {
-                            navigateToCRM("pipeline", action.relatedEntityId);
-                          } else if (action.relatedEntityType === "Account") {
-                            navigateToCRM("accounts", action.relatedEntityId);
-                          } else if (action.relatedEntityType === "Lead") {
-                            navigateToCRM("leads", action.relatedEntityId);
-                          } else {
-                            navigateToCRM("tasks");
-                          }
-                        }}
-                        className="px-3 py-1.5 text-meta font-semibold text-hold bg-hold-wash border border-hold rounded-edge hover:bg-hold-wash transition-colors flex items-center gap-1"
-                      >
-                        Action <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))
+              {heroItem.value && (
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  ${heroItem.value.toLocaleString()} Deal
+                </span>
               )}
             </div>
           </div>
 
-          {/* Deals Requiring Urgent Attention */}
-          <div className="bg-white rounded-panel border border-line shadow-xs overflow-hidden">
-            <div className="px-5 py-4 border-b border-line flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-urgent" />
-                <h2 className="text-base font-bold text-body">Deals Requiring Attention (At Risk or Stalled)</h2>
+          <div className="p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1.5 min-w-0 max-w-3xl">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-body font-bold text-ink">{heroItem.title}</h2>
+                <span className="text-spec font-semibold text-brand-deep bg-brand-wash px-2 py-0.5 rounded truncate max-w-xs">
+                  {heroItem.entityName}
+                </span>
               </div>
-              <span className="text-meta font-medium text-urgent bg-urgent-wash px-2 py-0.5 rounded-full">
-                {atRiskDeals.length} Deals
-              </span>
+
+              <p className="text-meta text-ink-dim">
+                {heroItem.context}
+              </p>
+
+              {heroItem.reason && (
+                <div className="p-2.5 bg-paper rounded-edge border border-line text-spec text-ink-dim flex items-start gap-2">
+                  <span className="font-bold text-brand-deep shrink-0">Why this matters:</span>
+                  <span>{heroItem.reason}</span>
+                </div>
+              )}
             </div>
 
-            <div className="divide-y divide-line">
-              {atRiskDeals.length === 0 ? (
-                <div className="p-6 text-center text-ink-dim text-meta">No at-risk deals currently. Great pipeline momentum!</div>
-              ) : (
-                atRiskDeals.map((deal) => (
-                  <div key={deal.id} className="p-4 hover:bg-raised transition-colors flex items-center justify-between gap-4">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-body text-meta">{deal.name}</span>
-                        <span className="text-spec font-medium text-ink-dim bg-paper px-2 py-0.5 rounded">
-                          {deal.accountName}
-                        </span>
-                        <span className="text-spec font-semibold px-2 py-0.5 rounded-full bg-urgent-wash text-urgent">
-                          {deal.dealHealth}
-                        </span>
-                      </div>
-                      <div className="text-spec text-ink-dim mt-1">
-                        Value: <strong className="text-body">${deal.dealValue.toLocaleString()}</strong> · Stage: {deal.stageName} · In Stage: {deal.daysInCurrentStage} days
-                      </div>
-                    </div>
+            <div className="flex items-center gap-2 self-start md:self-center shrink-0">
+              <button
+                type="button"
+                onClick={() => handlePrimaryAction(heroItem)}
+                className="px-4 py-2 text-meta font-bold text-white bg-brand-deep hover:bg-brand rounded-edge shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                {heroItem.primaryActionType === "followup" ? (
+                  <Mail className="w-4 h-4" />
+                ) : heroItem.primaryActionType === "call" ? (
+                  <Phone className="w-4 h-4" />
+                ) : (
+                  <ArrowRight className="w-4 h-4" />
+                )}
+                <span>{heroItem.primaryActionLabel}</span>
+              </button>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => openQuickLog("call", deal.accountId, deal.id)}
-                        className="p-1.5 text-meta font-medium text-body bg-white hover:bg-raised border border-line rounded-edge transition-colors cursor-pointer shadow-2xs"
-                        title="Log Call against this deal"
-                      >
-                        <Phone className="w-3.5 h-3.5 text-brand-deep" />
-                      </button>
-                      <button
-                        onClick={() => navigateToCRM("pipeline", deal.id)}
-                        className="px-3 py-1.5 text-meta font-semibold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash transition-colors flex items-center gap-1 shrink-0 cursor-pointer"
-                      >
-                        View Deal <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))
+              {heroItem.dealId && (
+                <button
+                  type="button"
+                  onClick={() => navigateToCRM("pipeline", heroItem.dealId)}
+                  className="px-3 py-2 text-meta font-bold text-ink bg-white border border-line-strong hover:bg-raised rounded-edge transition-colors cursor-pointer"
+                >
+                  Open Deal
+                </button>
               )}
+
+              <button
+                type="button"
+                onClick={() => handleSnooze(heroItem.id)}
+                className="p-2 text-ink-dim hover:text-ink hover:bg-raised rounded-edge border border-line transition-colors cursor-pointer"
+                title="Dismiss or Snooze"
+                aria-label="Snooze action"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Right 1 Column: Today's Tasks, High Value Deals & Recent Activity */}
-        <div className="space-y-6">
-          {/* Today & Overdue Tasks */}
-          <div className="bg-white rounded-panel border border-line shadow-xs overflow-hidden">
-            <div className="px-5 py-4 border-b border-line flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-brand-deep" />
-                <h2 className="text-base font-bold text-body">Tasks for Today</h2>
-              </div>
-              <span className="text-meta font-semibold px-2 py-0.5 bg-paper text-body rounded-full">
-                {todayTasks.length + overdueTasks.length} Pending
-              </span>
+      {/* 4. Single Unified Work Queue: "YOUR WORK TODAY" */}
+      <div className="bg-white rounded-panel border border-line shadow-xs overflow-hidden">
+        {/* Queue Header & Search */}
+        <div className="p-4 border-b border-line flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-paper/40">
+          <div className="flex items-center gap-2.5">
+            <Calendar className="w-4 h-4 text-brand-deep shrink-0" />
+            <h2 className="text-lead font-bold text-ink">Your Work Today</h2>
+            <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-chrome-line text-chrome-text">
+              {filteredQueue.length} items
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Filter tasks, accounts, deals..."
+              className="text-spec px-3 py-1.5 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep w-full sm:w-56"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="p-1 text-ink-dim hover:text-ink cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Unified Work Items List */}
+        <div className="divide-y divide-line">
+          {filteredQueue.length === 0 ? (
+            <div className="p-8 text-center text-ink-dim space-y-2">
+              <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
+              <p className="font-bold text-body text-ink">All caught up!</p>
+              <p className="text-spec">No tasks or urgent actions match the selected filter.</p>
             </div>
+          ) : (
+            <>
+              {/* SECTION: DO NOW */}
+              {doNowItems.length > 0 && (
+                <div className="bg-urgent-wash/30">
+                  <div className="px-4 py-2 bg-urgent-wash/60 border-b border-urgent/15 flex items-center justify-between text-spec font-bold text-urgent">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-urgent" />
+                      <span className="uppercase tracking-[0.08em]">Do Now · Urgent &amp; High Priority</span>
+                    </div>
+                    <span>{doNowItems.length}</span>
+                  </div>
 
-            <div className="divide-y divide-line max-h-72 overflow-y-auto">
-              {overdueTasks.length > 0 && (
-                <div className="p-2.5 bg-urgent-wash border-b border-urgent/20 text-spec font-semibold text-urgent flex items-center gap-1.5">
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                  {overdueTasks.length} overdue task(s) need immediate attention
+                  <div className="divide-y divide-line">
+                    {doNowItems.map((item) => (
+                      <WorkItemRow
+                        key={item.id}
+                        item={item}
+                        todayStr={todayStr}
+                        onPrimaryAction={handlePrimaryAction}
+                        onToggleComplete={toggleTaskComplete}
+                        onSnooze={handleSnooze}
+                        onNavigate={navigateToCRM}
+                        onQuickLog={openQuickLog}
+                        activeMenuId={activeMenuId}
+                        setActiveMenuId={setActiveMenuId}
+                      />
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {[...overdueTasks, ...todayTasks].length === 0 ? (
-                <div className="p-6 text-center text-ink-dim text-meta">No tasks due today. Add one via Quick Log!</div>
-              ) : (
-                [...overdueTasks, ...todayTasks].map((task) => (
-                  <div key={task.id} className="p-3 hover:bg-raised transition-colors flex items-start gap-3">
-                    <input
-                      type="checkbox"
-                      checked={task.status === "Completed"}
-                      onChange={() => toggleTaskComplete(task.id)}
-                      className="mt-1 h-4 w-4 rounded border-line text-brand-deep focus:ring-brand"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-meta font-semibold text-body truncate">{task.title}</p>
-                      <div className="text-spec text-ink-dim flex items-center gap-2 mt-0.5">
-                        <span className={task.dueDate < todayStr ? "text-urgent font-semibold" : ""}>
-                          Due: {task.dueDate}
-                        </span>
-                        <span>·</span>
-                        <span>{task.priority} Priority</span>
-                      </div>
+              {/* SECTION: TODAY */}
+              {todayItems.length > 0 && (
+                <div>
+                  <div className="px-4 py-2 bg-paper border-b border-line flex items-center justify-between text-spec font-bold text-ink-dim">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-soon" />
+                      <span className="uppercase tracking-[0.08em]">Today · Scheduled Actions</span>
                     </div>
+                    <span>{todayItems.length}</span>
                   </div>
-                ))
+
+                  <div className="divide-y divide-line">
+                    {todayItems.map((item) => (
+                      <WorkItemRow
+                        key={item.id}
+                        item={item}
+                        todayStr={todayStr}
+                        onPrimaryAction={handlePrimaryAction}
+                        onToggleComplete={toggleTaskComplete}
+                        onSnooze={handleSnooze}
+                        onNavigate={navigateToCRM}
+                        onQuickLog={openQuickLog}
+                        activeMenuId={activeMenuId}
+                        setActiveMenuId={setActiveMenuId}
+                      />
+                    ))}
+                  </div>
+                </div>
               )}
-            </div>
+
+              {/* SECTION: LATER / WAITING */}
+              {laterItems.length > 0 && (
+                <div>
+                  <div className="px-4 py-2 bg-paper/60 border-b border-line flex items-center justify-between text-spec font-bold text-ink-dim">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-slate-400" />
+                      <span className="uppercase tracking-[0.08em]">Upcoming &amp; Monitoring</span>
+                    </div>
+                    <span>{laterItems.length}</span>
+                  </div>
+
+                  <div className="divide-y divide-line">
+                    {laterItems.map((item) => (
+                      <WorkItemRow
+                        key={item.id}
+                        item={item}
+                        todayStr={todayStr}
+                        onPrimaryAction={handlePrimaryAction}
+                        onToggleComplete={toggleTaskComplete}
+                        onSnooze={handleSnooze}
+                        onNavigate={navigateToCRM}
+                        onQuickLog={openQuickLog}
+                        activeMenuId={activeMenuId}
+                        setActiveMenuId={setActiveMenuId}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* 5. Today's Snapshot (Compact Footer Strip) */}
+      <div className="bg-white rounded-panel border border-line p-3 sm:p-4 shadow-2xs flex items-center justify-between gap-4 flex-wrap text-meta">
+        <div className="flex items-center gap-2">
+          <span className="u-eyebrow text-ink-dim text-[0.625rem] tracking-[0.1em] font-bold">
+            TODAY'S SNAPSHOT
+          </span>
+        </div>
+
+        <div className="flex items-center gap-4 sm:gap-8 flex-wrap text-spec">
+          <div>
+            <span className="text-ink-dim">Open Pipeline: </span>
+            <strong className="text-ink">${totalPipelineValue.toLocaleString()}</strong>
+            <span className="text-ink-faint text-[11px] ml-1">(${Math.round(weightedPipelineValue).toLocaleString()} wtd)</span>
           </div>
 
-          {/* High Priority Opportunities */}
-          <div className="bg-white rounded-panel border border-line shadow-xs overflow-hidden">
-            <div className="px-5 py-4 border-b border-line flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Flame className="w-4 h-4 text-soon" />
-                <h2 className="text-base font-bold text-body">Top High-Value Deals</h2>
-              </div>
+          <div>
+            <span className="text-ink-dim">Needs Attention: </span>
+            <strong className={atRiskDealsCount + overdueTasksCount > 0 ? "text-urgent" : "text-ink"}>
+              {atRiskDealsCount + overdueTasksCount}
+            </strong>
+          </div>
+
+          <div>
+            <span className="text-ink-dim">Hot Leads: </span>
+            <strong className="text-brand-deep">{newLeadsCount}</strong>
+          </div>
+
+          <div>
+            <span className="text-ink-dim">Actions Due: </span>
+            <strong className="text-ink">{unifiedWorkQueue.length}</strong>
+          </div>
+        </div>
+      </div>
+
+      {/* Customer Follow-Up Modal */}
+      <CustomerFollowUpModal {...followUpModalProps} />
+    </div>
+  );
+};
+
+// Row component for fast scanning
+interface WorkItemRowProps {
+  item: UnifiedWorkItem;
+  todayStr: string;
+  onPrimaryAction: (item: UnifiedWorkItem) => void;
+  onToggleComplete: (taskId: string) => void;
+  onSnooze: (id: string) => void;
+  onNavigate: (tab: any, id?: string) => void;
+  onQuickLog: (type: "call" | "note" | "task", accountId?: string, oppId?: string) => void;
+  activeMenuId: string | null;
+  setActiveMenuId: (id: string | null) => void;
+}
+
+const WorkItemRow: React.FC<WorkItemRowProps> = ({
+  item,
+  todayStr,
+  onPrimaryAction,
+  onToggleComplete,
+  onSnooze,
+  onNavigate,
+  onQuickLog,
+  activeMenuId,
+  setActiveMenuId
+}) => {
+  const isMenuOpen = activeMenuId === item.id;
+
+  return (
+    <div className="p-3 sm:p-4 hover:bg-raised/70 transition-colors flex items-start sm:items-center justify-between gap-3 relative">
+      <div className="flex items-start gap-3 min-w-0 flex-1">
+        {/* Checkbox for tasks, or Priority indicator for NBAs */}
+        {item.sourceType === "task" ? (
+          <input
+            type="checkbox"
+            checked={Boolean(item.isCompleted)}
+            onChange={() => onToggleComplete(item.id)}
+            aria-label={`Mark "${item.title}" complete`}
+            className="mt-0.5 sm:mt-0 h-4 w-4 rounded border-line text-brand-deep focus:ring-brand cursor-pointer shrink-0"
+          />
+        ) : (
+          <div className="mt-1 sm:mt-0 w-4 h-4 flex items-center justify-center shrink-0">
+            <span
+              className={`w-2.5 h-2.5 rounded-full ${
+                item.priorityTier === "do_now"
+                  ? "bg-urgent"
+                  : item.priorityTier === "today"
+                  ? "bg-soon"
+                  : "bg-slate-400"
+              }`}
+            />
+          </div>
+        )}
+
+        {/* Content details */}
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-body text-ink">{item.title}</span>
+
+            {/* Clickable Entity Link */}
+            {item.entityName && (
               <button
-                onClick={() => navigateToCRM("pipeline")}
-                className="text-spec text-brand-deep font-semibold hover:underline"
+                type="button"
+                onClick={() => {
+                  if (item.entityType === "Opportunity" && item.dealId) {
+                    onNavigate("pipeline", item.dealId);
+                  } else if (item.entityType === "Account" && item.accountId) {
+                    onNavigate("accounts", item.accountId);
+                  } else if (item.entityType === "Lead" && item.entityId) {
+                    onNavigate("leads", item.entityId);
+                  }
+                }}
+                className="text-spec font-semibold text-brand-deep hover:underline bg-brand-wash px-2 py-0.2 rounded truncate max-w-xs cursor-pointer"
               >
-                All Deals
+                {item.entityName}
+              </button>
+            )}
+
+            {/* Urgency Badge */}
+            {item.dueDate && item.dueDate < todayStr && (
+              <span className="text-[11px] font-bold text-urgent bg-urgent-wash px-1.5 py-0.2 rounded">
+                Overdue ({item.dueDate})
+              </span>
+            )}
+            {item.category && (
+              <span className="text-[11px] font-medium text-ink-dim bg-paper px-1.5 py-0.2 rounded hidden md:inline">
+                {item.category}
+              </span>
+            )}
+          </div>
+
+          <p className="text-spec text-ink-dim line-clamp-1">
+            {item.context}
+          </p>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-1.5 shrink-0 self-start sm:self-center">
+        <button
+          type="button"
+          onClick={() => onPrimaryAction(item)}
+          className="px-3 py-1.5 text-spec font-bold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash/80 transition-colors flex items-center gap-1 cursor-pointer"
+        >
+          {item.primaryActionType === "followup" && <Mail className="w-3.5 h-3.5" />}
+          {item.primaryActionType === "call" && <Phone className="w-3.5 h-3.5" />}
+          <span>{item.primaryActionLabel}</span>
+        </button>
+
+        {/* Overflow Menu */}
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setActiveMenuId(isMenuOpen ? null : item.id)}
+            aria-label="More actions"
+            className="p-1.5 text-ink-dim hover:text-ink hover:bg-paper rounded-edge border border-transparent hover:border-line transition-colors cursor-pointer"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+
+          {isMenuOpen && (
+            <div className="absolute right-0 top-full mt-1 w-44 bg-surface rounded-edge border border-line shadow-lg py-1 z-30 text-meta">
+              <button
+                type="button"
+                onClick={() => {
+                  onQuickLog("call", item.accountId, item.dealId);
+                  setActiveMenuId(null);
+                }}
+                className="w-full px-3 py-1.5 text-left text-ink hover:bg-hover flex items-center gap-2 cursor-pointer"
+              >
+                <Phone className="w-3.5 h-3.5 text-brand-deep" />
+                <span>Log Call</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onQuickLog("note", item.accountId, item.dealId);
+                  setActiveMenuId(null);
+                }}
+                className="w-full px-3 py-1.5 text-left text-ink hover:bg-hover flex items-center gap-2 cursor-pointer"
+              >
+                <FileText className="w-3.5 h-3.5 text-ink-dim" />
+                <span>Add Note</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onSnooze(item.id)}
+                className="w-full px-3 py-1.5 text-left text-ink-dim hover:text-ink hover:bg-hover flex items-center gap-2 cursor-pointer border-t border-line"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Dismiss / Snooze</span>
               </button>
             </div>
-
-            <div className="divide-y divide-line">
-              {hotDeals.slice(0, 4).map((deal) => (
-                <div
-                  key={deal.id}
-                  onClick={() => navigateToCRM("pipeline", deal.id)}
-                  className="p-3.5 hover:bg-raised transition-colors cursor-pointer flex items-center justify-between gap-3"
-                >
-                  <div className="min-w-0">
-                    <div className="font-semibold text-meta text-body truncate">{deal.name}</div>
-                    <div className="text-spec text-ink-dim truncate">{deal.accountName} · {deal.stageName}</div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="font-bold text-body text-meta">${deal.dealValue.toLocaleString()}</div>
-                    <div className="text-spec text-brand-deep font-semibold">{deal.probability}% win prob</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Recent Activity Feed */}
-          <div className="bg-white rounded-panel border border-line shadow-xs overflow-hidden">
-            <div className="px-5 py-4 border-b border-line flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-ink-dim" />
-                <h2 className="text-base font-bold text-body">Recent Team Activities</h2>
-              </div>
-            </div>
-
-            <div className="divide-y divide-line max-h-64 overflow-y-auto">
-              {recentActivities.map((act) => (
-                <div key={act.id} className="p-3 text-meta hover:bg-raised transition-colors space-y-1">
-                  <div className="flex items-center justify-between text-spec">
-                    <span className="font-semibold text-body capitalize">{act.type} · {act.accountName || "General"}</span>
-                    <span className="text-ink-faint">{act.timestamp}</span>
-                  </div>
-                  <p className="font-medium text-body text-spec">{act.title}</p>
-                  {act.description && <p className="text-spec text-ink-dim line-clamp-1">{act.description}</p>}
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
-);
+  );
 };
