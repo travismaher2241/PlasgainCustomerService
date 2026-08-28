@@ -45,7 +45,12 @@ import {
   loadCollectionFromCloud,
   syncBatchToCloud,
   deleteDocFromCloud,
-  clearCollectionFromCloud
+  clearCollectionFromCloud,
+  checkCloudHealth,
+  flushOfflineQueue,
+  getQueuedWritesCount,
+  getLastSyncTime,
+  recordSuccessfulSync
 } from "../utils/firebase";
 import { resolveToolRoute } from "../utils/toolRegistry";
 
@@ -78,11 +83,14 @@ export type ToolSubTab =
 
 /** Who is signed in. Editable in Settings; persisted per browser. */
 export interface UserProfile {
+  id: string;
   name: string;
   role: string;
   location: string;
   email: string;
   phone?: string;
+  pin?: string;
+  isAdmin?: boolean;
 }
 
 
@@ -132,26 +140,32 @@ export const PRESET_TEAM_MEMBERS: UserProfile[] = [
   {
     id: "user-travis-maher",
     name: "Travis Maher",
-    role: "Internal Sales",
-    location: "Drouin",
+    role: "Internal Sales & Technical Lead",
+    location: "Drouin, VIC",
     email: "travis@plasgain.com.au",
-    phone: "0412 345 678"
+    phone: "0412 345 678",
+    pin: "1234",
+    isAdmin: true
   },
   {
     id: "user-sarah-reed",
     name: "Sarah Reed",
     role: "Internal Sales",
-    location: "Melbourne",
+    location: "Melbourne, VIC",
     email: "sarah.reed@plasgain.com.au",
-    phone: "+61 3 9000 1122"
+    phone: "+61 3 9000 1122",
+    pin: "2468",
+    isAdmin: false
   },
   {
     id: "user-rob-mitchell",
     name: "Rob Mitchell",
     role: "Sales Director",
-    location: "Sydney",
+    location: "Sydney, NSW",
     email: "rob.mitchell@plasgain.com.au",
-    phone: "+61 400 999 888"
+    phone: "+61 400 999 888",
+    pin: "9900",
+    isAdmin: true
   }
 ];
 
@@ -161,7 +175,9 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   role: "Internal Sales & Technical Lead",
   location: "Drouin, VIC",
   email: "travis@plasgain.com.au",
-  phone: "0412 345 678"
+  phone: "0412 345 678",
+  pin: "1234",
+  isAdmin: true
 };
 
 /** Two letters from the name, for the avatar. Falls back to "?" when empty. */
@@ -354,8 +370,14 @@ interface AppContextType {
   showToast: (message: string, type?: "success" | "info" | "warning" | "error") => void;
 
   // Cloud Firestore Sync
-  cloudSyncStatus: "synced" | "syncing" | "offline" | "error";
+  cloudSyncStatus: "synced" | "syncing" | "offline" | "queued" | "error";
+  lastCloudSyncTime: string | null;
+  queuedWritesCount: number;
   syncAllWithCloud: () => Promise<void>;
+  flushPendingWrites: () => Promise<void>;
+
+  // Authentication & User Management
+  switchUserWithPin: (userId: string, pin: string) => { success: boolean; error?: string };
 
   // Navigate helper
   navigateToWorkflow: (tab: NavTab, toolSub?: ToolSubTab, oppId?: string) => void;
@@ -369,7 +391,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activeCRMTab, setActiveCRMTab] = useState<CRMSubTab>("today");
   const [activeToolTab, setActiveToolTab] = useState<ToolSubTab>("plan-takeoff");
 
-  const [cloudSyncStatus, setCloudSyncStatus] = useState<"synced" | "syncing" | "offline" | "error">("syncing");
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<"synced" | "syncing" | "offline" | "queued" | "error">("syncing");
+  const [lastCloudSyncTime, setLastCloudSyncTime] = useState<string | null>(() => getLastSyncTime());
+  const [queuedWritesCount, setQueuedWritesCount] = useState<number>(() => getQueuedWritesCount());
+
+  // Warn if user attempts to leave/close tab while offline writes are pending
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const count = getQueuedWritesCount();
+      if (count > 0) {
+        e.preventDefault();
+        e.returnValue = `You have ${count} pending changes queued offline. Closing now may delay syncing.`;
+        return e.returnValue;
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     try {
@@ -419,6 +457,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem("plasgain_active_user_id", userId);
     saveDocToCloud("users", userId, userWithId);
     setIsLoginModalOpen(false);
+    showToast(`Signed in as ${userWithId.name} (${userWithId.role || "Sales"})`, "success");
+  };
+
+  const switchUserWithPin = (userId: string, pin: string): { success: boolean; error?: string } => {
+    const target = teamMembers.find((m) => m.id === userId || m.name.toLowerCase() === userId.toLowerCase());
+    if (!target) return { success: false, error: "Team member profile not found" };
+
+    const expectedPin = target.pin || (target.name.toLowerCase().includes("sarah") ? "2468" : target.name.toLowerCase().includes("rob") ? "9900" : "1234");
+    if (pin.trim() !== expectedPin.trim()) {
+      return { success: false, error: "Incorrect PIN code for this profile." };
+    }
+
+    loginAsUser(target);
+    return { success: true };
   };
 
   const updateCurrentUser = (updates: Partial<UserProfile>) => {
@@ -458,6 +510,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const deleteTeamMember = (idOrName: string) => {
+    if (!currentUser.isAdmin) {
+      showToast("Access Denied: Only administrator profiles can remove team members", "error");
+      return;
+    }
     const memberToDelete = teamMembers.find(
       (m) => m.id === idOrName || m.name.toLowerCase() === idOrName.toLowerCase()
     );
@@ -484,6 +540,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addTeamMember = (member: UserProfile) => {
+    if (!currentUser.isAdmin) {
+      showToast("Access Denied: Only administrator profiles can create team members", "error");
+      return;
+    }
     const userId = member.id || `user-${member.name.toLowerCase().trim().replace(/[^a-z0-9]/g, "-")}`;
     const newMember: UserProfile = { ...member, id: userId };
     setTeamMembers((prev) => {
@@ -995,6 +1055,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         setCloudSyncStatus("syncing");
 
+        // Health probe
+        const health = await checkCloudHealth();
+        if (!health.online) {
+          if (isMounted) {
+            const queued = getQueuedWritesCount();
+            setCloudSyncStatus(queued > 0 ? "queued" : "offline");
+            setQueuedWritesCount(queued);
+            setLastCloudSyncTime(getLastSyncTime());
+          }
+          return;
+        }
+
+        // Flush offline queue if any
+        if (getQueuedWritesCount() > 0) {
+          await flushOfflineQueue();
+          if (isMounted) {
+            setQueuedWritesCount(getQueuedWritesCount());
+            setLastCloudSyncTime(getLastSyncTime());
+          }
+        }
+
         // 1. User Profile Sync (per user rather than generic global override)
         const localUserRaw = localStorage.getItem("plasgain_user_profile");
         const parsedLocal = localUserRaw ? JSON.parse(localUserRaw) : null;
@@ -1062,10 +1143,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const realOpps = cloudOpps.filter((o) => !isSampleRecord(o));
         if (isMounted) setOpportunities(realOpps);
 
-        if (isMounted) setCloudSyncStatus("synced");
+        if (isMounted) {
+          setCloudSyncStatus("synced");
+          setLastCloudSyncTime(getLastSyncTime());
+          setQueuedWritesCount(getQueuedWritesCount());
+        }
       } catch (err) {
         console.warn("[Firebase] Initial cloud sync warning:", err);
-        if (isMounted) setCloudSyncStatus("offline");
+        if (isMounted) {
+          const queued = getQueuedWritesCount();
+          setCloudSyncStatus(queued > 0 ? "queued" : "offline");
+          setQueuedWritesCount(queued);
+        }
       }
     }
 
@@ -1076,9 +1165,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
+  const flushPendingWrites = async () => {
+    setCloudSyncStatus("syncing");
+    try {
+      const res = await flushOfflineQueue();
+      setQueuedWritesCount(getQueuedWritesCount());
+      setLastCloudSyncTime(getLastSyncTime());
+      if (res.success) {
+        setCloudSyncStatus("synced");
+        showToast(`Synced ${res.processedCount} queued offline change(s) to Cloud Firestore`, "success");
+      } else {
+        setCloudSyncStatus("queued");
+        showToast(`Partially synced. Some changes remain in queue.`, "warning");
+      }
+    } catch (err) {
+      console.error("Error flushing offline queue:", err);
+      setCloudSyncStatus("error");
+      showToast("Failed to flush offline queue", "error");
+    }
+  };
+
   const syncAllWithCloud = async () => {
     setCloudSyncStatus("syncing");
     try {
+      if (getQueuedWritesCount() > 0) {
+        await flushOfflineQueue();
+      }
       await Promise.all([
         saveDocToCloud("settings", "user_profile", currentUser),
         syncBatchToCloud("crm_accounts", accounts),
@@ -1090,6 +1202,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         syncBatchToCloud("opportunities", opportunities)
       ]);
       setCloudSyncStatus("synced");
+      setLastCloudSyncTime(getLastSyncTime());
+      setQueuedWritesCount(getQueuedWritesCount());
       showToast("All workspace data synchronized with Cloud Firestore!", "success");
     } catch (err) {
       console.error("Manual cloud sync error:", err);
@@ -1461,6 +1575,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newAct: CRMActivity = {
       ...activityData,
       id: `act-${Date.now()}`,
+      performedBy: currentUser.name,
+      authorId: currentUser.id,
+      isImmutable: true,
       timestamp: new Date().toISOString()
     };
     setActivities((prev) => [newAct, ...prev]);
@@ -1639,7 +1756,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         activeToolTab,
         setActiveToolTab,
         cloudSyncStatus,
+        lastCloudSyncTime,
+        queuedWritesCount,
         syncAllWithCloud,
+        flushPendingWrites,
+        switchUserWithPin,
         currentUser,
         updateCurrentUser,
         resetCurrentUser,

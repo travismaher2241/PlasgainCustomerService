@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { CRMQuickLogModal } from '../../components/crm/CRMQuickLogModal';
 import { AppProvider, useApp } from '../../context/AppContext';
 

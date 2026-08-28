@@ -275,18 +275,81 @@ export const ToolsHub: React.FC = () => {
     const minBatteryAh12V = Math.round(minBatteryStorageWh / 12.8);
     const minPvWatts = Math.round((dailyWattHours * 1.35) / z.psh);
 
-    let luminaireSKU = "INTENSE-50W-3K";
-    let luminaireName = "Plasgain Intense Light 50W Solar (896Wh LiFePO4 / 130W PV)";
-    let unitPrice = 1850;
+    // Standard Plasgain Solar SKUs Catalogue with validated physical specs
+    const standardPackages = [
+      {
+        sku: "INTENSE-50W-3K",
+        name: "Plasgain Intense Light 50W Solar (896Wh LiFePO4 / 130W PV)",
+        nominalWatts: 50,
+        batteryWh: 896,
+        pvWatts: 130,
+        unitPrice: 1850,
+        costPrice: 1200
+      },
+      {
+        sku: "PBS-75W-SOLAR",
+        name: "Plasgain Pro Blade Solar 75W (1024Wh LiFePO4 / 150W PV)",
+        nominalWatts: 75,
+        batteryWh: 1024,
+        pvWatts: 150,
+        unitPrice: 1950,
+        costPrice: 1280
+      },
+      {
+        sku: "PBS-100W-SOLAR",
+        name: "Plasgain Pro Blade Solar 100W (1280Wh LiFePO4 / 180W PV)",
+        nominalWatts: 100,
+        batteryWh: 1280,
+        pvWatts: 180,
+        unitPrice: 2200,
+        costPrice: 1450
+      },
+      {
+        sku: "PBS-125W-SOLAR",
+        name: "Plasgain Pro Blade Solar 125W (1536Wh LiFePO4 / 200W PV)",
+        nominalWatts: 125,
+        batteryWh: 1536,
+        pvWatts: 200,
+        unitPrice: 2450,
+        costPrice: 1600
+      }
+    ];
 
-    if (solarWatts >= 100 || minBatteryStorageWh > 1200) {
-      luminaireSKU = "PBS-125W-SOLAR";
-      luminaireName = "Plasgain Pro Blade Solar 125W (1536Wh LiFePO4 / 200W PV)";
-      unitPrice = 2450;
-    } else if (solarWatts >= 70 || minBatteryStorageWh > 900) {
-      luminaireSKU = "PBS-75W-SOLAR";
-      luminaireName = "Plasgain Pro Blade Solar 75W (1024Wh LiFePO4 / 150W PV)";
-      unitPrice = 1950;
+    // Check if any standard SKU with matching luminaire wattage satisfies battery and PV minimums
+    const matchingWattageSKU = standardPackages.find((p) => p.nominalWatts === solarWatts);
+    const compliantSKUs = standardPackages.filter(
+      (p) => p.nominalWatts === solarWatts && p.batteryWh >= minBatteryStorageWh && p.pvWatts >= minPvWatts
+    );
+
+    let isCompliant = false;
+    let luminaireSKU = matchingWattageSKU?.sku || "INTENSE-50W-3K";
+    let luminaireName = matchingWattageSKU?.name || "Plasgain Intense Light 50W Solar (896Wh LiFePO4 / 130W PV)";
+    let unitPrice = matchingWattageSKU?.unitPrice || 1850;
+    let nonComplianceReasons: string[] = [];
+
+    if (compliantSKUs.length > 0) {
+      const best = compliantSKUs[0];
+      isCompliant = true;
+      luminaireSKU = best.sku;
+      luminaireName = best.name;
+      unitPrice = best.unitPrice;
+    } else {
+      isCompliant = false;
+      if (matchingWattageSKU) {
+        if (matchingWattageSKU.batteryWh < minBatteryStorageWh) {
+          nonComplianceReasons.push(
+            `Standard ${solarWatts}W package battery (${matchingWattageSKU.batteryWh.toLocaleString()} Wh) is undersized for required ${minBatteryStorageWh.toLocaleString()} Wh (${solarAutonomyDays} nights autonomy). Shortfall: ${(minBatteryStorageWh - matchingWattageSKU.batteryWh).toLocaleString()} Wh.`
+          );
+        }
+        if (matchingWattageSKU.pvWatts < minPvWatts) {
+          nonComplianceReasons.push(
+            `Standard ${solarWatts}W package PV panel (${matchingWattageSKU.pvWatts} Wp) is below calculated minimum (${minPvWatts} Wp) for ${z.name}.`
+          );
+        }
+      } else {
+        nonComplianceReasons.push(`No standard package exists for ${solarWatts}W nominal load.`);
+      }
+      nonComplianceReasons.push("Custom engineered split-battery enclosure or adjusted operating profile required.");
     }
 
     return {
@@ -301,7 +364,11 @@ export const ToolsHub: React.FC = () => {
       luminaireSKU,
       luminaireName,
       unitPrice,
-      totalPackageValue: unitPrice * solarQuantity
+      totalPackageValue: unitPrice * solarQuantity,
+      isCompliant,
+      nonComplianceReasons,
+      selectedSkuBatteryWh: matchingWattageSKU?.batteryWh || 896,
+      selectedSkuPvWatts: matchingWattageSKU?.pvWatts || 130
     };
   }, [solarZone, solarWatts, solarProfile, solarAutonomyDays, solarQuantity]);
 
@@ -364,6 +431,10 @@ export const ToolsHub: React.FC = () => {
   const [selectedPipelineId, setSelectedPipelineId] = useState(pipelines[0]?.id || "pipe-major-projects");
 
   const handleOpenAddModal = (source: "cable-cover" | "pole-spacing" | "wind-foundation" | "solar-autonomy") => {
+    if (source === "solar-autonomy" && !solarCalculations.isCompliant) {
+      showToast("Cannot add non-compliant solar package to deal. Engineering review required.", "warning");
+      return;
+    }
     setModalSourceTool(source);
     if (source === "cable-cover") {
       setNewDealName(`Civil Cable Protection - ${trenchLengthMeters}m Trench`);
@@ -1186,27 +1257,58 @@ export const ToolsHub: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-3.5 bg-white rounded-edge border border-brand-edge text-meta space-y-1">
-                <div className="font-bold text-body flex items-center gap-1.5">
-                  <Package className="w-4 h-4 text-brand-deep" />
-                  <span>Matched Commercial Luminaire Package:</span>
+              {solarCalculations.isCompliant ? (
+                <div className="p-3.5 bg-white rounded-edge border border-emerald-300 text-meta space-y-1">
+                  <div className="font-bold text-emerald-900 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>Compliant Standard Solar Package Matched:</span>
+                  </div>
+                  <p className="text-ink-dim text-spec">
+                    • <strong>{solarQuantity}x</strong> {solarCalculations.luminaireName} (<strong>{solarCalculations.luminaireSKU}</strong>) @ ${solarCalculations.unitPrice}/ea<br />
+                    • Total Solar Package Scope: <strong>${solarCalculations.totalPackageValue.toLocaleString()}</strong> (ex GST)
+                  </p>
                 </div>
-                <p className="text-ink-dim text-spec">
-                  • <strong>{solarQuantity}x</strong> {solarCalculations.luminaireName} (<strong>{solarCalculations.luminaireSKU}</strong>) @ ${solarCalculations.unitPrice}/ea<br />
-                  • Total Solar Package Scope: <strong>${solarCalculations.totalPackageValue.toLocaleString()}</strong> (ex GST)
-                </p>
-              </div>
+              ) : (
+                <div className="p-4 bg-amber-50 rounded-edge border border-amber-300 text-meta space-y-2.5">
+                  <div className="font-bold text-amber-900 flex items-center gap-2">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                    <span>No compliant standard package — engineering review required</span>
+                  </div>
+                  <div className="text-spec text-amber-950 space-y-1 bg-white/80 p-3 rounded border border-amber-200">
+                    <div className="font-semibold text-urgent">Technical Non-Compliance Reasons:</div>
+                    <ul className="list-disc list-inside space-y-0.5 text-[12px]">
+                      {solarCalculations.nonComplianceReasons.map((reason, idx) => (
+                        <li key={idx}>{reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <p className="text-spec text-amber-800 italic">
+                    Adding to quotation is blocked to prevent undersized battery depletion in field operations. Request custom battery enclosure or adjust operating profile with client.
+                  </p>
+                </div>
+              )}
 
-              <div className="pt-2 flex items-center justify-between border-t border-brand-edge">
+              <div className="pt-2 flex items-center justify-between border-t border-brand-edge flex-wrap gap-2">
                 <div className="text-spec text-ink-dim font-medium">
-                  Package Est: <strong className="text-body font-bold">${solarCalculations.totalPackageValue.toLocaleString()}</strong> (ex GST)
+                  {solarCalculations.isCompliant ? (
+                    <>Package Est: <strong className="text-body font-bold">${solarCalculations.totalPackageValue.toLocaleString()}</strong> (ex GST)</>
+                  ) : (
+                    <span className="text-urgent font-bold">Standard SKU Non-Compliant — Custom Pricing Required</span>
+                  )}
                 </div>
                 <button
+                  type="button"
+                  disabled={!solarCalculations.isCompliant}
                   onClick={() => handleOpenAddModal("solar-autonomy")}
-                  className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-xs cursor-pointer flex items-center gap-1.5 transition-colors"
+                  title={solarCalculations.isCompliant ? "Add compliant solar hardware to deal" : "Blocked: Sizing fails calculated minimum battery/PV requirements"}
+                  className={`px-4 py-2 font-bold text-meta rounded-edge shadow-xs flex items-center gap-1.5 transition-colors ${
+                    solarCalculations.isCompliant
+                      ? "bg-brand-deep hover:bg-brand text-white cursor-pointer"
+                      : "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300"
+                  }`}
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Add Solar Package to Deal</span>
+                  <span>{solarCalculations.isCompliant ? "Add Solar Package to Deal" : "Add to Deal Blocked (Review Required)"}</span>
                 </button>
               </div>
             </div>

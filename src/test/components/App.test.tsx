@@ -18,19 +18,19 @@ describe('Main App Component', () => {
     const crmNav = screen.getByRole('button', { name: /CRM Command Centre/i });
     fireEvent.click(crmNav);
 
-    expect(await screen.findByText(/Today's Focus|Today \/ Focus/i, { timeout: 10000 })).toBeInTheDocument();
+    expect(await screen.findByText(/Today's Focus|Today \/ Focus/i, {}, { timeout: 10000 })).toBeInTheDocument();
 
     // Click Tools Hub
     const toolsNav = screen.getByRole('button', { name: /^Tools$/i });
     fireEvent.click(toolsNav);
 
-    expect(await screen.findByText(/Technical Estimators & Plan Take-off/i, { timeout: 10000 })).toBeInTheDocument();
+    expect(await screen.findByText(/Technical Estimators & Plan Take-off/i, {}, { timeout: 10000 })).toBeInTheDocument();
 
     // Click Product Finder
     const prodNav = screen.getByRole('button', { name: /Product Finder/i });
     fireEvent.click(prodNav);
 
-    expect(await screen.findByText(/Intelligent Product Finder/i, { timeout: 10000 })).toBeInTheDocument();
+    expect(await screen.findByText(/Intelligent Product Finder/i, {}, { timeout: 10000 })).toBeInTheDocument();
 
     // Verify Learn is not in sidebar
     expect(screen.queryByText('Learn')).not.toBeInTheDocument();

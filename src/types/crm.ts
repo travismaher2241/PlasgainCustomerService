@@ -271,6 +271,8 @@ export interface CRMActivity {
   opportunityId?: string;
   opportunityName?: string;
   performedBy: string;
+  authorId?: string;
+  isImmutable?: boolean;
   timestamp: string;
   metadata?: {
     callDurationMinutes?: number;

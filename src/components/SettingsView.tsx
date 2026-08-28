@@ -21,7 +21,10 @@ export const SettingsView: React.FC = () => {
     updateCurrentUser,
     resetCurrentUser,
     cloudSyncStatus,
+    lastCloudSyncTime,
+    queuedWritesCount,
     syncAllWithCloud,
+    flushPendingWrites,
     openLoginModal,
     clearAllWorkspaceData
   } = useApp();
@@ -61,11 +64,21 @@ export const SettingsView: React.FC = () => {
     await clearAllWorkspaceData();
   };
 
+  const formatLastSync = (isoString: string | null) => {
+    if (!isoString) return "Never (Offline Cache Only)";
+    try {
+      const d = new Date(isoString);
+      return d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", second: "2-digit" });
+    } catch {
+      return isoString;
+    }
+  };
+
   return (
     <div className="space-y-6 max-w-4xl">
       {/* Header */}
       <div className="pb-4 border-b border-line">
-        <h1 className="text-xl font-bold tracking-tight text-body">Settings & Preferences</h1>
+        <h1 className="text-xl font-bold tracking-tight text-body">Settings &amp; Preferences</h1>
         <p className="text-meta text-ink-dim mt-0.5">
           User profile, cloud synchronization, quoting standards, and workspace data.
         </p>
@@ -99,8 +112,19 @@ export const SettingsView: React.FC = () => {
                 {initialsOf(savedDraft.name)}
               </div>
               <div className="min-w-0">
-                <div className="text-body font-semibold text-ink truncate">
-                  {savedDraft.name.trim() || "Unnamed user"}
+                <div className="flex items-center gap-2">
+                  <span className="text-body font-semibold text-ink truncate">
+                    {savedDraft.name.trim() || "Unnamed user"}
+                  </span>
+                  {currentUser.isAdmin ? (
+                    <span className="px-1.5 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 rounded">
+                      Admin
+                    </span>
+                  ) : (
+                    <span className="px-1.5 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300 rounded">
+                      Sales Rep
+                    </span>
+                  )}
                 </div>
                 <div className="u-data text-spec text-ink-faint truncate">
                   {[savedDraft.role, savedDraft.location].filter((v) => v.trim()).join(" • ") ||
@@ -225,25 +249,43 @@ export const SettingsView: React.FC = () => {
                 onClick={() => {
                   resetCurrentUser();
                   setDraftState(DEFAULT_USER_PROFILE);
-                  showToast("Profile reset to the sample user", "info");
+                  showToast("Profile reset to default", "info");
                 }}
                 className="ml-auto text-spec text-ink-faint hover:text-ink underline underline-offset-2 cursor-pointer"
               >
-                Reset to sample user
+                Reset to default user
               </button>
             </div>
 
             <div className="flex items-center justify-between gap-2 pt-2 border-t border-line text-spec text-ink-dim flex-wrap">
               <span className="flex items-center gap-1.5">
-                <span className={`w-2 h-2 rounded-full ${cloudSyncStatus === "synced" ? "bg-emerald-500" : cloudSyncStatus === "syncing" ? "bg-amber-500 animate-pulse" : "bg-slate-400"}`}></span>
-                <span className="font-medium text-emerald-700">
-                  Auto-saved &amp; synced with Cloud Firestore (Sydney/AU)
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    cloudSyncStatus === "synced"
+                      ? "bg-emerald-500"
+                      : cloudSyncStatus === "syncing"
+                      ? "bg-amber-500 animate-pulse"
+                      : cloudSyncStatus === "queued"
+                      ? "bg-amber-500"
+                      : cloudSyncStatus === "error"
+                      ? "bg-red-500"
+                      : "bg-slate-400"
+                  }`}
+                ></span>
+                <span className="font-medium text-ink">
+                  {cloudSyncStatus === "synced"
+                    ? "Online & Synchronized with Cloud Firestore (Sydney/AU)"
+                    : cloudSyncStatus === "syncing"
+                    ? "Syncing data with Cloud Firestore..."
+                    : cloudSyncStatus === "queued"
+                    ? `Offline — ${queuedWritesCount} change(s) queued for sync`
+                    : cloudSyncStatus === "error"
+                    ? "Cloud Sync Error — local cache preserved"
+                    : "Offline — Local Storage Mode"}
                 </span>
-                {savedAt && (
-                  <span className="text-ink-faint">
-                    · Last updated at {savedAt}
-                  </span>
-                )}
+                <span className="text-ink-faint">
+                  · Last successful sync: {formatLastSync(lastCloudSyncTime)}
+                </span>
               </span>
             </div>
           </form>
@@ -256,21 +298,58 @@ export const SettingsView: React.FC = () => {
         <div className="bg-white p-4 rounded-panel border border-line shadow-xs space-y-2">
           <div className="flex items-center justify-between text-brand-deep">
             <span className="text-spec font-bold uppercase tracking-wider">Cloud Firestore</span>
-            <button
-              type="button"
-              onClick={syncAllWithCloud}
-              title="Sync with Cloud Firestore"
-              className="hover:opacity-70 transition-opacity cursor-pointer"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${cloudSyncStatus === "syncing" ? "animate-spin" : ""}`} />
-            </button>
+            <div className="flex items-center gap-1.5">
+              {queuedWritesCount > 0 && (
+                <button
+                  type="button"
+                  onClick={flushPendingWrites}
+                  title="Flush queued changes"
+                  className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded border border-amber-300 hover:bg-amber-200 cursor-pointer"
+                >
+                  Flush Queue ({queuedWritesCount})
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={syncAllWithCloud}
+                title="Sync with Cloud Firestore"
+                className="hover:opacity-70 transition-opacity cursor-pointer p-1"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${cloudSyncStatus === "syncing" ? "animate-spin" : ""}`} />
+              </button>
+            </div>
           </div>
           <div className="text-body font-bold flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>Connected & Live</span>
+            <span
+              className={`w-2 h-2 rounded-full ${
+                cloudSyncStatus === "synced"
+                  ? "bg-emerald-500"
+                  : cloudSyncStatus === "syncing"
+                  ? "bg-amber-500 animate-pulse"
+                  : cloudSyncStatus === "queued"
+                  ? "bg-amber-500"
+                  : cloudSyncStatus === "error"
+                  ? "bg-red-500"
+                  : "bg-slate-400"
+              }`}
+            ></span>
+            <span>
+              {cloudSyncStatus === "synced"
+                ? "Online & Synchronized"
+                : cloudSyncStatus === "syncing"
+                ? "Syncing with Cloud..."
+                : cloudSyncStatus === "queued"
+                ? `Offline — ${queuedWritesCount} Change(s) Queued`
+                : cloudSyncStatus === "error"
+                ? "Sync Failed — Check Connection"
+                : "Offline"}
+            </span>
           </div>
           <p className="text-spec text-ink-dim">
             Project: <code className="text-brand-deep font-mono text-[11px]">plasgain-customer-service</code> (Sydney/AU)
+          </p>
+          <p className="text-[11px] text-ink-faint">
+            Last Synced: <strong>{formatLastSync(lastCloudSyncTime)}</strong>
           </p>
         </div>
 
@@ -282,7 +361,7 @@ export const SettingsView: React.FC = () => {
           </div>
           <div className="text-body font-bold flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>Approved & Active</span>
+            <span>Approved &amp; Active</span>
           </div>
           <p className="text-spec text-ink-dim">
             2026.1 Verified Product Catalogues &amp; Datasheets Loaded
@@ -294,8 +373,8 @@ export const SettingsView: React.FC = () => {
             <span className="text-spec font-bold uppercase tracking-wider">Compliance Standards</span>
             <ShieldCheck className="w-4 h-4" />
           </div>
-          <div className="text-body font-bold">AS/NZS 1158 & 3000</div>
-          <p className="text-spec text-ink-dim">Australian Public Lighting & Electrical Standards</p>
+          <div className="text-body font-bold">AS/NZS 1158 &amp; 3000</div>
+          <p className="text-spec text-ink-dim">Australian Public Lighting &amp; Electrical Standards</p>
         </div>
       </div>
 
@@ -303,7 +382,7 @@ export const SettingsView: React.FC = () => {
       <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-3">
         <div className="flex items-center gap-2 pb-3 border-b border-line">
           <ShieldCheck className="w-4 h-4 text-brand-deep" />
-          <h2 className="text-body font-bold">Quoting & Compliance Standards</h2>
+          <h2 className="text-body font-bold">Quoting &amp; Compliance Standards</h2>
         </div>
 
         <div className="space-y-2.5 text-meta">

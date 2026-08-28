@@ -46,6 +46,14 @@ describe('User Login & Identity Switching Suite', () => {
     expect(sarahCard).toBeInTheDocument();
     fireEvent.click(sarahCard);
 
+    // PIN authentication prompt appears
+    expect(screen.getByText(/Authenticate Sign-In/i)).toBeInTheDocument();
+    const pinInput = screen.getByLabelText(/4-Digit Security PIN/i);
+    fireEvent.change(pinInput, { target: { value: '2468' } });
+
+    const verifyBtn = screen.getByRole('button', { name: /Verify & Sign In/i });
+    fireEvent.click(verifyBtn);
+
     // Active user should now be Sarah Reed
     expect(screen.getByTestId('active-user-name')).toHaveTextContent('Sarah Reed');
 

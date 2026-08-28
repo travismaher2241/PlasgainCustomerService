@@ -22,6 +22,7 @@ export const UserLoginModal: React.FC = () => {
     closeLoginModal,
     currentUser,
     loginAsUser,
+    switchUserWithPin,
     teamMembers,
     deleteTeamMember,
     addTeamMember
@@ -29,13 +30,19 @@ export const UserLoginModal: React.FC = () => {
 
   const [activeTab, setActiveTab] = useState<"preset" | "custom">("preset");
   const [memberToDelete, setMemberToDelete] = useState<UserProfile | null>(null);
+  const [memberToAuthenticate, setMemberToAuthenticate] = useState<UserProfile | null>(null);
+  const [pinInput, setPinInput] = useState<string>("");
+  const [pinError, setPinError] = useState<string | null>(null);
 
   const [customDraft, setCustomDraft] = useState<UserProfile>({
+    id: "",
     name: "",
     role: "Internal Sales",
     location: "Drouin, VIC",
     email: "",
-    phone: ""
+    phone: "",
+    pin: "1234",
+    isAdmin: false
   });
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -43,21 +50,46 @@ export const UserLoginModal: React.FC = () => {
   useEffect(() => {
     if (isLoginModalOpen) {
       setCustomDraft({
-        name: currentUser.name || "",
-        role: currentUser.role || "Internal Sales",
-        location: currentUser.location || "Drouin, VIC",
-        email: currentUser.email || "",
-        phone: currentUser.phone || ""
+        id: "",
+        name: "",
+        role: "Internal Sales",
+        location: "Drouin, VIC",
+        email: "",
+        phone: "",
+        pin: "1234",
+        isAdmin: false
       });
       setErrorMsg(null);
       setMemberToDelete(null);
+      setMemberToAuthenticate(null);
+      setPinInput("");
+      setPinError(null);
     }
   }, [isLoginModalOpen, currentUser]);
 
   if (!isLoginModalOpen) return null;
 
   const handleSelectPreset = (member: UserProfile) => {
-    loginAsUser(member);
+    if (currentUser.id === member.id || currentUser.name.toLowerCase() === member.name.toLowerCase()) {
+      closeLoginModal();
+      return;
+    }
+    setMemberToAuthenticate(member);
+    setPinInput("");
+    setPinError(null);
+  };
+
+  const handleVerifyPin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!memberToAuthenticate) return;
+    const result = switchUserWithPin(memberToAuthenticate.id, pinInput);
+    if (result.success) {
+      setMemberToAuthenticate(null);
+      setPinInput("");
+      setPinError(null);
+    } else {
+      setPinError(result.error || "Invalid PIN code. Please try again.");
+    }
   };
 
   const handleDeleteConfirm = (e: React.MouseEvent, member: UserProfile) => {
@@ -68,6 +100,10 @@ export const UserLoginModal: React.FC = () => {
 
   const handleCustomSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentUser.isAdmin) {
+      setErrorMsg("Access Denied: Only administrators can create new team profiles.");
+      return;
+    }
     if (!customDraft.name.trim()) {
       setErrorMsg("Your full name is required.");
       return;
@@ -80,7 +116,9 @@ export const UserLoginModal: React.FC = () => {
       role: customDraft.role.trim(),
       location: customDraft.location.trim(),
       email: customDraft.email.trim(),
-      phone: (customDraft.phone || "").trim()
+      phone: (customDraft.phone || "").trim(),
+      pin: (customDraft.pin || "1234").trim(),
+      isAdmin: customDraft.isAdmin || false
     };
     addTeamMember(newProfile);
     loginAsUser(newProfile);
@@ -154,10 +192,75 @@ export const UserLoginModal: React.FC = () => {
 
         {/* Modal Body */}
         <div className="p-5 overflow-y-auto space-y-4 text-meta text-ink flex-1">
-          {activeTab === "preset" ? (
+          {memberToAuthenticate ? (
+            <form onSubmit={handleVerifyPin} className="p-5 bg-raised rounded-panel border border-brand-edge space-y-4 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-edge bg-brand-deep text-white flex items-center justify-center text-lead font-bold">
+                  {initialsOf(memberToAuthenticate.name)}
+                </div>
+                <div>
+                  <h3 className="text-body font-bold text-ink">Authenticate Sign-In</h3>
+                  <p className="text-spec text-ink-dim">
+                    Enter PIN to switch to <strong className="text-brand-deep">{memberToAuthenticate.name}</strong> ({memberToAuthenticate.role})
+                  </p>
+                </div>
+              </div>
+
+              {pinError && (
+                <div className="p-2.5 bg-red-50 border border-red-200 rounded-edge text-meta text-red-800 font-medium">
+                  {pinError}
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="user-pin-input" className="u-eyebrow text-ink-dim block mb-1.5">
+                  4-Digit Security PIN
+                </label>
+                <input
+                  id="user-pin-input"
+                  type="password"
+                  maxLength={6}
+                  autoFocus
+                  required
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value)}
+                  placeholder="••••"
+                  className="w-full text-center text-2xl tracking-[0.3em] font-mono px-3 py-2 rounded-edge border border-line-strong bg-white text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep"
+                />
+                <p className="text-[11px] text-ink-faint mt-1 text-center">
+                  Team default PIN: Travis (1234), Sarah (2468), Rob (9900)
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <button
+                  type="submit"
+                  className="flex-1 py-2 px-4 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-xs cursor-pointer transition-colors"
+                >
+                  Verify &amp; Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMemberToAuthenticate(null);
+                    setPinInput("");
+                    setPinError(null);
+                  }}
+                  className="px-4 py-2 border border-line hover:bg-paper text-ink font-semibold text-meta rounded-edge cursor-pointer transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          ) : activeTab === "preset" ? (
             <div className="space-y-3">
               <div className="flex items-center justify-between text-spec text-ink-dim">
-                <span>Select your profile to sign in or delete profiles that are irrelevant to you:</span>
+                <span>Select your profile to authenticate and sign in:</span>
+                {!currentUser.isAdmin && (
+                  <span className="text-ink-faint text-[11px] italic">
+                    (Admin required to remove profiles)
+                  </span>
+                )}
               </div>
 
               {/* Confirm Delete Banner */}
@@ -188,7 +291,7 @@ export const UserLoginModal: React.FC = () => {
 
               <div className="space-y-2 pt-1">
                 {teamMembers.map((member) => {
-                  const isCurrent = currentUser.name.toLowerCase() === member.name.toLowerCase();
+                  const isCurrent = currentUser.name.toLowerCase() === member.name.toLowerCase() || currentUser.id === member.id;
                   return (
                     <div
                       key={member.id || member.name}
@@ -213,6 +316,11 @@ export const UserLoginModal: React.FC = () => {
                             {isCurrent && (
                               <span className="px-1.5 py-0.2 text-[10px] font-bold bg-brand-deep text-white rounded">
                                 Active
+                              </span>
+                            )}
+                            {member.isAdmin && (
+                              <span className="px-1.5 py-0.2 text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 rounded">
+                                Admin
                               </span>
                             )}
                           </div>
@@ -242,18 +350,20 @@ export const UserLoginModal: React.FC = () => {
                             >
                               Sign In
                             </button>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setMemberToDelete(member);
-                              }}
-                              title={`Delete ${member.name} from workspace`}
-                              aria-label={`Delete ${member.name}`}
-                              className="p-1.5 text-ink-dim hover:text-red-600 hover:bg-red-50 rounded-edge transition-colors cursor-pointer"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {currentUser.isAdmin && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMemberToDelete(member);
+                                }}
+                                title={`Delete ${member.name} from workspace`}
+                                aria-label={`Delete ${member.name}`}
+                                className="p-1.5 text-ink-dim hover:text-red-600 hover:bg-red-50 rounded-edge transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </>
                         )}
                       </div>
@@ -275,6 +385,13 @@ export const UserLoginModal: React.FC = () => {
             </div>
           ) : (
             <form onSubmit={handleCustomSubmit} className="space-y-3.5">
+              {!currentUser.isAdmin && (
+                <div className="p-3 bg-amber-50 border border-amber-300 rounded-edge text-spec text-amber-900 font-medium flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-amber-700 shrink-0" />
+                  <span>Administrator privileges required to create team profiles.</span>
+                </div>
+              )}
+
               {errorMsg && (
                 <div className="p-2.5 bg-red-50 border border-red-200 rounded-edge text-meta text-red-800 font-medium">
                   {errorMsg}
@@ -289,10 +406,11 @@ export const UserLoginModal: React.FC = () => {
                   id="login-custom-name"
                   type="text"
                   required
+                  disabled={!currentUser.isAdmin}
                   value={customDraft.name}
                   onChange={(e) => setCustomDraft({ ...customDraft, name: e.target.value })}
                   placeholder="e.g. Travis Maher"
-                  className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
+                  className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -304,10 +422,11 @@ export const UserLoginModal: React.FC = () => {
                   <input
                     id="login-custom-role"
                     type="text"
+                    disabled={!currentUser.isAdmin}
                     value={customDraft.role}
                     onChange={(e) => setCustomDraft({ ...customDraft, role: e.target.value })}
                     placeholder="e.g. Internal Sales"
-                    className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
+                    className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -317,10 +436,11 @@ export const UserLoginModal: React.FC = () => {
                   <input
                     id="login-custom-location"
                     type="text"
+                    disabled={!currentUser.isAdmin}
                     value={customDraft.location}
                     onChange={(e) => setCustomDraft({ ...customDraft, location: e.target.value })}
                     placeholder="e.g. Drouin, VIC"
-                    className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
+                    className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
                   />
                 </div>
               </div>
@@ -332,34 +452,58 @@ export const UserLoginModal: React.FC = () => {
                 <input
                   id="login-custom-email"
                   type="email"
+                  disabled={!currentUser.isAdmin}
                   value={customDraft.email}
                   onChange={(e) => setCustomDraft({ ...customDraft, email: e.target.value })}
                   placeholder="e.g. travis@plasgain.com.au"
-                  className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
+                  className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
                 />
               </div>
 
-              <div>
-                <label htmlFor="login-custom-phone" className="u-eyebrow text-ink-dim block mb-1">
-                  Direct Phone / Mobile
-                </label>
-                <input
-                  id="login-custom-phone"
-                  type="tel"
-                  value={customDraft.phone || ""}
-                  onChange={(e) => setCustomDraft({ ...customDraft, phone: e.target.value })}
-                  placeholder="e.g. 0412 345 678"
-                  className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="login-custom-phone" className="u-eyebrow text-ink-dim block mb-1">
+                    Direct Phone / Mobile
+                  </label>
+                  <input
+                    id="login-custom-phone"
+                    type="tel"
+                    disabled={!currentUser.isAdmin}
+                    value={customDraft.phone || ""}
+                    onChange={(e) => setCustomDraft({ ...customDraft, phone: e.target.value })}
+                    placeholder="e.g. 0412 345 678"
+                    className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="login-custom-pin" className="u-eyebrow text-ink-dim block mb-1">
+                    Security PIN (4 Digits)
+                  </label>
+                  <input
+                    id="login-custom-pin"
+                    type="password"
+                    maxLength={6}
+                    disabled={!currentUser.isAdmin}
+                    value={customDraft.pin || "1234"}
+                    onChange={(e) => setCustomDraft({ ...customDraft, pin: e.target.value })}
+                    placeholder="1234"
+                    className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  />
+                </div>
               </div>
 
               <div className="pt-2">
                 <button
                   type="submit"
-                  className="w-full py-2.5 px-4 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                  disabled={!currentUser.isAdmin}
+                  className={`w-full py-2.5 px-4 font-bold text-meta rounded-edge shadow-sm flex items-center justify-center gap-2 transition-colors ${
+                    currentUser.isAdmin
+                      ? "bg-brand-deep hover:bg-brand text-white cursor-pointer"
+                      : "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300"
+                  }`}
                 >
                   <LogIn className="w-4 h-4" />
-                  <span>Save &amp; Sign In</span>
+                  <span>{currentUser.isAdmin ? "Save & Sign In" : "Admin Permission Required"}</span>
                 </button>
               </div>
             </form>
@@ -370,7 +514,7 @@ export const UserLoginModal: React.FC = () => {
         <div className="p-3.5 bg-raised border-t border-line flex items-center justify-between text-spec text-ink-dim">
           <div className="flex items-center gap-1.5">
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>Details synced with Cloud Firestore (Sydney/AU)</span>
+            <span>PIN-Protected Authenticated Workspace Access</span>
           </div>
           <button
             type="button"
