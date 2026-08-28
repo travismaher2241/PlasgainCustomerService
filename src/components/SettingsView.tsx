@@ -22,7 +22,8 @@ export const SettingsView: React.FC = () => {
     resetCurrentUser,
     cloudSyncStatus,
     syncAllWithCloud,
-    openLoginModal
+    openLoginModal,
+    clearAllWorkspaceData
   } = useApp();
 
   // Edits are held locally so a half-typed name never lands on saved records.
@@ -56,10 +57,9 @@ export const SettingsView: React.FC = () => {
     showToast("Profile updated & saved to Cloud Firestore", "success");
   };
 
-  const handleResetData = () => {
-    localStorage.clear();
-    setOpportunities([]);
-    showToast("Workspace data cleared", "info");
+  const handleResetData = async () => {
+    await clearAllWorkspaceData();
+    showToast("Workspace & cloud data cleared", "info");
     setTimeout(() => {
       window.location.reload();
     }, 400);

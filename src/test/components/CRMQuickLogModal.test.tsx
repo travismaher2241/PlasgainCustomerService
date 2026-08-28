@@ -5,10 +5,27 @@ import { CRMQuickLogModal } from '../../components/crm/CRMQuickLogModal';
 import { AppProvider, useApp } from '../../context/AppContext';
 
 const QuickLogTestWrapper: React.FC = () => {
-  const { openQuickLog, activities, tasks } = useApp();
+  const { openQuickLog, addAccount, activities, tasks } = useApp();
+
+  React.useEffect(() => {
+    addAccount({
+      id: 'acc-test-123',
+      name: 'City of Moreton Bay',
+      status: 'Active',
+      industry: 'Government',
+      customerSegment: 'Local Government / Council',
+      territory: 'QLD/NT',
+      accountOwner: 'Travis Maher',
+      relationshipHealth: 'Healthy',
+      tags: [],
+      createdDate: '2026-08-28',
+      lastInteractionDate: '2026-08-28'
+    });
+  }, []);
+
   return (
     <div>
-      <button onClick={() => openQuickLog('call', 'acc-001', 'opp-001')} data-testid="open-log-btn">
+      <button onClick={() => openQuickLog('call', 'acc-test-123')} data-testid="open-log-btn">
         Open Log
       </button>
       <div data-testid="activities-count">{activities.length}</div>

@@ -133,3 +133,20 @@ export async function deleteDocFromCloud(
     return false;
   }
 }
+
+/**
+ * Deletes all documents in a Firestore collection.
+ */
+export async function clearCollectionFromCloud(
+  collectionName: string
+): Promise<boolean> {
+  try {
+    const colRef = collection(db, collectionName);
+    const snap = await getDocs(colRef);
+    await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+    return true;
+  } catch (err) {
+    console.warn(`[Firebase] Error clearing collection ${collectionName}:`, err);
+    return false;
+  }
+}

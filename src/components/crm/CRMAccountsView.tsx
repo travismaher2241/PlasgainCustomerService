@@ -48,6 +48,7 @@ export const CRMAccountsView: React.FC = () => {
     tasks,
     updateAccount,
     addAccount,
+    deleteAccount,
     addContact,
     updateContact,
     deleteContact,
@@ -531,9 +532,20 @@ export const CRMAccountsView: React.FC = () => {
                   </button>
                   <button
                     onClick={() => openQuickLog("note", selectedAccount.id)}
-                    className="px-3 py-1.5 text-meta font-semibold text-white bg-brand-deep rounded-edge hover:bg-brand-deep shadow-sm"
+                    className="px-3 py-1.5 text-meta font-semibold text-white bg-brand-deep rounded-edge hover:bg-brand shadow-sm cursor-pointer"
                   >
                     + Note
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm(`Are you sure you want to delete "${selectedAccount.name}" and all associated records?`)) {
+                        deleteAccount(selectedAccount.id);
+                      }
+                    }}
+                    className="p-1.5 text-meta font-semibold text-ink-dim hover:text-urgent hover:bg-urgent-wash border border-line rounded-edge transition-colors cursor-pointer"
+                    title="Delete this account from workspace"
+                  >
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
               </div>

@@ -44,7 +44,8 @@ import {
   loadDocFromCloud,
   loadCollectionFromCloud,
   syncBatchToCloud,
-  deleteDocFromCloud
+  deleteDocFromCloud,
+  clearCollectionFromCloud
 } from "../utils/firebase";
 import { resolveToolRoute } from "../utils/toolRegistry";
 
@@ -208,6 +209,7 @@ interface AppContextType {
   setAccounts: React.Dispatch<React.SetStateAction<Account[]>>;
   addAccount: (account: Account) => void;
   updateAccount: (id: string, updates: Partial<Account>) => void;
+  deleteAccount: (id: string) => Promise<void>;
   selectedAccountId: string | null;
   setSelectedAccountId: (id: string | null) => void;
 
@@ -227,8 +229,10 @@ interface AppContextType {
   setCrmOpportunities: React.Dispatch<React.SetStateAction<CRMOpportunity[]>>;
   addCrmOpportunity: (opp: CRMOpportunity) => void;
   updateCrmOpportunity: (id: string, updates: Partial<CRMOpportunity>) => void;
+  deleteCrmOpportunity: (id: string) => Promise<void>;
   selectedCrmOpportunityId: string | null;
   setSelectedCrmOpportunityId: (id: string | null) => void;
+  clearAllWorkspaceData: () => Promise<void>;
 
   activities: CRMActivity[];
   logActivity: (activity: Omit<CRMActivity, "id" | "timestamp">) => void;
@@ -481,16 +485,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem("plasgain_active_user_id");
   };
 
-  // Load Relational CRM Data from LocalStorage or Defaults
+  // Known sample prefixes to permanently filter and purge from legacy caches and Firestore
+  const KNOWN_SAMPLE_PREFIXES = ["acc-00", "opp-00", "lead-00", "con-00", "task-00", "act-00", "comp-00", "notif-"];
+
+  const isSampleRecord = (item: any): boolean => {
+    if (!item) return false;
+    const id = String(item.id || "").toLowerCase();
+    return KNOWN_SAMPLE_PREFIXES.some((p) => id.startsWith(p));
+  };
+
+  // Load Relational CRM Data from LocalStorage (with sample filtering)
 
   const [crmOpportunities, setCrmOpportunities] = useState<CRMOpportunity[]>(() => {
     const saved = localStorage.getItem("plasgain_crm_deals");
-    return saved ? JSON.parse(saved) : INITIAL_OPPORTUNITIES;
+    const parsed = saved ? JSON.parse(saved) : INITIAL_OPPORTUNITIES;
+    return Array.isArray(parsed) ? parsed.filter((d: any) => !isSampleRecord(d)) : [];
   });
 
   const [rawAccounts, setRawAccounts] = useState<Account[]>(() => {
     const saved = localStorage.getItem("plasgain_crm_accounts");
-    return saved ? JSON.parse(saved) : INITIAL_ACCOUNTS;
+    const parsed = saved ? JSON.parse(saved) : INITIAL_ACCOUNTS;
+    return Array.isArray(parsed) ? parsed.filter((a: any) => !isSampleRecord(a)) : [];
   });
 
   // Dynamically compute account metrics from real CRM deals
@@ -518,22 +533,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [contacts, setContacts] = useState<CRMContact[]>(() => {
     const saved = localStorage.getItem("plasgain_crm_contacts");
-    return saved ? JSON.parse(saved) : INITIAL_CONTACTS;
+    const parsed = saved ? JSON.parse(saved) : INITIAL_CONTACTS;
+    return Array.isArray(parsed) ? parsed.filter((c: any) => !isSampleRecord(c)) : [];
   });
 
   const [leads, setLeads] = useState<CRMLead[]>(() => {
     const saved = localStorage.getItem("plasgain_crm_leads");
-    return saved ? JSON.parse(saved) : INITIAL_LEADS;
+    const parsed = saved ? JSON.parse(saved) : INITIAL_LEADS;
+    return Array.isArray(parsed) ? parsed.filter((l: any) => !isSampleRecord(l)) : [];
   });
 
   const [activities, setActivities] = useState<CRMActivity[]>(() => {
     const saved = localStorage.getItem("plasgain_crm_activities");
-    return saved ? JSON.parse(saved) : INITIAL_ACTIVITIES;
+    const parsed = saved ? JSON.parse(saved) : INITIAL_ACTIVITIES;
+    return Array.isArray(parsed) ? parsed.filter((a: any) => !isSampleRecord(a)) : [];
   });
 
   const [tasks, setTasks] = useState<CRMTask[]>(() => {
     const saved = localStorage.getItem("plasgain_crm_tasks");
-    return saved ? JSON.parse(saved) : INITIAL_TASKS;
+    const parsed = saved ? JSON.parse(saved) : INITIAL_TASKS;
+    return Array.isArray(parsed) ? parsed.filter((t: any) => !isSampleRecord(t)) : [];
   });
 
   const [pipelines] = useState<PipelineConfig[]>(DEFAULT_PIPELINES);
@@ -837,31 +856,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return competitorAlerts.filter((a) => !a.isRead).length;
   }, [competitorAlerts]);
 
-  // Fallback initial notifications
-  const [localNotifications, setLocalNotifications] = useState<CRMNotification[]>([
-    {
-      id: "notif-1",
-      title: "Quote Follow-Up Overdue",
-      message: "Gold Coast Foreshore Quote Q-1042 ($92,400) sent 15 days ago with no response.",
-      timestamp: "Today",
-      type: "warning",
-      isRead: false,
-      isArchived: false,
-      createdAt: new Date().toISOString(),
-      linkTo: { view: "pipeline", id: "opp-003" }
-    },
-    {
-      id: "notif-2",
-      title: "New Hot Lead Ingested",
-      message: "Sunshine Coast Council (Liam O'Connor) requested 18x Intense 50W lights for Ewen Maddock Dam Trail.",
-      timestamp: "Today",
-      type: "action_required",
-      isRead: false,
-      isArchived: false,
-      createdAt: new Date().toISOString(),
-      linkTo: { view: "leads", id: "lead-001" }
-    }
-  ]);
+  // Initial notifications (empty clean state)
+  const [localNotifications, setLocalNotifications] = useState<CRMNotification[]>([]);
 
   const activeNotifications = useMemo(() => {
     const list = serverNotifications.length > 0 ? serverNotifications : localNotifications;
@@ -950,59 +946,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         // 2. Accounts
         const cloudAccounts = await loadCollectionFromCloud<Account>("crm_accounts");
-        if (cloudAccounts.length > 0 && isMounted) {
-          setAccounts(cloudAccounts);
-        } else {
-          await syncBatchToCloud("crm_accounts", INITIAL_ACCOUNTS);
-        }
+        const sampleAccounts = cloudAccounts.filter(isSampleRecord);
+        sampleAccounts.forEach((a) => deleteDocFromCloud("crm_accounts", a.id));
+        const realAccounts = cloudAccounts.filter((a) => !isSampleRecord(a));
+        if (isMounted) setAccounts(realAccounts);
 
         // 3. Contacts
         const cloudContacts = await loadCollectionFromCloud<CRMContact>("crm_contacts");
-        if (cloudContacts.length > 0 && isMounted) {
-          setContacts(cloudContacts);
-        } else {
-          await syncBatchToCloud("crm_contacts", INITIAL_CONTACTS);
-        }
+        const sampleContacts = cloudContacts.filter(isSampleRecord);
+        sampleContacts.forEach((c) => deleteDocFromCloud("crm_contacts", c.id));
+        const realContacts = cloudContacts.filter((c) => !isSampleRecord(c));
+        if (isMounted) setContacts(realContacts);
 
         // 4. Leads
         const cloudLeads = await loadCollectionFromCloud<CRMLead>("crm_leads");
-        if (cloudLeads.length > 0 && isMounted) {
-          setLeads(cloudLeads);
-        } else {
-          await syncBatchToCloud("crm_leads", INITIAL_LEADS);
-        }
+        const sampleLeads = cloudLeads.filter(isSampleRecord);
+        sampleLeads.forEach((l) => deleteDocFromCloud("crm_leads", l.id));
+        const realLeads = cloudLeads.filter((l) => !isSampleRecord(l));
+        if (isMounted) setLeads(realLeads);
 
         // 5. CRM Deals
         const cloudDeals = await loadCollectionFromCloud<CRMOpportunity>("crm_deals");
-        if (cloudDeals.length > 0 && isMounted) {
-          setCrmOpportunities(cloudDeals);
-        } else {
-          await syncBatchToCloud("crm_deals", INITIAL_OPPORTUNITIES);
-        }
+        const sampleDeals = cloudDeals.filter(isSampleRecord);
+        sampleDeals.forEach((d) => deleteDocFromCloud("crm_deals", d.id));
+        const realDeals = cloudDeals.filter((d) => !isSampleRecord(d));
+        if (isMounted) setCrmOpportunities(realDeals);
 
         // 6. Activities
         const cloudActivities = await loadCollectionFromCloud<CRMActivity>("crm_activities");
-        if (cloudActivities.length > 0 && isMounted) {
-          setActivities(cloudActivities);
-        } else {
-          await syncBatchToCloud("crm_activities", INITIAL_ACTIVITIES);
-        }
+        const sampleActivities = cloudActivities.filter(isSampleRecord);
+        sampleActivities.forEach((a) => deleteDocFromCloud("crm_activities", a.id));
+        const realActivities = cloudActivities.filter((a) => !isSampleRecord(a));
+        if (isMounted) setActivities(realActivities);
 
         // 7. Tasks
         const cloudTasks = await loadCollectionFromCloud<CRMTask>("crm_tasks");
-        if (cloudTasks.length > 0 && isMounted) {
-          setTasks(cloudTasks);
-        } else {
-          await syncBatchToCloud("crm_tasks", INITIAL_TASKS);
-        }
+        const sampleTasks = cloudTasks.filter(isSampleRecord);
+        sampleTasks.forEach((t) => deleteDocFromCloud("crm_tasks", t.id));
+        const realTasks = cloudTasks.filter((t) => !isSampleRecord(t));
+        if (isMounted) setTasks(realTasks);
 
         // 8. Opportunities (Legacy)
         const cloudOpps = await loadCollectionFromCloud<Opportunity>("opportunities");
-        if (cloudOpps.length > 0 && isMounted) {
-          setOpportunities(cloudOpps);
-        } else {
-          await syncBatchToCloud("opportunities", SAMPLE_OPPORTUNITIES);
-        }
+        const sampleOpps = cloudOpps.filter(isSampleRecord);
+        sampleOpps.forEach((o) => deleteDocFromCloud("opportunities", o.id));
+        const realOpps = cloudOpps.filter((o) => !isSampleRecord(o));
+        if (isMounted) setOpportunities(realOpps);
 
         if (isMounted) setCloudSyncStatus("synced");
       } catch (err) {
@@ -1084,6 +1073,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       })
     );
     showToast("Account updated", "success");
+  };
+
+  const deleteAccount = async (id: string) => {
+    setAccounts((prev) => prev.filter((a) => a.id !== id));
+    setCrmOpportunities((prev) => prev.filter((d) => d.accountId !== id));
+    setContacts((prev) => prev.filter((c) => c.accountId !== id));
+    setLeads((prev) => prev.filter((l) => l.convertedAccountId !== id));
+    setTasks((prev) => prev.filter((t) => t.accountId !== id));
+    setActivities((prev) => prev.filter((a) => a.accountId !== id));
+    if (selectedAccountId === id) {
+      setSelectedAccountId(null);
+    }
+    await deleteDocFromCloud("crm_accounts", id);
+    showToast("Account removed from workspace", "info");
   };
 
   const addContact = (contact: CRMContact) => {
@@ -1305,6 +1308,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast("Opportunity updated", "success");
   };
 
+  const deleteCrmOpportunity = async (id: string) => {
+    setCrmOpportunities((prev) => prev.filter((d) => d.id !== id));
+    setTasks((prev) => prev.filter((t) => t.dealId !== id && t.relatedEntityId !== id));
+    setActivities((prev) => prev.filter((a) => a.opportunityId !== id));
+    if (selectedCrmOpportunityId === id) {
+      setSelectedCrmOpportunityId(null);
+    }
+    if (selectedOpportunityId === id) {
+      setSelectedOpportunityId(null);
+    }
+    await deleteDocFromCloud("crm_deals", id);
+    showToast("Opportunity deleted", "info");
+  };
+
+  const clearAllWorkspaceData = async () => {
+    localStorage.clear();
+    setAccounts([]);
+    setCrmOpportunities([]);
+    setContacts([]);
+    setLeads([]);
+    setActivities([]);
+    setTasks([]);
+    setLocalNotifications([]);
+    setServerNotifications([]);
+    setSelectedAccountId(null);
+    setSelectedCrmOpportunityId(null);
+    setSelectedOpportunityId(null);
+
+    // Purge all Firestore collections
+    await Promise.all([
+      clearCollectionFromCloud("crm_accounts"),
+      clearCollectionFromCloud("crm_deals"),
+      clearCollectionFromCloud("crm_contacts"),
+      clearCollectionFromCloud("crm_leads"),
+      clearCollectionFromCloud("crm_activities"),
+      clearCollectionFromCloud("crm_tasks"),
+      clearCollectionFromCloud("opportunities"),
+      clearCollectionFromCloud("competitor_pricing")
+    ]);
+
+    showToast("Workspace & cloud data completely cleared", "info");
+  };
+
   const logActivity = (activityData: Omit<CRMActivity, "id" | "timestamp">) => {
     const newAct: CRMActivity = {
       ...activityData,
@@ -1508,6 +1554,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setAccounts,
         addAccount,
         updateAccount,
+        deleteAccount,
         selectedAccountId,
         setSelectedAccountId,
         contacts,
@@ -1524,8 +1571,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCrmOpportunities,
         addCrmOpportunity,
         updateCrmOpportunity,
+        deleteCrmOpportunity,
         selectedCrmOpportunityId,
         setSelectedCrmOpportunityId,
+        clearAllWorkspaceData,
         activities,
         logActivity,
         tasks,
