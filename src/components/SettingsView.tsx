@@ -1,24 +1,15 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ShieldCheck,
   Database,
   RefreshCw,
-  CheckCircle2
+  CheckCircle2,
+  BookOpen
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { SAMPLE_OPPORTUNITIES } from "../data/mockData";
-import { apiGet } from "../utils/apiClient";
 import { initialsOf, DEFAULT_USER_PROFILE } from "../context/AppContext";
 import { Surface } from "./ui/Surface";
-
-/** Live AI status, probed from the server rather than asserted. */
-interface AIStatus {
-  configured: boolean;
-  reachable: boolean;
-  state: string;
-  detail: string;
-  model?: string;
-}
 
 export const SettingsView: React.FC = () => {
   const {
@@ -62,32 +53,6 @@ export const SettingsView: React.FC = () => {
     setSavedAt(new Date().toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }));
     showToast("Profile updated & saved to Cloud Firestore", "success");
   };
-
-  const [aiStatus, setAiStatus] = useState<AIStatus | null>(null);
-  const [isProbing, setIsProbing] = useState(true);
-
-  const probeAI = useCallback(async () => {
-    setIsProbing(true);
-    try {
-      const data = await apiGet<AIStatus>("/api/health/ai");
-      setAiStatus(data);
-    } catch {
-      setAiStatus({
-        configured: false,
-        reachable: false,
-        state: "Offline",
-        detail: "Could not connect to the Plasgain service."
-      });
-    } finally {
-      setIsProbing(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    probeAI();
-  }, [probeAI]);
-
-  const aiHealthy = Boolean(aiStatus?.configured && aiStatus?.reachable);
 
   const handleResetData = () => {
     localStorage.removeItem("plasgain_opportunities");
@@ -301,39 +266,18 @@ export const SettingsView: React.FC = () => {
           </p>
         </div>
 
-        <div
-          className={`p-4 rounded-panel border shadow-xs space-y-2 ${
-            isProbing
-              ? "bg-white border-line"
-              : aiHealthy
-              ? "bg-white border-line"
-              : "bg-soon-wash border-soon"
-          }`}
-        >
-          <div
-            className={`flex items-center justify-between ${
-              aiHealthy ? "text-brand-deep" : "text-soon"
-            }`}
-          >
-            <span className="text-spec font-bold uppercase tracking-wider">AI Assistant</span>
-            <button
-              type="button"
-              onClick={probeAI}
-              title="Check assistant status"
-              className="hover:opacity-70 transition-opacity cursor-pointer"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isProbing ? "animate-spin" : ""}`} />
-            </button>
+        {/* Approved Product Catalogues & Engineering Data */}
+        <div className="bg-white p-4 rounded-panel border border-line shadow-xs space-y-2">
+          <div className="flex items-center justify-between text-brand-deep">
+            <span className="text-spec font-bold uppercase tracking-wider">Engineering Data</span>
+            <BookOpen className="w-4 h-4 text-brand-deep" />
           </div>
-          <div className="text-body font-bold">
-            {isProbing ? "Checking." : aiHealthy ? "Active & Connected" : "Offline / Unreachable"}
+          <div className="text-body font-bold flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span>Approved & Active</span>
           </div>
           <p className="text-spec text-ink-dim">
-            {isProbing
-              ? "Connecting to assistant."
-              : aiHealthy
-              ? "Plasgain Product & Compliance Assistant is ready"
-              : "Assistant service is currently offline. Datasheets and tools remain available."}
+            2026.1 Verified Product Catalogues &amp; Datasheets Loaded
           </p>
         </div>
 

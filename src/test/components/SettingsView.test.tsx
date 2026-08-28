@@ -13,7 +13,8 @@ describe('SettingsView Component', () => {
     );
 
     expect(screen.getByText(/Settings & Preferences/i)).toBeInTheDocument();
-    expect(screen.getByText(/AI Assistant/i)).toBeInTheDocument();
+    expect(screen.getByText(/Engineering Data/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Cloud Firestore/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Quoting & Compliance Standards/i)).toBeInTheDocument();
     expect(screen.getByText(/Datasheet Accuracy:/i)).toBeInTheDocument();
     expect(screen.getByText(/Reset Workspace Data/i)).toBeInTheDocument();
