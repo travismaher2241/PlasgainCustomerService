@@ -205,10 +205,13 @@ interface AppContextType {
   nextBestActions: NextBestActionItem[];
   notifications: CRMNotification[];
   unreadNotificationsCount: number;
+  addNotification: (notification: Omit<CRMNotification, "id" | "isRead" | "createdAt">) => void;
   markNotificationRead: (id: string) => Promise<void>;
   markAllNotificationsRead: () => Promise<void>;
   archiveNotification: (id: string) => Promise<void>;
   dismissNotification: (id: string) => void;
+  activeBackgroundAnalysisJob: { id: string; projectName: string; status: "running" | "complete" | "failed" } | null;
+  setActiveBackgroundAnalysisJob: (job: { id: string; projectName: string; status: "running" | "complete" | "failed" } | null) => void;
 
   // Competitor Pricing Intelligence (Shared Server-Backed)
   competitorPricingRecords: CompetitorPricingRecord[];
@@ -499,6 +502,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error("Error archiving notification:", err);
     }
   };
+
+  const addNotification = (notif: Omit<CRMNotification, "id" | "isRead" | "createdAt">) => {
+    const newN = normalizeNotification({
+      ...notif,
+      id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      isRead: false,
+      createdAt: new Date().toISOString()
+    });
+    setLocalNotifications((prev) => [newN, ...prev]);
+  };
+
+  const [activeBackgroundAnalysisJob, setActiveBackgroundAnalysisJob] = useState<{
+    id: string;
+    projectName: string;
+    status: "running" | "complete" | "failed";
+  } | null>(null);
 
   const openCopilotWithContext = (contextStr: string, initialPrompt?: string) => {
     setCopilotCustomContext(contextStr);
@@ -1328,10 +1347,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         nextBestActions,
         notifications: activeNotifications,
         unreadNotificationsCount,
+        addNotification,
         markNotificationRead,
         markAllNotificationsRead,
         archiveNotification,
         dismissNotification,
+        activeBackgroundAnalysisJob,
+        setActiveBackgroundAnalysisJob,
         competitorPricingRecords,
         competitorAlerts,
         unreadCompetitorAlertsCount,

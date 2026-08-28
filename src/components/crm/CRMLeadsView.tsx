@@ -24,6 +24,8 @@ import {
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { CRMLead, LeadStatus } from "../../types/crm";
+import { detectDuplicateLead, DuplicateMatchResult } from "../../utils/duplicateDetector";
+import { CRMDuplicateWarningModal } from "./CRMDuplicateWarningModal";
 
 export const CRMLeadsView: React.FC = () => {
   const {
@@ -43,6 +45,9 @@ export const CRMLeadsView: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(leads[0]?.id || null);
   const [isNewLeadModalOpen, setIsNewLeadModalOpen] = useState(false);
+  const [duplicateMatch, setDuplicateMatch] = useState<DuplicateMatchResult<CRMLead> | null>(null);
+  const [pendingLeadToCreate, setPendingLeadToCreate] = useState<CRMLead | null>(null);
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
 
   // FEAT-05: Conversion & Deduplication Modal State
   const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
@@ -140,6 +145,23 @@ export const CRMLeadsView: React.FC = () => {
       nextAction: "Initial phone discovery and qualification call",
       nextActionDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split("T")[0]
     };
+
+    const duplicate = detectDuplicateLead(
+      {
+        leadName: newLeadForm.leadName,
+        email: newLeadForm.contactEmail,
+        phone: newLeadForm.contactPhone,
+        company: newLeadForm.companyName
+      },
+      leads
+    );
+
+    if (duplicate) {
+      setPendingLeadToCreate(newL);
+      setDuplicateMatch(duplicate);
+      setIsDuplicateModalOpen(true);
+      return;
+    }
 
     addLead(newL);
     setSelectedLeadId(newL.id);
@@ -648,6 +670,37 @@ export const CRMLeadsView: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* P2-13: CRM Duplicate Lead Warning Modal */}
+      {isDuplicateModalOpen && duplicateMatch && pendingLeadToCreate && (
+        <CRMDuplicateWarningModal<CRMLead>
+          isOpen={isDuplicateModalOpen}
+          onClose={() => {
+            setIsDuplicateModalOpen(false);
+            setDuplicateMatch(null);
+            setPendingLeadToCreate(null);
+          }}
+          entityType="Lead"
+          candidateName={pendingLeadToCreate.leadName}
+          matchResult={duplicateMatch}
+          onOpenExisting={(existingL) => {
+            setSelectedLeadId(existingL.id);
+            setIsNewLeadModalOpen(false);
+            showToast(`Navigated to existing lead "${existingL.leadName}"`, "info");
+          }}
+          onUseExisting={(existingL) => {
+            setSelectedLeadId(existingL.id);
+            setIsNewLeadModalOpen(false);
+            showToast(`Attached to existing lead "${existingL.leadName}"`, "success");
+          }}
+          onCreateAnyway={() => {
+            addLead(pendingLeadToCreate);
+            setSelectedLeadId(pendingLeadToCreate.id);
+            setIsNewLeadModalOpen(false);
+            showToast(`Ingested lead "${pendingLeadToCreate.leadName}" (Duplicate override audit recorded)`, "warning");
+          }}
+        />
       )}
     </div>
   );

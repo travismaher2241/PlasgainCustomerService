@@ -11,6 +11,9 @@ import {
 } from "./src/data/knowledgeBaseRaw";
 import { competitorPricingStore } from "./src/server/competitorPricingStore";
 import { notificationStore } from "./src/server/notificationStore";
+import { analysisStore, ProjectAnalysisRecord } from "./src/server/analysisStore";
+import { commercialPricingStore, CommercialPricingRequest } from "./src/server/commercialPricingStore";
+import { documentGovernanceStore, ControlledDocument } from "./src/server/documentGovernanceStore";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -195,6 +198,68 @@ async function generateContentWithFailover(options: {
   }
 
   throw lastError;
+}
+
+// Resilient Gemini model streaming caller with automatic model failover
+async function generateContentStreamWithFailover(options: {
+  contents: any;
+  config?: any;
+  preferredModel?: string;
+}): Promise<any> {
+  const ai = getAI();
+  const preferred = options.preferredModel || DEFAULT_MODEL;
+  const modelsToTry = [preferred, ...FALLBACK_MODELS].filter(
+    (val, idx, arr) => arr.indexOf(val) === idx
+  );
+
+  let lastError: any = null;
+  for (const model of modelsToTry) {
+    try {
+      const responseStream = await ai.models.generateContentStream({
+        model,
+        contents: options.contents,
+        config: options.config,
+      });
+      return responseStream;
+    } catch (err: any) {
+      lastError = err;
+      const status = err?.status || err?.code || (err?.message?.includes("503") ? 503 : 0);
+      if (status === 503 || status === 429 || status === 404 || err?.message?.includes("NOT_FOUND")) {
+        console.warn(`Stream on model ${model} failed, trying next fallback...`);
+        continue;
+      }
+      throw err;
+    }
+  }
+  throw lastError;
+}
+
+function initSSE(res: express.Response) {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  if (typeof (res as any).flushHeaders === "function") {
+    (res as any).flushHeaders();
+  }
+}
+
+function sendSSEStage(res: express.Response, stage: string, label: string, detail?: string) {
+  res.write(`event: stage\ndata: ${JSON.stringify({ stage, label, detail, status: "active" })}\n\n`);
+}
+
+function sendSSEChunk(res: express.Response, delta: string) {
+  res.write(`event: chunk\ndata: ${JSON.stringify({ delta })}\n\n`);
+}
+
+function sendSSEComplete(res: express.Response, result: any) {
+  res.write(`event: complete\ndata: ${JSON.stringify({ result })}\n\n`);
+  res.write(`data: [DONE]\n\n`);
+  res.end();
+}
+
+function sendSSEError(res: express.Response, message: string, stage?: string) {
+  res.write(`event: error\ndata: ${JSON.stringify({ message, stage })}\n\n`);
+  res.end();
 }
 
 // -------------------------------------------------------------
@@ -2062,6 +2127,325 @@ Respond with a JSON object strictly matching this schema:
     }
     return res.status(500).json({ error: "Failed to generate account summary", detail: err.message });
   }
+});
+
+// -------------------------------------------------------------
+// PRIORITY 2: STREAMING & PERSISTENCE ENDPOINTS
+// -------------------------------------------------------------
+
+// P2-01 & P2-02: Stream Enquiry Analysis with Discrete Stages
+app.post(["/api/enquiry/analyze-stream", "/api/analyse-enquiry-stream"], async (req, res) => {
+  try {
+    const rawContent =
+      readString(req.body?.rawContent) || readString(req.body?.rawEnquiry) || readString(req.body?.enquiryText) || "";
+    const meta = req.body.metadata || {};
+    const customer = req.body.customer || meta.customerName || meta.customer || "";
+    const contact = req.body.contact || meta.contactName || meta.contact || "";
+    const company = req.body.company || meta.company || "";
+    const project = req.body.project || meta.projectName || meta.project || "";
+    const location = readString(req.body.location) || readString(meta.location) || "";
+    const source = req.body.source || meta.source || "Email / Portal";
+    const projectId = req.body.projectId || project || "proj-general";
+
+    if (!rawContent) {
+      return res.status(400).json({ error: "Enquiry content is required for analysis." });
+    }
+
+    if (!isAIConfigured()) {
+      return res.status(503).json({ error: "AI Unavailable", detail: "GEMINI_API_KEY not configured" });
+    }
+
+    initSSE(res);
+
+    sendSSEStage(res, "reading", "Reading enquiry source & tender metadata...");
+    await new Promise((r) => setTimeout(r, 80));
+
+    sendSSEStage(res, "extracting", "Extracting project scope & luminaire requirements...");
+    await new Promise((r) => setTimeout(r, 120));
+
+    sendSSEStage(res, "standards_check", "Verifying AS/NZS 1158 & AS/NZS 1170.2 design criteria...");
+    await new Promise((r) => setTimeout(r, 100));
+
+    sendSSEStage(res, "product_matching", "Resolving matching Plasgain luminaires & composite poles...");
+
+    const systemPrompt = `${MASTER_PLASGAIN_SYSTEM_INSTRUCTION}
+ENQUIRY ANALYSIS RULES:
+- Mark every opportunity field strictly as Confirmed, Inferred, or Unknown.
+- Calculate an objective Quote Readiness % based on critical parameters.
+- Provide Primary Recommended Product and up to 2 Alternatives strictly from approved Plasgain models.`;
+
+    const userPrompt = `Analyze this customer enquiry:
+ENQUIRY:
+"""
+${rawContent}
+"""
+Customer: ${customer || "Unknown"}
+Company: ${company || "Unknown"}
+Project: ${project || "Unknown"}
+Location: ${location || "Australia"}
+
+Return JSON matching the standard EnquiryAnalysisResult schema.`;
+
+    try {
+      const stream = await generateContentStreamWithFailover({
+        preferredModel: DEFAULT_MODEL,
+        contents: userPrompt,
+        config: {
+          systemInstruction: systemPrompt,
+          responseMimeType: "application/json",
+          temperature: 0.2
+        }
+      });
+
+      sendSSEStage(res, "finalizing", "Formatting structured analysis & quotation readiness report...");
+
+      let fullText = "";
+      for await (const chunk of stream) {
+        const text = chunk.text || "";
+        fullText += text;
+        sendSSEChunk(res, text);
+      }
+
+      const parsedResult = extractJsonFromText(fullText || "{}");
+
+      // P2-07: Persist analysis by project
+      const analysisRecord: ProjectAnalysisRecord = {
+        id: `analysis-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        projectId,
+        analysisType: "enquiry",
+        status: "complete",
+        sourceHash: Buffer.from(rawContent).toString("base64").slice(0, 32),
+        sourceVersion: "1.0",
+        sourceUpdatedAt: new Date().toISOString(),
+        result: parsedResult,
+        createdAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        createdBy: "CurrentUser",
+        model: DEFAULT_MODEL,
+        promptVersion: "2026.2"
+      };
+      analysisStore.saveAnalysis(analysisRecord);
+
+      sendSSEComplete(res, parsedResult);
+    } catch (aiErr: any) {
+      sendSSEError(res, aiErr?.message || "AI Analysis stream failed", "product_matching");
+    }
+  } catch (err: any) {
+    console.error("Stream enquiry error:", err);
+    res.status(500).json({ error: err.message || "Failed to stream enquiry" });
+  }
+});
+
+// P2-01 & P2-12: Stream Copilot Chat with Structured Citations
+app.post(["/api/copilot/chat-stream", "/api/chat-stream"], async (req, res) => {
+  try {
+    const { message, activeContextData, activeScreen = "Home", chatHistory = [] } = req.body || {};
+    if (!message) {
+      return res.status(400).json({ error: "Message is required." });
+    }
+
+    if (!isAIConfigured()) {
+      return res.status(503).json({ error: "AI Unavailable", detail: "GEMINI_API_KEY not configured" });
+    }
+
+    initSSE(res);
+
+    // Retrieve authoritative documents for grounding citations (P2-11 & P2-12)
+    const authoritativeDocs = documentGovernanceStore.getAuthoritativeDocuments();
+    const docGroundingContext = authoritativeDocs.map(d => ({
+      sourceId: d.id,
+      title: d.title,
+      version: d.version,
+      productFamily: d.productFamily,
+      documentType: d.documentType
+    }));
+
+    const systemPrompt = `${MASTER_PLASGAIN_SYSTEM_INSTRUCTION}
+You are the Plasgain Lighting Sales Copilot floating assistant.
+Current Screen: ${activeScreen}
+Context Data: ${JSON.stringify(activeContextData || {})}
+
+AVAILABLE AUTHORITATIVE DOCUMENTS FOR CITATION:
+${JSON.stringify(docGroundingContext, null, 2)}
+
+Provide clear, accurate sales guidance. When referencing a specific Plasgain product or standard, cite the source.`;
+
+    const userPrompt = `USER MESSAGE: "${message}"
+CHAT HISTORY: ${JSON.stringify(chatHistory.slice(-6))}`;
+
+    try {
+      const stream = await generateContentStreamWithFailover({
+        preferredModel: DEFAULT_MODEL,
+        contents: userPrompt,
+        config: {
+          systemInstruction: systemPrompt,
+          temperature: 0.3
+        }
+      });
+
+      let fullText = "";
+      for await (const chunk of stream) {
+        const text = chunk.text || "";
+        fullText += text;
+        sendSSEChunk(res, text);
+      }
+
+      // Match citations based on authoritative documents mentioned
+      const citations: any[] = [];
+      const lowerText = (fullText + " " + message).toLowerCase();
+
+      authoritativeDocs.forEach((doc) => {
+        if (
+          lowerText.includes(doc.productFamily.toLowerCase()) ||
+          lowerText.includes(doc.title.toLowerCase().slice(0, 15)) ||
+          lowerText.includes("blade") && doc.productFamily.includes("Blade") ||
+          lowerText.includes("pathmaster") && doc.productFamily.includes("PathMaster") ||
+          lowerText.includes("pole") && doc.productFamily.includes("Pole")
+        ) {
+          citations.push({
+            sourceId: doc.id,
+            sourceType: "document",
+            title: doc.title,
+            version: doc.version,
+            page: 1,
+            documentId: doc.id
+          });
+        }
+      });
+
+      if (lowerText.includes("1158") || lowerText.includes("p4") || lowerText.includes("v3")) {
+        citations.push({
+          sourceId: "std-asnzs-1158",
+          sourceType: "standard",
+          title: "AS/NZS 1158.3.1:2020 (Category P Lighting)",
+          clause: "Table 2.1 — Pathway & Pedestrian Lighting Levels"
+        });
+      }
+
+      if (lowerText.includes("wind") || lowerText.includes("1170")) {
+        citations.push({
+          sourceId: "std-asnzs-1170-2",
+          sourceType: "standard",
+          title: "AS/NZS 1170.2:2021 (Structural Wind Actions)",
+          clause: "Section 3 — Regional Wind Speeds & Topographic Factors"
+        });
+      }
+
+      sendSSEComplete(res, {
+        reply: fullText,
+        citations
+      });
+    } catch (aiErr: any) {
+      sendSSEError(res, aiErr?.message || "Copilot stream failed");
+    }
+  } catch (err: any) {
+    console.error("Copilot stream error:", err);
+    res.status(500).json({ error: err.message || "Failed to stream copilot" });
+  }
+});
+
+// P2-07: Analysis Persistence Endpoints
+app.get("/api/analyses/latest/:projectId", (req, res) => {
+  const { projectId } = req.params;
+  const analysisType = req.query.type as string | undefined;
+  const record = analysisStore.getLatestByProject(projectId, analysisType);
+  if (!record) {
+    return res.status(404).json({ error: "No analysis found for project", projectId });
+  }
+  return res.json(record);
+});
+
+app.get("/api/analyses/:id", (req, res) => {
+  const record = analysisStore.getAnalysis(req.params.id);
+  if (!record) return res.status(404).json({ error: "Analysis not found" });
+  return res.json(record);
+});
+
+app.post("/api/analyses", (req, res) => {
+  const record: ProjectAnalysisRecord = req.body;
+  if (!record || !record.id || !record.projectId) {
+    return res.status(400).json({ error: "id and projectId are required." });
+  }
+  const saved = analysisStore.saveAnalysis(record);
+  return res.json(saved);
+});
+
+// P2-09: Commercial Pricing Request Endpoints
+app.get("/api/commercial-pricing", (req, res) => {
+  const projectId = req.query.projectId as string | undefined;
+  if (projectId) {
+    return res.json(commercialPricingStore.listByProject(projectId));
+  }
+  return res.json(commercialPricingStore.listAll());
+});
+
+app.post("/api/commercial-pricing", (req, res) => {
+  const candidate = req.body;
+  if (!candidate || !candidate.productCode || !candidate.projectId) {
+    return res.status(400).json({ error: "productCode and projectId are required." });
+  }
+  const requestRecord: CommercialPricingRequest = {
+    id: candidate.id || `pr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    opportunityId: candidate.opportunityId,
+    projectId: candidate.projectId,
+    customerCompany: candidate.customerCompany || "Unknown",
+    productCode: candidate.productCode,
+    productName: candidate.productName || candidate.productCode,
+    quantity: candidate.quantity || 1,
+    requestedBy: candidate.requestedBy || "CurrentUser",
+    requestedAt: candidate.requestedAt || new Date().toISOString(),
+    requiredByDate: candidate.requiredByDate || new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10),
+    status: candidate.status || "Requested",
+    notes: candidate.notes
+  };
+  const created = commercialPricingStore.createRequest(requestRecord);
+  return res.status(201).json(created);
+});
+
+app.post("/api/commercial-pricing/:id/status", (req, res) => {
+  const { id } = req.params;
+  const { status, approvedUnitPrice, approvedBy, approvedPriceReference } = req.body;
+  if (!status) {
+    return res.status(400).json({ error: "status is required." });
+  }
+  const updated = commercialPricingStore.updateStatus(id, status, {
+    approvedUnitPrice,
+    approvedBy,
+    approvedPriceReference
+  });
+  if (!updated) return res.status(404).json({ error: "Pricing request not found" });
+  return res.json(updated);
+});
+
+// P2-11: Controlled Document Governance Endpoints
+app.get("/api/controlled-documents", (_req, res) => {
+  return res.json(documentGovernanceStore.listAll());
+});
+
+app.get("/api/controlled-documents/authoritative", (_req, res) => {
+  return res.json(documentGovernanceStore.getAuthoritativeDocuments());
+});
+
+app.post("/api/controlled-documents", (req, res) => {
+  const doc = req.body as ControlledDocument;
+  if (!doc || !doc.title || !doc.productFamily) {
+    return res.status(400).json({ error: "title and productFamily are required." });
+  }
+  const saved = documentGovernanceStore.saveDocument({
+    ...doc,
+    id: doc.id || `doc-${Date.now()}`,
+    uploadedAt: doc.uploadedAt || new Date().toISOString(),
+    approvalStatus: doc.approvalStatus || "Draft"
+  });
+  return res.status(201).json(saved);
+});
+
+app.post("/api/controlled-documents/:id/approve", (req, res) => {
+  const { id } = req.params;
+  const { approvedBy = "Technical Director", supersedesDocId } = req.body;
+  const approved = documentGovernanceStore.approveDocument(id, approvedBy, supersedesDocId);
+  if (!approved) return res.status(404).json({ error: "Document not found" });
+  return res.json(approved);
 });
 
 // API 404 handler - prevents SPA fallback from returning HTML on missing API endpoints

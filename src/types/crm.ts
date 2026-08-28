@@ -55,8 +55,10 @@ export interface Account {
   industry: string;
   customerSegment: "Local Government / Council" | "Civil Contractor" | "Electrical Contractor" | "Consulting Engineer" | "Mining & Resources" | "Commercial Developer" | "Other";
   companySize?: string;
+  abn?: string;
   website?: string;
   mainPhone?: string;
+  phone?: string;
   generalEmail?: string;
   billingAddress?: {
     street: string;

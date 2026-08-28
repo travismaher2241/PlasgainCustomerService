@@ -33,6 +33,9 @@ import { Account, CRMContact, CRMOpportunity, RelationshipHealth, CompetitorPric
 import { CRMContactModal } from "./CRMContactModal";
 import { getLocalDateInputValue } from "../../utils/dateUtils";
 import { sortActivitiesChronological } from "../../utils/activityUtils";
+import { accountIntelligenceCache, generateAccountSourceHash } from "../../utils/accountIntelligenceCache";
+import { detectDuplicateAccount, DuplicateMatchResult } from "../../utils/duplicateDetector";
+import { CRMDuplicateWarningModal } from "./CRMDuplicateWarningModal";
 
 export const CRMAccountsView: React.FC = () => {
   const {
@@ -76,25 +79,44 @@ export const CRMAccountsView: React.FC = () => {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [isCachedSummary, setIsCachedSummary] = useState(false);
+  const [cacheTimestamp, setCacheTimestamp] = useState<number | null>(null);
+
+  // P2-13: Duplicate Account Detection State
+  const [duplicateMatch, setDuplicateMatch] = useState<DuplicateMatchResult<Account> | null>(null);
+  const [pendingAccountToCreate, setPendingAccountToCreate] = useState<Account | null>(null);
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
 
   const handleFetchAiSummary = async (acc: Account, forceRefresh = false) => {
-    // Check cache first if not forcing refresh
-    if (!forceRefresh && accountAiCache[acc.id]) {
-      setAiSummary(accountAiCache[acc.id]);
-      setIsCachedSummary(true);
-      setIsAiLoading(false);
-      return;
+    const accActivities = activities.filter((a) => a.accountId === acc.id);
+    const accDeals = crmOpportunities.filter((d) => d.accountId === acc.id);
+    const accTasks = tasks.filter((t) => t.accountId === acc.id);
+    const accCompetitors = competitorPricingRecords.filter((c) => c.accountId === acc.id);
+    const accContacts = contacts.filter((c) => c.accountId === acc.id);
+
+    const sourceHash = generateAccountSourceHash({
+      id: acc.id,
+      updatedAt: acc.lastInteractionDate || acc.createdDate || "",
+      contacts: accContacts,
+      opportunities: accDeals,
+      activities: accActivities
+    });
+
+    // P2-03: Check deterministic source-hash cache
+    if (!forceRefresh) {
+      const cached = accountIntelligenceCache.get(acc.id, sourceHash);
+      if (cached) {
+        setAiSummary(cached.summary);
+        setIsCachedSummary(true);
+        setCacheTimestamp(cached.cachedAt);
+        setIsAiLoading(false);
+        return;
+      }
     }
 
     setIsAiLoading(true);
     setAiError(null);
     setIsCachedSummary(false);
     try {
-      const accActivities = activities.filter((a) => a.accountId === acc.id);
-      const accDeals = crmOpportunities.filter((d) => d.accountId === acc.id);
-      const accTasks = tasks.filter((t) => t.accountId === acc.id);
-      const accCompetitors = competitorPricingRecords.filter((c) => c.accountId === acc.id);
-
       const res = await fetch("/api/crm/account-summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -114,27 +136,22 @@ export const CRMAccountsView: React.FC = () => {
 
       const data = await res.json();
       setAiSummary(data.summary);
+      setCacheTimestamp(Date.now());
       
-      // Update cache
-      setAccountAiCache((prev) => {
-        const updated = { ...prev, [acc.id]: data.summary };
-        try {
-          localStorage.setItem("plasgain_ai_account_cache", JSON.stringify(updated));
-        } catch (e) {
-          console.error("Cache save error:", e);
-        }
-        return updated;
-      });
+      // Store in deterministic cache
+      accountIntelligenceCache.set(acc.id, sourceHash, data.summary);
 
       if (forceRefresh) {
         showToast("Refreshed AI Account Intelligence synthesis!", "success");
       }
     } catch (err: any) {
       console.error("AI summary error:", err);
-      // Fallback to cache if available
-      if (accountAiCache[acc.id]) {
-        setAiSummary(accountAiCache[acc.id]);
+      // Check cache fallback
+      const cachedFallback = accountIntelligenceCache.get(acc.id);
+      if (cachedFallback) {
+        setAiSummary(cachedFallback.summary);
         setIsCachedSummary(true);
+        setCacheTimestamp(cachedFallback.cachedAt);
         showToast("Live AI synthesis failed — showing cached analysis", "warning");
       } else {
         setAiError(err.message || "AI service is currently unavailable");
@@ -1381,6 +1398,37 @@ export const CRMAccountsView: React.FC = () => {
           accountName={selectedAccount.name}
           accountWebsite={selectedAccount.website}
           accountOwner={selectedAccount.accountOwner}
+        />
+      )}
+
+      {/* P2-13: CRM Duplicate Account Warning Modal */}
+      {isDuplicateModalOpen && duplicateMatch && pendingAccountToCreate && (
+        <CRMDuplicateWarningModal<Account>
+          isOpen={isDuplicateModalOpen}
+          onClose={() => {
+            setIsDuplicateModalOpen(false);
+            setDuplicateMatch(null);
+            setPendingAccountToCreate(null);
+          }}
+          entityType="Account"
+          candidateName={pendingAccountToCreate.name}
+          matchResult={duplicateMatch}
+          onOpenExisting={(existingAcc) => {
+            setSelectedAccountId(existingAcc.id);
+            setIsNewAccountModalOpen(false);
+            showToast(`Navigated to existing account "${existingAcc.name}"`, "info");
+          }}
+          onUseExisting={(existingAcc) => {
+            setSelectedAccountId(existingAcc.id);
+            setIsNewAccountModalOpen(false);
+            showToast(`Attached to existing account "${existingAcc.name}"`, "success");
+          }}
+          onCreateAnyway={() => {
+            addAccount(pendingAccountToCreate);
+            setSelectedAccountId(pendingAccountToCreate.id);
+            setIsNewAccountModalOpen(false);
+            showToast(`Created new account "${pendingAccountToCreate.name}" (Duplicate override audit recorded)`, "warning");
+          }}
         />
       )}
     </div>

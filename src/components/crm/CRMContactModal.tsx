@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { CRMContact, ContactRole } from "../../types/crm";
 import { useApp } from "../../context/AppContext";
+import { detectDuplicateContact, DuplicateMatchResult } from "../../utils/duplicateDetector";
+import { CRMDuplicateWarningModal } from "./CRMDuplicateWarningModal";
 
 interface CRMContactModalProps {
   isOpen: boolean;
@@ -40,8 +42,11 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
   accountWebsite,
   accountOwner
 }) => {
-  const { currentUser } = useApp();
+  const { currentUser, contacts, showToast } = useApp();
   const isEditMode = !!contactToEdit;
+  const [duplicateMatch, setDuplicateMatch] = useState<DuplicateMatchResult<CRMContact> | null>(null);
+  const [pendingContactPayload, setPendingContactPayload] = useState<Omit<CRMContact, "id"> | null>(null);
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
 
   // Derive domain from website or company name
   const defaultDomain = accountWebsite
@@ -141,6 +146,25 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
       notes: formData.notes.trim() || undefined,
       tags: formData.tags
     };
+
+    if (!isEditMode) {
+      const duplicate = detectDuplicateContact(
+        {
+          name: `${formData.firstName} ${formData.lastName}`.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone || formData.mobile,
+          accountId
+        },
+        contacts
+      );
+
+      if (duplicate) {
+        setPendingContactPayload(payload);
+        setDuplicateMatch(duplicate);
+        setIsDuplicateModalOpen(true);
+        return;
+      }
+    }
 
     onSave(payload, contactToEdit ? contactToEdit.id : undefined);
     onClose();
@@ -556,6 +580,34 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
           </div>
         </form>
       </div>
+
+      {/* P2-13: CRM Duplicate Contact Warning Modal */}
+      {isDuplicateModalOpen && duplicateMatch && pendingContactPayload && (
+        <CRMDuplicateWarningModal<CRMContact>
+          isOpen={isDuplicateModalOpen}
+          onClose={() => {
+            setIsDuplicateModalOpen(false);
+            setDuplicateMatch(null);
+            setPendingContactPayload(null);
+          }}
+          entityType="Contact"
+          candidateName={`${pendingContactPayload.firstName} ${pendingContactPayload.lastName}`}
+          matchResult={duplicateMatch}
+          onOpenExisting={(existingCon) => {
+            onClose();
+            showToast(`Contact "${existingCon.firstName} ${existingCon.lastName}" already exists on file.`, "info");
+          }}
+          onUseExisting={(existingCon) => {
+            onClose();
+            showToast(`Attached to existing contact "${existingCon.firstName} ${existingCon.lastName}"`, "success");
+          }}
+          onCreateAnyway={() => {
+            onSave(pendingContactPayload);
+            onClose();
+            showToast(`Created contact "${pendingContactPayload.firstName} ${pendingContactPayload.lastName}" (Duplicate override audit recorded)`, "warning");
+          }}
+        />
+      )}
     </div>
   );
 };

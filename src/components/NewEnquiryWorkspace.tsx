@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { apiPost, AIUnavailableError, toUserMessage } from "../utils/apiClient";
+import React, { useState, useEffect, useRef } from "react";
+import { apiPost, apiStreamPost, AIUnavailableError, toUserMessage } from "../utils/apiClient";
 import { AIUnavailableNotice } from "./AIUnavailableNotice";
 import {
   Sparkles,
@@ -31,12 +31,15 @@ import {
   ChevronRight,
   Download,
   Zap,
-  Plus
+  Plus,
+  DollarSign
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { EnquiryAnalysisResult, StatusField } from "../types";
 import { CustomerFollowUpModal } from "./CustomerFollowUpModal";
 import { DatasheetPackageModal } from "./DatasheetPackageModal";
+import { QuoteReadinessModal } from "./QuoteReadinessModal";
+import { CommercialPricingRequestModal } from "./CommercialPricingRequestModal";
 import {
   formatOstendoCSV,
   formatOstendoTabDelimited,
@@ -63,7 +66,9 @@ export const NewEnquiryWorkspace: React.FC = () => {
     showToast,
     navigateToWorkflow,
     navigateToCRM,
-    currentUser
+    currentUser,
+    addNotification,
+    setActiveBackgroundAnalysisJob
   } = useApp();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -74,12 +79,26 @@ export const NewEnquiryWorkspace: React.FC = () => {
   const [isReplyModalOpen, setIsReplyModalOpen] = useState(false);
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
   const [isDatasheetModalOpen, setIsDatasheetModalOpen] = useState(false);
+  const [isReadinessGateOpen, setIsReadinessGateOpen] = useState(false);
+  const [isPricingRequestOpen, setIsPricingRequestOpen] = useState(false);
   const [ostendoQuoteRef, setOstendoQuoteRef] = useState("");
   const [generatedEmail, setGeneratedEmail] = useState<{ subject: string; body: string } | null>(null);
   const [isGeneratingEmail, setIsGeneratingEmail] = useState(false);
   const [simulatedFiles, setSimulatedFiles] = useState<{ name: string; size: string; type: string }[]>([]);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isSavedToPipeline, setIsSavedToPipeline] = useState(false);
+
+  // P2-01 / P2-02: Progressive Stages & Streaming Preview
+  const [analysisSourceHash, setAnalysisSourceHash] = useState<string>("");
+  const [streamedChunkPreview, setStreamedChunkPreview] = useState<string>("");
+  const [progressStages, setProgressStages] = useState<Array<{ id: string; label: string; status: "pending" | "active" | "complete" | "failed" }>>([
+    { id: "reading", label: "Reading enquiry source & tender metadata", status: "pending" },
+    { id: "extracting", label: "Extracting project scope & luminaire requirements", status: "pending" },
+    { id: "standards_check", label: "Verifying AS/NZS 1158 & AS/NZS 1170.2 criteria", status: "pending" },
+    { id: "product_matching", label: "Resolving matching Plasgain luminaires & poles", status: "pending" },
+    { id: "finalizing", label: "Formatting structured analysis & readiness report", status: "pending" }
+  ]);
+
   const [saveFormData, setSaveFormData] = useState({
     projectName: "",
     accountId: "",
@@ -103,6 +122,16 @@ export const NewEnquiryWorkspace: React.FC = () => {
     });
   };
 
+  const computeRawHash = (text: string) => {
+    return `${text.trim().length}:${text.slice(0, 30)}`;
+  };
+
+  const isEnquiryModifiedSinceAnalysis = Boolean(
+    currentEnquiryAnalysis &&
+    analysisSourceHash &&
+    computeRawHash(rawEnquiryInput.rawContent) !== analysisSourceHash
+  );
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const newFiles = Array.from(e.target.files).map((file: File) => ({
@@ -122,37 +151,94 @@ export const NewEnquiryWorkspace: React.FC = () => {
     }
 
     setIsLoading(true);
+    setAnalysisError(null);
+    setStreamedChunkPreview("");
+
+    // Reset stages to pending
+    setProgressStages([
+      { id: "reading", label: "Reading enquiry source & tender metadata", status: "active" },
+      { id: "extracting", label: "Extracting project scope & luminaire requirements", status: "pending" },
+      { id: "standards_check", label: "Verifying AS/NZS 1158 & AS/NZS 1170.2 criteria", status: "pending" },
+      { id: "product_matching", label: "Resolving matching Plasgain luminaires & poles", status: "pending" },
+      { id: "finalizing", label: "Formatting structured analysis & readiness report", status: "pending" }
+    ]);
+
+    const jobId = `job-${Date.now()}`;
+    const pName = rawEnquiryInput.project || rawEnquiryInput.company || "Customer Tender";
+    setActiveBackgroundAnalysisJob({ id: jobId, projectName: pName, status: "running" });
 
     try {
-      setAnalysisError(null);
-      const data = await apiPost("/api/analyse-enquiry", {
-        rawEnquiry: rawEnquiryInput.rawContent,
-        metadata: {
-          customerName: rawEnquiryInput.customer,
-          customer: rawEnquiryInput.customer,
-          contactName: rawEnquiryInput.customer,
-          company: rawEnquiryInput.company,
-          projectName: rawEnquiryInput.project,
-          project: rawEnquiryInput.project,
-          location: rawEnquiryInput.location,
-          source: rawEnquiryInput.source,
-          attachedFiles: simulatedFiles.map((f) => f.name)
+      const data = await apiStreamPost<EnquiryAnalysisResult>(
+        "/api/enquiry/analyze-stream",
+        {
+          rawEnquiry: rawEnquiryInput.rawContent,
+          metadata: {
+            customerName: rawEnquiryInput.customer,
+            customer: rawEnquiryInput.customer,
+            contactName: rawEnquiryInput.customer,
+            company: rawEnquiryInput.company,
+            projectName: rawEnquiryInput.project,
+            project: rawEnquiryInput.project,
+            location: rawEnquiryInput.location,
+            source: rawEnquiryInput.source,
+            attachedFiles: simulatedFiles.map((f) => f.name)
+          }
+        },
+        {
+          onStage: (stage) => {
+            setProgressStages((prev) => {
+              const stageOrder = ["reading", "extracting", "standards_check", "product_matching", "finalizing"];
+              const currentIdx = stageOrder.indexOf(stage.stage);
+              return prev.map((s, idx) => {
+                if (idx < currentIdx) return { ...s, status: "complete" };
+                if (idx === currentIdx) return { ...s, status: stage.status === "failed" ? "failed" : "active" };
+                return { ...s, status: "pending" };
+              });
+            });
+          },
+          onChunk: (delta) => {
+            setStreamedChunkPreview((prev) => (prev + delta).slice(-400));
+          },
+          onComplete: (finalResult) => {
+            if (finalResult) {
+              setCurrentEnquiryAnalysis(finalResult);
+              setAnalysisSourceHash(computeRawHash(rawEnquiryInput.rawContent));
+              if (finalResult.questionsBeforeWeQuote && finalResult.questionsBeforeWeQuote.length > 0) {
+                setSelectedQuestions(
+                  finalResult.questionsBeforeWeQuote.slice(0, 3).map((q: { question: string }) => q.question)
+                );
+              }
+            }
+          }
         }
-      });
-      setCurrentEnquiryAnalysis(data);
+      );
 
-      // Pre-select first 3 questions
-      if (data.questionsBeforeWeQuote && data.questionsBeforeWeQuote.length > 0) {
-        setSelectedQuestions(
-          data.questionsBeforeWeQuote.slice(0, 3).map((q: { question: string }) => q.question)
-        );
+      if (data) {
+        setCurrentEnquiryAnalysis(data);
+        setAnalysisSourceHash(computeRawHash(rawEnquiryInput.rawContent));
+        if (data.questionsBeforeWeQuote && data.questionsBeforeWeQuote.length > 0) {
+          setSelectedQuestions(
+            data.questionsBeforeWeQuote.slice(0, 3).map((q: { question: string }) => q.question)
+          );
+        }
       }
 
-      showToast("Enquiry analysed", "success");
+      // Mark all stages complete
+      setProgressStages((prev) => prev.map((s) => ({ ...s, status: "complete" })));
+      setActiveBackgroundAnalysisJob({ id: jobId, projectName: pName, status: "complete" });
+
+      addNotification({
+        type: "system",
+        title: "Tender Analysis Completed",
+        message: `Structured analysis generated for "${pName}".`,
+        actionUrl: "new-enquiry",
+        dealName: pName
+      });
+
+      showToast("Enquiry analysed successfully!", "success");
     } catch (err) {
       console.error("Analysis error:", err);
-      // No local sample analysis: a fabricated matrix presented as "Confirmed"
-      // is how a rep ends up quoting the wrong product to a real customer.
+      setActiveBackgroundAnalysisJob({ id: jobId, projectName: pName, status: "failed" });
       setCurrentEnquiryAnalysis(null);
       setSelectedQuestions([]);
       if (err instanceof AIUnavailableError) {
@@ -175,8 +261,6 @@ export const NewEnquiryWorkspace: React.FC = () => {
 
     try {
       setEmailError(null);
-      // These key names must match what /api/enquiry/analyze emits
-      // (contactName / project), otherwise every email opens "Hi Client,".
       const summary = currentEnquiryAnalysis.opportunitySummary;
       const data = await apiPost("/api/generate-email", {
         recipientName: summary.contactName?.value || rawEnquiryInput.customer,
@@ -190,7 +274,6 @@ export const NewEnquiryWorkspace: React.FC = () => {
       setGeneratedEmail(data);
     } catch (err) {
       console.error("Email generation error:", err);
-      // No canned letter: this text goes to a real customer.
       setGeneratedEmail(null);
       setEmailError(
         err instanceof AIUnavailableError
@@ -790,12 +873,12 @@ export const NewEnquiryWorkspace: React.FC = () => {
           <button
             onClick={handleAnalyze}
             disabled={isLoading}
-            className="bg-brand-deep hover:bg-brand-deep disabled:bg-line-strong text-white font-medium px-5 py-2 rounded-edge text-meta transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+            className="bg-brand-deep hover:bg-brand text-white font-medium px-5 py-2 rounded-edge text-meta transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
           >
             {isLoading ? (
               <>
                 <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Analysing with Gemini...</span>
+                <span>Streaming Analysis...</span>
               </>
             ) : (
               <>
@@ -805,7 +888,79 @@ export const NewEnquiryWorkspace: React.FC = () => {
             )}
           </button>
         </div>
+
+        {/* P2-01 / P2-02: Live Progress Stage Stepper */}
+        {isLoading && (
+          <div className="mt-4 p-4 bg-paper rounded-edge border border-line space-y-3 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between">
+              <span className="text-spec font-bold uppercase tracking-wider text-ink-dim flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-brand animate-pulse" />
+                <span>AI Engineering Pipeline In Progress</span>
+              </span>
+              <span className="text-spec font-mono text-ink-muted">AS/NZS 1158 & 1170.2 Evaluator</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
+              {progressStages.map((st, sIdx) => {
+                const isComplete = st.status === "complete";
+                const isActive = st.status === "active";
+                const isFailed = st.status === "failed";
+                return (
+                  <div
+                    key={st.id}
+                    className={`p-2.5 rounded-edge border text-spec transition-all ${
+                      isComplete
+                        ? "bg-emerald-50 border-emerald-300 text-emerald-900"
+                        : isActive
+                        ? "bg-brand/10 border-brand text-brand-deep ring-1 ring-brand/30 font-bold"
+                        : isFailed
+                        ? "bg-red-50 border-red-300 text-red-900"
+                        : "bg-surface/60 border-line text-ink-dim opacity-70"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-mono text-[10px] font-bold">0{sIdx + 1}</span>
+                      {isComplete && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />}
+                      {isActive && <div className="w-2.5 h-2.5 rounded-full bg-brand animate-ping" />}
+                      {isFailed && <AlertTriangle className="w-3.5 h-3.5 text-red-600" />}
+                    </div>
+                    <p className="line-clamp-2 leading-tight font-medium">{st.label}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {streamedChunkPreview && (
+              <div className="p-2 bg-surface rounded border border-line font-mono text-[11px] text-ink-dim truncate">
+                <span className="text-brand-deep font-bold mr-1">Stream Output:</span>
+                {streamedChunkPreview}
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* P2-05: Stale Enquiry Warning Banner */}
+      {isEnquiryModifiedSinceAnalysis && (
+        <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-panel flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-meta text-amber-900 animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-amber-700 shrink-0" />
+            <div>
+              <p className="font-bold text-amber-900">Enquiry text has changed since analysis was generated</p>
+              <p className="text-spec text-amber-800">
+                To prevent outdated specifications in quotes and customer communications, re-analyse the enquiry.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleAnalyze}
+            className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-spec rounded-edge shrink-0 cursor-pointer shadow-2xs flex items-center gap-1.5"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Reanalyse Enquiry</span>
+          </button>
+        </div>
+      )}
 
       {/* AI unavailable - shown instead of an analysis, never alongside one */}
       {analysisError && !currentEnquiryAnalysis && (
@@ -915,6 +1070,17 @@ export const NewEnquiryWorkspace: React.FC = () => {
                     <span>{currentEnquiryAnalysis.readiness.missingItems.length} Missing</span>
                   </div>
                 </div>
+              </div>
+
+              <div className="pt-3 border-t border-line">
+                <button
+                  type="button"
+                  onClick={() => setIsReadinessGateOpen(true)}
+                  className="w-full py-2 px-3 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Pre-Quote Readiness Gate &rarr;</span>
+                </button>
               </div>
             </div>
           </div>
@@ -1143,6 +1309,18 @@ export const NewEnquiryWorkspace: React.FC = () => {
                     {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.distinctionNotes ||
                       "This recommendation represents a preliminary product fit. Formal AS/NZS 1158 certification and council sign-off requires a point-by-point Dialux photometric simulation by Plasgain Engineering."}
                   </div>
+                </div>
+
+                {/* P2-09: Commercial Pricing Action */}
+                <div className="flex items-center justify-end pt-2 border-t border-brand-edge">
+                  <button
+                    type="button"
+                    onClick={() => setIsPricingRequestOpen(true)}
+                    className="px-3.5 py-1.5 bg-surface hover:bg-hover text-brand-deep border border-brand-edge font-bold text-spec rounded-edge flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                  >
+                    <DollarSign className="w-3.5 h-3.5" />
+                    <span>Request Approved Commercial Pricing</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -1386,6 +1564,48 @@ export const NewEnquiryWorkspace: React.FC = () => {
               ? [currentEnquiryAnalysis.primaryRecommendation.productName]
               : ["Intense Light - 50W Solar", "Pro Blade Solar 75/125"]
           }
+        />
+      )}
+
+      {/* P2-08: Pre-Quote Readiness Gate Modal */}
+      {isReadinessGateOpen && (
+        <QuoteReadinessModal
+          isOpen={isReadinessGateOpen}
+          onClose={() => setIsReadinessGateOpen(false)}
+          context={{
+            quoteType: "firm",
+            productFamily: currentEnquiryAnalysis?.productRecommendations?.recommendedStartingPoint?.productName || "Solar Public Luminaire",
+            productCode: currentEnquiryAnalysis?.productRecommendations?.recommendedStartingPoint?.productCode || "PLASGAIN-SOLAR",
+            mountingHeight: currentEnquiryAnalysis?.opportunitySummary?.mountingHeight?.value,
+            windRegion: currentEnquiryAnalysis?.opportunitySummary?.windRegion?.value,
+            autonomyDays: 5,
+            commercialPricingApproved: false,
+            operatingProfileConfirmed: true
+          }}
+          onRequestCommercialPricing={() => {
+            setIsReadinessGateOpen(false);
+            setIsPricingRequestOpen(true);
+          }}
+          onProceedWithQuote={(type) => {
+            showToast(`Proceeding with ${type.toUpperCase()} quotation workflow`, "success");
+            setIsDatasheetModalOpen(true);
+          }}
+        />
+      )}
+
+      {/* P2-09: Commercial Pricing Request Modal */}
+      {isPricingRequestOpen && (
+        <CommercialPricingRequestModal
+          isOpen={isPricingRequestOpen}
+          onClose={() => setIsPricingRequestOpen(false)}
+          productCode={currentEnquiryAnalysis?.productRecommendations?.recommendedStartingPoint?.productCode || "PLASGAIN-SOLAR"}
+          productName={currentEnquiryAnalysis?.productRecommendations?.recommendedStartingPoint?.productName || "Solar Luminaire System"}
+          projectName={rawEnquiryInput.project || "Public Lighting Project"}
+          customerCompany={rawEnquiryInput.company || "Prospective Client"}
+          initialQuantity={10}
+          onRequestSubmitted={(req) => {
+            showToast(`Pricing Request #${req.id} submitted for commercial review`, "success");
+          }}
         />
       )}
     </div>

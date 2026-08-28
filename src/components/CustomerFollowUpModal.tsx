@@ -12,10 +12,13 @@ import {
   Calendar,
   Layers,
   Sparkles,
-  Save
+  Save,
+  Check,
+  RotateCcw
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { generateCustomerFollowUpEmail } from "../utils/datasheetExporter";
+import { getLocalDateInputValue, addBusinessDaysLocal } from "../utils/dateUtils";
 
 export interface CustomerFollowUpModalProps {
   isOpen: boolean;
@@ -47,7 +50,8 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
     currentUser,
     crmOpportunities,
     updateCrmOpportunity,
-    logActivity
+    logActivity,
+    addTask
   } = useApp();
 
   const [cadence, setCadence] = useState<"day7" | "day14" | "urgent">("day7");
@@ -60,7 +64,15 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
   const [leadTime, setLeadTime] = useState("2–3 weeks from order confirmation");
   const [warranty, setWarranty] = useState("5-Year Plasgain System Warranty");
   const [customNote, setCustomNote] = useState("");
-  const [isLogged, setIsLogged] = useState(false);
+
+  // P2-14: Combined Step Tracking
+  const [nextFollowUpDate, setNextFollowUpDate] = useState(() => {
+    return addBusinessDaysLocal(cadence === "day7" ? 7 : 14);
+  });
+  const [stepEmail, setStepEmail] = useState<"idle" | "done" | "error">("idle");
+  const [stepActivity, setStepActivity] = useState<"idle" | "done" | "error">("idle");
+  const [stepTask, setStepTask] = useState<"idle" | "done" | "error">("idle");
+  const [isExecutingAll, setIsExecutingAll] = useState(false);
 
   // Sync state if initial props change
   React.useEffect(() => {
@@ -110,312 +122,394 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
 
   if (!isOpen) return null;
 
+  const mailtoUrl = `mailto:${encodeURIComponent(contactEmail || "")}?subject=${encodeURIComponent(
+    editableSubject
+  )}&body=${encodeURIComponent(editableBody)}`;
+
   const handleCopyEmail = () => {
     if (profileValidationError) {
       showToast(profileValidationError, "error");
       return;
     }
-    const fullText = `Subject: ${editableSubject}\n\n${editableBody}`;
-    navigator.clipboard.writeText(fullText);
-    showToast("Copied follow-up email to clipboard!", "success");
+    navigator.clipboard.writeText(`Subject: ${editableSubject}\n\n${editableBody}`);
+    setStepEmail("done");
+    showToast("Email copied to clipboard!", "success");
   };
 
   const handleLogToCRM = () => {
-    const activityTitle = `Follow-Up Sent (${cadence === "day7" ? "Day 7 Check-in" : cadence === "day14" ? "Day 14 Technical Support" : "Urgent Tender Check-in"})`;
-    
-    if (dealId) {
-      const deal = crmOpportunities.find((d) => d.id === dealId);
-      if (deal) {
+    try {
+      logActivity({
+        type: "email",
+        title: `Customer Follow-Up (${cadence.toUpperCase()}): ${projectName || companyName}`,
+        description: `Sent follow-up regarding quotation ${quoteRef || "pending"} to ${contactName} <${contactEmail}>.\n\nSubject: ${editableSubject}`,
+        contactName: contactName || "Customer Contact",
+        accountName: companyName || "Client Organisation",
+        dealName: projectName || undefined,
+        status: "Completed",
+        outcome: "Follow-up email dispatched via reviewed workflow"
+      });
+
+      if (dealId) {
         updateCrmOpportunity(dealId, {
-          latestActivity: activityTitle,
-          latestActivityDate: new Date().toISOString().split("T")[0],
-          nextAction: "Review customer response to follow-up",
-          nextActionDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-          ostendoQuoteRef: quoteRef || deal.ostendoQuoteRef
+          lastActivity: `Follow-Up (${cadence}): Email sent`,
+          lastActivityDate: getLocalDateInputValue(new Date()),
+          stageName: "Follow-Up"
         });
       }
-    }
 
-    if (logActivity) {
-      logActivity({
-        id: `act-${Date.now()}`,
-        type: "Email",
-        title: activityTitle,
-        description: `Subject: ${editableSubject}\nQuote Ref: ${quoteRef || "N/A"}\n\n${editableBody.substring(0, 150)}...`,
-        accountId: accountId || "acc-1",
-        opportunityId: dealId,
-        date: new Date().toISOString().split("T")[0],
-        time: new Date().toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit" }),
-        performedBy: currentUser.name,
-        outcome: "Follow-up email dispatched to client"
-      });
+      setStepActivity("done");
+      showToast("Activity logged to CRM timeline!", "success");
+    } catch {
+      setStepActivity("error");
+      showToast("Failed to log CRM activity.", "error");
     }
-
-    setIsLogged(true);
-    showToast("Recorded follow-up activity to CRM timeline!", "success");
   };
 
-  const mailtoUrl = `mailto:?subject=${encodeURIComponent(editableSubject)}&body=${encodeURIComponent(editableBody)}`;
+  const handleScheduleTask = () => {
+    try {
+      addTask?.({
+        title: `Follow up ${companyName || "customer"} on quote ${quoteRef || projectName}`,
+        description: `Check customer response to ${cadence.toUpperCase()} cadence email sent on ${getLocalDateInputValue(new Date())}.`,
+        dueDate: nextFollowUpDate,
+        priority: cadence === "urgent" ? "Urgent" : "High",
+        type: "Follow-up",
+        status: "To Do",
+        assignedTo: currentUser.name || "Sales Specialist",
+        associatedDeal: projectName,
+        associatedAccount: companyName,
+        associatedContact: contactName
+      });
+
+      setStepTask("done");
+      showToast(`Follow-up task scheduled for ${nextFollowUpDate}!`, "success");
+    } catch {
+      setStepTask("error");
+      showToast("Failed to schedule follow-up task.", "error");
+    }
+  };
+
+  // P2-14: Atomic Combined Workflow Execution
+  const handleExecuteCombinedWorkflow = async () => {
+    if (profileValidationError) {
+      showToast(profileValidationError, "error");
+      return;
+    }
+
+    setIsExecutingAll(true);
+
+    // Step 1: Copy/Open email
+    try {
+      await navigator.clipboard.writeText(`Subject: ${editableSubject}\n\n${editableBody}`);
+      setStepEmail("done");
+    } catch {
+      setStepEmail("error");
+    }
+
+    // Step 2: Log Activity
+    try {
+      logActivity({
+        type: "email",
+        title: `Customer Follow-Up: ${projectName || companyName}`,
+        description: `Dispatched ${cadence} follow-up to ${contactName} (${contactEmail}) for quote ${quoteRef || "active"}.`,
+        contactName,
+        accountName: companyName,
+        dealName: projectName,
+        status: "Completed",
+        outcome: "Dispatched via Reviewed Follow-Up Workflow"
+      });
+      if (dealId) {
+        updateCrmOpportunity(dealId, {
+          lastActivity: `Email dispatched (${cadence})`,
+          lastActivityDate: getLocalDateInputValue(new Date())
+        });
+      }
+      setStepActivity("done");
+    } catch {
+      setStepActivity("error");
+    }
+
+    // Step 3: Schedule Task
+    try {
+      addTask?.({
+        title: `Follow-up call with ${contactName} (${companyName})`,
+        description: `Review quote status for ${projectName}. Email sent on ${getLocalDateInputValue(new Date())}.`,
+        dueDate: nextFollowUpDate,
+        priority: cadence === "urgent" ? "Urgent" : "Medium",
+        type: "Follow-up",
+        status: "To Do",
+        assignedTo: currentUser.name || "Sales Rep",
+        associatedDeal: projectName,
+        associatedAccount: companyName,
+        associatedContact: contactName
+      });
+      setStepTask("done");
+    } catch {
+      setStepTask("error");
+    }
+
+    setIsExecutingAll(false);
+    showToast("Combined follow-up workflow executed successfully!", "success");
+  };
 
   return (
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="follow-up-generator-title"
-      className="fixed inset-0 bg-chrome/60 backdrop-blur-xs z-50 flex items-center justify-center p-4"
-    >
-      <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl border border-line overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-150">
-        
-        {/* Header */}
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-chrome/60 backdrop-blur-xs">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="follow-up-modal-title"
+        className="bg-surface w-full max-w-4xl rounded-frame border border-line shadow-2xl overflow-hidden flex flex-col max-h-[92vh]"
+      >
+        {/* Modal Header */}
         <div className="p-4 bg-raised border-b border-line flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <Mail className="w-5 h-5 text-brand-deep" />
+            <div className="w-8 h-8 rounded-full bg-brand/10 flex items-center justify-center text-brand-deep">
+              <Mail className="w-4 h-4" />
+            </div>
             <div>
-              <h3 id="follow-up-generator-title" className="font-bold text-lg text-body">
-                Customer Follow-Up Generator
-              </h3>
+              <h2 id="follow-up-modal-title" className="text-body font-bold text-ink">
+                Customer Follow-Up Generator &amp; Activity Workflow
+              </h2>
               <p className="text-spec text-ink-dim">
-                Tailored follow-up sequences referencing Ostendo ERP quotes and quoted Plasgain products.
+                Review email, log CRM interaction, and schedule next follow-up in one coherent flow
               </p>
             </div>
           </div>
           <button
-            type="button"
             onClick={onClose}
-            aria-label="Close modal"
-            className="text-ink-faint hover:text-ink p-1 rounded cursor-pointer"
+            aria-label="Close"
+            className="p-1.5 rounded-edge hover:bg-hover text-ink-dim hover:text-ink cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="p-5 overflow-y-auto space-y-4 text-meta">
-          
-          {/* Cadence Preset Selector */}
+        {/* Modal Content */}
+        <div className="p-5 overflow-y-auto space-y-4 text-meta text-ink">
+          {/* Profile Incomplete Error Alert */}
+          {profileValidationError && (
+            <div className="p-3.5 bg-red-50 border border-red-200 rounded-edge flex items-start gap-2.5 text-meta text-red-800">
+              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-red-900">Sender Profile Incomplete</p>
+                <p className="text-spec text-red-700">{profileValidationError}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Top Reviewed Workflow Summary Bar (P2-14) */}
+          <div className="p-3 bg-brand/5 border border-brand/20 rounded-edge grid grid-cols-2 sm:grid-cols-4 gap-3 text-spec">
+            <div>
+              <span className="font-bold text-ink-dim uppercase block">Recipient</span>
+              <span className="font-bold text-ink truncate block" title={contactEmail}>
+                {contactName || "Customer"} ({contactEmail || "no email"})
+              </span>
+            </div>
+            <div>
+              <span className="font-bold text-ink-dim uppercase block">Account / Project</span>
+              <span className="font-bold text-ink truncate block" title={`${companyName} — ${projectName}`}>
+                {companyName || "Organisation"} • {projectName || "Tender"}
+              </span>
+            </div>
+            <div>
+              <span className="font-bold text-ink-dim uppercase block">Quote Reference</span>
+              <span className="font-bold font-mono text-ink block">{quoteRef || "Pending Ref"}</span>
+            </div>
+            <div>
+              <span className="font-bold text-ink-dim uppercase block">Scheduled Next Action</span>
+              <input
+                type="date"
+                value={nextFollowUpDate}
+                onChange={(e) => setNextFollowUpDate(e.target.value)}
+                className="font-bold text-ink bg-surface border border-line rounded px-1.5 py-0.5 text-spec mt-0.5"
+              />
+            </div>
+          </div>
+
+          {/* Cadence Selector Tabs */}
           <div>
-            <label className="block text-spec font-bold uppercase text-ink-dim mb-1.5">
-              Select Follow-Up Cadence &amp; Strategy
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <label className="block text-spec font-bold uppercase text-ink-dim mb-1.5">Follow-Up Strategy</label>
+            <div className="grid grid-cols-3 gap-2">
               <button
                 type="button"
                 onClick={() => setCadence("day7")}
-                className={`p-3 rounded-edge border text-left transition-all cursor-pointer ${
+                className={`p-2.5 rounded-edge border text-left cursor-pointer transition-all ${
                   cadence === "day7"
-                    ? "bg-brand-wash border-brand text-brand-deep shadow-xs"
-                    : "bg-paper border-line text-body hover:bg-raised"
+                    ? "bg-brand/10 border-brand text-brand-deep font-bold shadow-2xs"
+                    : "bg-surface border-line hover:bg-hover text-ink-dim"
                 }`}
               >
-                <div className="flex items-center gap-1.5 font-bold text-meta">
-                  <Clock className="w-4 h-4 text-brand-deep" />
-                  <span>Day 7 Check-in</span>
-                </div>
-                <p className="text-spec text-ink-dim mt-1">
-                  Quote receipt verification, luminaire spec confirmation &amp; technical Q&amp;A.
-                </p>
+                <p className="font-bold text-meta">Day 7 Check-in</p>
+                <p className="text-spec text-ink-dim line-clamp-1">Gentle review &amp; specification confirmation</p>
               </button>
 
               <button
                 type="button"
                 onClick={() => setCadence("day14")}
-                className={`p-3 rounded-edge border text-left transition-all cursor-pointer ${
+                className={`p-2.5 rounded-edge border text-left cursor-pointer transition-all ${
                   cadence === "day14"
-                    ? "bg-brand-wash border-brand text-brand-deep shadow-xs"
-                    : "bg-paper border-line text-body hover:bg-raised"
+                    ? "bg-brand/10 border-brand text-brand-deep font-bold shadow-2xs"
+                    : "bg-surface border-line hover:bg-hover text-ink-dim"
                 }`}
               >
-                <div className="flex items-center gap-1.5 font-bold text-meta">
-                  <Sparkles className="w-4 h-4 text-brand-deep" />
-                  <span>Day 14 Technical</span>
-                </div>
-                <p className="text-spec text-ink-dim mt-1">
-                  Dialux photometric engineering support, AS 1158 report &amp; lead-time hold.
-                </p>
+                <p className="font-bold text-meta">Day 14 Technical</p>
+                <p className="text-spec text-ink-dim line-clamp-1">Technical review &amp; engineering support</p>
               </button>
 
               <button
                 type="button"
                 onClick={() => setCadence("urgent")}
-                className={`p-3 rounded-edge border text-left transition-all cursor-pointer ${
+                className={`p-2.5 rounded-edge border text-left cursor-pointer transition-all ${
                   cadence === "urgent"
-                    ? "bg-urgent-wash border-urgent text-urgent shadow-xs"
-                    : "bg-paper border-line text-body hover:bg-raised"
+                    ? "bg-brand/10 border-brand text-brand-deep font-bold shadow-2xs"
+                    : "bg-surface border-line hover:bg-hover text-ink-dim"
                 }`}
               >
-                <div className="flex items-center gap-1.5 font-bold text-meta">
-                  <AlertTriangle className="w-4 h-4 text-urgent" />
-                  <span>Tender Closing</span>
-                </div>
-                <p className="text-spec text-ink-dim mt-1">
-                  Urgent tender deadline check-in, complete spec sheet pack &amp; warranty statement.
-                </p>
+                <p className="font-bold text-meta">Tender Closing</p>
+                <p className="text-spec text-ink-dim line-clamp-1">Urgent delivery schedule &amp; stock support</p>
               </button>
             </div>
           </div>
 
-          {/* Metadata Inputs */}
-          <div className="bg-paper p-3.5 rounded-edge border border-line grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Editable Fields */}
+          <div className="space-y-3">
             <div>
-              <label className="block text-spec font-bold uppercase text-ink-dim mb-1">Contact Name</label>
-              <input
-                type="text"
-                value={contactName}
-                onChange={(e) => setContactName(e.target.value)}
-                placeholder="Rob Mitchell"
-                className="w-full p-2 bg-white text-meta rounded-edge border border-line font-medium"
-              />
-            </div>
-
-            <div>
-              <label className="block text-spec font-bold uppercase text-ink-dim mb-1">Company / Council</label>
-              <input
-                type="text"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                placeholder="Ballarat City Council"
-                className="w-full p-2 bg-white text-meta rounded-edge border border-line font-medium"
-              />
-            </div>
-
-            <div>
-              <label className="block text-spec font-bold uppercase text-ink-dim mb-1">Project Name</label>
-              <input
-                type="text"
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                placeholder="Shared Path Lighting"
-                className="w-full p-2 bg-white text-meta rounded-edge border border-line font-medium"
-              />
-            </div>
-
-            <div>
-              <label className="block text-spec font-bold uppercase text-brand-deep mb-1">
-                Ostendo Quote Ref
-              </label>
-              <input
-                type="text"
-                value={quoteRef}
-                onChange={(e) => setQuoteRef(e.target.value)}
-                placeholder="e.g. Q-8924"
-                className="w-full p-2 bg-brand-wash text-meta rounded-edge border border-brand-edge font-bold text-brand-deep"
-              />
-            </div>
-          </div>
-
-          {profileValidationError ? (
-            <div className="p-3 bg-red-50 border border-red-300 rounded-edge text-meta text-red-900 flex items-start gap-2.5">
-              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-              <div>
-                <strong className="font-bold">Sender Profile Incomplete: </strong>
-                <span>{profileValidationError}</span>
-              </div>
-            </div>
-          ) : !currentUser.phone ? (
-            <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-edge text-spec text-amber-900 flex items-center justify-between">
-              <span>
-                <strong>Profile Tip:</strong> Direct phone number is not set in Settings. Your email address ({currentUser.email || "sales@plasgain.com.au"}) is used in the signature.
-              </span>
-            </div>
-          ) : null}
-
-          {/* Email Subject & Body Preview */}
-          <div className="space-y-2">
-            <div>
-              <label className="block text-spec font-bold uppercase text-ink-dim mb-1">Email Subject</label>
+              <label className="block text-spec font-bold uppercase text-ink-dim mb-1">Subject Line</label>
               <input
                 type="text"
                 value={editableSubject}
                 onChange={(e) => setEditableSubject(e.target.value)}
-                className="w-full p-2 bg-white text-meta rounded-edge border border-line font-bold text-body"
+                className="w-full p-2.5 bg-surface border border-line-strong rounded-edge text-body font-medium focus:ring-1 focus:ring-brand"
               />
             </div>
 
             <div>
-              <label className="block text-spec font-bold uppercase text-ink-dim mb-1">Formatted Message Body</label>
+              <label className="block text-spec font-bold uppercase text-ink-dim mb-1">Message Body</label>
               <textarea
                 rows={9}
                 value={editableBody}
                 onChange={(e) => setEditableBody(e.target.value)}
-                className="w-full p-3 bg-white text-meta rounded-edge border border-line font-sans leading-relaxed text-body focus:ring-1 focus:ring-brand resize-y"
+                className="w-full p-3 bg-surface border border-line-strong rounded-edge text-meta font-mono leading-relaxed focus:ring-1 focus:ring-brand"
               />
             </div>
           </div>
 
+          {/* Workflow Step Status Badges (P2-14) */}
+          <div className="p-3 bg-paper border border-line rounded-edge flex flex-wrap items-center justify-between gap-2 text-spec">
+            <span className="font-bold text-ink-dim uppercase">Workflow Steps Status:</span>
+            <div className="flex items-center gap-3">
+              <span className={`inline-flex items-center gap-1 font-bold ${
+                stepEmail === "done" ? "text-emerald-700" : stepEmail === "error" ? "text-red-700" : "text-ink-dim"
+              }`}>
+                {stepEmail === "done" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Mail className="w-3.5 h-3.5" />}
+                <span>1. Email Copied</span>
+              </span>
+
+              <span className={`inline-flex items-center gap-1 font-bold ${
+                stepActivity === "done" ? "text-emerald-700" : stepActivity === "error" ? "text-red-700" : "text-ink-dim"
+              }`}>
+                {stepActivity === "done" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Save className="w-3.5 h-3.5" />}
+                <span>2. CRM Logged</span>
+              </span>
+
+              <span className={`inline-flex items-center gap-1 font-bold ${
+                stepTask === "done" ? "text-emerald-700" : stepTask === "error" ? "text-red-700" : "text-ink-dim"
+              }`}>
+                {stepTask === "done" ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Calendar className="w-3.5 h-3.5" />}
+                <span>3. Follow-Up Task</span>
+              </span>
+            </div>
+          </div>
         </div>
 
-        {/* Modal Footer */}
+        {/* Modal Footer Actions */}
         <div className="p-4 bg-raised border-t border-line flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
           <div className="flex items-center gap-2">
             <button
               onClick={handleCopyEmail}
               disabled={Boolean(profileValidationError)}
               title={profileValidationError || "Copy email to clipboard"}
-              className={`px-3.5 py-2 text-meta font-bold rounded-edge border flex items-center gap-1.5 shadow-2xs transition-colors ${
-                profileValidationError
-                  ? "bg-paper text-ink-faint border-line cursor-not-allowed"
-                  : "bg-white hover:bg-raised text-body border-line cursor-pointer"
-              }`}
+              className="px-3.5 py-2 text-meta font-bold rounded-edge border bg-surface hover:bg-hover text-ink border-line flex items-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-40"
             >
               <Copy className="w-3.5 h-3.5 text-ink-dim" />
-              <span>Copy Email Text</span>
+              <span>{stepEmail === "done" ? "Copied ✓" : "Copy Email Text"}</span>
             </button>
 
             <a
               href={profileValidationError ? "#" : mailtoUrl}
               target={profileValidationError ? "_self" : "_blank"}
               rel="noopener noreferrer"
-              aria-disabled={Boolean(profileValidationError)}
-              title={profileValidationError || "Open mail client"}
               onClick={(e) => {
                 if (profileValidationError) {
                   e.preventDefault();
                   showToast(profileValidationError, "error");
                 }
               }}
-              className={`px-3.5 py-2 text-meta font-bold rounded-edge border flex items-center gap-1.5 shadow-2xs transition-colors ${
-                profileValidationError
-                  ? "bg-paper text-ink-faint border-line cursor-not-allowed pointer-events-none"
-                  : "bg-paper hover:bg-raised text-body border-line cursor-pointer"
-              }`}
+              className="px-3.5 py-2 text-meta font-bold rounded-edge border bg-surface hover:bg-hover text-ink border-line flex items-center gap-1.5 shadow-2xs cursor-pointer"
             >
               <ExternalLink className="w-3.5 h-3.5 text-ink-dim" />
-              <span>Open in Outlook / Mail Client</span>
+              <span>Open in Outlook</span>
             </a>
+
+            <button
+              onClick={handleLogToCRM}
+              className="px-3.5 py-2 text-meta font-bold rounded-edge border bg-surface hover:bg-hover text-ink border-line flex items-center gap-1.5 shadow-2xs cursor-pointer"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-ink-dim" />
+              <span>Log Activity to CRM</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Step Retry Buttons if individual step failed */}
+            {stepActivity === "error" && (
+              <button
+                onClick={handleLogToCRM}
+                className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-spec rounded-edge cursor-pointer"
+              >
+                Retry Activity Log
+              </button>
+            )}
+
+            {stepTask === "error" && (
+              <button
+                onClick={handleScheduleTask}
+                className="px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-spec rounded-edge cursor-pointer"
+              >
+                Retry Task Schedule
+              </button>
+            )}
+
+            {/* P2-14: Primary 1-Click Reviewed Workflow Execution */}
             <button
-              onClick={handleLogToCRM}
-              disabled={isLogged}
-              className={`px-4 py-2 font-bold text-meta rounded-edge shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors ${
-                isLogged
+              onClick={handleExecuteCombinedWorkflow}
+              disabled={Boolean(profileValidationError) || isExecutingAll}
+              className={`px-4 py-2 font-bold text-meta rounded-edge shadow-xs flex items-center gap-1.5 cursor-pointer ${
+                stepEmail === "done" && stepActivity === "done" && stepTask === "done"
                   ? "bg-emerald-600 text-white cursor-default"
                   : "bg-brand-deep hover:bg-brand text-white"
               }`}
             >
-              {isLogged ? (
+              {stepEmail === "done" && stepActivity === "done" && stepTask === "done" ? (
                 <>
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>Logged to CRM</span>
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>Workflow Completed</span>
                 </>
               ) : (
                 <>
-                  <Save className="w-3.5 h-3.5" />
-                  <span>Log Activity to CRM</span>
+                  <Send className="w-4 h-4" />
+                  <span>{isExecutingAll ? "Executing Workflow..." : "Execute Reviewed Follow-Up Workflow"}</span>
                 </>
               )}
             </button>
 
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-line hover:bg-line-strong text-meta font-medium rounded-edge cursor-pointer"
+              className="px-3.5 py-2 bg-line hover:bg-line-strong text-meta font-medium rounded-edge cursor-pointer"
             >
               Close
             </button>
           </div>
         </div>
-
       </div>
     </div>
   );

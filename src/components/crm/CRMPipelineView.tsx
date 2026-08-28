@@ -39,6 +39,8 @@ import { CustomerFollowUpModal } from "../CustomerFollowUpModal";
 import { DatasheetPackageModal } from "../DatasheetPackageModal";
 import { SAMPLE_PRODUCTS } from "../../data/mockData";
 import { validateDealValue, ValueBasis } from "../../utils/dealValueValidator";
+import { detectDuplicateOpportunity, DuplicateMatchResult } from "../../utils/duplicateDetector";
+import { CRMDuplicateWarningModal } from "./CRMDuplicateWarningModal";
 import {
   formatOstendoCSV,
   formatOstendoTabDelimited,
@@ -83,6 +85,9 @@ export const CRMPipelineView: React.FC = () => {
   const [isNewDealModalOpen, setIsNewDealModalOpen] = useState(false);
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
   const [isDatasheetModalOpen, setIsDatasheetModalOpen] = useState(false);
+  const [duplicateMatch, setDuplicateMatch] = useState<DuplicateMatchResult<any> | null>(null);
+  const [pendingDealToCreate, setPendingDealToCreate] = useState<CRMOpportunity | null>(null);
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
 
   // BOM Editor local state
   const [isAddingBomLine, setIsAddingBomLine] = useState(false);
@@ -201,6 +206,29 @@ export const CRMPipelineView: React.FC = () => {
       dealHealthReasons: ["New opportunity with fresh timeline"],
       notes: newDealForm.notes
     };
+
+    const duplicate = detectDuplicateOpportunity(
+      {
+        customerCompany: account.name,
+        project: newDealForm.name,
+        tenderRef: newDealForm.quoteNumber || newDealForm.ostendoQuoteRef
+      },
+      crmOpportunities.map((d) => ({
+        id: d.id,
+        customerCompany: d.accountName,
+        project: d.name,
+        quoteNumber: d.quoteNumber,
+        ostendoQuoteRef: d.ostendoQuoteRef,
+        status: d.stageName
+      } as any))
+    );
+
+    if (duplicate) {
+      setPendingDealToCreate(newDeal);
+      setDuplicateMatch(duplicate);
+      setIsDuplicateModalOpen(true);
+      return;
+    }
 
     addCrmOpportunity(newDeal);
     setSelectedCrmOpportunityId(newDeal.id);
@@ -1650,6 +1678,37 @@ export const CRMPipelineView: React.FC = () => {
           customerName={selectedDeal.accountName}
           quoteRef={selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber || ""}
           initialProductNames={selectedDeal.products.map((p) => p.productName || p.productCode)}
+        />
+      )}
+
+      {/* P2-13: CRM Duplicate Deal / Opportunity Warning Modal */}
+      {isDuplicateModalOpen && duplicateMatch && pendingDealToCreate && (
+        <CRMDuplicateWarningModal<any>
+          isOpen={isDuplicateModalOpen}
+          onClose={() => {
+            setIsDuplicateModalOpen(false);
+            setDuplicateMatch(null);
+            setPendingDealToCreate(null);
+          }}
+          entityType="Opportunity"
+          candidateName={pendingDealToCreate.name}
+          matchResult={duplicateMatch}
+          onOpenExisting={(existingOpp) => {
+            setSelectedCrmOpportunityId(existingOpp.id);
+            setIsNewDealModalOpen(false);
+            showToast(`Navigated to active deal "${existingOpp.project || existingOpp.name}"`, "info");
+          }}
+          onUseExisting={(existingOpp) => {
+            setSelectedCrmOpportunityId(existingOpp.id);
+            setIsNewDealModalOpen(false);
+            showToast(`Attached to existing deal "${existingOpp.project || existingOpp.name}"`, "success");
+          }}
+          onCreateAnyway={() => {
+            addCrmOpportunity(pendingDealToCreate);
+            setSelectedCrmOpportunityId(pendingDealToCreate.id);
+            setIsNewDealModalOpen(false);
+            showToast(`Created opportunity "${pendingDealToCreate.name}" (Duplicate override audit recorded)`, "warning");
+          }}
         />
       )}
     </div>
