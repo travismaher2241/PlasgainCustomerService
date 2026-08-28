@@ -42,9 +42,9 @@ describe('User Login & Identity Switching Suite', () => {
     expect(screen.getByText('Travis Maher')).toBeInTheDocument();
 
     // Click Sign In as Travis Maher
-    const travisButton = screen.getByText('Travis Maher').closest('button');
-    expect(travisButton).toBeInTheDocument();
-    fireEvent.click(travisButton!);
+    const travisCard = screen.getByText('Travis Maher').closest('[class*="rounded-panel"]')!;
+    expect(travisCard).toBeInTheDocument();
+    fireEvent.click(travisCard);
 
     // Active user should now be Travis Maher
     expect(screen.getByTestId('active-user-name')).toHaveTextContent('Travis Maher');
@@ -53,6 +53,39 @@ describe('User Login & Identity Switching Suite', () => {
     const saved = JSON.parse(localStorage.getItem('plasgain_user_profile') || '{}');
     expect(saved.name).toBe('Travis Maher');
     expect(saved.email).toBe('travis@plasgain.com.au');
+  });
+
+  it('allows deleting irrelevant users from workspace', async () => {
+    render(
+      <AppProvider>
+        <TestApp />
+      </AppProvider>
+    );
+
+    // Open from Settings "Switch Account / Sign In" button
+    const settingsSwitchBtn = screen.getByRole('button', { name: /Switch Account \/ Sign In/i });
+    fireEvent.click(settingsSwitchBtn);
+
+    // Verify Rob Mitchell is in the list
+    expect(screen.getByText('Rob Mitchell')).toBeInTheDocument();
+
+    // Click delete on Rob Mitchell
+    const deleteRobBtn = screen.getByLabelText(/Delete Rob Mitchell/i);
+    fireEvent.click(deleteRobBtn);
+
+    // Confirm banner appears
+    expect(screen.getByText(/Delete Rob Mitchell from workspace\?/i)).toBeInTheDocument();
+
+    // Confirm deletion
+    const confirmBtn = screen.getByRole('button', { name: /Confirm Delete/i });
+    fireEvent.click(confirmBtn);
+
+    // Rob Mitchell should no longer be in the document
+    expect(screen.queryByText('Rob Mitchell')).not.toBeInTheDocument();
+
+    // Verify localStorage has removed Rob Mitchell
+    const team = JSON.parse(localStorage.getItem('plasgain_team_members') || '[]');
+    expect(team.some((m: any) => m.name === 'Rob Mitchell')).toBe(false);
   });
 
   it('allows custom login with custom name and email', async () => {
@@ -77,7 +110,7 @@ describe('User Login & Identity Switching Suite', () => {
     fireEvent.change(nameInput, { target: { value: 'Alexander Wright' } });
     fireEvent.change(emailInput, { target: { value: 'awright@plasgain.com.au' } });
 
-    const submitBtn = screen.getByRole('button', { name: /Sign In & Save Details/i });
+    const submitBtn = screen.getByRole('button', { name: /Save & Sign In/i });
     fireEvent.click(submitBtn);
 
     // Active user should be Alexander Wright

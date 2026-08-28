@@ -10,19 +10,25 @@ import {
   CheckCircle2,
   LogIn,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  Trash2,
+  UserPlus
 } from "lucide-react";
-import { useApp, PRESET_TEAM_MEMBERS, UserProfile, initialsOf } from "../context/AppContext";
+import { useApp, UserProfile, initialsOf } from "../context/AppContext";
 
 export const UserLoginModal: React.FC = () => {
   const {
     isLoginModalOpen,
     closeLoginModal,
     currentUser,
-    loginAsUser
+    loginAsUser,
+    teamMembers,
+    deleteTeamMember,
+    addTeamMember
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<"preset" | "custom">("preset");
+  const [memberToDelete, setMemberToDelete] = useState<UserProfile | null>(null);
 
   const [customDraft, setCustomDraft] = useState<UserProfile>({
     name: "",
@@ -44,6 +50,7 @@ export const UserLoginModal: React.FC = () => {
         phone: currentUser.phone || ""
       });
       setErrorMsg(null);
+      setMemberToDelete(null);
     }
   }, [isLoginModalOpen, currentUser]);
 
@@ -53,6 +60,12 @@ export const UserLoginModal: React.FC = () => {
     loginAsUser(member);
   };
 
+  const handleDeleteConfirm = (e: React.MouseEvent, member: UserProfile) => {
+    e.stopPropagation();
+    deleteTeamMember(member.id || member.name);
+    setMemberToDelete(null);
+  };
+
   const handleCustomSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!customDraft.name.trim()) {
@@ -60,7 +73,7 @@ export const UserLoginModal: React.FC = () => {
       return;
     }
     const userId = `user-${customDraft.name.toLowerCase().trim().replace(/[^a-z0-9]/g, "-")}`;
-    loginAsUser({
+    const newProfile: UserProfile = {
       ...customDraft,
       id: userId,
       name: customDraft.name.trim(),
@@ -68,7 +81,9 @@ export const UserLoginModal: React.FC = () => {
       location: customDraft.location.trim(),
       email: customDraft.email.trim(),
       phone: (customDraft.phone || "").trim()
-    });
+    };
+    addTeamMember(newProfile);
+    loginAsUser(newProfile);
   };
 
   return (
@@ -122,7 +137,7 @@ export const UserLoginModal: React.FC = () => {
                 : "border-transparent text-ink-dim hover:text-ink"
             }`}
           >
-            Team Members
+            Team Members ({teamMembers.length})
           </button>
           <button
             type="button"
@@ -133,7 +148,7 @@ export const UserLoginModal: React.FC = () => {
                 : "border-transparent text-ink-dim hover:text-ink"
             }`}
           >
-            Custom Sign-In
+            Custom Sign-In / Add Member
           </button>
         </div>
 
@@ -141,17 +156,42 @@ export const UserLoginModal: React.FC = () => {
         <div className="p-5 overflow-y-auto space-y-4 text-meta text-ink flex-1">
           {activeTab === "preset" ? (
             <div className="space-y-3">
-              <p className="text-spec text-ink-dim">
-                Select your Plasgain team profile. Your identity will be saved locally and stored securely in Cloud Firestore for quoting, CRM activities, and email signatures.
-              </p>
+              <div className="flex items-center justify-between text-spec text-ink-dim">
+                <span>Select your profile to sign in or delete profiles that are irrelevant to you:</span>
+              </div>
+
+              {/* Confirm Delete Banner */}
+              {memberToDelete && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-edge flex items-center justify-between gap-3 text-meta text-red-900 animate-in fade-in duration-150">
+                  <div className="flex items-center gap-2">
+                    <Trash2 className="w-4 h-4 text-red-600 shrink-0" />
+                    <span>Delete {memberToDelete.name} from workspace?</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={(e) => handleDeleteConfirm(e, memberToDelete)}
+                      className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white font-bold text-spec rounded cursor-pointer transition-colors"
+                    >
+                      Confirm Delete
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMemberToDelete(null)}
+                      className="px-2 py-1 bg-white hover:bg-paper border border-line text-ink font-semibold text-spec rounded cursor-pointer transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2 pt-1">
-                {PRESET_TEAM_MEMBERS.map((member) => {
+                {teamMembers.map((member) => {
                   const isCurrent = currentUser.name.toLowerCase() === member.name.toLowerCase();
                   return (
-                    <button
-                      key={member.id}
-                      type="button"
+                    <div
+                      key={member.id || member.name}
                       onClick={() => handleSelectPreset(member)}
                       className={`w-full p-3.5 rounded-panel border text-left flex items-center justify-between gap-3 transition-all cursor-pointer ${
                         isCurrent
@@ -187,18 +227,50 @@ export const UserLoginModal: React.FC = () => {
                         </div>
                       </div>
 
-                      <div className="shrink-0 text-brand-deep font-semibold text-spec flex items-center gap-1">
+                      <div className="shrink-0 flex items-center gap-2">
                         {isCurrent ? (
                           <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                         ) : (
-                          <div className="px-2.5 py-1 bg-brand-deep text-white text-spec font-bold rounded-edge hover:bg-brand transition-colors">
-                            Sign In
-                          </div>
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleSelectPreset(member);
+                              }}
+                              className="px-3 py-1.5 bg-brand-deep text-white text-spec font-bold rounded-edge hover:bg-brand transition-colors cursor-pointer"
+                            >
+                              Sign In
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMemberToDelete(member);
+                              }}
+                              title={`Delete ${member.name} from workspace`}
+                              aria-label={`Delete ${member.name}`}
+                              className="p-1.5 text-ink-dim hover:text-red-600 hover:bg-red-50 rounded-edge transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
                         )}
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("custom")}
+                  className="w-full py-2.5 px-3 rounded-panel border border-dashed border-line hover:border-brand-deep hover:bg-brand-wash/40 text-brand-deep font-bold text-meta flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                >
+                  <UserPlus className="w-4 h-4" />
+                  <span>+ Add New User / Team Member</span>
+                </button>
               </div>
             </div>
           ) : (
@@ -287,7 +359,7 @@ export const UserLoginModal: React.FC = () => {
                   className="w-full py-2.5 px-4 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-sm flex items-center justify-center gap-2 cursor-pointer transition-colors"
                 >
                   <LogIn className="w-4 h-4" />
-                  <span>Sign In &amp; Save Details</span>
+                  <span>Save &amp; Sign In</span>
                 </button>
               </div>
             </form>

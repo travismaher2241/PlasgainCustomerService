@@ -179,6 +179,9 @@ interface AppContextType {
   openLoginModal: () => void;
   closeLoginModal: () => void;
   loginAsUser: (profile: UserProfile) => void;
+  teamMembers: UserProfile[];
+  deleteTeamMember: (idOrName: string) => void;
+  addTeamMember: (member: UserProfile) => void;
 
   activeTab: NavTab;
   setActiveTab: (tab: NavTab) => void;
@@ -379,6 +382,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem("plasgain_active_user_id", userId);
       saveDocToCloud("users", userId, next);
       return next;
+    });
+  };
+
+  const [teamMembers, setTeamMembers] = useState<UserProfile[]>(() => {
+    try {
+      const saved = localStorage.getItem("plasgain_team_members");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return PRESET_TEAM_MEMBERS;
+    } catch {
+      return PRESET_TEAM_MEMBERS;
+    }
+  });
+
+  const deleteTeamMember = (idOrName: string) => {
+    const memberToDelete = teamMembers.find(
+      (m) => m.id === idOrName || m.name.toLowerCase() === idOrName.toLowerCase()
+    );
+    if (!memberToDelete) return;
+
+    if (
+      currentUser.name.toLowerCase() === memberToDelete.name.toLowerCase() ||
+      (currentUser.id && currentUser.id === memberToDelete.id)
+    ) {
+      showToast("Cannot delete the currently signed-in user profile", "warning");
+      return;
+    }
+
+    setTeamMembers((prev) => {
+      const updated = prev.filter(
+        (m) => m.id !== memberToDelete.id && m.name.toLowerCase() !== memberToDelete.name.toLowerCase()
+      );
+      localStorage.setItem("plasgain_team_members", JSON.stringify(updated));
+      saveDocToCloud("settings", "team_members", { members: updated });
+      return updated;
+    });
+
+    showToast(`Removed "${memberToDelete.name}" from workspace`, "info");
+  };
+
+  const addTeamMember = (member: UserProfile) => {
+    const userId = member.id || `user-${member.name.toLowerCase().trim().replace(/[^a-z0-9]/g, "-")}`;
+    const newMember: UserProfile = { ...member, id: userId };
+    setTeamMembers((prev) => {
+      const exists = prev.some((m) => m.name.toLowerCase() === newMember.name.toLowerCase());
+      const updated = exists
+        ? prev.map((m) => (m.name.toLowerCase() === newMember.name.toLowerCase() ? newMember : m))
+        : [...prev, newMember];
+      localStorage.setItem("plasgain_team_members", JSON.stringify(updated));
+      saveDocToCloud("settings", "team_members", { members: updated });
+      return updated;
     });
   };
 
@@ -1399,6 +1455,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         openLoginModal,
         closeLoginModal,
         loginAsUser,
+        teamMembers,
+        deleteTeamMember,
+        addTeamMember,
         opportunities,
         setOpportunities,
         addOpportunity,
