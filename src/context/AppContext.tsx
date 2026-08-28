@@ -325,6 +325,24 @@ interface AppContextType {
   openQuickLog: (type: "call" | "note" | "meeting" | "email" | "task" | "follow_up", accountId?: string, oppId?: string, contactId?: string) => void;
   closeQuickLog: () => void;
 
+  // Call Preparation & Briefing Modal State
+  callPrepModal: {
+    isOpen: boolean;
+    accountId?: string;
+    opportunityId?: string;
+    contactId?: string;
+    taskId?: string;
+    taskTitle?: string;
+  } | null;
+  openCallPrep: (context?: {
+    accountId?: string;
+    opportunityId?: string;
+    contactId?: string;
+    taskId?: string;
+    taskTitle?: string;
+  }) => void;
+  closeCallPrep: () => void;
+
   // AI Email Composer Modal
   isEmailComposerOpen: boolean;
   emailComposerLaunchContext: EmailComposerLaunchContext | null;
@@ -645,6 +663,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     accountId?: string;
     opportunityId?: string;
     contactId?: string;
+  } | null>(null);
+
+  const [callPrepModal, setCallPrepModal] = useState<{
+    isOpen: boolean;
+    accountId?: string;
+    opportunityId?: string;
+    contactId?: string;
+    taskId?: string;
+    taskTitle?: string;
   } | null>(null);
 
   // AI Email Composer Modal State
@@ -1095,6 +1122,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const closeQuickLog = () => {
     setQuickLogModal(null);
+  };
+
+  const openCallPrep = (context?: {
+    accountId?: string;
+    opportunityId?: string;
+    contactId?: string;
+    taskId?: string;
+    taskTitle?: string;
+  }) => {
+    setCallPrepModal({
+      isOpen: true,
+      accountId: context?.accountId || selectedAccountId || undefined,
+      opportunityId: context?.opportunityId || selectedCrmOpportunityId || undefined,
+      contactId: context?.contactId,
+      taskId: context?.taskId,
+      taskTitle: context?.taskTitle
+    });
+  };
+
+  const closeCallPrep = () => {
+    setCallPrepModal(null);
   };
 
   const addAccount = (account: Account) => {
@@ -1681,6 +1729,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         quickLogModal,
         openQuickLog,
         closeQuickLog,
+        callPrepModal,
+        openCallPrep,
+        closeCallPrep,
         isEmailComposerOpen,
         emailComposerLaunchContext,
         openEmailComposer,

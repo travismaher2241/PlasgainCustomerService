@@ -62,6 +62,7 @@ export const CRMPipelineView: React.FC = () => {
     setActivePipelineId,
     accounts,
     openQuickLog,
+    openCallPrep,
     openEmailComposer,
     navigateToCRM,
     logActivity,
@@ -451,6 +452,14 @@ export const CRMPipelineView: React.FC = () => {
                       <div className="flex items-center justify-end gap-1">
                         <button
                           type="button"
+                          onClick={() => openCallPrep({ accountId: deal.accountId, opportunityId: deal.id })}
+                          className="p-1.5 text-brand-deep hover:bg-brand-wash rounded-edge border border-transparent hover:border-brand-edge transition-colors cursor-pointer"
+                          title="Prep Call"
+                        >
+                          <Phone className="w-3.5 h-3.5 text-brand-deep" />
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => openQuickLog("call", deal.accountId, deal.id)}
                           className="p-1.5 text-ink-dim hover:text-brand-deep hover:bg-brand-wash rounded-edge border border-transparent hover:border-brand-edge transition-colors cursor-pointer"
                           title="Log Call"
@@ -555,6 +564,14 @@ export const CRMPipelineView: React.FC = () => {
               >
                 <Download className="w-3.5 h-3.5 text-ink-dim" />
                 <span>Download Tender Package</span>
+              </button>
+              <button
+                onClick={() => openCallPrep({ accountId: selectedDeal.accountId, opportunityId: selectedDeal.id })}
+                className="px-3 py-1.5 text-meta font-bold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash/80 shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                title="Prepare talking points & review account context before dialling"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>Prep Call</span>
               </button>
               <button
                 onClick={() => openQuickLog("call", selectedDeal.accountId, selectedDeal.id)}

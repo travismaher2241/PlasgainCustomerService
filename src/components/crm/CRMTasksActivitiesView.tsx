@@ -36,6 +36,7 @@ export const CRMTasksActivitiesView: React.FC = () => {
     accounts,
     crmOpportunities,
     openQuickLog,
+    openCallPrep,
     currentUser,
     showToast
   } = useApp();
@@ -367,9 +368,33 @@ export const CRMTasksActivitiesView: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="text-right text-meta shrink-0 text-ink-dim space-y-0.5">
+                  <div className="text-right text-meta shrink-0 text-ink-dim space-y-1">
                     <div className="font-semibold text-body">{t.dueDate} {t.dueTime || ""}</div>
                     <div>Assigned: {t.assignedTo.split(" ")[0]}</div>
+                    <div className="flex items-center justify-end gap-1.5 pt-1">
+                      {(t.type === "Call" || t.title.toLowerCase().includes("call")) && (
+                        <button
+                          type="button"
+                          onClick={() => openCallPrep({
+                            accountId: t.accountId,
+                            opportunityId: t.dealId || t.opportunityId,
+                            taskId: t.id,
+                            taskTitle: t.title
+                          })}
+                          className="px-2 py-0.5 text-spec font-bold text-brand-deep bg-brand-wash border border-brand-edge rounded hover:bg-brand-wash/80 transition-colors cursor-pointer"
+                          title="Prep call talking points"
+                        >
+                          Prep Call
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => openQuickLog(t.type === "Call" ? "call" : "task", t.accountId, t.dealId || t.opportunityId)}
+                        className="px-2 py-0.5 text-spec font-semibold text-ink bg-white border border-line rounded hover:bg-raised transition-colors cursor-pointer"
+                      >
+                        Log
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

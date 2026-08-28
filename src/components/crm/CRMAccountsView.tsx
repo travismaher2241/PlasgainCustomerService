@@ -54,6 +54,7 @@ export const CRMAccountsView: React.FC = () => {
     deleteContact,
     openQuickLog,
     openEmailComposer,
+    openCallPrep,
     navigateToCRM,
     currentUser,
     competitorPricingRecords,
@@ -517,6 +518,14 @@ export const CRMAccountsView: React.FC = () => {
                   >
                     <Sparkles className="w-3.5 h-3.5 text-brand" />
                     <span>AI Email</span>
+                  </button>
+                  <button
+                    onClick={() => openCallPrep({ accountId: selectedAccount.id })}
+                    className="px-3 py-1.5 text-meta font-bold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash/80 shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                    title="Prepare talking points & pre-call briefing for this account"
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                    <span>Prep Call</span>
                   </button>
                   <button
                     onClick={() => openQuickLog("call", selectedAccount.id)}

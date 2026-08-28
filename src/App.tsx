@@ -13,6 +13,7 @@ const ToolsHub = lazy(() => import("./components/ToolsHub").then(m => ({ default
 const SettingsView = lazy(() => import("./components/SettingsView").then(m => ({ default: m.SettingsView })));
 const CRMCommandCenter = lazy(() => import("./components/crm/CRMCommandCenter").then(m => ({ default: m.CRMCommandCenter })));
 const CRMQuickLogModal = lazy(() => import("./components/crm/CRMQuickLogModal").then(m => ({ default: m.CRMQuickLogModal })));
+const CRMCallPrepModal = lazy(() => import("./components/crm/CRMCallPrepModal").then(m => ({ default: m.CRMCallPrepModal })));
 const AIEmailComposerModal = lazy(() => import("./components/AIEmailComposerModal").then(m => ({ default: m.AIEmailComposerModal })));
 const GlobalCopilot = lazy(() => import("./components/GlobalCopilot").then(m => ({ default: m.GlobalCopilot })));
 const ExplainTermModal = lazy(() => import("./components/ExplainTermModal").then(m => ({ default: m.ExplainTermModal })));
@@ -64,6 +65,7 @@ const MainLayout: React.FC = () => {
         <ExplainTermModal />
         <GlobalSearchModal />
         <CRMQuickLogModal />
+        <CRMCallPrepModal />
       </Suspense>
 
       {/* Toast Notification */}

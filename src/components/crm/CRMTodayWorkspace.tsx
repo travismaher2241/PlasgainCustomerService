@@ -81,6 +81,7 @@ export const CRMTodayWorkspace: React.FC = () => {
     toggleTaskComplete,
     navigateToCRM,
     openQuickLog,
+    openCallPrep,
     openEmailComposer,
     competitorAlerts,
     markCompetitorAlertRead,
@@ -395,6 +396,15 @@ export const CRMTodayWorkspace: React.FC = () => {
     setActiveMenuId(null);
   };
 
+  const handlePrepCall = (item: UnifiedWorkItem) => {
+    openCallPrep({
+      accountId: item.accountId,
+      opportunityId: item.dealId,
+      taskId: item.id,
+      taskTitle: item.title
+    });
+  };
+
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-12 w-full min-w-0">
       {/* 1. Compact Page Header */}
@@ -561,6 +571,18 @@ export const CRMTodayWorkspace: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2 self-start md:self-center shrink-0">
+              {(heroItem.primaryActionType === "call" || heroItem.primaryActionType === "followup" || heroItem.dealId || heroItem.accountId) && (
+                <button
+                  type="button"
+                  onClick={() => handlePrepCall(heroItem)}
+                  className="px-3 py-2 text-meta font-bold text-brand-deep bg-brand-wash border border-brand-edge hover:bg-brand-wash/80 rounded-edge transition-colors cursor-pointer flex items-center gap-1.5"
+                  title="Prepare talking points & review account context before dialling"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>Prep Call</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => handlePrimaryAction(heroItem)}
@@ -668,6 +690,7 @@ export const CRMTodayWorkspace: React.FC = () => {
                         onPrimaryAction={handlePrimaryAction}
                         onToggleComplete={toggleTaskComplete}
                         onSnooze={handleSnooze}
+                        onPrepCall={handlePrepCall}
                         onNavigate={navigateToCRM}
                         onQuickLog={openQuickLog}
                         activeMenuId={activeMenuId}
@@ -698,6 +721,7 @@ export const CRMTodayWorkspace: React.FC = () => {
                         onPrimaryAction={handlePrimaryAction}
                         onToggleComplete={toggleTaskComplete}
                         onSnooze={handleSnooze}
+                        onPrepCall={handlePrepCall}
                         onNavigate={navigateToCRM}
                         onQuickLog={openQuickLog}
                         activeMenuId={activeMenuId}
@@ -728,6 +752,7 @@ export const CRMTodayWorkspace: React.FC = () => {
                         onPrimaryAction={handlePrimaryAction}
                         onToggleComplete={toggleTaskComplete}
                         onSnooze={handleSnooze}
+                        onPrepCall={handlePrepCall}
                         onNavigate={navigateToCRM}
                         onQuickLog={openQuickLog}
                         activeMenuId={activeMenuId}
@@ -789,6 +814,7 @@ interface WorkItemRowProps {
   onPrimaryAction: (item: UnifiedWorkItem) => void;
   onToggleComplete: (taskId: string) => void;
   onSnooze: (id: string) => void;
+  onPrepCall: (item: UnifiedWorkItem) => void;
   onNavigate: (tab: any, id?: string) => void;
   onQuickLog: (type: "call" | "note" | "task", accountId?: string, oppId?: string) => void;
   activeMenuId: string | null;
@@ -801,6 +827,7 @@ const WorkItemRow: React.FC<WorkItemRowProps> = ({
   onPrimaryAction,
   onToggleComplete,
   onSnooze,
+  onPrepCall,
   onNavigate,
   onQuickLog,
   activeMenuId,
@@ -879,6 +906,18 @@ const WorkItemRow: React.FC<WorkItemRowProps> = ({
 
       {/* Actions */}
       <div className="flex items-center gap-1.5 shrink-0 self-start sm:self-center">
+        {(item.primaryActionType === "call" || item.category === "Quote Follow-up" || item.category === "Call") && (
+          <button
+            type="button"
+            onClick={() => onPrepCall(item)}
+            className="px-2.5 py-1.5 text-spec font-bold text-brand-deep hover:bg-brand-wash bg-paper border border-brand-edge/60 rounded-edge transition-colors flex items-center gap-1 cursor-pointer"
+            title="Prepare talking points & review account context before dialling"
+          >
+            <Phone className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Prep Call</span>
+          </button>
+        )}
+
         <button
           type="button"
           onClick={() => onPrimaryAction(item)}
@@ -902,6 +941,17 @@ const WorkItemRow: React.FC<WorkItemRowProps> = ({
 
           {isMenuOpen && (
             <div className="absolute right-0 top-full mt-1 w-44 bg-surface rounded-edge border border-line shadow-lg py-1 z-30 text-meta">
+              <button
+                type="button"
+                onClick={() => {
+                  onPrepCall(item);
+                  setActiveMenuId(null);
+                }}
+                className="w-full px-3 py-1.5 text-left text-ink hover:bg-hover flex items-center gap-2 cursor-pointer"
+              >
+                <Phone className="w-3.5 h-3.5 text-brand-deep" />
+                <span>Prep Call</span>
+              </button>
               <button
                 type="button"
                 onClick={() => {
