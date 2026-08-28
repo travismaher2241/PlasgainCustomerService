@@ -2250,14 +2250,51 @@ app.post(["/api/copilot/chat-stream", "/api/chat-stream"], async (req, res) => {
 
     initSSE(res);
 
-    // Retrieve authoritative documents for grounding citations (P2-11 & P2-12)
-    const authoritativeDocs = documentGovernanceStore.getAuthoritativeDocuments();
-    const docGroundingContext = authoritativeDocs.map(d => ({
+    // P2-11 & P2-12: Structured Retrieval Grounding from Authoritative Store
+    const authoritativeDocs = await documentGovernanceStore.getAuthoritativeDocuments();
+    const queryLower = message.toLowerCase();
+
+    // 1. Explicit Retrieval Step: Match only relevant authoritative records for query
+    const retrievedDocs = authoritativeDocs.filter((doc) => {
+      const pFam = doc.productFamily.toLowerCase();
+      const title = doc.title.toLowerCase();
+      return (
+        queryLower.includes(pFam) ||
+        queryLower.includes(title) ||
+        (queryLower.includes("blade") && pFam.includes("blade")) ||
+        (queryLower.includes("pathmaster") && pFam.includes("pathmaster")) ||
+        (queryLower.includes("pole") && pFam.includes("pole")) ||
+        (queryLower.includes("cover") && pFam.includes("cable"))
+      );
+    });
+
+    const retrievedStandards: any[] = [];
+    if (queryLower.includes("1158") || queryLower.includes("lighting standard") || queryLower.includes("p4") || queryLower.includes("v3") || queryLower.includes("lux")) {
+      retrievedStandards.push({
+        sourceId: "std-asnzs-1158",
+        sourceType: "standard",
+        title: "AS/NZS 1158.3.1:2020 (Category P Lighting)",
+        clause: "Table 2.1 — Pathway & Pedestrian Lighting Levels"
+      });
+    }
+
+    if (queryLower.includes("wind") || queryLower.includes("1170") || queryLower.includes("cyclonic")) {
+      retrievedStandards.push({
+        sourceId: "std-asnzs-1170-2",
+        sourceType: "standard",
+        title: "AS/NZS 1170.2:2021 (Structural Wind Actions)",
+        clause: "Section 3 — Regional Wind Speeds & Topographic Factors"
+      });
+    }
+
+    // 2. Structured Grounding Context passed to AI
+    const docGroundingContext = retrievedDocs.map((d) => ({
       sourceId: d.id,
       title: d.title,
       version: d.version,
       productFamily: d.productFamily,
-      documentType: d.documentType
+      documentType: d.documentType,
+      pageCount: d.pageCount || 4
     }));
 
     const systemPrompt = `${MASTER_PLASGAIN_SYSTEM_INSTRUCTION}
@@ -2265,10 +2302,12 @@ You are the Plasgain Lighting Sales Copilot floating assistant.
 Current Screen: ${activeScreen}
 Context Data: ${JSON.stringify(activeContextData || {})}
 
-AVAILABLE AUTHORITATIVE DOCUMENTS FOR CITATION:
-${JSON.stringify(docGroundingContext, null, 2)}
+RETRIEVED AUTHORITATIVE SOURCE RECORDS (${docGroundingContext.length + retrievedStandards.length} sources matched):
+${JSON.stringify({ documents: docGroundingContext, standards: retrievedStandards }, null, 2)}
 
-Provide clear, accurate sales guidance. When referencing a specific Plasgain product or standard, cite the source.`;
+INSTRUCTIONS FOR CITATIONS:
+- When your answer relies on one of the RETRIEVED AUTHORITATIVE SOURCES, reference its sourceId accurately.
+- If no retrieved source covers the query, provide general engineering reasoning without fabricating internal document references.`;
 
     const userPrompt = `USER MESSAGE: "${message}"
 CHAT HISTORY: ${JSON.stringify(chatHistory.slice(-6))}`;
@@ -2290,17 +2329,19 @@ CHAT HISTORY: ${JSON.stringify(chatHistory.slice(-6))}`;
         sendSSEChunk(res, text);
       }
 
-      // Match citations based on authoritative documents mentioned
+      // 3. Provenance Verification: Emit citations ONLY from the retrieved sources pool
       const citations: any[] = [];
-      const lowerText = (fullText + " " + message).toLowerCase();
+      const lowerReply = fullText.toLowerCase();
 
-      authoritativeDocs.forEach((doc) => {
+      retrievedDocs.forEach((doc) => {
+        // Only cite if the model output actively references the retrieved product family or doc
         if (
-          lowerText.includes(doc.productFamily.toLowerCase()) ||
-          lowerText.includes(doc.title.toLowerCase().slice(0, 15)) ||
-          lowerText.includes("blade") && doc.productFamily.includes("Blade") ||
-          lowerText.includes("pathmaster") && doc.productFamily.includes("PathMaster") ||
-          lowerText.includes("pole") && doc.productFamily.includes("Pole")
+          lowerReply.includes(doc.productFamily.toLowerCase()) ||
+          lowerReply.includes(doc.title.toLowerCase().slice(0, 15)) ||
+          (lowerReply.includes("blade") && doc.productFamily.includes("Blade")) ||
+          (lowerReply.includes("pathmaster") && doc.productFamily.includes("PathMaster")) ||
+          (lowerReply.includes("composite") && doc.productFamily.includes("Composite")) ||
+          (lowerReply.includes("polycover") && doc.productFamily.includes("Cable"))
         ) {
           citations.push({
             sourceId: doc.id,
@@ -2308,28 +2349,23 @@ CHAT HISTORY: ${JSON.stringify(chatHistory.slice(-6))}`;
             title: doc.title,
             version: doc.version,
             page: 1,
-            documentId: doc.id
+            documentId: doc.id,
+            productFamily: doc.productFamily
           });
         }
       });
 
-      if (lowerText.includes("1158") || lowerText.includes("p4") || lowerText.includes("v3")) {
-        citations.push({
-          sourceId: "std-asnzs-1158",
-          sourceType: "standard",
-          title: "AS/NZS 1158.3.1:2020 (Category P Lighting)",
-          clause: "Table 2.1 — Pathway & Pedestrian Lighting Levels"
-        });
-      }
-
-      if (lowerText.includes("wind") || lowerText.includes("1170")) {
-        citations.push({
-          sourceId: "std-asnzs-1170-2",
-          sourceType: "standard",
-          title: "AS/NZS 1170.2:2021 (Structural Wind Actions)",
-          clause: "Section 3 — Regional Wind Speeds & Topographic Factors"
-        });
-      }
+      retrievedStandards.forEach((std) => {
+        if (
+          lowerReply.includes(std.sourceId) ||
+          lowerReply.includes("1158") && std.sourceId.includes("1158") ||
+          lowerReply.includes("1170") && std.sourceId.includes("1170") ||
+          lowerReply.includes("wind") && std.sourceId.includes("1170") ||
+          lowerReply.includes("category p") && std.sourceId.includes("1158")
+        ) {
+          citations.push(std);
+        }
+      });
 
       sendSSEComplete(res, {
         reply: fullText,
@@ -2345,107 +2381,149 @@ CHAT HISTORY: ${JSON.stringify(chatHistory.slice(-6))}`;
 });
 
 // P2-07: Analysis Persistence Endpoints
-app.get("/api/analyses/latest/:projectId", (req, res) => {
-  const { projectId } = req.params;
-  const analysisType = req.query.type as string | undefined;
-  const record = analysisStore.getLatestByProject(projectId, analysisType);
-  if (!record) {
-    return res.status(404).json({ error: "No analysis found for project", projectId });
+app.get("/api/analyses/latest/:projectId", async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const analysisType = req.query.type as string | undefined;
+    const record = await analysisStore.getLatestByProject(projectId, analysisType);
+    if (!record) {
+      return res.status(404).json({ error: "No analysis found for project", projectId });
+    }
+    return res.json(record);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
-  return res.json(record);
 });
 
-app.get("/api/analyses/:id", (req, res) => {
-  const record = analysisStore.getAnalysis(req.params.id);
-  if (!record) return res.status(404).json({ error: "Analysis not found" });
-  return res.json(record);
+app.get("/api/analyses/:id", async (req, res) => {
+  try {
+    const record = await analysisStore.getAnalysis(req.params.id);
+    if (!record) return res.status(404).json({ error: "Analysis not found" });
+    return res.json(record);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
-app.post("/api/analyses", (req, res) => {
-  const record: ProjectAnalysisRecord = req.body;
-  if (!record || !record.id || !record.projectId) {
-    return res.status(400).json({ error: "id and projectId are required." });
+app.post("/api/analyses", async (req, res) => {
+  try {
+    const record: ProjectAnalysisRecord = req.body;
+    if (!record || !record.id || !record.projectId) {
+      return res.status(400).json({ error: "id and projectId are required." });
+    }
+    const saved = await analysisStore.saveAnalysis(record);
+    return res.json(saved);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
-  const saved = analysisStore.saveAnalysis(record);
-  return res.json(saved);
 });
 
 // P2-09: Commercial Pricing Request Endpoints
-app.get("/api/commercial-pricing", (req, res) => {
-  const projectId = req.query.projectId as string | undefined;
-  if (projectId) {
-    return res.json(commercialPricingStore.listByProject(projectId));
+app.get("/api/commercial-pricing", async (req, res) => {
+  try {
+    const projectId = req.query.projectId as string | undefined;
+    if (projectId) {
+      return res.json(await commercialPricingStore.listByProject(projectId));
+    }
+    return res.json(await commercialPricingStore.listAll());
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
-  return res.json(commercialPricingStore.listAll());
 });
 
-app.post("/api/commercial-pricing", (req, res) => {
-  const candidate = req.body;
-  if (!candidate || !candidate.productCode || !candidate.projectId) {
-    return res.status(400).json({ error: "productCode and projectId are required." });
+app.post("/api/commercial-pricing", async (req, res) => {
+  try {
+    const candidate = req.body;
+    if (!candidate || !candidate.productCode || !candidate.projectId) {
+      return res.status(400).json({ error: "productCode and projectId are required." });
+    }
+    const requestRecord: CommercialPricingRequest = {
+      id: candidate.id || `pr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      opportunityId: candidate.opportunityId,
+      projectId: candidate.projectId,
+      customerCompany: candidate.customerCompany || "Unknown",
+      productCode: candidate.productCode,
+      productName: candidate.productName || candidate.productCode,
+      quantity: candidate.quantity || 1,
+      requestedBy: candidate.requestedBy || "CurrentUser",
+      requestedAt: candidate.requestedAt || new Date().toISOString(),
+      requiredByDate: candidate.requiredByDate || new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10),
+      status: candidate.status || "Requested",
+      notes: candidate.notes
+    };
+    const created = await commercialPricingStore.createRequest(requestRecord);
+    return res.status(201).json(created);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
-  const requestRecord: CommercialPricingRequest = {
-    id: candidate.id || `pr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-    opportunityId: candidate.opportunityId,
-    projectId: candidate.projectId,
-    customerCompany: candidate.customerCompany || "Unknown",
-    productCode: candidate.productCode,
-    productName: candidate.productName || candidate.productCode,
-    quantity: candidate.quantity || 1,
-    requestedBy: candidate.requestedBy || "CurrentUser",
-    requestedAt: candidate.requestedAt || new Date().toISOString(),
-    requiredByDate: candidate.requiredByDate || new Date(Date.now() + 86400000 * 3).toISOString().slice(0, 10),
-    status: candidate.status || "Requested",
-    notes: candidate.notes
-  };
-  const created = commercialPricingStore.createRequest(requestRecord);
-  return res.status(201).json(created);
 });
 
-app.post("/api/commercial-pricing/:id/status", (req, res) => {
-  const { id } = req.params;
-  const { status, approvedUnitPrice, approvedBy, approvedPriceReference } = req.body;
-  if (!status) {
-    return res.status(400).json({ error: "status is required." });
+app.post("/api/commercial-pricing/:id/status", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, approvedUnitPrice, approvedBy, approvedPriceReference, reviewedBy, notes } = req.body;
+    if (!status) {
+      return res.status(400).json({ error: "status is required." });
+    }
+    const updated = await commercialPricingStore.updateStatus(id, status, {
+      approvedUnitPrice,
+      approvedBy,
+      approvedPriceReference,
+      reviewedBy,
+      notes
+    });
+    if (!updated) return res.status(404).json({ error: "Pricing request not found" });
+    return res.json(updated);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
-  const updated = commercialPricingStore.updateStatus(id, status, {
-    approvedUnitPrice,
-    approvedBy,
-    approvedPriceReference
-  });
-  if (!updated) return res.status(404).json({ error: "Pricing request not found" });
-  return res.json(updated);
 });
 
 // P2-11: Controlled Document Governance Endpoints
-app.get("/api/controlled-documents", (_req, res) => {
-  return res.json(documentGovernanceStore.listAll());
-});
-
-app.get("/api/controlled-documents/authoritative", (_req, res) => {
-  return res.json(documentGovernanceStore.getAuthoritativeDocuments());
-});
-
-app.post("/api/controlled-documents", (req, res) => {
-  const doc = req.body as ControlledDocument;
-  if (!doc || !doc.title || !doc.productFamily) {
-    return res.status(400).json({ error: "title and productFamily are required." });
+app.get("/api/controlled-documents", async (_req, res) => {
+  try {
+    return res.json(await documentGovernanceStore.listAll());
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
   }
-  const saved = documentGovernanceStore.saveDocument({
-    ...doc,
-    id: doc.id || `doc-${Date.now()}`,
-    uploadedAt: doc.uploadedAt || new Date().toISOString(),
-    approvalStatus: doc.approvalStatus || "Draft"
-  });
-  return res.status(201).json(saved);
 });
 
-app.post("/api/controlled-documents/:id/approve", (req, res) => {
-  const { id } = req.params;
-  const { approvedBy = "Technical Director", supersedesDocId } = req.body;
-  const approved = documentGovernanceStore.approveDocument(id, approvedBy, supersedesDocId);
-  if (!approved) return res.status(404).json({ error: "Document not found" });
-  return res.json(approved);
+app.get("/api/controlled-documents/authoritative", async (_req, res) => {
+  try {
+    return res.json(await documentGovernanceStore.getAuthoritativeDocuments());
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/controlled-documents", async (req, res) => {
+  try {
+    const doc = req.body as ControlledDocument;
+    if (!doc || !doc.title || !doc.productFamily) {
+      return res.status(400).json({ error: "title and productFamily are required." });
+    }
+    const saved = await documentGovernanceStore.saveDocument({
+      ...doc,
+      id: doc.id || `doc-${Date.now()}`,
+      uploadedAt: doc.uploadedAt || new Date().toISOString(),
+      approvalStatus: doc.approvalStatus || "Draft"
+    });
+    return res.status(201).json(saved);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/controlled-documents/:id/approve", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { approvedBy = "Technical Director", supersedesDocId } = req.body;
+    const approved = await documentGovernanceStore.approveDocument(id, approvedBy, supersedesDocId);
+    if (!approved) return res.status(404).json({ error: "Document not found" });
+    return res.json(approved);
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message });
+  }
 });
 
 // API 404 handler - prevents SPA fallback from returning HTML on missing API endpoints

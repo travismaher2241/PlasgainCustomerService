@@ -32,6 +32,7 @@ import {
   DATASET_METADATA
 } from "../data/lightingStandards";
 import { productComparisonCache, ProductComparisonRecord } from "../utils/productComparisonCache";
+import { CommercialPricingRequestModal } from "./CommercialPricingRequestModal";
 
 export const ProductFinder: React.FC = () => {
   const {
@@ -96,6 +97,13 @@ export const ProductFinder: React.FC = () => {
   const [compareProductB, setCompareProductB] = useState<string>("Pro Blade Solar 75/125");
   const [activeComparison, setActiveComparison] = useState<ProductComparisonRecord | null>(null);
   const [isComparisonFromCache, setIsComparisonFromCache] = useState(false);
+
+  // P2-09: Pricing Modal State
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+  const [pricingProduct, setPricingProduct] = useState<{ code: string; name: string }>({
+    code: "TAIZ-50W",
+    name: "Intense Light - 50W Solar"
+  });
 
   const handleOpenComparison = (prodA: string, prodB: string) => {
     setCompareProductA(prodA);
@@ -646,6 +654,20 @@ TILT=NONE
                   </button>
 
                   <button
+                    onClick={() => {
+                      setPricingProduct({
+                        code: primary.productCode || "PB-75W-3K",
+                        name: primary.productName || "Plasgain Solar Luminaire"
+                      });
+                      setIsPricingModalOpen(true);
+                    }}
+                    className="px-3 py-1.5 text-meta font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-edge transition-colors flex items-center gap-1 cursor-pointer"
+                    title="Submit commercial pricing request"
+                  >
+                    <span>Request Pricing</span>
+                  </button>
+
+                  <button
                     onClick={() =>
                       openCopilotWithContext(
                         `Product: ${primary.productName} (${primary.productCode || "Standard"}) - Application: ${application}, Location: ${location}`
@@ -1063,6 +1085,23 @@ TILT=NONE
             </div>
           </div>
         </div>
+      )}
+
+      {/* P2-09: Commercial Pricing Request Modal */}
+      {isPricingModalOpen && (
+        <CommercialPricingRequestModal
+          isOpen={isPricingModalOpen}
+          onClose={() => setIsPricingModalOpen(false)}
+          projectId="proj-finder-01"
+          customerCompany={accounts.find((a) => a.id === targetAccountId)?.name || "Client Organisation"}
+          productCode={pricingProduct.code}
+          productName={pricingProduct.name}
+          initialQuantity={parseInt(quantity, 10) || 12}
+          onRequestSubmitted={() => {
+            setIsPricingModalOpen(false);
+            showToast("Commercial pricing request submitted to Sales Management.", "success");
+          }}
+        />
       )}
     </div>
   );

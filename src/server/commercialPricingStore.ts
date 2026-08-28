@@ -1,5 +1,4 @@
-import fs from "fs";
-import path from "path";
+import { saveDocToCloud, loadDocFromCloud, loadCollectionFromCloud } from "../utils/firebase";
 
 export interface CommercialPricingRequest {
   id: string;
@@ -21,37 +20,27 @@ export interface CommercialPricingRequest {
   reviewedBy?: string;
 }
 
-const STORAGE_FILE = path.resolve(process.cwd(), "server_data_pricing_requests.json");
+const FIRESTORE_COLLECTION = "commercial_pricing_requests";
 
 class CommercialPricingStore {
-  private requests: Map<string, CommercialPricingRequest> = new Map();
+  private inMemoryCache: Map<string, CommercialPricingRequest> = new Map();
 
   constructor() {
-    this.loadFromDisk();
+    this.initFromCloud();
   }
 
-  private loadFromDisk() {
+  private async initFromCloud() {
     try {
-      if (fs.existsSync(STORAGE_FILE)) {
-        const raw = fs.readFileSync(STORAGE_FILE, "utf-8");
-        const items: CommercialPricingRequest[] = JSON.parse(raw);
-        items.forEach((item) => this.requests.set(item.id, item));
+      const records = await loadCollectionFromCloud<CommercialPricingRequest>(FIRESTORE_COLLECTION);
+      if (records && records.length > 0) {
+        records.forEach((r) => this.inMemoryCache.set(r.id, r));
       }
     } catch (err) {
-      console.warn("[CommercialPricingStore] Could not load pricing requests:", err);
+      console.warn("[CommercialPricingStore] Cloud Firestore init fallback to memory cache:", err);
     }
   }
 
-  private saveToDisk() {
-    try {
-      const items = Array.from(this.requests.values());
-      fs.writeFileSync(STORAGE_FILE, JSON.stringify(items, null, 2), "utf-8");
-    } catch (err) {
-      console.warn("[CommercialPricingStore] Could not save pricing requests:", err);
-    }
-  }
-
-  public createRequest(partial: Partial<CommercialPricingRequest> & {
+  public async createRequest(partial: Partial<CommercialPricingRequest> & {
     projectId: string;
     customerCompany: string;
     productCode: string;
@@ -59,7 +48,7 @@ class CommercialPricingStore {
     quantity: number;
     requestedBy: string;
     requiredByDate: string;
-  }): CommercialPricingRequest {
+  }): Promise<CommercialPricingRequest> {
     const id = partial.id || `cpr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const fullRequest: CommercialPricingRequest = {
       id,
@@ -80,28 +69,44 @@ class CommercialPricingStore {
       approvedPriceReference: partial.approvedPriceReference
     };
 
-    this.requests.set(id, fullRequest);
-    this.saveToDisk();
+    this.inMemoryCache.set(id, fullRequest);
+    await saveDocToCloud(FIRESTORE_COLLECTION, id, fullRequest);
     return fullRequest;
   }
 
-  public getRequest(id: string): CommercialPricingRequest | undefined {
-    return this.requests.get(id);
+  public async getRequest(id: string): Promise<CommercialPricingRequest | undefined> {
+    if (this.inMemoryCache.has(id)) {
+      return this.inMemoryCache.get(id);
+    }
+    const cloudRecord = await loadDocFromCloud<CommercialPricingRequest>(FIRESTORE_COLLECTION, id);
+    if (cloudRecord) {
+      this.inMemoryCache.set(cloudRecord.id, cloudRecord);
+      return cloudRecord;
+    }
+    return undefined;
   }
 
-  public listAll(): CommercialPricingRequest[] {
-    return Array.from(this.requests.values()).sort(
+  public async listAll(): Promise<CommercialPricingRequest[]> {
+    const all = await loadCollectionFromCloud<CommercialPricingRequest>(FIRESTORE_COLLECTION);
+    if (all && all.length > 0) {
+      all.forEach((r) => this.inMemoryCache.set(r.id, r));
+    }
+    return Array.from(this.inMemoryCache.values()).sort(
       (a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime()
     );
   }
 
-  public listByProject(projectId: string): CommercialPricingRequest[] {
-    return Array.from(this.requests.values())
+  public async listByProject(projectId: string): Promise<CommercialPricingRequest[]> {
+    const all = await loadCollectionFromCloud<CommercialPricingRequest>(FIRESTORE_COLLECTION);
+    if (all && all.length > 0) {
+      all.forEach((r) => this.inMemoryCache.set(r.id, r));
+    }
+    return Array.from(this.inMemoryCache.values())
       .filter((r) => r.projectId === projectId)
       .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
   }
 
-  public updateStatus(
+  public async updateStatus(
     id: string,
     status: CommercialPricingRequest["status"],
     details?: {
@@ -111,8 +116,8 @@ class CommercialPricingStore {
       reviewedBy?: string;
       notes?: string;
     }
-  ): CommercialPricingRequest | undefined {
-    const req = this.requests.get(id);
+  ): Promise<CommercialPricingRequest | undefined> {
+    const req = await this.getRequest(id);
     if (!req) return undefined;
 
     req.status = status;
@@ -126,8 +131,13 @@ class CommercialPricingStore {
     if (details?.notes) req.notes = details.notes;
     if (status === "Pricing Supplied") req.approvedAt = new Date().toISOString();
 
-    this.saveToDisk();
+    this.inMemoryCache.set(id, req);
+    await saveDocToCloud(FIRESTORE_COLLECTION, id, req);
     return req;
+  }
+
+  public clearLocalCache() {
+    this.inMemoryCache.clear();
   }
 }
 

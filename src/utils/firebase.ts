@@ -22,6 +22,20 @@ export const firebaseConfig = {
 export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
+function sanitizeForFirestore(obj: Record<string, any>): Record<string, any> {
+  const clean: Record<string, any> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) {
+      if (v && typeof v === "object" && !Array.isArray(v) && !(v instanceof Date)) {
+        clean[k] = sanitizeForFirestore(v);
+      } else {
+        clean[k] = v;
+      }
+    }
+  }
+  return clean;
+}
+
 /**
  * Saves a single document by ID in a Firestore collection.
  */
@@ -32,7 +46,8 @@ export async function saveDocToCloud<T extends Record<string, any>>(
 ): Promise<boolean> {
   try {
     const docRef = doc(db, collectionName, docId);
-    await setDoc(docRef, { ...data, updatedAt: new Date().toISOString() }, { merge: true });
+    const sanitized = sanitizeForFirestore({ ...data, updatedAt: new Date().toISOString() });
+    await setDoc(docRef, sanitized, { merge: true });
     return true;
   } catch (err) {
     console.warn(`[Firebase] Error saving to ${collectionName}/${docId}:`, err);
@@ -91,7 +106,8 @@ export async function syncBatchToCloud<T extends { id: string }>(
     await Promise.all(
       items.map((item) => {
         const docRef = doc(db, collectionName, item.id);
-        return setDoc(docRef, { ...item, updatedAt: new Date().toISOString() }, { merge: true });
+        const sanitized = sanitizeForFirestore({ ...item, updatedAt: new Date().toISOString() });
+        return setDoc(docRef, sanitized, { merge: true });
       })
     );
     return true;

@@ -239,6 +239,13 @@ export const NewEnquiryWorkspace: React.FC = () => {
     } catch (err) {
       console.error("Analysis error:", err);
       setActiveBackgroundAnalysisJob({ id: jobId, projectName: pName, status: "failed" });
+      addNotification({
+        type: "system",
+        title: "Tender Analysis Failed",
+        message: `Analysis generation failed for "${pName}". Click to return to workspace and retry.`,
+        actionUrl: "new-enquiry",
+        dealName: pName
+      });
       setCurrentEnquiryAnalysis(null);
       setSelectedQuestions([]);
       if (err instanceof AIUnavailableError) {

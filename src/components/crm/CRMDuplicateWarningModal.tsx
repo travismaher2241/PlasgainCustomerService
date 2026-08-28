@@ -1,6 +1,7 @@
 import React from "react";
 import { AlertTriangle, Check, ExternalLink, ShieldAlert, X } from "lucide-react";
 import { DuplicateConfidence, DuplicateMatchResult } from "../../utils/duplicateDetector";
+import { saveDocToCloud } from "../../utils/firebase";
 
 interface CRMDuplicateWarningModalProps<T> {
   isOpen: boolean;
@@ -120,6 +121,17 @@ export function CRMDuplicateWarningModal<T extends Record<string, any>>({
         <div className="p-4 bg-raised border-t border-line flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <button
             onClick={() => {
+              // Audit record in Firestore
+              saveDocToCloud("duplicate_override_audits", `dup-audit-${Date.now()}`, {
+                entityType,
+                candidateName,
+                existingMatchedId: existingRecord.id,
+                existingMatchedName: existingName,
+                confidence,
+                matchReason,
+                overriddenAt: new Date().toISOString()
+              }).catch((e) => console.warn("Could not save duplicate audit:", e));
+
               onCreateAnyway();
               onClose();
             }}

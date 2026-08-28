@@ -1,5 +1,4 @@
-import fs from "fs";
-import path from "path";
+import { saveDocToCloud, loadDocFromCloud, loadCollectionFromCloud } from "../utils/firebase";
 
 export interface ProjectAnalysisRecord {
   id: string;
@@ -23,37 +22,29 @@ export interface ProjectAnalysisRecord {
   promptVersion?: string;
 }
 
-const STORAGE_FILE = path.resolve(process.cwd(), "server_data_analyses.json");
+const FIRESTORE_COLLECTION = "project_analyses";
 
 class AnalysisStore {
-  private records: Map<string, ProjectAnalysisRecord> = new Map();
+  private inMemoryCache: Map<string, ProjectAnalysisRecord> = new Map();
+  private isInitialized = false;
 
   constructor() {
-    this.loadFromDisk();
+    this.initFromCloud();
   }
 
-  private loadFromDisk() {
+  private async initFromCloud() {
     try {
-      if (fs.existsSync(STORAGE_FILE)) {
-        const raw = fs.readFileSync(STORAGE_FILE, "utf-8");
-        const items: ProjectAnalysisRecord[] = JSON.parse(raw);
-        items.forEach((item) => this.records.set(item.id, item));
+      const records = await loadCollectionFromCloud<ProjectAnalysisRecord>(FIRESTORE_COLLECTION);
+      if (records && records.length > 0) {
+        records.forEach((r) => this.inMemoryCache.set(r.id, r));
       }
+      this.isInitialized = true;
     } catch (err) {
-      console.warn("[AnalysisStore] Could not load persisted analyses:", err);
+      console.warn("[AnalysisStore] Cloud Firestore init fallback to memory cache:", err);
     }
   }
 
-  private saveToDisk() {
-    try {
-      const items = Array.from(this.records.values());
-      fs.writeFileSync(STORAGE_FILE, JSON.stringify(items, null, 2), "utf-8");
-    } catch (err) {
-      console.warn("[AnalysisStore] Could not save analyses to disk:", err);
-    }
-  }
-
-  public saveAnalysis(partial: Partial<ProjectAnalysisRecord> & { projectId: string }): ProjectAnalysisRecord {
+  public async saveAnalysis(partial: Partial<ProjectAnalysisRecord> & { projectId: string }): Promise<ProjectAnalysisRecord> {
     const id = partial.id || `an-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const fullRecord: ProjectAnalysisRecord = {
       id,
@@ -73,37 +64,64 @@ class AnalysisStore {
       promptVersion: partial.promptVersion || "2026.1"
     };
 
-    this.records.set(id, fullRecord);
-    this.saveToDisk();
+    this.inMemoryCache.set(id, fullRecord);
+    // Persist to Cloud Firestore
+    await saveDocToCloud(FIRESTORE_COLLECTION, id, fullRecord);
     return fullRecord;
   }
 
-  public getAnalysis(id: string): ProjectAnalysisRecord | undefined {
-    return this.records.get(id);
+  public async getAnalysis(id: string): Promise<ProjectAnalysisRecord | undefined> {
+    if (this.inMemoryCache.has(id)) {
+      return this.inMemoryCache.get(id);
+    }
+    const cloudRecord = await loadDocFromCloud<ProjectAnalysisRecord>(FIRESTORE_COLLECTION, id);
+    if (cloudRecord) {
+      this.inMemoryCache.set(cloudRecord.id, cloudRecord);
+      return cloudRecord;
+    }
+    return undefined;
   }
 
-  public getLatestByProject(projectId: string, analysisType?: string): ProjectAnalysisRecord | undefined {
-    const matching = Array.from(this.records.values()).filter(
+  public async getLatestByProject(projectId: string, analysisType?: string): Promise<ProjectAnalysisRecord | undefined> {
+    // Check cache first
+    const cached = Array.from(this.inMemoryCache.values()).filter(
       (r) => r.projectId === projectId && (!analysisType || r.analysisType === analysisType)
     );
+    if (cached.length > 0) {
+      return cached.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+    }
+
+    // Refresh from cloud
+    const all = await loadCollectionFromCloud<ProjectAnalysisRecord>(FIRESTORE_COLLECTION);
+    all.forEach((r) => this.inMemoryCache.set(r.id, r));
+    const matching = all.filter((r) => r.projectId === projectId && (!analysisType || r.analysisType === analysisType));
     if (matching.length === 0) return undefined;
     return matching.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
   }
 
-  public listByProject(projectId: string): ProjectAnalysisRecord[] {
-    return Array.from(this.records.values())
+  public async listByProject(projectId: string): Promise<ProjectAnalysisRecord[]> {
+    const all = await loadCollectionFromCloud<ProjectAnalysisRecord>(FIRESTORE_COLLECTION);
+    if (all && all.length > 0) {
+      all.forEach((r) => this.inMemoryCache.set(r.id, r));
+    }
+    return Array.from(this.inMemoryCache.values())
       .filter((r) => r.projectId === projectId)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
-  public markStale(id: string): boolean {
-    const record = this.records.get(id);
+  public async markStale(id: string): Promise<boolean> {
+    const record = await this.getAnalysis(id);
     if (record) {
       record.status = "stale";
-      this.saveToDisk();
+      this.inMemoryCache.set(id, record);
+      await saveDocToCloud(FIRESTORE_COLLECTION, id, record);
       return true;
     }
     return false;
+  }
+
+  public clearLocalCache() {
+    this.inMemoryCache.clear();
   }
 }
 

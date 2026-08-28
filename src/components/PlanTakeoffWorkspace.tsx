@@ -34,6 +34,11 @@ import { BOMItem, DrawingTakeoffResult } from "../types";
 import { apiPost, AIUnavailableError, toUserMessage } from "../utils/apiClient";
 import { AIUnavailableNotice } from "./AIUnavailableNotice";
 import { DatasheetPackageModal } from "./DatasheetPackageModal";
+import { QuoteReadinessModal } from "./QuoteReadinessModal";
+import { CommercialPricingRequestModal } from "./CommercialPricingRequestModal";
+import { CRMDuplicateWarningModal } from "./crm/CRMDuplicateWarningModal";
+import { detectDuplicateAccount, DuplicateMatchResult } from "../utils/duplicateDetector";
+import { Account } from "../types/crm";
 import {
   formatOstendoCSV,
   formatOstendoTabDelimited,
@@ -262,6 +267,18 @@ export const PlanTakeoffWorkspace: React.FC = () => {
     dealValue: 0
   });
 
+  // P2-08, P2-09 & P2-13: Quote Readiness, Pricing & Duplicate Detection State
+  const [isReadinessModalOpen, setIsReadinessModalOpen] = useState(false);
+  const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
+  const [selectedProductForPricing, setSelectedProductForPricing] = useState<{
+    code: string;
+    name: string;
+    quantity: number;
+  }>({ code: "", name: "", quantity: 1 });
+  const [duplicateMatch, setDuplicateMatch] = useState<DuplicateMatchResult<Account> | null>(null);
+  const [pendingAccountToCreate, setPendingAccountToCreate] = useState<Account | null>(null);
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+
     // File Input Handler with Strict Validation (F-04)
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -437,7 +454,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
     const isCouncil = newAccName.toLowerCase().includes("council") || newAccName.toLowerCase().includes("city") || newAccName.toLowerCase().includes("shire");
     const isVic = newAccName.toLowerCase().includes("ballarat") || newAccName.toLowerCase().includes("geelong") || newAccName.toLowerCase().includes("melbourne") || newAccName.toLowerCase().includes("bendigo");
 
-    addAccount({
+    const newAcc: Account = {
       id: newAccId,
       name: newAccName,
       status: "Prospect",
@@ -457,15 +474,23 @@ export const PlanTakeoffWorkspace: React.FC = () => {
         activeDealsCount: 1,
         totalEnquiries: 1
       }
-    });
+    };
 
+    const duplicate = detectDuplicateAccount({ name: newAccName }, accounts);
+    if (duplicate) {
+      setPendingAccountToCreate(newAcc);
+      setDuplicateMatch(duplicate);
+      setIsDuplicateModalOpen(true);
+      return;
+    }
+
+    addAccount(newAcc);
     setTakeoffSaveFormData((prev) => ({
       ...prev,
       accountId: newAccId,
       accountName: newAccName
     }));
     setAccountMismatchConfirmed(true);
-
     showToast(`Created and linked new CRM Account: "${newAccName}"!`, "success");
   };
 
@@ -971,6 +996,32 @@ export const PlanTakeoffWorkspace: React.FC = () => {
               </button>
 
               <button
+                onClick={() => setIsReadinessModalOpen(true)}
+                className="px-3 py-1.5 bg-paper hover:bg-raised text-body font-bold text-meta rounded-edge border border-line flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                title="Evaluate pre-quote readiness gate for this take-off"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-brand" />
+                <span>Quote Readiness</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  const firstItem = takeoffResult?.billOfMaterials[0];
+                  setSelectedProductForPricing({
+                    code: firstItem?.recommendedProductCode || "SOLAR-TAIZ-01",
+                    name: firstItem?.itemDescription || "Public Lighting Luminaire",
+                    quantity: firstItem?.quantity || 12
+                  });
+                  setIsPricingModalOpen(true);
+                }}
+                className="px-3 py-1.5 bg-paper hover:bg-raised text-body font-bold text-meta rounded-edge border border-line flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
+                title="Submit commercial pricing request to sales leadership"
+              >
+                <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
+                <span>Request Pricing</span>
+              </button>
+
+              <button
                 onClick={handleOpenTakeoffSaveModal}
                 className="px-3.5 py-1.5 bg-brand-wash hover:bg-brand-wash/80 text-brand-deep text-meta font-bold rounded-edge border border-brand-edge shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
                 title="Push products & quantities to CRM Command Centre Deal"
@@ -1316,6 +1367,89 @@ export const PlanTakeoffWorkspace: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* P2-08: Pre-Quote Readiness Gate Modal */}
+      {isReadinessModalOpen && takeoffResult && (
+        <QuoteReadinessModal
+          isOpen={isReadinessModalOpen}
+          onClose={() => setIsReadinessModalOpen(false)}
+          context={{
+            quoteType: "firm",
+            productFamily: takeoffResult.billOfMaterials[0]?.category || "Solar Public Lighting",
+            isSolar: takeoffResult.billOfMaterials.some((b) => b.category.toLowerCase().includes("solar")),
+            isMains: takeoffResult.billOfMaterials.some((b) => b.category.toLowerCase().includes("mains")),
+            isPolePackage: takeoffResult.billOfMaterials.some((b) => b.category.toLowerCase().includes("pole")),
+            isCivilCableCover: takeoffResult.billOfMaterials.some((b) => b.category.toLowerCase().includes("cable") || b.category.toLowerCase().includes("cover")),
+            solarAutonomyDays: 5,
+            windRegion: "Region B (AS/NZS 1170.2)",
+            mountingHeight: 8,
+            commercialPricingApproved: true,
+            unitPrice: 1450
+          }}
+          onProceedWithQuote={() => {
+            setIsReadinessModalOpen(false);
+            showToast("Pre-quote readiness confirmed! Proceeding with quotation.", "success");
+          }}
+        />
+      )}
+
+      {/* P2-09: Commercial Pricing Request Modal */}
+      {isPricingModalOpen && (
+        <CommercialPricingRequestModal
+          isOpen={isPricingModalOpen}
+          onClose={() => setIsPricingModalOpen(false)}
+          projectId={selectedPlanId || "proj-takeoff-01"}
+          projectName={projectName}
+          customerCompany={customerName || "Council Authority"}
+          productCode={selectedProductForPricing.code}
+          productName={selectedProductForPricing.name}
+          initialQuantity={selectedProductForPricing.quantity}
+          onRequestSubmitted={() => {
+            setIsPricingModalOpen(false);
+            showToast("Commercial pricing request submitted to Sales Management.", "success");
+          }}
+        />
+      )}
+
+      {/* P2-13: Conservative Duplicate Account Warning Modal */}
+      {isDuplicateModalOpen && duplicateMatch && pendingAccountToCreate && (
+        <CRMDuplicateWarningModal
+          isOpen={isDuplicateModalOpen}
+          onClose={() => {
+            setIsDuplicateModalOpen(false);
+            setPendingAccountToCreate(null);
+            setDuplicateMatch(null);
+          }}
+          entityType="Account"
+          candidateName={pendingAccountToCreate.name}
+          matchResult={duplicateMatch}
+          onOpenExisting={(rec) => {
+            navigateToCRM("accounts");
+            setIsDuplicateModalOpen(false);
+          }}
+          onUseExisting={(rec) => {
+            setTakeoffSaveFormData((prev) => ({
+              ...prev,
+              accountId: rec.id,
+              accountName: rec.name
+            }));
+            setAccountMismatchConfirmed(true);
+            setIsDuplicateModalOpen(false);
+            showToast(`Linked to existing account: "${rec.name}"`, "success");
+          }}
+          onCreateAnyway={() => {
+            addAccount(pendingAccountToCreate);
+            setTakeoffSaveFormData((prev) => ({
+              ...prev,
+              accountId: pendingAccountToCreate.id,
+              accountName: pendingAccountToCreate.name
+            }));
+            setAccountMismatchConfirmed(true);
+            setIsDuplicateModalOpen(false);
+            showToast(`Created account "${pendingAccountToCreate.name}" (Duplicate override logged)`, "success");
+          }}
+        />
       )}
     </div>
   );
