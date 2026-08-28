@@ -49,11 +49,11 @@ describe('Editing your details', () => {
 
   it('keeps Save disabled until something actually changes', () => {
     renderBoth();
-    const save = screen.getByRole('button', { name: /Save details/i });
+    const save = screen.getByRole('button', { name: /Details Saved|Save details/i });
     expect(save).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText(/^Name$/i), { target: { value: 'Travis Maher' } });
-    expect(save).toBeEnabled();
+    expect(screen.getByRole('button', { name: /Save details/i })).toBeEnabled();
   });
 
   it('propagates a saved name to the sidebar and its avatar', () => {

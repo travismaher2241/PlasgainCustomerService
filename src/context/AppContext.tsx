@@ -406,6 +406,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem("plasgain_user_profile", JSON.stringify(next));
       localStorage.setItem("plasgain_active_user_id", userId);
       saveDocToCloud("users", userId, next);
+
+      // Also update teamMembers array so user list reflects latest profile details
+      setTeamMembers((prevTeam) => {
+        const updatedTeam = prevTeam.map((m) =>
+          m.id === userId || m.name.toLowerCase() === prev.name.toLowerCase() ? { ...m, ...next } : m
+        );
+        localStorage.setItem("plasgain_team_members", JSON.stringify(updatedTeam));
+        saveDocToCloud("settings", "team_members", { members: updatedTeam });
+        return updatedTeam;
+      });
+
       return next;
     });
   };

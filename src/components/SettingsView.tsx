@@ -205,9 +205,20 @@ export const SettingsView: React.FC = () => {
               <button
                 type="submit"
                 disabled={!dirty || Boolean(nameError)}
-                className="px-3.5 py-2 rounded-edge text-meta font-semibold text-white bg-brand-deep border border-brand-deep hover:bg-brand hover:border-brand disabled:bg-line disabled:border-line disabled:text-ink-dim disabled:cursor-not-allowed transition-colors cursor-pointer"
+                className={`px-4 py-2 rounded-edge text-meta font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+                  dirty
+                    ? "text-white bg-brand-deep border border-brand-deep hover:bg-brand hover:border-brand shadow-xs"
+                    : "text-emerald-800 bg-emerald-50 border border-emerald-200 cursor-default"
+                }`}
               >
-                Save details
+                {!dirty ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Details Saved</span>
+                  </>
+                ) : (
+                  <span>Save details</span>
+                )}
               </button>
 
               {dirty && (
@@ -233,22 +244,18 @@ export const SettingsView: React.FC = () => {
               </button>
             </div>
 
-            <div className="flex items-center justify-between gap-2 pt-2 border-t border-line text-spec text-ink-faint flex-wrap">
+            <div className="flex items-center justify-between gap-2 pt-2 border-t border-line text-spec text-ink-dim flex-wrap">
               <span className="flex items-center gap-1.5">
                 <span className={`w-2 h-2 rounded-full ${cloudSyncStatus === "synced" ? "bg-emerald-500" : cloudSyncStatus === "syncing" ? "bg-amber-500 animate-pulse" : "bg-slate-400"}`}></span>
-                {cloudSyncStatus === "synced"
-                  ? "✓ Stored securely in Cloud Firestore (plasgain-customer-service) & local cache."
-                  : cloudSyncStatus === "syncing"
-                  ? "Syncing profile with Cloud Firestore..."
-                  : "Cached locally. Will sync with Cloud Firestore when online."}
+                <span className="font-medium text-emerald-700">
+                  Auto-saved &amp; synced with Cloud Firestore (Sydney/AU)
+                </span>
+                {savedAt && (
+                  <span className="text-ink-faint">
+                    · Last updated at {savedAt}
+                  </span>
+                )}
               </span>
-              <button
-                type="button"
-                onClick={syncAllWithCloud}
-                className="text-brand-deep hover:underline font-semibold cursor-pointer"
-              >
-                Sync with Cloud Now &rarr;
-              </button>
             </div>
           </form>
         </Surface>
