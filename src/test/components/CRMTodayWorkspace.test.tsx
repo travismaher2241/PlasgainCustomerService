@@ -5,12 +5,47 @@ import { CRMTodayWorkspace } from '../../components/crm/CRMTodayWorkspace';
 import { CRMCommandCenter } from '../../components/crm/CRMCommandCenter';
 import { AppProvider } from '../../context/AppContext';
 
+const testDeals = [
+  {
+    id: "opp-1",
+    accountId: "acc-1",
+    accountName: "City of Moreton Bay",
+    name: "Lake Samsonvale Shared Trail",
+    stageId: "stage-new",
+    stageName: "New Opportunity",
+    pipelineId: "pipe-major-projects",
+    dealValue: 68400,
+    expectedCloseDate: "2026-09-26",
+    nextAction: "Call Sarah about DIALux spacing",
+    priority: "High",
+    quoteStatus: "Sent"
+  }
+];
+
+const testTasks = [
+  {
+    id: "task-1",
+    title: "Call Sarah about DIALux spacing",
+    taskType: "Call",
+    dueDate: "2026-08-20",
+    priority: "High",
+    status: "Pending",
+    assignedTo: "Travis Maher",
+    relatedEntityType: "Opportunity",
+    relatedEntityId: "opp-1",
+    relatedEntityName: "Lake Samsonvale Shared Trail"
+  }
+];
+
 describe("CRM Today's Focus & Action Workspace Suite", () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it("renders compact header, Needs Attention strip, and Hero Next Best Action at the top", () => {
+  it("renders compact header, Needs Attention strip, and Hero Next Best Action when items exist", () => {
+    localStorage.setItem("plasgain_crm_deals", JSON.stringify(testDeals));
+    localStorage.setItem("plasgain_crm_tasks", JSON.stringify(testTasks));
+
     render(
       <AppProvider>
         <CRMTodayWorkspace />
@@ -40,6 +75,8 @@ describe("CRM Today's Focus & Action Workspace Suite", () => {
   });
 
   it("allows filtering work queue using the Needs Attention pills", () => {
+    localStorage.setItem("plasgain_crm_deals", JSON.stringify(testDeals));
+
     render(
       <AppProvider>
         <CRMTodayWorkspace />
@@ -60,6 +97,9 @@ describe("CRM Today's Focus & Action Workspace Suite", () => {
   });
 
   it("renders fast-scanning work items with primary action buttons", () => {
+    localStorage.setItem("plasgain_crm_deals", JSON.stringify(testDeals));
+    localStorage.setItem("plasgain_crm_tasks", JSON.stringify(testTasks));
+
     render(
       <AppProvider>
         <CRMTodayWorkspace />

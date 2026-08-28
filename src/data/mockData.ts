@@ -749,78 +749,7 @@ export const SAMPLE_PRODUCTS: PlasgainProduct[] = [
   }
 ];
 
-export const SAMPLE_OPPORTUNITIES: Opportunity[] = [
-  {
-    id: "opp-001",
-    customerCompany: "ABC Civil Pty Ltd",
-    contactName: "Rob Mitchell",
-    contactEmail: "rob.mitchell@abccivil.com.au",
-    contactPhone: "+61 412 884 921",
-    project: "Ballarat 1.2km Shared Path Upgrade",
-    location: "Ballarat, Victoria",
-    application: "Shared pathway / Pedestrian Trail",
-    stage: "Awaiting Information",
-    status: "Pending Customer",
-    estimatedQuantity: 30,
-    estimatedValue: 0,
-    productsConsidered: ["Intense Light - 50W Solar", "Pro Blade Solar 75/125"],
-    quoteDeadline: "2026-08-28",
-    projectDate: "2026-11-15",
-    lastActivity: "Enquiry analysed against Knowledge Base. Clarification questions prepared on AS/NZS 1158 category, path width, and dimming profile.",
-    lastActivityDate: "Today at 09:15",
-    nextAction: "Send specification questions email to Rob before quoting.",
-    nextActionDate: "2026-08-21",
-    readinessScore: 65,
-    notes: "Ballarat 1.2km shared path. Trenching mains power is cost-prohibitive. Solar lighting requested. Drawings show 6m poles. Dusk-to-dawn requested.",
-    rawEnquiry: "We are pricing a new 1.2 km shared pathway in Ballarat and require a solar lighting option. The current drawings indicate 6 m poles. Lighting is expected to operate dusk to dawn. Can you recommend a suitable solution and provide budget pricing? Installation is expected around November."
-  },
-  {
-    id: "opp-002",
-    customerCompany: "City of Greater Geelong",
-    contactName: "Sarah Jenkins",
-    contactEmail: "sjenkins@geelongcity.vic.gov.au",
-    contactPhone: "+61 3 5272 4400",
-    project: "Eastern Beach Foreshore Reserve Path",
-    location: "Geelong, Victoria",
-    application: "Walking trails / Foreshore Reserve",
-    stage: "Technical Review",
-    status: "Internal Review",
-    estimatedQuantity: 24,
-    estimatedValue: 0,
-    productsConsidered: ["Intense Light - 50W Solar", "Plaspole"],
-    quoteDeadline: "2026-08-25",
-    projectDate: "2026-10-01",
-    lastActivity: "Dialux photometric calculation requested from engineering team for 3000K luminaires on Plaspole sustainable poles.",
-    lastActivityDate: "Yesterday at 15:30",
-    nextAction: "Review Dialux report from Engineering and confirm mounting height.",
-    nextActionDate: "2026-08-24",
-    readinessScore: 90,
-    notes: "Council wants sustainable poles with recycled content (Plaspole) and 3000K warm white luminaires for coastal walking reserve."
-  },
-  {
-    id: "opp-003",
-    customerCompany: "Downer Civil Infrastructure",
-    contactName: "Mark Henderson",
-    contactEmail: "mark.henderson@downergroup.com",
-    contactPhone: "+61 418 901 234",
-    project: "Western Highway Rest Area Upgrade",
-    location: "Ararat, Victoria",
-    application: "Highways / major roadway / Truck Rest Area",
-    stage: "Qualifying",
-    status: "Active",
-    estimatedQuantity: 18,
-    estimatedValue: 0,
-    productsConsidered: ["Roadway V-LED 70W", "SafePole"],
-    quoteDeadline: "2026-08-30",
-    projectDate: "2026-11-30",
-    lastActivity: "Technical review recommended for TS 1158.6 roadway specification and SafePole crash testing approvals.",
-    lastActivityDate: "2 days ago",
-    nextAction: "Call Mark to discuss Department of Transport lighting approval status and obtain engineering drawings.",
-    nextActionDate: "2026-08-22",
-    readinessScore: 70,
-    notes: "Highway rest area with truck parking bays. Needs higher output off-grid lighting on 9-15m mounting. Roadway V-LED 70W and SafePole energy-absorbing columns under evaluation."
-  }
-];
+export const SAMPLE_OPPORTUNITIES: Opportunity[] = [];
 
 export const SAMPLE_DOCUMENTS: KnowledgeDocument[] = [
   {

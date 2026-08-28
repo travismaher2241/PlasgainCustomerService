@@ -23,15 +23,15 @@ describe('User Login & Identity Switching Suite', () => {
     localStorage.clear();
   });
 
-  it('opens login modal when clicking sidebar user footer and switches to Travis Maher', async () => {
+  it('opens login modal when clicking sidebar user footer and switches account', async () => {
     render(
       <AppProvider>
         <TestApp />
       </AppProvider>
     );
 
-    // Initial default user
-    expect(screen.getByTestId('active-user-name')).toHaveTextContent('Sarah Reed');
+    // Initial default user is Travis Maher
+    expect(screen.getByTestId('active-user-name')).toHaveTextContent('Travis Maher');
 
     // Click sidebar user footer
     const sidebarButton = screen.getByTitle(/Switch user account or update details/i);
@@ -39,20 +39,20 @@ describe('User Login & Identity Switching Suite', () => {
 
     // Modal should be open
     expect(screen.getByText('Plasgain Sales Workspace Login')).toBeInTheDocument();
-    expect(screen.getByText('Travis Maher')).toBeInTheDocument();
+    expect(screen.getByText('Sarah Reed')).toBeInTheDocument();
 
-    // Click Sign In as Travis Maher
-    const travisCard = screen.getByText('Travis Maher').closest('[class*="rounded-panel"]')!;
-    expect(travisCard).toBeInTheDocument();
-    fireEvent.click(travisCard);
+    // Click Sign In as Sarah Reed
+    const sarahCard = screen.getByText('Sarah Reed').closest('[class*="rounded-panel"]')!;
+    expect(sarahCard).toBeInTheDocument();
+    fireEvent.click(sarahCard);
 
-    // Active user should now be Travis Maher
-    expect(screen.getByTestId('active-user-name')).toHaveTextContent('Travis Maher');
+    // Active user should now be Sarah Reed
+    expect(screen.getByTestId('active-user-name')).toHaveTextContent('Sarah Reed');
 
     // Verify localStorage persistence
     const saved = JSON.parse(localStorage.getItem('plasgain_user_profile') || '{}');
-    expect(saved.name).toBe('Travis Maher');
-    expect(saved.email).toBe('travis@plasgain.com.au');
+    expect(saved.name).toBe('Sarah Reed');
+    expect(saved.email).toBe('sarah.reed@plasgain.com.au');
   });
 
   it('allows deleting irrelevant users from workspace', async () => {

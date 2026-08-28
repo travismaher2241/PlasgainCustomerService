@@ -1,15 +1,31 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { HomeDashboard } from '../../components/HomeDashboard';
 import { AppProvider } from '../../context/AppContext';
+
+const sampleDeals = [
+  {
+    id: "opp-1",
+    accountId: "acc-1",
+    accountName: "City of Moreton Bay",
+    name: "Lake Samsonvale Shared Trail",
+    stageId: "stage-new",
+    stageName: "New Opportunity",
+    pipelineId: "pipe-major-projects",
+    dealValue: 68400,
+    expectedCloseDate: "2026-09-26",
+    nextAction: "Call Sarah about DIALux spacing",
+    priority: "High"
+  }
+];
 
 describe('HomeDashboard Radically Simplified Suite', () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it('renders compact status, top 3 priorities and single Open action per item', () => {
+  it('renders compact clear status and empty priorities state when clean', () => {
     render(
       <AppProvider>
         <HomeDashboard />
@@ -17,23 +33,28 @@ describe('HomeDashboard Radically Simplified Suite', () => {
     );
 
     // 1. Status Section
-    expect(screen.getByRole('heading', { level: 1, name: /clear|need attention/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /You're clear/i })).toBeInTheDocument();
 
-    // 2. Priorities Section (Top 3 only)
+    // 2. Priorities Section
     expect(screen.getByRole('heading', { level: 2, name: /Your priorities/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /View all priorities in CRM/i })).toBeInTheDocument();
-
-    // Verify Open buttons exist (exactly up to 3 for top 3)
-    const openButtons = screen.getAllByRole('button', { name: /Open/i });
-    expect(openButtons.length).toBeGreaterThan(0);
-    expect(openButtons.length).toBeLessThanOrEqual(3);
+    expect(screen.getByText(/No urgent priorities/i)).toBeInTheDocument();
 
     // Verify "Why this matters" is NOT present on Home
     expect(screen.queryByText(/Why this matters/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Prioritisation Reason/i)).not.toBeInTheDocument();
+  });
 
-    // Verify multi-button clutter is removed (no Prep Call or Review buttons on Home)
-    expect(screen.queryByRole('button', { name: /Prep call/i })).not.toBeInTheDocument();
+  it('renders top priority items with single Open action when deals exist', () => {
+    localStorage.setItem("plasgain_crm_deals", JSON.stringify(sampleDeals));
+
+    render(
+      <AppProvider>
+        <HomeDashboard />
+      </AppProvider>
+    );
+
+    expect(screen.getByText(/Lake Samsonvale Shared Trail/i)).toBeInTheDocument();
+    const openButtons = screen.getAllByRole('button', { name: /Open/i });
+    expect(openButtons.length).toBe(1);
   });
 
   it('renders quick access navigation shortcuts', () => {

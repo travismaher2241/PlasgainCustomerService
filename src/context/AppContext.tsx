@@ -155,11 +155,12 @@ export const PRESET_TEAM_MEMBERS: UserProfile[] = [
 ];
 
 export const DEFAULT_USER_PROFILE: UserProfile = {
-  id: "user-sarah-reed",
-  name: "Sarah Reed",
-  role: "Internal Sales",
-  location: "Melbourne",
-  email: ""
+  id: "user-travis-maher",
+  name: "Travis Maher",
+  role: "Internal Sales & Technical Lead",
+  location: "Drouin, VIC",
+  email: "travis@plasgain.com.au",
+  phone: "0412 345 678"
 };
 
 /** Two letters from the name, for the avatar. Falls back to "?" when empty. */
@@ -538,8 +539,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [pipelines] = useState<PipelineConfig[]>(DEFAULT_PIPELINES);
   const [activePipelineId, setActivePipelineId] = useState<string>("pipe-major-projects");
 
-  const [selectedAccountId, setSelectedAccountId] = useState<string | null>("acc-001");
-  const [selectedCrmOpportunityId, setSelectedCrmOpportunityId] = useState<string | null>("opp-001");
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(() => rawAccounts[0]?.id || null);
+  const [selectedCrmOpportunityId, setSelectedCrmOpportunityId] = useState<string | null>(() => crmOpportunities[0]?.id || null);
 
   // Unified opportunities derived dynamically from single CRM source of truth
   const opportunities = useMemo(() => {
@@ -550,7 +551,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Compatibility stub - mutations must go through crmOpportunities
   };
 
-  const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>("opp-001");
+  const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(() => crmOpportunities[0]?.id || null);
 
   const [documents, setDocuments] = useState<KnowledgeDocument[]>(() => {
     const saved = localStorage.getItem("plasgain_documents");

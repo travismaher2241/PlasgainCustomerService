@@ -57,19 +57,12 @@ export const SettingsView: React.FC = () => {
   };
 
   const handleResetData = () => {
-    localStorage.removeItem("plasgain_opportunities");
-    localStorage.removeItem("plasgain_documents");
-    localStorage.removeItem("plasgain_crm_accounts");
-    localStorage.removeItem("plasgain_crm_contacts");
-    localStorage.removeItem("plasgain_crm_leads");
-    localStorage.removeItem("plasgain_crm_deals");
-    localStorage.removeItem("plasgain_crm_activities");
-    localStorage.removeItem("plasgain_crm_tasks");
-    setOpportunities(SAMPLE_OPPORTUNITIES);
-    showToast("Workspace data reset to default state", "info");
+    localStorage.clear();
+    setOpportunities([]);
+    showToast("Workspace data cleared", "info");
     setTimeout(() => {
       window.location.reload();
-    }, 600);
+    }, 400);
   };
 
   return (
@@ -350,12 +343,12 @@ export const SettingsView: React.FC = () => {
         </div>
       </div>
 
-      {/* Reset Data */}
+      {/* Clear Data */}
       <div className="bg-white rounded-panel border border-line p-5 shadow-xs flex items-center justify-between">
         <div>
-          <h3 className="text-meta font-bold">Reset Workspace Data</h3>
+          <h3 className="text-meta font-bold">Clear Workspace Data</h3>
           <p className="text-spec text-ink-dim">
-            Restores initial sample opportunities, customer accounts, and documents.
+            Clears all locally cached CRM records, deals, and activities.
           </p>
         </div>
         <button
@@ -363,7 +356,7 @@ export const SettingsView: React.FC = () => {
           className="text-meta font-medium px-3.5 py-2 rounded-edge bg-paper hover:bg-line transition-colors flex items-center gap-1.5 cursor-pointer border border-line"
         >
           <RefreshCw className="w-3.5 h-3.5" />
-          <span>Reset Sample Data</span>
+          <span>Clear Workspace Data</span>
         </button>
       </div>
     </div>

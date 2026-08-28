@@ -677,66 +677,6 @@ export const NewEnquiryWorkspace: React.FC = () => {
               {currentEnquiryAnalysis ? "Original Customer Note & Metadata" : "Input Customer Enquiry"}
             </h2>
           </div>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-meta text-ink-faint font-semibold flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5 text-soon" />
-              <span>Try sample:</span>
-            </span>
-            <button
-              onClick={() => {
-                setRawEnquiryInput({
-                  rawContent:
-                    "We are pricing a new 1.2 km shared pathway in Ballarat and require a solar lighting option. The current drawings indicate 6 m poles. Lighting is expected to operate dusk to dawn. Can you recommend a suitable solution and provide budget pricing? Installation is expected around November.",
-                  customer: "Rob Mitchell",
-                  contact: "rob.mitchell@abccivil.com.au",
-                  company: "ABC Civil Pty Ltd",
-                  project: "Ballarat 1.2km Shared Path Upgrade",
-                  location: "Ballarat, Victoria",
-                  source: "Email"
-                });
-                showToast("Loaded Ballarat Shared Path sample enquiry", "info");
-              }}
-              className="text-meta px-2.5 py-1 rounded-edge bg-raised hover:bg-brand-wash hover:text-brand-deep border border-line hover:border-brand-edge font-medium transition-colors cursor-pointer"
-            >
-              Ballarat Shared Path
-            </button>
-            <button
-              onClick={() => {
-                setRawEnquiryInput({
-                  rawContent:
-                    "Geelong City Council is seeking expressions of interest for 24x solar pathway bollards for the Eastern Beach foreshore path. Must be vandal resistant (IK10 rated), low-glare with zero upward light spill, and 3000K warm white to suit coastal fauna. Need tender documentation and IES files.",
-                  customer: "Sarah Jenkins",
-                  contact: "sjenkins@geelongcity.vic.gov.au",
-                  company: "City of Greater Geelong",
-                  project: "Eastern Beach Foreshore Reserve Path",
-                  location: "Geelong, Victoria",
-                  source: "Council Tender Portal"
-                });
-                showToast("Loaded Geelong Foreshore sample enquiry", "info");
-              }}
-              className="text-meta px-2.5 py-1 rounded-edge bg-raised hover:bg-brand-wash hover:text-brand-deep border border-line hover:border-brand-edge font-medium transition-colors cursor-pointer"
-            >
-              Geelong Foreshore
-            </button>
-            <button
-              onClick={() => {
-                setRawEnquiryInput({
-                  rawContent:
-                    "We have a new freight transport yard in Dandenong South. Substation is at capacity so trenching mains power is too expensive. Need high-output off-grid solar floodlighting on 10m-12m poles to illuminate heavy vehicle loading area. Must have at least 5 nights battery autonomy.",
-                  customer: "David Lee",
-                  contact: "dlee@apexelectrical.com.au",
-                  company: "Apex Electrical Contracting",
-                  project: "Monash Industrial Estate Transport Depot",
-                  location: "Dandenong South, Victoria",
-                  source: "Phone Notes"
-                });
-                showToast("Loaded Monash Transport Depot sample enquiry", "info");
-              }}
-              className="text-meta px-2.5 py-1 rounded-edge bg-raised hover:bg-brand-wash hover:text-brand-deep border border-line hover:border-brand-edge font-medium transition-colors cursor-pointer"
-            >
-              Monash Depot
-            </button>
-          </div>
         </div>
 
         {/* Text Input */}

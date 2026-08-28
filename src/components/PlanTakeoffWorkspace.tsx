@@ -238,14 +238,14 @@ export const PlanTakeoffWorkspace: React.FC = () => {
   } | null>(null);
 
   const [drawingNotes, setDrawingNotes] = useState("");
-  const [projectName, setProjectName] = useState("Ballarat 1.2km Shared Path Upgrade");
-  const [customerName, setCustomerName] = useState("Ballarat City Council");
+  const [projectName, setProjectName] = useState("");
+  const [customerName, setCustomerName] = useState("");
   const [isAnalysing, setIsAnalysing] = useState(false);
   const [analysisError, setAnalysisError] = useState<{ detail: string; guidance?: string } | null>(null);
 
   // Take-off Result State
-  const [takeoffResult, setTakeoffResult] = useState<DrawingTakeoffResult | null>(SAMPLE_PLANS[0].result);
-  const [selectedPlanId, setSelectedPlanId] = useState<string>("ballarat-shared-path");
+  const [takeoffResult, setTakeoffResult] = useState<DrawingTakeoffResult | null>(null);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
 
   // Plan Canvas Zoom & Pan State
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);

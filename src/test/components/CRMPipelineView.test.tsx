@@ -1,9 +1,25 @@
 import React from 'react';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CRMPipelineView } from '../../components/crm/CRMPipelineView';
 import { CRMCommandCenter } from '../../components/crm/CRMCommandCenter';
 import { AppProvider } from '../../context/AppContext';
+
+const testDeals = [
+  {
+    id: "opp-1",
+    accountId: "acc-1",
+    accountName: "City of Moreton Bay",
+    name: "Lake Samsonvale Shared Trail",
+    stageId: "stage-new",
+    stageName: "New Opportunity",
+    pipelineId: "pipe-major-projects",
+    dealValue: 68400,
+    expectedCloseDate: "2026-09-26",
+    nextAction: "Call Sarah about DIALux spacing",
+    priority: "High"
+  }
+];
 
 describe('CRM Deals Pipeline (Table-Only) & Navigation Suite', () => {
   beforeEach(() => {
@@ -52,6 +68,8 @@ describe('CRM Deals Pipeline (Table-Only) & Navigation Suite', () => {
   });
 
   it('allows changing stage directly from the table row dropdown', () => {
+    localStorage.setItem("plasgain_crm_deals", JSON.stringify(testDeals));
+
     render(
       <AppProvider>
         <CRMPipelineView />
@@ -72,6 +90,8 @@ describe('CRM Deals Pipeline (Table-Only) & Navigation Suite', () => {
   });
 
   it('filters table rows via search and health filters', () => {
+    localStorage.setItem("plasgain_crm_deals", JSON.stringify(testDeals));
+
     render(
       <AppProvider>
         <CRMPipelineView />

@@ -122,9 +122,9 @@ export const CRMPipelineView: React.FC = () => {
   const filteredDeals = crmOpportunities.filter((deal) => {
     const matchesPipeline = deal.pipelineId === activePipelineId;
     const matchesSearch =
-      deal.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      deal.accountName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      deal.projectApplication.toLowerCase().includes(searchQuery.toLowerCase());
+      (deal.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (deal.accountName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (deal.projectApplication || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesHealth = healthFilter === "all" || deal.dealHealth === healthFilter;
     const matchesStage = stageFilter === "all" || deal.stageId === stageFilter;
     return matchesPipeline && matchesSearch && matchesHealth && matchesStage;
@@ -430,10 +430,10 @@ export const CRMPipelineView: React.FC = () => {
                       </select>
                     </td>
                     <td className="py-3 px-3 text-right font-bold text-body">
-                      ${deal.dealValue.toLocaleString()}
+                      ${(deal.dealValue || 0).toLocaleString()}
                     </td>
                     <td className="py-3 px-3 text-right font-semibold text-brand-deep hidden sm:table-cell">
-                      ${deal.weightedValue.toLocaleString()}
+                      ${(deal.weightedValue !== undefined ? deal.weightedValue : Math.round(((deal.dealValue || 0) * (deal.probability || 0)) / 100)).toLocaleString()}
                     </td>
                     <td className="py-3 px-3 text-ink-dim text-spec hidden md:table-cell">
                       {deal.expectedCloseDate}
@@ -886,7 +886,7 @@ export const CRMPipelineView: React.FC = () => {
               <div className="grid grid-cols-2 gap-2 pt-1 border-t border-line">
                 <button
                   onClick={() => {
-                    const items = selectedDeal.products.map((p) => ({
+                    const items = (selectedDeal.products || []).map((p) => ({
                       itemCode: p.productCode,
                       description: p.productName,
                       quantity: p.quantity,
@@ -911,7 +911,7 @@ export const CRMPipelineView: React.FC = () => {
 
                 <button
                   onClick={async () => {
-                    const items = selectedDeal.products.map((p) => ({
+                    const items = (selectedDeal.products || []).map((p) => ({
                       itemCode: p.productCode,
                       description: p.productName,
                       quantity: p.quantity,
@@ -971,7 +971,9 @@ export const CRMPipelineView: React.FC = () => {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-ink-dim">Weighted Pipeline Value:</span>
-                  <span className="font-bold text-brand-deep">${selectedDeal.weightedValue.toLocaleString()}</span>
+                  <span className="font-bold text-brand-deep">
+                    ${(selectedDeal.weightedValue !== undefined ? selectedDeal.weightedValue : Math.round(((selectedDeal.dealValue || 0) * (selectedDeal.probability || 0)) / 100)).toLocaleString()}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-ink-dim">Expected Decision Date:</span>
@@ -1012,7 +1014,7 @@ export const CRMPipelineView: React.FC = () => {
                     Bill of Materials (BOM) &amp; Margin Calculator
                   </h3>
                   <span className="text-spec font-bold text-brand-deep bg-brand-wash px-2 py-0.5 rounded">
-                    {selectedDeal.products.length} Line Item{selectedDeal.products.length !== 1 ? "s" : ""}
+                    {(selectedDeal.products || []).length} Line Item{(selectedDeal.products || []).length !== 1 ? "s" : ""}
                   </span>
                 </div>
                 <p className="text-spec text-ink-dim mt-0.5">
@@ -1043,7 +1045,7 @@ export const CRMPipelineView: React.FC = () => {
                   type="button"
                   onClick={() => {
                     const marginMultiplier = 1 - targetMarginSlider / 100;
-                    const updatedProducts = selectedDeal.products.map((p) => {
+                    const updatedProducts = (selectedDeal.products || []).map((p) => {
                       const cost = p.costPrice || (p.unitPrice ? Math.round(p.unitPrice * 0.65) : 500);
                       const newUnitPrice = Math.round(cost / marginMultiplier);
                       return {
@@ -1074,17 +1076,17 @@ export const CRMPipelineView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    if (!selectedDeal || selectedDeal.products.length === 0) {
+                    if (!selectedDeal || (selectedDeal.products || []).length === 0) {
                       showToast("No products in deal BOM to copy", "warning");
                       return;
                     }
                     const header = "ItemCode\tDescription\tQuantity\tUnit\tUnitCost\tUnitSell\tTaxCode";
-                    const rows = selectedDeal.products.map((p) => 
+                    const rows = (selectedDeal.products || []).map((p) => 
                       `${p.productCode || "CUSTOM"}\t${p.productName}\t${p.quantity}\t${p.unit || "ea"}\t${p.costPrice || 0}\t${p.unitPrice || 0}\tGST`
                     );
                     const fullText = [header, ...rows].join("\n");
                     navigator.clipboard?.writeText(fullText);
-                    showToast(`Copied ${selectedDeal.products.length} line items formatted for Ostendo ERP import!`, "success");
+                    showToast(`Copied ${(selectedDeal.products || []).length} line items formatted for Ostendo ERP import!`, "success");
                   }}
                   className="px-2.5 py-1 bg-white hover:bg-paper text-body border border-line-strong font-bold text-[11px] rounded shadow-2xs cursor-pointer transition-colors flex items-center gap-1"
                   title="Copy tab-delimited BOM schedule formatted for direct paste into Ostendo ERP Quote Entry"
@@ -1270,7 +1272,7 @@ export const CRMPipelineView: React.FC = () => {
                         isOstendoVerified: true
                       };
 
-                      const updatedProducts = [...selectedDeal.products, newLine];
+                      const updatedProducts = [...(selectedDeal.products || []), newLine];
                       const newTotal = updatedProducts.reduce((sum, p) => sum + (p.totalPrice || 0), 0);
                       const newTotalCost = updatedProducts.reduce((sum, p) => sum + ((p.costPrice || 0) * p.quantity), 0);
                       const overallMargin = newTotal > 0 ? Math.round(((newTotal - newTotalCost) / newTotal) * 100) : 35;
@@ -1295,7 +1297,7 @@ export const CRMPipelineView: React.FC = () => {
             )}
 
             {/* BOM Table */}
-            {selectedDeal.products.length === 0 ? (
+            {(selectedDeal.products || []).length === 0 ? (
               <div className="p-8 text-center bg-paper rounded-edge border border-dashed border-line text-ink-dim">
                 <Package className="w-8 h-8 mx-auto text-ink-faint mb-2" />
                 <div className="font-semibold text-body">No line items in this deal BOM</div>
@@ -1318,7 +1320,7 @@ export const CRMPipelineView: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line">
-                    {selectedDeal.products.map((p, idx) => {
+                    {(selectedDeal.products || []).map((p, idx) => {
                       const cost = p.costPrice || (p.unitPrice ? Math.round(p.unitPrice * 0.64) : 0);
                       const sell = p.unitPrice || 0;
                       const lineMargin = sell > 0 ? Math.round(((sell - cost) / sell) * 100) : 0;
@@ -1374,7 +1376,7 @@ export const CRMPipelineView: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => {
-                                const updatedProducts = selectedDeal.products.filter((_, i) => i !== idx);
+                                const updatedProducts = (selectedDeal.products || []).filter((_, i) => i !== idx);
                                 const newTotal = updatedProducts.reduce((sum, item) => sum + (item.totalPrice || (item.unitPrice ? item.unitPrice * item.quantity : 0)), 0);
                                 const newTotalCost = updatedProducts.reduce((sum, item) => sum + ((item.costPrice || 0) * item.quantity), 0);
                                 const overallMargin = newTotal > 0 ? Math.round(((newTotal - newTotalCost) / newTotal) * 100) : 35;
@@ -1402,19 +1404,19 @@ export const CRMPipelineView: React.FC = () => {
                     <tr className="border-t-2 border-line bg-paper font-bold text-body">
                       <td colSpan={3} className="py-2.5 px-3 text-spec uppercase">Total Schedule Scope</td>
                       <td className="py-2.5 px-3 text-right text-spec">
-                        {selectedDeal.products.reduce((sum, p) => sum + p.quantity, 0)} Units
+                        {(selectedDeal.products || []).reduce((sum, p) => sum + p.quantity, 0)} Units
                       </td>
                       <td className="py-2.5 px-3 text-right text-ink-dim text-spec">
-                        ${(selectedDeal.totalCostValue || selectedDeal.products.reduce((sum, p) => sum + ((p.costPrice || Math.round((p.unitPrice || 0) * 0.64)) * p.quantity), 0)).toLocaleString()}
+                        ${(selectedDeal.totalCostValue || (selectedDeal.products || []).reduce((sum, p) => sum + ((p.costPrice || Math.round((p.unitPrice || 0) * 0.64)) * p.quantity), 0)).toLocaleString()}
                       </td>
                       <td className="py-2.5 px-3 text-right text-spec">
-                        ${selectedDeal.dealValue.toLocaleString()}
+                        ${(selectedDeal.dealValue || 0).toLocaleString()}
                       </td>
                       <td className="py-2.5 px-3 text-right text-brand-deep text-spec">
                         {selectedDeal.grossMarginPercent || 36}%
                       </td>
                       <td className="py-2.5 px-3 text-right text-brand-deep text-base">
-                        ${selectedDeal.dealValue.toLocaleString()}
+                        ${(selectedDeal.dealValue || 0).toLocaleString()}
                       </td>
                       <td></td>
                     </tr>
@@ -1655,7 +1657,7 @@ export const CRMPipelineView: React.FC = () => {
           initialCompanyName={selectedDeal.accountName}
           initialProjectName={selectedDeal.name}
           initialQuoteRef={selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber || ""}
-          initialProducts={selectedDeal.products.map((p) => p.productName || p.productCode)}
+          initialProducts={(selectedDeal.products || []).map((p) => p.productName || p.productCode)}
         />
       )}
 
@@ -1667,7 +1669,7 @@ export const CRMPipelineView: React.FC = () => {
           projectName={selectedDeal.name}
           customerName={selectedDeal.accountName}
           quoteRef={selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber || ""}
-          initialProductNames={selectedDeal.products.map((p) => p.productName || p.productCode)}
+          initialProductNames={(selectedDeal.products || []).map((p) => p.productName || p.productCode)}
         />
       )}
 

@@ -22,10 +22,12 @@ describe('PlanTakeoffWorkspace Component', () => {
     expect(screen.getByText(/Geelong Plan/i)).toBeInTheDocument();
   });
 
-  it('loads sample plan data with deciphered product line items and notes (product-only)', () => {
+  it('loads sample plan data when selected with deciphered product line items and notes', () => {
     renderWorkspace();
 
-    // Default Ballarat sample plan
+    const ballaratButton = screen.getByText(/Ballarat Plan/i);
+    fireEvent.click(ballaratButton);
+
     expect(screen.getAllByText(/BCC-2025-E02-REV-B/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Plasgain Pro Blade 75 Solar Luminaire/i)).toBeInTheDocument();
     expect(screen.getByText(/Plaspole 6.0m Recycled Composite Light Pole/i)).toBeInTheDocument();
@@ -47,8 +49,11 @@ describe('PlanTakeoffWorkspace Component', () => {
     expect(screen.getByText(/8.0m Galvanised Mild Steel Baseplate Pole/i)).toBeInTheDocument();
   });
 
-  it('allows adding and removing line items', () => {
+  it('allows adding and removing line items after loading a plan', () => {
     renderWorkspace();
+
+    const ballaratButton = screen.getByText(/Ballarat Plan/i);
+    fireEvent.click(ballaratButton);
 
     const addButton = screen.getByRole('button', { name: /Add Item/i });
     fireEvent.click(addButton);
@@ -63,6 +68,9 @@ describe('PlanTakeoffWorkspace Component', () => {
   it('renders Export Product List for Ostendo and Tender Package buttons', () => {
     renderWorkspace();
 
+    const ballaratButton = screen.getByText(/Ballarat Plan/i);
+    fireEvent.click(ballaratButton);
+
     expect(screen.getByRole('button', { name: /Download Ostendo CSV/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Copy Product List/i })).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /Tender Package/i }).length).toBeGreaterThanOrEqual(1);
@@ -70,6 +78,9 @@ describe('PlanTakeoffWorkspace Component', () => {
 
   it('triggers Save to CRM Deals Pipeline with product lines only', () => {
     renderWorkspace();
+
+    const ballaratButton = screen.getByText(/Ballarat Plan/i);
+    fireEvent.click(ballaratButton);
 
     const saveCrmButton = screen.getByRole('button', { name: /Save to CRM Deal/i });
     fireEvent.click(saveCrmButton);

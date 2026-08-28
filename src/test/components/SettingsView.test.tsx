@@ -17,18 +17,18 @@ describe('SettingsView Component', () => {
     expect(screen.getAllByText(/Cloud Firestore/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/Quoting & Compliance Standards/i)).toBeInTheDocument();
     expect(screen.getByText(/Datasheet Accuracy:/i)).toBeInTheDocument();
-    expect(screen.getByText(/Reset Workspace Data/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Clear Workspace Data/i).length).toBeGreaterThan(0);
   });
 
-  it('triggers reset sample data action', () => {
+  it('triggers clear workspace data action', () => {
     render(
       <AppProvider>
         <SettingsView />
       </AppProvider>
     );
 
-    const resetBtn = screen.getByRole('button', { name: /Reset Sample Data/i });
-    fireEvent.click(resetBtn);
-    expect(resetBtn).toBeInTheDocument();
+    const clearBtn = screen.getByRole('button', { name: /Clear Workspace Data/i });
+    fireEvent.click(clearBtn);
+    expect(clearBtn).toBeInTheDocument();
   });
 });

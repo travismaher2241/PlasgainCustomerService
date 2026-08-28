@@ -466,7 +466,7 @@ export const CRMAccountsView: React.FC = () => {
         </div>
 
         {/* Right Side: Account 360 Workspace (8 Columns) */}
-        {selectedAccount && (
+        {selectedAccount ? (
           <div className="lg:col-span-8 bg-white rounded-panel border border-line shadow-sm overflow-hidden flex flex-col min-h-[780px]">
             {/* Account Header Banner */}
             <div className="p-6 border-b border-line bg-gradient-to-r from-line via-white to-white">
@@ -1087,6 +1087,21 @@ export const CRMAccountsView: React.FC = () => {
                 </div>
               )}
             </div>
+          </div>
+        ) : (
+          <div className="lg:col-span-8 bg-white rounded-panel border border-line p-12 text-center flex flex-col items-center justify-center min-h-[400px]">
+            <Building2 className="w-10 h-10 text-ink-faint mb-3" />
+            <h3 className="font-bold text-body text-ink">No Account Selected</h3>
+            <p className="text-spec text-ink-dim mt-1 max-w-sm">
+              Select an account from the directory or create a new customer account to view 360° details.
+            </p>
+            <button
+              onClick={() => setIsNewAccountModalOpen(true)}
+              className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-2 text-spec font-bold text-white bg-brand-deep rounded-edge hover:bg-brand transition-colors cursor-pointer shadow-2xs"
+            >
+              <Plus className="w-4 h-4" />
+              <span>+ Add Account</span>
+            </button>
           </div>
         )}
       </div>
