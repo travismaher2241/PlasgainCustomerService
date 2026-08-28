@@ -1,6 +1,6 @@
 import { EnquiryAnalysisResult } from "../types";
 
-export type AccountStatus = "Customer" | "Prospect" | "Former Customer" | "Partner" | "Distributor";
+export type AccountStatus = "Customer" | "Prospect" | "Former Customer" | "Partner" | "Distributor" | "Archived";
 export type RelationshipHealth = "Strong" | "Healthy" | "Needs Attention" | "At Risk";
 export type LeadStatus = "New" | "Attempting Contact" | "Contacted" | "Qualifying" | "Qualified" | "Unqualified" | "Converted";
 export type LeadScoreRating = "Hot" | "Warm" | "Developing" | "Low Priority";
@@ -96,6 +96,9 @@ export interface Account {
     activeDealsCount: number;
     totalEnquiries: number;
   };
+  isArchived?: boolean;
+  archivedDate?: string;
+  archivedReason?: string;
   aiSummary?: {
     summary: string;
     recentActivityOverview: string;

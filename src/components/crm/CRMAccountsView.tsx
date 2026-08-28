@@ -25,6 +25,8 @@ import {
   ArrowUpRight,
   Edit3,
   Trash2,
+  Archive,
+  ArchiveRestore,
   Smartphone,
   TrendingUp
 } from "lucide-react";
@@ -66,6 +68,7 @@ export const CRMAccountsView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [segmentFilter, setSegmentFilter] = useState("all");
   const [healthFilter, setHealthFilter] = useState("all");
+  const [archiveFilter, setArchiveFilter] = useState<"active" | "archived" | "all">("active");
   const [activeAccountTab, setActiveAccountTab] = useState<"overview" | "contacts" | "deals" | "timeline" | "quotes" | "competitor-pricing" | "ai-summary">("overview");
 
   // OPT-03: AI Account Summary Multi-Account Cache
@@ -300,15 +303,40 @@ export const CRMAccountsView: React.FC = () => {
     notes: ""
   });
 
+  // Handle Archive / Restore toggle
+  const handleArchiveToggle = (accountToToggle: Account) => {
+    const isCurrentlyArchived = Boolean(accountToToggle.isArchived || accountToToggle.status === "Archived");
+    if (isCurrentlyArchived) {
+      updateAccount(accountToToggle.id, {
+        isArchived: false,
+        status: "Customer"
+      });
+      showToast(`"${accountToToggle.name}" restored to active accounts.`, "success");
+    } else {
+      if (window.confirm(`Archive "${accountToToggle.name}"?\n\nThis moves the account out of active CRM views while safely preserving all historical deals, contacts, notes, and activity history.`)) {
+        updateAccount(accountToToggle.id, {
+          isArchived: true,
+          status: "Archived",
+          archivedDate: getLocalDateInputValue()
+        });
+        showToast(`"${accountToToggle.name}" archived.`, "info");
+      }
+    }
+  };
+
   // Filter accounts
   const filteredAccounts = accounts.filter((acc) => {
+    const isArchived = Boolean(acc.isArchived || acc.status === "Archived");
+    const matchesArchive =
+      archiveFilter === "all" ? true : archiveFilter === "archived" ? isArchived : !isArchived;
+
     const matchesSearch =
       acc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (acc.tradingName && acc.tradingName.toLowerCase().includes(searchQuery.toLowerCase())) ||
       acc.industry.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesSegment = segmentFilter === "all" || acc.customerSegment === segmentFilter;
     const matchesHealth = healthFilter === "all" || acc.relationshipHealth === healthFilter;
-    return matchesSearch && matchesSegment && matchesHealth;
+    return matchesArchive && matchesSearch && matchesSegment && matchesHealth;
   });
 
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId) || accounts[0];
@@ -392,6 +420,43 @@ export const CRMAccountsView: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left Side: Directory & Search (4 Columns) */}
         <div className="lg:col-span-4 bg-white rounded-panel border border-line shadow-sm overflow-hidden flex flex-col h-auto max-h-[460px] lg:h-[780px] lg:max-h-none">
+          {/* Active vs Archived Scope Selector */}
+          <div className="p-2 border-b border-line bg-paper/60 flex items-center gap-1 text-meta">
+            <button
+              type="button"
+              onClick={() => setArchiveFilter("active")}
+              className={`flex-1 py-1 px-2 rounded-edge text-spec font-bold transition-all text-center cursor-pointer ${
+                archiveFilter === "active"
+                  ? "bg-chrome text-white shadow-2xs"
+                  : "text-ink-dim hover:text-ink hover:bg-white"
+              }`}
+            >
+              Active ({accounts.filter((a) => !a.isArchived && a.status !== "Archived").length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setArchiveFilter("archived")}
+              className={`flex-1 py-1 px-2 rounded-edge text-spec font-bold transition-all text-center cursor-pointer ${
+                archiveFilter === "archived"
+                  ? "bg-amber-800 text-white shadow-2xs"
+                  : "text-ink-dim hover:text-ink hover:bg-white"
+              }`}
+            >
+              Archived ({accounts.filter((a) => a.isArchived || a.status === "Archived").length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setArchiveFilter("all")}
+              className={`py-1 px-2.5 rounded-edge text-spec font-bold transition-all text-center cursor-pointer ${
+                archiveFilter === "all"
+                  ? "bg-chrome text-white shadow-2xs"
+                  : "text-ink-dim hover:text-ink hover:bg-white"
+              }`}
+            >
+              All ({accounts.length})
+            </button>
+          </div>
+
           {/* Filters */}
           <div className="p-3.5 border-b border-line space-y-2.5 bg-raised">
             <div className="relative">
@@ -434,11 +499,14 @@ export const CRMAccountsView: React.FC = () => {
           <div className="divide-y divide-line overflow-y-auto flex-1">
             {filteredAccounts.length === 0 ? (
               <div className="p-8 text-center text-meta text-ink-dim">
-                No matching accounts found.
+                {archiveFilter === "archived"
+                  ? "No archived accounts found."
+                  : "No matching accounts found."}
               </div>
             ) : (
               filteredAccounts.map((acc) => {
                 const isSelected = acc.id === selectedAccount?.id;
+                const isArchived = Boolean(acc.isArchived || acc.status === "Archived");
                 return (
                   <div
                     key={acc.id}
@@ -451,16 +519,43 @@ export const CRMAccountsView: React.FC = () => {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-0.5 min-w-0 flex-1">
-                        <div className="text-meta font-bold leading-snug truncate">{acc.name}</div>
+                        <div className="text-meta font-bold leading-snug truncate flex items-center gap-1.5">
+                          <span>{acc.name}</span>
+                          {isArchived && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300 shrink-0">
+                              Archived
+                            </span>
+                          )}
+                        </div>
                         <div className="text-spec text-ink-dim">{acc.customerSegment} · {acc.territory}</div>
                       </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {getHealthBadge(acc.relationshipHealth)}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {!isArchived && getHealthBadge(acc.relationshipHealth)}
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            if (window.confirm(`Are you sure you want to delete "${acc.name}" and all associated records?`)) {
+                            handleArchiveToggle(acc);
+                          }}
+                          className={`p-1.5 rounded-edge border transition-colors cursor-pointer ${
+                            isArchived
+                              ? "text-amber-800 bg-amber-50 hover:bg-emerald-50 hover:text-emerald-800 border-amber-300 hover:border-emerald-300"
+                              : "text-ink-dim hover:text-amber-800 hover:bg-amber-50 border-line/60 hover:border-amber-300"
+                          }`}
+                          title={isArchived ? `Restore ${acc.name}` : `Archive ${acc.name}`}
+                          aria-label={isArchived ? `Restore ${acc.name}` : `Archive ${acc.name}`}
+                        >
+                          {isArchived ? (
+                            <ArchiveRestore className="w-3.5 h-3.5" />
+                          ) : (
+                            <Archive className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (window.confirm(`Are you sure you want to permanently delete "${acc.name}" and all associated records?`)) {
                               deleteAccount(acc.id);
                             }
                           }}
@@ -486,12 +581,36 @@ export const CRMAccountsView: React.FC = () => {
         {/* Right Side: Account 360 Workspace (8 Columns) */}
         {selectedAccount ? (
           <div className="lg:col-span-8 bg-white rounded-panel border border-line shadow-sm overflow-hidden flex flex-col min-h-[780px]">
+            {/* Archived Alert Notice */}
+            {(selectedAccount.isArchived || selectedAccount.status === "Archived") && (
+              <div className="p-3.5 bg-amber-50 border-b border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-meta text-amber-900 animate-in fade-in duration-200">
+                <div className="flex items-center gap-2">
+                  <Archive className="w-4 h-4 text-amber-800 shrink-0" />
+                  <span>
+                    <strong>Archived Account:</strong> This account is hidden from active CRM pipelines. All historical deals, contacts, notes, and activity timeline remain intact.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleArchiveToggle(selectedAccount)}
+                  className="px-3 py-1 bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 text-spec font-bold rounded-edge transition-colors cursor-pointer flex items-center gap-1.5 self-start sm:self-auto shadow-2xs shrink-0"
+                >
+                  <ArchiveRestore className="w-3.5 h-3.5 text-amber-800" />
+                  <span>Restore Account</span>
+                </button>
+              </div>
+            )}
+
             {/* Account Header Banner */}
             <div className="p-6 border-b border-line bg-gradient-to-r from-line via-white to-white">
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-meta font-semibold px-2.5 py-0.5 rounded-full bg-paper border border-line">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className={`text-meta font-semibold px-2.5 py-0.5 rounded-full border ${
+                      selectedAccount.isArchived || selectedAccount.status === "Archived"
+                        ? "bg-amber-100 text-amber-900 border-amber-300"
+                        : "bg-paper border-line"
+                    }`}>
                       {selectedAccount.status}
                     </span>
                     <span className="text-meta text-ink-dim">{selectedAccount.customerSegment}</span>
@@ -504,7 +623,7 @@ export const CRMAccountsView: React.FC = () => {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button
                     onClick={() => {
                       const accountContacts = contacts.filter((c) => c.accountId === selectedAccount.id);
@@ -562,8 +681,27 @@ export const CRMAccountsView: React.FC = () => {
                     + Note
                   </button>
                   <button
+                    type="button"
+                    onClick={() => handleArchiveToggle(selectedAccount)}
+                    className="px-2.5 py-1.5 text-meta font-semibold text-ink-dim hover:text-amber-800 hover:bg-amber-50 border border-line rounded-edge transition-colors cursor-pointer flex items-center gap-1"
+                    title={selectedAccount.isArchived || selectedAccount.status === "Archived" ? "Restore account to active list" : "Archive account to remove from active views while preserving all history"}
+                    aria-label={selectedAccount.isArchived || selectedAccount.status === "Archived" ? `Restore ${selectedAccount.name}` : `Archive ${selectedAccount.name}`}
+                  >
+                    {selectedAccount.isArchived || selectedAccount.status === "Archived" ? (
+                      <>
+                        <ArchiveRestore className="w-3.5 h-3.5 text-amber-800" />
+                        <span>Restore</span>
+                      </>
+                    ) : (
+                      <>
+                        <Archive className="w-3.5 h-3.5" />
+                        <span>Archive</span>
+                      </>
+                    )}
+                  </button>
+                  <button
                     onClick={() => {
-                      if (window.confirm(`Are you sure you want to delete "${selectedAccount.name}" and all associated records?`)) {
+                      if (window.confirm(`Are you sure you want to permanently delete "${selectedAccount.name}" and all associated records?`)) {
                         deleteAccount(selectedAccount.id);
                       }
                     }}

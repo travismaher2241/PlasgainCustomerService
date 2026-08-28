@@ -9,9 +9,9 @@ const AccountsTestWrapper: React.FC = () => {
 
   React.useEffect(() => {
     addAccount({
-      id: 'acc-test-del',
+      id: 'acc-test-1',
       name: 'Townsville City Council',
-      status: 'Active',
+      status: 'Customer',
       industry: 'Government',
       customerSegment: 'Local Government / Council',
       territory: 'QLD/NT',
@@ -32,7 +32,7 @@ describe('CRMAccountsView Component', () => {
     vi.spyOn(window, 'confirm').mockImplementation(() => true);
   });
 
-  it('renders account list card with a direct delete button and allows deletion', () => {
+  it('renders account list card with a direct delete button and allows permanent deletion', () => {
     render(
       <AppProvider>
         <AccountsTestWrapper />
@@ -49,5 +49,41 @@ describe('CRMAccountsView Component', () => {
 
     expect(screen.queryByText(/Townsville City Council/i)).not.toBeInTheDocument();
     expect(screen.getByText(/No matching accounts found/i)).toBeInTheDocument();
+  });
+
+  it('allows archiving an account, moving it to Archived tab, and restoring it', () => {
+    render(
+      <AppProvider>
+        <AccountsTestWrapper />
+      </AppProvider>
+    );
+
+    // Initial state: 1 active account
+    expect(screen.getByRole('button', { name: /Active \(1\)/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Archived \(0\)/i })).toBeInTheDocument();
+
+    // Click Archive on the account card
+    const archiveBtn = screen.getAllByRole('button', { name: /Archive Townsville City Council/i })[0];
+    fireEvent.click(archiveBtn);
+
+    // Account disappears from Active list
+    expect(screen.getByRole('button', { name: /Active \(0\)/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Archived \(1\)/i })).toBeInTheDocument();
+    expect(screen.getByText(/No matching accounts found/i)).toBeInTheDocument();
+
+    // Switch to Archived tab
+    fireEvent.click(screen.getByRole('button', { name: /Archived \(1\)/i }));
+
+    // Account is listed with Archived badge
+    expect(screen.getAllByText(/Townsville City Council/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Archived Account:/i)).toBeInTheDocument();
+
+    // Click Restore Account
+    const restoreBtn = screen.getAllByRole('button', { name: /Restore Townsville City Council/i })[0];
+    fireEvent.click(restoreBtn);
+
+    // Account restored back to Active
+    expect(screen.getByRole('button', { name: /Active \(1\)/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Archived \(0\)/i })).toBeInTheDocument();
   });
 });
