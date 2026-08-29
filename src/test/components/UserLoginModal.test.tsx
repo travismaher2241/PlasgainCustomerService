@@ -1,6 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { AppProvider, useApp } from '../../context/AppContext';
 import { UserLoginModal } from '../../components/UserLoginModal';
 import { Sidebar } from '../../components/Sidebar';
@@ -19,8 +19,26 @@ const TestApp: React.FC = () => {
 };
 
 describe('User Login & Identity Switching Suite', () => {
+  // PIN verification happens on the server, so the modal needs a stubbed
+  // endpoint rather than a PIN baked into the client bundle. The provider also
+  // polls notifications and competitor pricing on mount, so the stub routes by
+  // URL instead of by call order.
+  const verifyProfileFetch = vi.fn();
+  let pinAccepted = true;
+
   beforeEach(() => {
     localStorage.clear();
+    pinAccepted = true;
+    verifyProfileFetch.mockReset();
+    verifyProfileFetch.mockImplementation(async (url: any) => {
+      if (String(url).includes('/api/auth/verify-profile')) {
+        return pinAccepted
+          ? { ok: true, json: async () => ({ success: true }) }
+          : { ok: false, json: async () => ({ error: 'Incorrect PIN code for this profile.' }) };
+      }
+      return { ok: true, json: async () => ([]) };
+    });
+    vi.stubGlobal('fetch', verifyProfileFetch);
   });
 
   it('opens login modal when clicking sidebar user footer and switches account', async () => {
@@ -54,13 +72,47 @@ describe('User Login & Identity Switching Suite', () => {
     const verifyBtn = screen.getByRole('button', { name: /Verify & Sign In/i });
     fireEvent.click(verifyBtn);
 
-    // Active user should now be Sarah Reed
-    expect(screen.getByTestId('active-user-name')).toHaveTextContent('Sarah Reed');
+    // PIN verification is a server round-trip now (PINs are no longer shipped to
+    // the browser), so the switch resolves asynchronously.
+    await waitFor(() =>
+      expect(screen.getByTestId('active-user-name')).toHaveTextContent('Sarah Reed')
+    );
+    expect(verifyProfileFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/auth/verify-profile'),
+      expect.objectContaining({ method: 'POST' })
+    );
 
     // Verify localStorage persistence
     const saved = JSON.parse(localStorage.getItem('plasgain_user_profile') || '{}');
     expect(saved.name).toBe('Sarah Reed');
     expect(saved.email).toBe('sarah.reed@plasgain.com.au');
+    // The PIN must never be persisted in the browser.
+    expect(saved.pin).toBeUndefined();
+  });
+
+  it('keeps the rejected PIN out of the next attempt', async () => {
+    pinAccepted = false;
+
+    render(
+      <AppProvider>
+        <TestApp />
+      </AppProvider>
+    );
+
+    fireEvent.click(screen.getByTitle(/Switch user account or update details/i));
+    fireEvent.click(screen.getByText('Sarah Reed').closest('[class*="rounded-panel"]')!);
+
+    const pinInput = screen.getByLabelText(/4-Digit Security PIN/i) as HTMLInputElement;
+    fireEvent.change(pinInput, { target: { value: '1111' } });
+    fireEvent.click(screen.getByRole('button', { name: /Verify & Sign In/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/Incorrect PIN code/i)).toBeInTheDocument()
+    );
+
+    // A rejected PIN must be cleared. Leaving it in a masked, 6-char-capped
+    // field made every retry silently concatenate and truncate.
+    expect(pinInput.value).toBe('');
   });
 
   it('allows deleting irrelevant users from workspace', async () => {

@@ -34,6 +34,90 @@ export interface CopilotMessage {
   failedPrompt?: string;
 }
 
+/**
+ * Renders the light markdown the model actually emits.
+ *
+ * Answers were previously dropped into a plain <div>, so a rep read
+ * "**enLighten Zorro 2:**" with the asterisks intact. This handles bold, italic,
+ * inline code and bullet/numbered lists — deliberately without
+ * dangerouslySetInnerHTML, so model output can never inject markup.
+ */
+const renderInline = (text: string): React.ReactNode[] =>
+  text
+    .split(/(\*\*[^*]+\*\*|`[^`]+`|(?<![*\w])\*[^*\n]+\*(?!\w))/g)
+    .filter((part) => part !== undefined && part !== "")
+    .map((part, i) => {
+      if (part.startsWith("**") && part.endsWith("**")) {
+        return <strong key={i} className="font-bold">{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith("`") && part.endsWith("`")) {
+        return (
+          <code key={i} className="font-mono text-[0.9em] bg-paper border border-line rounded px-1 py-0.5">
+            {part.slice(1, -1)}
+          </code>
+        );
+      }
+      if (part.startsWith("*") && part.endsWith("*")) {
+        return <em key={i}>{part.slice(1, -1)}</em>;
+      }
+      return <React.Fragment key={i}>{part}</React.Fragment>;
+    });
+
+const MarkdownText: React.FC<{ text: string }> = ({ text }) => {
+  const lines = (text || "").split("\n");
+  const blocks: React.ReactNode[] = [];
+  let listBuffer: string[] = [];
+  let listOrdered = false;
+
+  const flushList = (key: string) => {
+    if (listBuffer.length === 0) return;
+    const items = listBuffer.map((li, i) => <li key={i}>{renderInline(li)}</li>);
+    blocks.push(
+      listOrdered ? (
+        <ol key={key} className="list-decimal pl-5 space-y-0.5 my-1">{items}</ol>
+      ) : (
+        <ul key={key} className="list-disc pl-5 space-y-0.5 my-1">{items}</ul>
+      )
+    );
+    listBuffer = [];
+  };
+
+  lines.forEach((rawLine, idx) => {
+    const line = rawLine.trimEnd();
+    const bullet = line.match(/^\s*[-*•]\s+(.*)$/);
+    const numbered = line.match(/^\s*\d+[.)]\s+(.*)$/);
+    const heading = line.match(/^\s*#{1,6}\s+(.*)$/);
+
+    if (bullet) {
+      if (listOrdered) flushList(`l-${idx}`);
+      listOrdered = false;
+      listBuffer.push(bullet[1]);
+      return;
+    }
+    if (numbered) {
+      if (!listOrdered) flushList(`l-${idx}`);
+      listOrdered = true;
+      listBuffer.push(numbered[1]);
+      return;
+    }
+
+    flushList(`l-${idx}`);
+
+    if (heading) {
+      blocks.push(<div key={idx} className="font-bold mt-2 first:mt-0">{renderInline(heading[1])}</div>);
+      return;
+    }
+    if (line.trim() === "") {
+      blocks.push(<div key={idx} className="h-1.5" />);
+      return;
+    }
+    blocks.push(<p key={idx} className="my-0.5">{renderInline(line)}</p>);
+  });
+
+  flushList("l-end");
+  return <div className="space-y-0">{blocks}</div>;
+};
+
 export const GlobalCopilot: React.FC = () => {
   const {
     isCopilotOpen,
@@ -63,6 +147,14 @@ export const GlobalCopilot: React.FC = () => {
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Follow the conversation. Without this the panel stayed pinned at the top,
+  // so a streamed answer looked like it never arrived.
+  const messagesScrollRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = messagesScrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [messages, isLoading]);
   const [copilotState, setCopilotState] = useState<"ready" | "working" | "offline" | "failed">("ready");
   const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
   const [viewingDoc, setViewingDoc] = useState<ControlledDocument | null>(null);
@@ -369,7 +461,7 @@ export const GlobalCopilot: React.FC = () => {
         </div>
 
         {/* Messages */}
-        <div className="p-3.5 h-80 overflow-y-auto space-y-3 text-meta bg-raised">
+        <div ref={messagesScrollRef} className="p-3.5 h-80 overflow-y-auto space-y-3 text-meta bg-raised">
           {messages.map((m, idx) => (
             <div
               key={idx}
@@ -384,7 +476,7 @@ export const GlobalCopilot: React.FC = () => {
                     : "bg-white text-body border border-line shadow-2xs rounded-bl-xs"
                 }`}
               >
-                <div>{m.content}</div>
+                <MarkdownText text={m.content} />
 
                 {/* Inline Retry Action on Failed Messages (P1) */}
                 {m.isError && (

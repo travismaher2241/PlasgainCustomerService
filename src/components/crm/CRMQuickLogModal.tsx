@@ -90,7 +90,7 @@ export const CRMQuickLogModal: React.FC = () => {
       setSelectedContactId(contId);
       setShowAccountSelectors(!quickLogModal.accountId);
       setIsTitleManuallyEdited(false);
-      setDescription("");
+      setDescription(quickLogModal.prefillNotes || "");
       setOutcome("Connected / Positive");
       setScheduleFollowUp(false);
       setFollowUpDate(addDaysLocal(3));
@@ -100,7 +100,7 @@ export const CRMQuickLogModal: React.FC = () => {
       const cont = contacts.find((c) => c.id === contId);
       setTitle(deriveDefaultTitle(initialType, acc, opp, cont));
     }
-  }, [quickLogModal?.isOpen, quickLogModal?.accountId, quickLogModal?.opportunityId, quickLogModal?.contactId, quickLogModal?.type]);
+  }, [quickLogModal?.isOpen, quickLogModal?.accountId, quickLogModal?.opportunityId, quickLogModal?.contactId, quickLogModal?.type, quickLogModal?.prefillNotes]);
 
   // Reactive title derivation as async data or account/deal selection resolves
   useEffect(() => {

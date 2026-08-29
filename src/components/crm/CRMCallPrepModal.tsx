@@ -70,12 +70,16 @@ export const CRMCallPrepModal: React.FC = () => {
 
   const handleStartCallAndLog = () => {
     closeCallPrep();
+    // Carry the call plan through. This textarea used to be write-only state:
+    // whatever the rep planned was discarded the moment the log opened.
     openQuickLog(
       "call",
       targetAccount?.id,
       targetOpp?.id,
-      targetContact?.id
+      targetContact?.id,
+      callNotes.trim() || undefined
     );
+    setCallNotes("");
   };
 
   return (

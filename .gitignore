@@ -9,3 +9,4 @@ coverage/
 test-results/
 playwright-report/
 server_data_*.json
+controlled-documents-backup-*.json

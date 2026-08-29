@@ -31,8 +31,9 @@ export function analyzeEnquiryDeterministic(
   const location = meta.location || extractLocation(text) || "Australia";
 
   // 1. Identify Domain / Category
-  const isCableCover = /cable|conduit|trench|excavat|orange|as\s*4702|polymeric|cover|energex|ergon|ausgrid|endeavour|essential|powercor|sp\s*ausnet|jemena|western\s*power|sapn/i.test(text);
-  const isSolar = /solar|battery|lifepo4|off-?grid|autonomy|pv|sun|panel|dusk|dawn/i.test(text);
+  const isLighting = /light|luminaire|pole|shared\s*path|pathway|cycleway|road|car\s*park|photometric|lux|cct|\d{4}k|as\/?nzs\s*1158/i.test(text);
+  const isSolar = /solar|battery|lifepo4|off-?grid|autonomy|pv\s*(?:panel|array)|dusk|dawn|no\s+(?:mains|trenching)/i.test(text);
+  const isCableCover = !isLighting && /(?:cable|conduit)\s+(?:cover|protection|trench)|as\s*4702|polymeric\s+(?:cover|slab)|utility\s+trench|energex|ergon|ausgrid|endeavour|powercor|sp\s*ausnet|jemena|western\s*power|sapn/i.test(text);
   const isHighway = /v-?category|v3|v5|m-?category|highway|arterial|freeway|main\s*road|vicroads|tfnsw|tmr|main\s*roads/i.test(text);
 
   // 2. Determine Primary & Alternative Products
@@ -40,7 +41,44 @@ export function analyzeEnquiryDeterministic(
   let alternatives: AlternativeProduct[] = [];
   let scopeCategory = "Public & Commercial Lighting";
 
-  if (isCableCover) {
+  if (isSolar && isLighting) {
+    scopeCategory = "Clean Energy Solar Lighting (AS/NZS 1158.3.1 / AS/NZS 4509.2)";
+    recommendedProduct = {
+      productName: "Plasgain Intense Light 50W Solar Package (LiFePO4)",
+      productCode: "INTENSE-50W-3K",
+      matchLevel: "Candidate — engineering verification required",
+      whySuitable: "Approved solar-lighting candidate for off-grid pathways; final battery, optical and pole selection must be verified against project inputs.",
+      supportingSpecifications: {
+        applicationFit: "Pathways, remote carparks, nature reserves, and council reserves without mains trenching.",
+        luminaireOutput: "7,500 lumens nominal output (150 lm/W)",
+        cctAvailable: "3000K Warm White / 4000K optional",
+        solarAndBattery: "896Wh LiFePO4 Battery with 130W PV Panel",
+        mountingOptions: "4.5m–6.0m subject to photometric and structural review",
+        controlOptions: "PIR motion dimming or verified dusk-to-dawn profile"
+      },
+      importantLimitations: [
+        "Do not quote until solar autonomy is calculated for the project postcode and operating profile.",
+        "Final AS/NZS 1158 compliance requires a certified photometric design."
+      ],
+      informationStillRequired: [
+        "Solar insolation zone / project postcode",
+        "Required autonomy days and operating profile",
+        "Mounting height, spacing and pole installation type"
+      ],
+      sourceCitations: [{
+        documentTitle: "Plasgain Intense Light Solar Catalogue 2026.1",
+        sectionOrPage: "Section 4.1 - Solar Sizing",
+        authorityLevel: "Approved Datasheet"
+      }]
+    };
+    alternatives = [{
+      productName: "Plasgain Pro Blade Solar 75W / 125W Commercial",
+      productCode: "PBS-75W-SOLAR",
+      matchLevel: "Higher Output Candidate",
+      whenToUse: "When a verified photometric and autonomy calculation requires a larger package.",
+      tradeOffs: "Larger PV surface area, battery and wind loading."
+    }];
+  } else if (isCableCover) {
     scopeCategory = "Civil Mechanical Protection (AS 4702)";
     recommendedProduct = {
       productName: "Plasgain Heavy Duty Polymeric Cable Cover (AS 4702)",
@@ -225,7 +263,7 @@ export function analyzeEnquiryDeterministic(
   if (/3000k|4000k|5700k/i.test(text)) knownItems.push("Target Color Temperature (CCT) mentioned");
   else missingItems.push("Required CCT (3000K fauna-friendly vs 4000K standard)");
 
-  if (/pole|height|\d+m/i.test(text)) knownItems.push("Mounting height / pole preference indicated");
+  if (/\b(?:pole|mount(?:ing|ed)?\s+height)\b.{0,24}\b\d+(?:\.\d+)?\s*m(?:etre)?s?\b|\b\d+(?:\.\d+)?\s*m(?:etre)?s?\s+(?:pole|mounting)/i.test(text)) knownItems.push("Mounting height / pole preference indicated");
   else missingItems.push("Mounting height & pole installation type (Direct Burial vs Rag-bolt)");
 
   if (/p[1-5]|pp[1-5]|v[1-5]/i.test(text)) knownItems.push("Australian Lighting Sub-Category (AS/NZS 1158) identified");
@@ -287,6 +325,12 @@ export function analyzeEnquiryDeterministic(
     status
   });
 
+  const quantityMatch = rawText.match(/\b(?:quote|supply|need|require|for)?\s*(\d{1,5})\s*(?:x\s*)?(?:solar\s+)?(?:lights?|luminaires?|poles?|units?)\b/i);
+  const explicitQuantity = quantityMatch ? Number(quantityMatch[1]) : null;
+  const deadlineMatch = rawText.match(/\b(?:delivery|deliver|required|needed)\s+(?:by|before)\s+([^,.\n]+)/i);
+  const cctMatch = rawText.match(/\b(2200k|2700k|3000k|4000k|5000k|5700k|6500k)\b/i);
+  const standards = Array.from(rawText.matchAll(/\bAS(?:\/NZS)?\s*\d+(?:\.\d+)*(?::\d{4})?\b/gi)).map((m) => m[0]);
+
   const opportunitySummary: OpportunitySummary = {
     customer: sf(meta.contactName || meta.customer || "Prospective Client", meta.customer ? "Confirmed" : "Inferred"),
     company: sf(company, meta.company ? "Confirmed" : "Inferred"),
@@ -294,18 +338,18 @@ export function analyzeEnquiryDeterministic(
     location: sf(location, location !== "Australia" ? "Confirmed" : "Unknown"),
     application: sf(scopeCategory, "Inferred"),
     productCategory: sf(scopeCategory, "Inferred"),
-    quantity: sf("TBD", "Unknown"),
-    projectTiming: sf("Standard 24-48h Quoting SLA", "Inferred"),
-    quoteDeadline: sf("Within 48 hours", "Inferred"),
-    installationTiming: sf("Q3/Q4 2026", "Inferred"),
+    quantity: explicitQuantity ? sf(String(explicitQuantity), "Confirmed") : sf("TBD", "Unknown"),
+    projectTiming: sf("Not provided", "Unknown"),
+    quoteDeadline: deadlineMatch ? sf(deadlineMatch[1].trim(), "Confirmed") : sf("Not provided", "Unknown"),
+    installationTiming: sf("Not provided", "Unknown"),
     powerAvailability: sf(isSolar ? "Off-grid Solar Required" : "Mains 240V", "Inferred"),
-    mountingPoleRequirements: sf("4.5m – 6.0m Plaspole Composite or Steel Column", "Inferred"),
-    operatingRequirements: sf(isSolar ? "PIR Smart Dimming or Dusk-to-Dawn" : "Standard Dusk-to-Dawn", "Inferred"),
-    cct: sf("3000K Warm White (Fauna Friendly)", "Inferred"),
-    lightingPerformanceRequirements: sf(`Compliant with ${scopeCategory}`, "Inferred"),
-    environmentalRequirements: sf("Australian Standard Inland/Coastal", "Inferred"),
-    standardsMentioned: sf("AS/NZS 1158 / AS 4702", "Inferred"),
-    commercialRequirements: sf("Standard Wholesale Commercial Rate", "Inferred"),
+    mountingPoleRequirements: sf("Not provided", "Unknown"),
+    operatingRequirements: sf("Not provided", "Unknown"),
+    cct: cctMatch ? sf(cctMatch[1].toUpperCase(), "Confirmed") : sf("Not provided", "Unknown"),
+    lightingPerformanceRequirements: sf("Engineering verification required", "Unknown"),
+    environmentalRequirements: sf("Not provided", "Unknown"),
+    standardsMentioned: standards.length ? sf(standards.join(", "), "Confirmed") : sf("Not provided", "Unknown"),
+    commercialRequirements: sf("Not provided", "Unknown"),
     otherNotes: sf(`Processed via Plasgain Deterministic Rules Engine for ${projectName}.`, "Confirmed")
   };
 

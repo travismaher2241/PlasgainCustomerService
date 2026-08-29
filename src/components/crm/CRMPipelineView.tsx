@@ -158,14 +158,17 @@ export const CRMPipelineView: React.FC = () => {
     valueBasis: "TOTAL" as ValueBasis,
     commercialState: "Estimate" as "Known" | "Estimate" | "Unknown",
     stageId: currentPipeline.stages[0]?.id || "stage-new",
-    projectApplication: "Solar Pathway Lighting",
+    projectApplication: "",
     expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
     notes: ""
   });
 
   const dealValidation = React.useMemo(() => {
     const rawVal = newDealForm.valueBasis === "PER_UNIT" ? Number(newDealForm.unitPrice) || 0 : Number(newDealForm.dealValue) || 0;
-    const qty = Number(newDealForm.quantity) || 1;
+    // A blank quantity must stay blank. Coercing it to 1 here is what let a
+    // per-unit price save as the whole project value.
+    const parsedQty = Number(newDealForm.quantity);
+    const qty = Number.isFinite(parsedQty) && parsedQty > 0 ? parsedQty : undefined;
     return validateDealValue({
       enteredValue: rawVal,
       basis: newDealForm.valueBasis,
@@ -176,6 +179,10 @@ export const CRMPipelineView: React.FC = () => {
   const handleCreateDeal = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDealForm.name.trim()) return;
+    if (!dealValidation.isValid) {
+      showToast(dealValidation.warningMessage || "Check the deal value before saving.", "error");
+      return;
+    }
 
     const account = accounts.find((a) => a.id === newDealForm.accountId) || accounts[0] || {
       id: `acc-cust-${Date.now()}`,
@@ -412,7 +419,7 @@ export const CRMPipelineView: React.FC = () => {
                   >
                     <td className="py-3 px-4">
                       <div className="font-bold text-body text-ink">{deal.name}</div>
-                      <div className="text-spec text-ink-dim">{deal.projectApplication}</div>
+                      <div className="text-spec text-ink-dim">{deal.projectApplication || "Application not set"}</div>
                     </td>
                     <td className="py-3 px-3">
                       <span className="font-semibold text-ink-dim">{deal.accountName}</span>
@@ -443,7 +450,7 @@ export const CRMPipelineView: React.FC = () => {
                       ${(deal.dealValue || 0).toLocaleString()}
                     </td>
                     <td className="py-3 px-3 text-right font-semibold text-brand-deep hidden sm:table-cell">
-                      ${(deal.weightedValue !== undefined ? deal.weightedValue : Math.round(((deal.dealValue || 0) * (deal.probability || 0)) / 100)).toLocaleString()}
+                      ${Math.round(deal.weightedValue !== undefined ? deal.weightedValue : ((deal.dealValue || 0) * (deal.probability || 0)) / 100).toLocaleString()}
                     </td>
                     <td className="py-3 px-3 text-ink-dim text-spec hidden md:table-cell">
                       {deal.expectedCloseDate}
@@ -503,7 +510,7 @@ export const CRMPipelineView: React.FC = () => {
                   ${totalTableValue.toLocaleString()}
                 </td>
                 <td className="py-3 px-3 text-right text-brand-deep font-bold hidden sm:table-cell">
-                  ${totalTableWeighted.toLocaleString()}
+                  ${Math.round(totalTableWeighted).toLocaleString()}
                 </td>
                 <td colSpan={4}></td>
               </tr>
@@ -523,7 +530,7 @@ export const CRMPipelineView: React.FC = () => {
                 <span className="text-meta text-ink-dim">Owner: {selectedDeal.opportunityOwner}</span>
               </div>
               <h2 className="text-xl font-bold text-body">{selectedDeal.name}</h2>
-              <p className="text-meta text-ink-dim mt-0.5">{selectedDeal.projectApplication} · {selectedDeal.location}</p>
+              <p className="text-meta text-ink-dim mt-0.5">{selectedDeal.projectApplication || "Application not set"} · {selectedDeal.location}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -998,7 +1005,7 @@ export const CRMPipelineView: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <span className="text-ink-dim">Weighted Pipeline Value:</span>
                   <span className="font-bold text-brand-deep">
-                    ${(selectedDeal.weightedValue !== undefined ? selectedDeal.weightedValue : Math.round(((selectedDeal.dealValue || 0) * (selectedDeal.probability || 0)) / 100)).toLocaleString()}
+                    ${Math.round(selectedDeal.weightedValue !== undefined ? selectedDeal.weightedValue : ((selectedDeal.dealValue || 0) * (selectedDeal.probability || 0)) / 100).toLocaleString()}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">

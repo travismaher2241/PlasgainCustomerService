@@ -76,6 +76,15 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
     return true;
   });
 
+  const formatNotificationTime = (value: string) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat("en-AU", {
+      dateStyle: "medium",
+      timeStyle: "short"
+    }).format(date);
+  };
+
   return (
     <header className="h-14 bg-surface border-b border-line px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-3 shrink-0 sticky top-0 z-30 min-w-0">
       {/* Left: Mobile Menu & Clean Page Title */}
@@ -204,7 +213,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <span className="font-bold text-body text-ink line-clamp-1">{notif.title}</span>
-                        <span className="text-spec text-ink-faint shrink-0">{notif.createdAt}</span>
+                        <time dateTime={notif.createdAt} className="text-spec text-ink-faint shrink-0">
+                          {formatNotificationTime(notif.createdAt)}
+                        </time>
                       </div>
                       <p className="mt-1 text-spec text-ink-dim line-clamp-2">{notif.message}</p>
 
@@ -213,13 +224,11 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
                           <button
                             onClick={() => {
                               setIsAlertsOpen(false);
-                              if (notif.linkTo?.opportunityId) {
-                                navigateToCRM("pipeline", notif.linkTo.opportunityId);
-                              }
+                              if (notif.linkTo) navigateToCRM(notif.linkTo.view, notif.linkTo.id);
                             }}
                             className="text-brand-deep font-bold hover:underline flex items-center gap-1 cursor-pointer"
                           >
-                            <span>View Deal</span>
+                            <span>View Record</span>
                             <ArrowRight className="w-3 h-3" />
                           </button>
                         ) : (
@@ -254,7 +263,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
                 <div className="p-2 bg-paper border-t border-line text-center">
                   <button
                     onClick={() => markAllNotificationsRead()}
-                    className="text-spec font-bold text-brand-deep hover:underline cursor-pointer"
+                    disabled={unreadNotificationsCount === 0}
+                    className="text-spec font-bold text-brand-deep hover:underline cursor-pointer disabled:text-ink-faint disabled:no-underline disabled:cursor-not-allowed"
                   >
                     Mark All as Read
                   </button>

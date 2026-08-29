@@ -32,7 +32,25 @@ import {
   DATASET_METADATA
 } from "../data/lightingStandards";
 import { productComparisonCache, ProductComparisonRecord } from "../utils/productComparisonCache";
+import { resolveSingleProduct } from "../utils/productResolver";
 import { CommercialPricingRequestModal } from "./CommercialPricingRequestModal";
+
+/**
+ * Checks a recommendation against the real catalogue.
+ *
+ * This used to be a hardcoded set of six SKU strings, none of which existed in
+ * `src/data` — so a genuine recommendation could never satisfy it. We resolve
+ * against SAMPLE_PRODUCTS instead, via the same alias engine the BOM builder
+ * uses, so real families ("enLighten Zorro 2", "ZAL40S", "Pro Blade Solar
+ * 75/125") match while an invented SKU still fails.
+ */
+const isApprovedProduct = (candidate: any): boolean => {
+  if (!candidate) return false;
+  const identifier = `${candidate.productCode || candidate.code || ""} ${candidate.productName || candidate.name || ""}`.trim();
+  if (!identifier) return false;
+  const resolved = resolveSingleProduct(candidate);
+  return resolved.status !== "UNMATCHED" && Boolean(resolved.product);
+};
 
 export const ProductFinder: React.FC = () => {
   const {
@@ -135,42 +153,26 @@ export const ProductFinder: React.FC = () => {
     }
   };
 
-  const downloadPhotometricIES = (productName: string, productCode: string) => {
-    const iesCode = productCode || "PLASGAIN-SOLAR";
-    const iesContent = `IESNA:LM-63-2002
-[TEST] PLASGAIN-OPTICAL-LAB-2026
-[TESTLAB] Plasgain Australia Photometric Testing Facility
-[ISSUEDATE] 2026-08-28
-[MANUFAC] Plasgain Australia
-[LUMCAT] ${iesCode}
-[LUMINAIRE] ${productName || "Plasgain Solar Luminaire"}
-[LAMPCAT] High-Efficacy SMD 3030 LED Array (3000K Dark-Sky Certified)
-[OTHER] AS/NZS 1158.3.1 Category P Pathway & Minor Road Photometry
-TILT=NONE
-1 7500 1 37 1 1 1 -0.15 0 0
-1.0 1.0 75
-0 2.5 5 7.5 10 12.5 15 17.5 20 22.5 25 27.5 30 32.5 35 37.5 40 42.5 45 47.5 50 52.5 55 57.5 60 62.5 65 67.5 70 72.5 75 77.5 80 82.5 85 87.5 90
-0 5 10 15 20 25 30 35 40 45 50 55 60 65 70 75 80 85 90
-`;
-    const blob = new Blob([iesContent], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${iesCode.replace(/[^a-zA-Z0-9_-]/g, "_")}_Photometry.ies`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    showToast(`Downloaded IES Photometric Simulation File: ${iesCode}.ies`, "success");
+  const requestControlledPhotometric = (productName: string, productCode: string) => {
+    if (!isApprovedProduct({ productCode, productName })) {
+      showToast("A controlled product SKU is required before requesting photometric data.", "warning");
+      return;
+    }
+    navigateToWorkflow("documents");
+    showToast(`Opened controlled documents for ${productName} (${productCode}). Use only the approved IES revision.`, "info");
   };
 
   const handleOpenAddToDeal = (name: string, code?: string) => {
+    // Resolve against the catalogue rather than defaulting to a placeholder SKU.
+    // Prices start at zero: this app has no pricing feed, so a rep must enter a
+    // real figure instead of inheriting an invented one.
+    const resolved = resolveSingleProduct({ productCode: code, productName: name });
     setSelectedProductForDeal({
-      code: code || "PB-75W-3K",
-      name: name || "Plasgain Solar Luminaire",
-      category: "Solar Luminaire",
-      unitPrice: 1650,
-      costPrice: 1050,
+      code: resolved.product?.code || code || "",
+      name: resolved.product?.name || name || "",
+      category: resolved.product?.category || "Luminaire",
+      unitPrice: 0,
+      costPrice: 0,
       quantity: 24
     });
     setNewDealName(`${name} Installation Project`);
@@ -288,82 +290,28 @@ TILT=NONE
         environmentalConditions,
         installationTimeline
       });
+      const primary = data?.primaryRecommendation || data?.recommendedProducts?.[0];
+      if (!isApprovedProduct(primary)) {
+        throw new AIUnavailableError(
+          "The recommendation could not be matched to a product in the Plasgain catalogue.",
+          "Check the catalogue directly or ask the Copilot before quoting anything from this screen."
+        );
+      }
       setFinderResult(data);
       showToast("Product candidates matched", "success");
     } catch (err: any) {
-      console.warn("AI Product Finder failed, using standard rules match:", err);
-      const isSolar = powerAvailability.toLowerCase().includes("solar");
-      const isRoad = application.toLowerCase().includes("road");
-      const isCarpark = application.toLowerCase().includes("car park") || application.toLowerCase().includes("carpark");
-      
-      let primaryProd = {
-        name: isSolar ? "Plasgain Intense Light 50W Solar Luminaire" : "Plasgain Pro Blade Area 75W LED Luminaire",
-        code: isSolar ? "INTENSE-50W-3K" : "PBS-75W-4K",
-        category: isSolar ? "Solar Luminaire" : "Mains Commercial Luminaire",
-        fitReason: `Engineered match for ${application} with ${selectedCategory.displayName} illuminance standard (${selectedCategory.maintainedIlluminanceLux} lux maintained).`,
-        specs: {
-          output: isSolar ? "7,500 lm (150 lm/W)" : "10,500 lm",
-          cct: cctPreference.split(" ")[0],
-          solarBattery: isSolar ? `896Wh LiFePO4 / 130W PV (Sized for ${autonomyDays})` : "Mains 240V AC",
-          mounting: mountingHeight,
-          controls: duskToDawn ? "Dusk-to-Dawn continuous or PIR smart dimming" : "0-10V Standard Photocell"
-        },
-        unitPrice: isSolar ? 1850 : 1250,
-        costPrice: isSolar ? 1200 : 780
-      };
-
-      if (isRoad) {
-        primaryProd = {
-          name: "Plasgain Roadway V-LED 150W Luminaire",
-          code: "ROADWAY-VLED-150W",
-          category: "V-Category Road Luminaire",
-          fitReason: `Conforms to AS/NZS 1158.1.1 vehicular standards for ${application}.`,
-          specs: {
-            output: "22,500 lm (150 lm/W)",
-            cct: "4000K Neutral White",
-            solarBattery: "Mains 240V",
-            mounting: mountingHeight,
-            controls: "7-pin NEMA / D4i"
-          },
-          unitPrice: 1650,
-          costPrice: 1050
-        };
-      } else if (isCarpark) {
-        primaryProd = {
-          name: "Plasgain Pro Blade Solar 125W Commercial",
-          code: "PBS-125W-SOLAR",
-          category: "Solar Area Luminaire",
-          fitReason: `High-lumen optical distribution designed for P11/P12 commercial carparks.`,
-          specs: {
-            output: "18,750 lm",
-            cct: cctPreference.split(" ")[0],
-            solarBattery: "1536Wh LiFePO4 / 200W PV",
-            mounting: mountingHeight,
-            controls: "PIR motion sensor dimming"
-          },
-          unitPrice: 2450,
-          costPrice: 1600
-        };
-      }
-
-      const deterministicResult = {
-        primaryRecommendation: primaryProd,
-        secondaryCandidates: [
-          {
-            name: "Plasgain Pro Blade Solar 75W Commercial",
-            code: "PBS-75W-SOLAR",
-            fitReason: "Direct alternative offering balanced battery reserve and lumen output.",
-            tradeOffs: "Lower lumen package compared to 125W.",
-            unitPrice: 1950,
-            costPrice: 1280
-          }
-        ],
-        salesRepAdvice: `Matched via Plasgain Deterministic Rules Engine (Offline Mode) conforming to AS/NZS 1158 Category ${selectedCategoryId}. Offer direct-burial Plaspole composite columns to eliminate concrete footings.`
-      };
-
-      setFinderResult(deterministicResult);
-      setFinderError(null);
-      showToast("Matched products via Deterministic Rules Engine (Offline Mode)", "info");
+      // No offline substitute. Earlier versions manufactured products, SKUs,
+      // lumen packages and prices here and presented them as a "Deterministic
+      // Rules Engine" result, which is how invented specifications reached
+      // customers. A rep must see that nothing was matched.
+      console.warn("Product Finder failed:", err);
+      setFinderResult(null);
+      setFinderError(
+        err instanceof AIUnavailableError
+          ? { detail: err.detail, guidance: err.guidance }
+          : { detail: toUserMessage(err), guidance: "Retry, or use the Copilot to look the product up in the catalogue." }
+      );
+      showToast("No product match returned", "error");
     } finally {
       setIsLoading(false);
     }
@@ -659,14 +607,31 @@ TILT=NONE
       {finderResult && (() => {
         const primary = finderResult.primaryRecommendation || finderResult.recommendedProducts?.[0] || {};
         const secondaries = finderResult.secondaryCandidates || (finderResult.recommendedProducts && finderResult.recommendedProducts.length > 1 ? finderResult.recommendedProducts.slice(1) : []) || [];
-        const advantages: string[] = primary.keyAdvantages || primary.keyFeatures || primary.supportingSpecifications?.keyFeatures ? [primary.supportingSpecifications?.keyFeatures] : ["High-efficacy optical design", "Substantial battery reserve", "Australian Standards compliant"];
-        const limitations: string[] = primary.importantLimitations || ["AS/NZS 1158 compliance requires formal Dialux photometric calculation.", "Solar array requires unshaded Northern aspect."];
+        // Precedence, not a condition. The previous form was
+        // `a || b || c ? [c] : [defaults]`, so a truthy `a` still rendered `[c]`
+        // (usually `[undefined]`) and everything else fell through to boilerplate
+        // that claimed a battery reserve on mains schemes.
+        const advantages: string[] = (
+          primary.keyAdvantages ||
+          primary.keyFeatures ||
+          primary.supportingSpecifications?.keyFeatures ||
+          []
+        ).filter(Boolean);
+
+        // Only the standards caveat is universally true. A solar-array note must
+        // come from the analysis, never from a default.
+        const limitations: string[] = (
+          primary.importantLimitations || [
+            "AS/NZS 1158 compliance requires formal Dialux photometric calculation."
+          ]
+        ).filter(Boolean);
         const specs = primary.specificationsSummary || primary.supportingSpecifications || {};
         const docs = primary.supportingDocuments || primary.sourceCitations?.map((c: any) => ({
           title: c.documentTitle || "Plasgain Product Catalogue",
           version: "2025/2026",
           page: c.sectionOrPage || "Specifications"
         })) || [];
+        const primaryApproved = isApprovedProduct(primary);
 
         return (
           <div className="space-y-6">
@@ -683,31 +648,52 @@ TILT=NONE
                     </span>
                   </div>
                   <h3 className="text-lg font-bold text-body">
-                    {primary.productName || "Plasgain Luminaire"} {primary.productCode ? `(${primary.productCode})` : ""}
+                    {primary.productName || "Unnamed candidate"} {primary.productCode ? `(${primary.productCode})` : ""}
                   </h3>
+                  {/* Show what the quoted string actually resolved to. A model may
+                      name a variant that does not exist ("Roadway V-LED 150W"),
+                      and the rep needs the catalogue SKU, not the echoed text. */}
+                  {(() => {
+                    const resolved = resolveSingleProduct(primary);
+                    if (!resolved.product) return null;
+                    const differs =
+                      resolved.product.code.toLowerCase() !== String(primary.productCode || "").toLowerCase();
+                    return (
+                      <p className="text-spec text-ink-dim mt-1 flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-brand-deep shrink-0" />
+                        <span>
+                          Catalogue match: <strong className="text-body">{resolved.product.name}</strong>{" "}
+                          <span className="font-mono">({resolved.product.code})</span>
+                          {differs && " — confirm the exact variant against the datasheet"}
+                        </span>
+                      </p>
+                    );
+                  })()}
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => handleOpenAddToDeal(primary.productName, primary.productCode)}
-                    className="px-3.5 py-1.5 text-meta font-bold text-white bg-brand-deep hover:bg-brand rounded-edge shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                    disabled={!primaryApproved}
+                    className="px-3.5 py-1.5 text-meta font-bold text-white bg-brand-deep hover:bg-brand rounded-edge shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Add to Active Deal</span>
                   </button>
 
                   <button
-                    onClick={() => downloadPhotometricIES(primary.productName, primary.productCode)}
-                    className="px-3 py-1.5 text-meta font-semibold text-body bg-white border border-line-strong hover:bg-raised rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
-                    title="Download AS/NZS 1158 Photometric IES File for Dialux"
+                    onClick={() => requestControlledPhotometric(primary.productName, primary.productCode)}
+                    disabled={!primaryApproved}
+                    className="px-3 py-1.5 text-meta font-semibold text-body bg-white border border-line-strong hover:bg-raised rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                    title="Open the controlled document library for the approved IES revision"
                   >
                     <Download className="w-3.5 h-3.5 text-brand-deep" />
-                    <span>Download IES</span>
+                    <span>Approved IES</span>
                   </button>
 
                   <button
                     onClick={() => {
-                      const text = `Plasgain Luminaire: ${primary.productName} (${primary.productCode || "PB-75W-3K"})\nApplication: ${application}\nMounting: ${mountingHeight}\nCompliance: AS/NZS 1158 ${luxOrClass}\nCCT: ${cctPreference}`;
+                      const text = `Plasgain candidate: ${primary.productName || "Unnamed"} (${primary.productCode || "no SKU returned"})\nApplication: ${application}\nMounting: ${mountingHeight}\nCompliance: AS/NZS 1158 ${luxOrClass}\nCCT: ${cctPreference}`;
                       navigator.clipboard?.writeText(text);
                       showToast("Copied technical spec summary to clipboard!", "success");
                     }}
@@ -720,12 +706,13 @@ TILT=NONE
                   <button
                     onClick={() => {
                       setPricingProduct({
-                        code: primary.productCode || "PB-75W-3K",
-                        name: primary.productName || "Plasgain Solar Luminaire"
+                        code: primary.productCode || "",
+                        name: primary.productName || ""
                       });
                       setIsPricingModalOpen(true);
                     }}
-                    className="px-3 py-1.5 text-meta font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-edge transition-colors flex items-center gap-1 cursor-pointer"
+                    disabled={!primaryApproved}
+                    className="px-3 py-1.5 text-meta font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-300 rounded-edge transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                     title="Submit commercial pricing request"
                   >
                     <span>Request Pricing</span>
@@ -841,17 +828,19 @@ TILT=NONE
                       <div className="pt-2 border-t border-line flex items-center justify-between gap-2">
                         <button
                           onClick={() => handleOpenAddToDeal(sec.productName, sec.productCode)}
-                          className="px-2.5 py-1 text-spec font-bold text-white bg-brand-deep hover:bg-brand rounded shadow-2xs flex items-center gap-1 cursor-pointer"
+                          disabled={!isApprovedProduct(sec)}
+                          className="px-2.5 py-1 text-spec font-bold text-white bg-brand-deep hover:bg-brand rounded shadow-2xs flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Plus className="w-3 h-3" />
                           <span>Add to Deal</span>
                         </button>
                         <button
-                          onClick={() => downloadPhotometricIES(sec.productName, sec.productCode)}
-                          className="px-2.5 py-1 text-spec font-semibold text-body bg-white border border-line hover:bg-raised rounded flex items-center gap-1 cursor-pointer"
+                          onClick={() => requestControlledPhotometric(sec.productName, sec.productCode)}
+                          disabled={!isApprovedProduct(sec)}
+                          className="px-2.5 py-1 text-spec font-semibold text-body bg-white border border-line hover:bg-raised rounded flex items-center gap-1 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                           <Download className="w-3 h-3 text-brand-deep" />
-                          <span>IES File</span>
+                          <span>Approved IES</span>
                         </button>
                       </div>
                     </div>

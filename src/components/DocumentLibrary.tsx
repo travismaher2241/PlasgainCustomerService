@@ -27,6 +27,21 @@ export const DocumentLibrary: React.FC = () => {
   const { showToast, currentUser } = useApp();
   const [documents, setDocuments] = useState<ControlledDocument[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  // Mirrors DOCUMENT_APPROVER_ROLES on the server. Kept in sync deliberately:
+  // the server is the gate, this only decides whether to offer the control.
+  const DOCUMENT_APPROVER_ROLES = [
+    "engineering lead",
+    "lead engineer",
+    "structural engineer",
+    "compliance manager",
+    "engineering director",
+    "technical director",
+    "sales director"
+  ];
+  const canApproveDocuments =
+    currentUser.isAdmin === true ||
+    DOCUMENT_APPROVER_ROLES.includes((currentUser.role || "").trim().toLowerCase());
+
   const [governanceFilter, setGovernanceFilter] = useState<"all" | "authoritative" | "draft" | "superseded">("all");
   const [previewDoc, setPreviewDoc] = useState<ControlledDocument | null>(null);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
@@ -160,10 +175,14 @@ export const DocumentLibrary: React.FC = () => {
 
   const handleApproveDocument = async (docId: string) => {
     try {
+      // Record who actually approved it. The server re-checks authority — this
+      // is a UI convenience, not the access control.
       await apiPost(`/api/controlled-documents/${docId}/approve`, {
-        approvedBy: "Engineering Director"
+        approvedBy: currentUser.name,
+        approverRole: currentUser.role,
+        approverIsAdmin: currentUser.isAdmin === true
       });
-      showToast("Document approved and marked Authoritative!", "success");
+      showToast(`Approved and marked Authoritative — recorded against ${currentUser.name}`, "success");
       loadDocuments();
     } catch (err: any) {
       showToast(err?.message || "Failed to approve document", "error");
@@ -300,7 +319,7 @@ export const DocumentLibrary: React.FC = () => {
               tone="brand"
               actions={
                 <div className="flex items-center gap-2">
-                  {doc.approvalStatus === "Draft" && (
+                  {doc.approvalStatus === "Draft" && canApproveDocuments && (
                     <button
                       onClick={() => handleApproveDocument(doc.id)}
                       className="inline-flex items-center gap-1 text-spec font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2.5 py-1.5 rounded-edge cursor-pointer"
@@ -308,6 +327,14 @@ export const DocumentLibrary: React.FC = () => {
                       <Check className="w-3.5 h-3.5" />
                       <span>Approve</span>
                     </button>
+                  )}
+                  {doc.approvalStatus === "Draft" && !canApproveDocuments && (
+                    <span
+                      className="text-spec text-ink-faint border border-line px-2.5 py-1.5 rounded-edge whitespace-nowrap"
+                      title="Controlled documents are approved by engineering, not sales."
+                    >
+                      Awaiting engineering approval
+                    </span>
                   )}
                   <button
                     onClick={() => setPreviewDoc(doc)}

@@ -144,7 +144,6 @@ export const PRESET_TEAM_MEMBERS: UserProfile[] = [
     location: "Drouin, VIC",
     email: "travis@plasgain.com.au",
     phone: "0412 345 678",
-    pin: "1234",
     isAdmin: true
   },
   {
@@ -154,7 +153,6 @@ export const PRESET_TEAM_MEMBERS: UserProfile[] = [
     location: "Melbourne, VIC",
     email: "sarah.reed@plasgain.com.au",
     phone: "+61 3 9000 1122",
-    pin: "2468",
     isAdmin: false
   },
   {
@@ -164,7 +162,6 @@ export const PRESET_TEAM_MEMBERS: UserProfile[] = [
     location: "Sydney, NSW",
     email: "rob.mitchell@plasgain.com.au",
     phone: "+61 400 999 888",
-    pin: "9900",
     isAdmin: true
   }
 ];
@@ -176,7 +173,6 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
   location: "Drouin, VIC",
   email: "travis@plasgain.com.au",
   phone: "0412 345 678",
-  pin: "1234",
   isAdmin: true
 };
 
@@ -341,8 +337,10 @@ interface AppContextType {
     accountId?: string;
     opportunityId?: string;
     contactId?: string;
+    /** Carried over from the call briefing so the rep does not retype it. */
+    prefillNotes?: string;
   } | null;
-  openQuickLog: (type: "call" | "note" | "meeting" | "email" | "task" | "follow_up", accountId?: string, oppId?: string, contactId?: string) => void;
+  openQuickLog: (type: "call" | "note" | "meeting" | "email" | "task" | "follow_up", accountId?: string, oppId?: string, contactId?: string, prefillNotes?: string) => void;
   closeQuickLog: () => void;
 
   // Call Preparation & Briefing Modal State
@@ -381,7 +379,7 @@ interface AppContextType {
   flushPendingWrites: () => Promise<void>;
 
   // Authentication & User Management
-  switchUserWithPin: (userId: string, pin: string) => { success: boolean; error?: string };
+  switchUserWithPin: (userId: string, pin: string) => Promise<{ success: boolean; error?: string }>;
 
   // Navigate helper
   navigateToWorkflow: (tab: NavTab, toolSub?: ToolSubTab, oppId?: string) => void;
@@ -455,7 +453,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const loginAsUser = (profile: UserProfile) => {
     const userId = profile.id || `user-${profile.name.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
-    const userWithId: UserProfile = { ...profile, id: userId };
+    const { pin: _discardedPin, ...safeProfile } = profile;
+    const userWithId: UserProfile = { ...safeProfile, id: userId };
     setCurrentUser(userWithId);
     localStorage.setItem("plasgain_user_profile", JSON.stringify(userWithId));
     localStorage.setItem("plasgain_active_user_id", userId);
@@ -464,17 +463,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast(`Signed in as ${userWithId.name} (${userWithId.role || "Sales"})`, "success");
   };
 
-  const switchUserWithPin = (userId: string, pin: string): { success: boolean; error?: string } => {
+  const switchUserWithPin = async (userId: string, pin: string): Promise<{ success: boolean; error?: string }> => {
     const target = teamMembers.find((m) => m.id === userId || m.name.toLowerCase() === userId.toLowerCase());
     if (!target) return { success: false, error: "Team member profile not found" };
-
-    const expectedPin = target.pin || (target.name.toLowerCase().includes("sarah") ? "2468" : target.name.toLowerCase().includes("rob") ? "9900" : "1234");
-    if (pin.trim() !== expectedPin.trim()) {
-      return { success: false, error: "Incorrect PIN code for this profile." };
+    try {
+      const response = await fetch(getApiUrl("/api/auth/verify-profile"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: target.id, pin: pin.trim() })
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.success) {
+        return { success: false, error: result.error || "Unable to verify this profile." };
+      }
+      loginAsUser(target);
+      return { success: true };
+    } catch {
+      return { success: false, error: "Authentication service unavailable. Please try again shortly." };
     }
-
-    loginAsUser(target);
-    return { success: true };
   };
 
   const updateCurrentUser = (updates: Partial<UserProfile>) => {
@@ -728,6 +734,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     accountId?: string;
     opportunityId?: string;
     contactId?: string;
+    /** Carried over from the call briefing so the rep does not retype it. */
+    prefillNotes?: string;
   } | null>(null);
 
   const [callPrepModal, setCallPrepModal] = useState<{
@@ -761,6 +769,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const clearCopilotContext = () => {
     setCopilotCustomContext(null);
+    setSelectedAccountId(null);
     setSelectedOpportunityId(null);
     setSelectedCrmOpportunityId(null);
     setIsCopilotContextPinned(false);
@@ -995,6 +1004,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const activeNotifications = useMemo(() => {
     const list = serverNotifications.length > 0 ? serverNotifications : localNotifications;
+    // No title blocklist here. Test records were being hidden by matching on
+    // "Test Alert" / "Mark Read Test", which masked the real problem — the suite
+    // writing into the live store — and would have hidden a genuine
+    // customer notification that happened to share the title.
     return list.map(normalizeNotification);
   }, [serverNotifications, localNotifications]);
 
@@ -1228,14 +1241,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     type: "call" | "note" | "meeting" | "email" | "task" | "follow_up",
     accountId?: string,
     oppId?: string,
-    contactId?: string
+    contactId?: string,
+    prefillNotes?: string
   ) => {
     setQuickLogModal({
       isOpen: true,
       type,
       accountId: accountId || selectedAccountId || undefined,
       opportunityId: oppId || selectedCrmOpportunityId || undefined,
-      contactId
+      contactId,
+      prefillNotes
     });
   };
 

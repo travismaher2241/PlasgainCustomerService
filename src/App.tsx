@@ -2,6 +2,7 @@ import React, { useState, Suspense, lazy } from "react";
 import { AppProvider, useApp } from "./context/AppContext";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CheckCircle2, AlertCircle, Info, XCircle } from "lucide-react";
 
 // Code-split major screens and heavy modals for optimal initial bundle size
@@ -45,20 +46,23 @@ const MainLayout: React.FC = () => {
         {/* Dynamic Main Workspace Stage */}
         <main className={`flex-1 overflow-y-auto ${activeTab === "crm" ? "p-0" : "p-4 sm:p-6 lg:p-8"}`}>
           <div className={`${activeTab === "crm" ? "w-full min-w-0" : "max-w-7xl mx-auto w-full min-w-0"}`}>
-            <Suspense fallback={<ViewLoadingFallback />}>
-              {activeTab === "home" && <HomeDashboard />}
-              {activeTab === "crm" && <CRMCommandCenter />}
-              {activeTab === "new-enquiry" && <NewEnquiryWorkspace />}
-              {activeTab === "product-finder" && <ProductFinder />}
-              {activeTab === "documents" && <DocumentLibrary />}
-              {activeTab === "tools" && <ToolsHub />}
-              {activeTab === "settings" && <SettingsView />}
-            </Suspense>
+            <ErrorBoundary area="This workspace" resetKey={activeTab}>
+              <Suspense fallback={<ViewLoadingFallback />}>
+                {activeTab === "home" && <HomeDashboard />}
+                {activeTab === "crm" && <CRMCommandCenter />}
+                {activeTab === "new-enquiry" && <NewEnquiryWorkspace />}
+                {activeTab === "product-finder" && <ProductFinder />}
+                {activeTab === "documents" && <DocumentLibrary />}
+                {activeTab === "tools" && <ToolsHub />}
+                {activeTab === "settings" && <SettingsView />}
+              </Suspense>
+            </ErrorBoundary>
           </div>
         </main>
       </div>
 
       {/* Interactive Overlays */}
+      <ErrorBoundary area="This dialog">
       <Suspense fallback={null}>
         <AIEmailComposerModal />
         <UserLoginModal />
@@ -69,6 +73,7 @@ const MainLayout: React.FC = () => {
         <CRMCallPrepModal />
         <ProductDetailModal product={inspectingProduct} onClose={() => setInspectingProduct(null)} />
       </Suspense>
+      </ErrorBoundary>
 
       {/* Toast Notification */}
       {toast && (

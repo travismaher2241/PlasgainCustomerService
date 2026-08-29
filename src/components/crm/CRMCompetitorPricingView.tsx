@@ -286,6 +286,7 @@ export const CRMCompetitorPricingView: React.FC = () => {
           {/* Competitor Filter */}
           <div>
             <select
+              aria-label="Filter by competitor"
               value={competitorFilter}
               onChange={(e) => setCompetitorFilter(e.target.value)}
               className="w-full py-1.5 px-2 bg-paper border border-line rounded-edge font-medium text-meta"
@@ -302,6 +303,7 @@ export const CRMCompetitorPricingView: React.FC = () => {
           {/* Status Filter */}
           <div>
             <select
+              aria-label="Filter by status"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="w-full py-1.5 px-2 bg-paper border border-line rounded-edge font-medium text-meta"
@@ -316,6 +318,7 @@ export const CRMCompetitorPricingView: React.FC = () => {
           {/* Price Basis Filter */}
           <div>
             <select
+              aria-label="Filter by price basis"
               value={priceBasisFilter}
               onChange={(e) => setPriceBasisFilter(e.target.value)}
               className="w-full py-1.5 px-2 bg-paper border border-line rounded-edge font-medium text-meta"

@@ -51,16 +51,16 @@ const APPROVED_PRODUCT_ALIASES: Array<{
   { pattern: /superlux/i, productId: "prod-superlux", confidence: 0.92 },
 
   // enLighten Zorro 2 Series
-  { pattern: /zorro.*60|ez-60w/i, productId: "prod-zorro-2", confidence: 0.98 },
-  { pattern: /zorro.*30|ez-30w/i, productId: "prod-zorro-2", confidence: 0.98 },
-  { pattern: /zorro.*15|ez-15w|ez-15w-3k/i, productId: "prod-zorro-2", confidence: 0.98 },
-  { pattern: /zorro|enlighten/i, productId: "prod-zorro-2", confidence: 0.92 },
+  { pattern: /zorro.*60|ez-60w/i, productId: "prod-enlighten-zorro-2", confidence: 0.98 },
+  { pattern: /zorro.*30|ez-30w/i, productId: "prod-enlighten-zorro-2", confidence: 0.98 },
+  { pattern: /zorro.*15|ez-15w|ez-15w-3k/i, productId: "prod-enlighten-zorro-2", confidence: 0.98 },
+  { pattern: /zorro|enlighten/i, productId: "prod-enlighten-zorro-2", confidence: 0.92 },
 
   // Roadway V-LED
-  { pattern: /roadway.*v-?led|vled|roadway-vled/i, productId: "prod-roadway-vled", confidence: 0.98 },
+  { pattern: /roadway.*v-?led|vled|roadway-vled/i, productId: "prod-roadway-vled-70w", confidence: 0.98 },
 
   // Sonaray Solar Blade
-  { pattern: /sonaray|solar.*blade/i, productId: "prod-sonaray-blade", confidence: 0.95 },
+  { pattern: /sonaray|solar.*blade/i, productId: "prod-solar-blade-sonaray", confidence: 0.95 },
 
   // Polymeric Cable Cover (AS 4702)
   { pattern: /polymeric.*cable|cable.*cover|as.*4702|pcc-150|pcc-300|cc-poly/i, productId: "prod-cable-cover", confidence: 0.98 },
@@ -115,10 +115,22 @@ export function resolveSingleProduct(rawInput: string | any): ProductResolutionI
     };
   }
 
-  // Tier 2: Full canonical product name or full product code contained in longer drawing text
+  // Tier 2: Full canonical product name or full product code contained in longer drawing text.
+  //
+  // Catalogue codes are often a family of SKUs in one string
+  // ("SS-2020 / SS-2030 / SS-2060", "ZAL15S / ZAL40S / ..."), so a quote naming a
+  // single variant never matched the whole string. Split on the separators and
+  // compare each SKU individually.
+  const codeVariants = (code: string): string[] =>
+    code
+      .toLowerCase()
+      .split(/[/,]| or /)
+      .map((c) => c.replace(/\(.*?\)/g, "").trim())
+      .filter((c) => c.length >= 4);
+
   const partial = SAMPLE_PRODUCTS.find(
     (p) =>
-      (p.code.length >= 4 && cleanLower.includes(p.code.toLowerCase())) ||
+      codeVariants(p.code).some((variant) => cleanLower.includes(variant)) ||
       (p.name.length >= 6 && cleanLower.includes(p.name.toLowerCase()))
   );
   if (partial) {

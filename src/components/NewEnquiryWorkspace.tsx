@@ -285,14 +285,14 @@ export const NewEnquiryWorkspace: React.FC = () => {
         companyName: (typeof summary.customerCompany === "object" ? (summary.customerCompany as any)?.value : summary.customerCompany) || rawEnquiryInput.company,
         projectName: (typeof summary.project === "object" ? (summary.project as any)?.value : summary.project) || rawEnquiryInput.project,
         recommendedProduct:
-          currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.productName,
+          currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.productName,
         selectedQuestions: selectedQuestions
       });
       setGeneratedEmail(data);
     } catch (err) {
       console.warn("AI email generation failed, falling back to standard sales template:", err);
-      const summary = currentEnquiryAnalysis.opportunitySummary;
-      const rec = currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint;
+      const summary = currentEnquiryAnalysis.opportunitySummary || {};
+      const rec = currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint;
       const recipient = (typeof summary.contactName === "object" ? (summary.contactName as any)?.value : summary.contactName) || rawEnquiryInput.customer || "Valued Client";
       const project = (typeof summary.project === "object" ? (summary.project as any)?.value : summary.project) || rawEnquiryInput.project || "Lighting Project";
       
@@ -300,12 +300,20 @@ export const NewEnquiryWorkspace: React.FC = () => {
         ? selectedQuestions.map((q, idx) => `${idx + 1}. ${q}`).join("\n")
         : "1. Confirmation of target AS/NZS 1158 lighting subcategory\n2. Mounting height and pole preference (Direct burial composite vs Rag-bolt)\n3. Available power supply or solar requirement";
 
+      // The AI is down, so this template carries no generated product, compliance
+      // or specification claims — only the rep's own enquiry text and the
+      // questions they selected. Anything else would be an unverified assertion
+      // in a customer-facing email.
+      const productLine = rec?.productName
+        ? `\n\nWe are reviewing ${rec.productName}${rec.productCode ? ` (${rec.productCode})` : ""} against your scope and will confirm suitability once the details below are settled.`
+        : "";
+
       const fallbackEmail = {
-        subject: `Plasgain Engineering & Commercial Quotation Proposal - ${project}`,
-        bodyText: `Dear ${recipient},\n\nThank you for reaching out to Plasgain regarding the lighting requirements for ${project}.\n\nBased on your enquiry scope, we recommend the ${rec.productName} (${rec.productCode}). This solution complies with Australian Standards (AS/NZS 1158) for public lighting efficiency and photometric performance.\n\nTo ensure our engineering team prepares an accurate certified Dialux layout and formal commercial quote, could you please confirm the following details:\n\n${qBulletList}\n\nWe have attached standard technical datasheets for your review and look forward to assisting with your project.\n\nKind regards,\n\n${currentUser.name}\n${currentUser.role} | Plasgain Australia\nPhone: ${currentUser.phone || "1300 000 000"}\nEmail: ${currentUser.email || "sales@plasgain.com.au"}`
+        subject: `Plasgain — ${project}`,
+        bodyText: `Dear ${recipient},\n\nThank you for reaching out to Plasgain regarding the lighting requirements for ${project}.${productLine}\n\nSo our engineering team can prepare a Dialux layout and a formal commercial quote, could you please confirm the following:\n\n${qBulletList}\n\nI will follow up with the relevant technical datasheets once these are confirmed.\n\nKind regards,\n\n${currentUser.name}\n${currentUser.role} | Plasgain Australia\nPhone: ${currentUser.phone || ""}\nEmail: ${currentUser.email || ""}`
       };
       setGeneratedEmail(fallbackEmail);
-      showToast("Template email generated via sales rules engine", "info");
+      showToast("AI unavailable — inserted a plain template. Review and complete it before sending.", "warning");
     } finally {
       setIsGeneratingEmail(false);
     }
@@ -1008,14 +1016,14 @@ export const NewEnquiryWorkspace: React.FC = () => {
                     RECOMMENDED NEXT ACTION
                   </span>
                   <span className="text-spec font-semibold px-2 py-0.5 rounded bg-chrome-raised text-ink-faint border border-chrome-line">
-                    Urgency: {currentEnquiryAnalysis.nextBestAction.urgency}
+                    Urgency: {currentEnquiryAnalysis.nextBestAction?.urgency}
                   </span>
                 </div>
                 <h3 className="text-base font-bold text-white mb-1.5">
-                  {currentEnquiryAnalysis.nextBestAction.title}
+                  {currentEnquiryAnalysis.nextBestAction?.title}
                 </h3>
                 <p className="text-meta text-ink-faint leading-relaxed max-w-xl">
-                  {currentEnquiryAnalysis.nextBestAction.description}
+                  {currentEnquiryAnalysis.nextBestAction?.description}
                 </p>
               </div>
 
@@ -1025,7 +1033,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
                   className="bg-brand-deep hover:bg-brand-deep text-white font-medium px-4 py-2 rounded-edge text-meta transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
                 >
                   <Mail className="w-3.5 h-3.5" />
-                  <span>{currentEnquiryAnalysis.nextBestAction.primaryActionLabel}</span>
+                  <span>{currentEnquiryAnalysis.nextBestAction?.primaryActionLabel}</span>
                 </button>
                 <button
                   onClick={() => navigateToWorkflow("product-finder")}
@@ -1043,20 +1051,20 @@ export const NewEnquiryWorkspace: React.FC = () => {
                   <span className="text-spec uppercase font-bold text-ink-faint">Readiness Score</span>
                   <span
                     className={`text-meta font-bold px-2 py-0.5 rounded ${
-                      currentEnquiryAnalysis.readiness.score >= 80
+                      (currentEnquiryAnalysis.readiness?.score ?? 0) >= 80
                         ? "bg-brand-wash text-brand-deep"
-                        : currentEnquiryAnalysis.readiness.score >= 50
+                        : (currentEnquiryAnalysis.readiness?.score ?? 0) >= 50
                         ? "bg-soon-wash text-soon"
                         : "bg-urgent-wash text-urgent"
                     }`}
                   >
-                    {currentEnquiryAnalysis.readiness.rating}
+                    {currentEnquiryAnalysis.readiness?.rating}
                   </span>
                 </div>
 
                 <div className="flex items-baseline gap-2 mb-3">
                   <span className="text-3xl font-black text-brand-deep">
-                    {currentEnquiryAnalysis.readiness.score}%
+                    {(currentEnquiryAnalysis.readiness?.score ?? 0)}%
                   </span>
                   <span className="text-meta text-ink-dim">Quoting Feasibility</span>
                 </div>
@@ -1065,18 +1073,18 @@ export const NewEnquiryWorkspace: React.FC = () => {
                 <div className="w-full bg-paper rounded-full h-2 overflow-hidden mb-3 border border-line">
                   <div
                     className={`h-2 rounded-full transition-all duration-500 ${
-                      currentEnquiryAnalysis.readiness.score >= 80
+                      (currentEnquiryAnalysis.readiness?.score ?? 0) >= 80
                         ? "bg-brand-deep"
-                        : currentEnquiryAnalysis.readiness.score >= 50
+                        : (currentEnquiryAnalysis.readiness?.score ?? 0) >= 50
                         ? "bg-soon"
                         : "bg-urgent"
                     }`}
-                    style={{ width: `${currentEnquiryAnalysis.readiness.score}%` }}
+                    style={{ width: `${(currentEnquiryAnalysis.readiness?.score ?? 0)}%` }}
                   ></div>
                 </div>
 
                 <p className="text-meta text-ink-dim mb-3 leading-relaxed">
-                  {currentEnquiryAnalysis.readiness.summaryExplanation}
+                  {currentEnquiryAnalysis.readiness?.summaryExplanation}
                 </p>
               </div>
 
@@ -1085,13 +1093,13 @@ export const NewEnquiryWorkspace: React.FC = () => {
                 <div className="bg-brand-wash p-2.5 rounded-edge border border-brand-edge">
                   <div className="font-bold text-brand-deep flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-brand-deep" />
-                    <span>{currentEnquiryAnalysis.readiness.knownItems.length} Confirmed</span>
+                    <span>{(currentEnquiryAnalysis.readiness?.knownItems?.length ?? 0)} Confirmed</span>
                   </div>
                 </div>
                 <div className="bg-urgent-wash p-2.5 rounded-edge border border-urgent">
                   <div className="font-bold text-urgent flex items-center gap-1.5">
                     <AlertTriangle className="w-3.5 h-3.5 text-urgent" />
-                    <span>{currentEnquiryAnalysis.readiness.missingItems.length} Missing</span>
+                    <span>{(currentEnquiryAnalysis.readiness?.missingItems?.length ?? 0)} Missing</span>
                   </div>
                 </div>
               </div>
@@ -1118,7 +1126,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
                 <h3 className="font-bold text-body">Confirmed & Known Parameters</h3>
               </div>
               <ul className="space-y-2">
-                {currentEnquiryAnalysis.readiness.knownItems.map((item, idx) => (
+                {currentEnquiryAnalysis.readiness?.knownItems.map((item, idx) => (
                   <li key={idx} className="text-meta flex items-start gap-2">
                     <span className="w-4 h-4 rounded-full bg-brand-wash text-brand-deep flex items-center justify-center text-spec font-bold shrink-0 mt-0.5">
                       ✓
@@ -1138,7 +1146,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
                 </h3>
               </div>
               <ul className="space-y-2">
-                {currentEnquiryAnalysis.readiness.missingItems.map((item, idx) => (
+                {currentEnquiryAnalysis.readiness?.missingItems.map((item, idx) => (
                   <li key={idx} className="text-meta flex items-start gap-2 bg-urgent-wash p-2.5 rounded-edge border border-urgent">
                     <span className="w-4 h-4 rounded-full bg-urgent-wash text-urgent flex items-center justify-center text-spec font-bold shrink-0 mt-0.5">
                       !
@@ -1244,69 +1252,69 @@ export const NewEnquiryWorkspace: React.FC = () => {
                         Recommended Starting Point
                       </span>
                       <span className="text-meta font-bold px-2 py-0.5 rounded bg-brand-deep text-white">
-                        {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.matchLevel || "Strong"} Match
+                        {currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.matchLevel || "Strong"} Match
                       </span>
                     </div>
                     <h4 className="text-base font-bold text-body mt-0.5">
-                      {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.productName || "Plasgain Luminaire"} (
-                      {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.productCode || "PLASGAIN-SOLAR"})
+                      {currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.productName || "Plasgain Luminaire"} (
+                      {currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.productCode || "PLASGAIN-SOLAR"})
                     </h4>
                   </div>
                 </div>
 
                 <div className="text-meta leading-relaxed">
                   <strong className="text-body">Why it appears suitable: </strong>
-                  {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.whySuitable || "Engineered specifically for Australian public infrastructure."}
+                  {currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.whySuitable || "Engineered specifically for Australian public infrastructure."}
                 </div>
 
                 {/* Supporting Specs Grid */}
-                {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.supportingSpecifications && (
+                {currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.supportingSpecifications && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 bg-white p-3.5 rounded-edge border border-brand-edge text-meta">
                     <div>
                       <span className="text-spec font-bold text-ink-faint uppercase block">Application Fit</span>
                       <span className="text-body font-medium">
-                        {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.supportingSpecifications.applicationFit || "Standard"}
+                        {currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.supportingSpecifications.applicationFit || "Standard"}
                       </span>
                     </div>
                     <div>
                       <span className="text-spec font-bold text-ink-faint uppercase block">Luminaire Output</span>
                       <span className="text-body font-medium">
-                        {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.supportingSpecifications.luminaireOutput || "Standard"}
+                        {currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.supportingSpecifications.luminaireOutput || "Standard"}
                       </span>
                     </div>
                     <div>
                       <span className="text-spec font-bold text-ink-faint uppercase block">CCT Options</span>
                       <span className="text-body font-medium">
-                        {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.supportingSpecifications.cctAvailable || "3000K, 4000K"}
+                        {currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.supportingSpecifications.cctAvailable || "3000K, 4000K"}
                       </span>
                     </div>
                     <div>
                       <span className="text-spec font-bold text-ink-faint uppercase block">Solar & Battery</span>
                       <span className="text-body font-medium">
-                        {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.supportingSpecifications.solarAndBattery || "Standard"}
+                        {currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.supportingSpecifications.solarAndBattery || "Standard"}
                       </span>
                     </div>
                     <div>
                       <span className="text-spec font-bold text-ink-faint uppercase block">Mounting / Poles</span>
                       <span className="text-body font-medium">
-                        {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.supportingSpecifications.mountingOptions || "Standard"}
+                        {currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.supportingSpecifications.mountingOptions || "Standard"}
                       </span>
                     </div>
                     <div>
                       <span className="text-spec font-bold text-ink-faint uppercase block">Control & Sensor</span>
                       <span className="text-body font-medium">
-                        {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.supportingSpecifications.controlOptions || "Smart Controller"}
+                        {currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.supportingSpecifications.controlOptions || "Smart Controller"}
                       </span>
                     </div>
                   </div>
                 )}
 
                 {/* Source Citations */}
-                {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.sourceCitations && (
+                {currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.sourceCitations && (
                   <div className="space-y-1.5 pt-1">
                     <span className="text-spec font-bold block">Supporting Document Citations:</span>
                     <div className="space-y-1.5">
-                      {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.sourceCitations.map(
+                      {currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.sourceCitations.map(
                         (cite, i) => (
                           <div
                             key={i}
@@ -1330,7 +1338,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
                   <ShieldCheck className="w-4 h-4 text-soon shrink-0 mt-0.5" />
                   <div>
                     <strong className="font-bold">Engineering Distinction Notice: </strong>
-                    {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.distinctionNotes ||
+                    {currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint?.distinctionNotes ||
                       "This recommendation represents a preliminary product fit. Formal AS/NZS 1158 certification and council sign-off requires a point-by-point Dialux photometric simulation by Plasgain Engineering."}
                   </div>
                 </div>
@@ -1351,13 +1359,13 @@ export const NewEnquiryWorkspace: React.FC = () => {
 
             {/* Alternatives */}
             {currentEnquiryAnalysis.productRecommendations?.alternatives &&
-              currentEnquiryAnalysis.productRecommendations.alternatives.length > 0 && (
+              (currentEnquiryAnalysis.productRecommendations?.alternatives?.length ?? 0) > 0 && (
                 <div className="space-y-2 pt-2">
                   <h4 className="text-meta font-bold uppercase tracking-wide">
                     Alternative Product Options to Consider:
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {currentEnquiryAnalysis.productRecommendations.alternatives.map((alt, i) => (
+                    {currentEnquiryAnalysis.productRecommendations?.alternatives?.map((alt, i) => (
                       <div
                         key={i}
                         className="bg-raised p-3.5 rounded-edge border border-line text-meta space-y-1.5"
@@ -1391,7 +1399,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
                 <button
                   onClick={() =>
                     setSelectedQuestions(
-                      currentEnquiryAnalysis.questionsBeforeWeQuote.map((q) => q.question)
+                      currentEnquiryAnalysis.questionsBeforeWeQuote?.map((q) => q.question)
                     )
                   }
                   className="text-meta text-ink-dim hover:text-ink underline font-medium cursor-pointer"
@@ -1408,7 +1416,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
             </div>
 
             <div className="space-y-2.5">
-              {currentEnquiryAnalysis.questionsBeforeWeQuote.map((q) => {
+              {currentEnquiryAnalysis.questionsBeforeWeQuote?.map((q) => {
                 const isChecked = selectedQuestions.includes(q.question);
                 return (
                   <label
@@ -1443,7 +1451,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
 
             <div className="pt-3 border-t border-line flex items-center justify-between">
               <span className="text-meta text-ink-dim">
-                {selectedQuestions.length} of {currentEnquiryAnalysis.questionsBeforeWeQuote.length} questions selected
+                {selectedQuestions.length} of {(currentEnquiryAnalysis.questionsBeforeWeQuote?.length ?? 0)} questions selected
               </span>
               <button
                 onClick={handleGenerateReply}

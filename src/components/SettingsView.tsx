@@ -5,8 +5,10 @@ import {
   RefreshCw,
   CheckCircle2,
   BookOpen,
-  LogIn
+  LogIn,
+  Sparkles
 } from "lucide-react";
+import { apiGet } from "../utils/apiClient";
 import { useApp } from "../context/AppContext";
 import { SAMPLE_OPPORTUNITIES } from "../data/mockData";
 import { initialsOf, DEFAULT_USER_PROFILE } from "../context/AppContext";
@@ -32,6 +34,48 @@ export const SettingsView: React.FC = () => {
   // Edits are held locally so a half-typed name never lands on saved records.
   const [savedDraft, setDraftState] = useState(currentUser);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+
+  // Reads /api/health/ai, which actually calls the model rather than reporting
+  // whether a key happens to be set.
+  const [aiHealth, setAiHealth] = useState<{
+    state: "checking" | "reachable" | "unreachable" | "unconfigured";
+    detail: string;
+    model?: string;
+  }>({ state: "checking", detail: "Contacting the Plasgain knowledge engine..." });
+
+  const runAiDiagnostics = async () => {
+    setAiHealth({ state: "checking", detail: "Contacting the Plasgain knowledge engine..." });
+    try {
+      const res: any = await apiGet("/api/health/ai");
+      if (!res?.configured) {
+        setAiHealth({
+          state: "unconfigured",
+          detail: "No GEMINI_API_KEY is configured on the server, so no AI feature can run."
+        });
+      } else if (res?.reachable) {
+        setAiHealth({
+          state: "reachable",
+          detail: res.state || "The model responded successfully.",
+          model: res.model
+        });
+      } else {
+        setAiHealth({
+          state: "unreachable",
+          detail: res?.detail || "A key is configured but the model did not respond.",
+          model: res?.model
+        });
+      }
+    } catch (err: any) {
+      setAiHealth({
+        state: "unreachable",
+        detail: err?.message || "Could not reach the Plasgain server to run the check."
+      });
+    }
+  };
+
+  useEffect(() => {
+    runAiDiagnostics();
+  }, []);
 
   useEffect(() => {
     setDraftState(currentUser);
@@ -376,6 +420,63 @@ export const SettingsView: React.FC = () => {
           <div className="text-body font-bold">AS/NZS 1158 &amp; 3000</div>
           <p className="text-spec text-ink-dim">Australian Public Lighting &amp; Electrical Standards</p>
         </div>
+      </div>
+
+      {/* Copilot Diagnostics — documented in the README as the way to confirm
+          the model is actually reachable, but never built. Without it a rep
+          getting odd output has no way to tell whether the AI is up. */}
+      <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-3">
+        <div className="flex items-center justify-between gap-3 pb-3 border-b border-line">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-brand-deep" />
+            <h2 className="text-body font-bold">Copilot Diagnostics</h2>
+          </div>
+          <button
+            type="button"
+            onClick={runAiDiagnostics}
+            disabled={aiHealth.state === "checking"}
+            className="inline-flex items-center gap-1.5 text-meta font-bold px-3 py-1.5 rounded-edge border border-line-strong hover:border-brand-deep hover:text-brand-deep transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${aiHealth.state === "checking" ? "animate-spin" : ""}`} />
+            <span>{aiHealth.state === "checking" ? "Checking..." : "Re-check"}</span>
+          </button>
+        </div>
+
+        <div className="text-body font-bold flex items-center gap-1.5">
+          <span
+            className={`w-2 h-2 rounded-full ${
+              aiHealth.state === "reachable"
+                ? "bg-emerald-500"
+                : aiHealth.state === "checking"
+                ? "bg-amber-500 animate-pulse"
+                : "bg-red-500"
+            }`}
+          ></span>
+          <span>
+            {aiHealth.state === "reachable"
+              ? "Active & Grounded"
+              : aiHealth.state === "checking"
+              ? "Contacting the model..."
+              : aiHealth.state === "unconfigured"
+              ? "No API key configured"
+              : "Unreachable"}
+          </span>
+        </div>
+
+        <p className="text-spec text-ink-dim">{aiHealth.detail}</p>
+
+        {aiHealth.model && (
+          <p className="text-[11px] text-ink-faint">
+            Model: <code className="font-mono text-brand-deep">{aiHealth.model}</code>
+          </p>
+        )}
+
+        {aiHealth.state !== "reachable" && aiHealth.state !== "checking" && (
+          <p className="text-spec text-amber-900 bg-amber-50 border border-amber-200 rounded-edge p-2.5">
+            AI-backed screens will show an "AI unavailable" notice instead of a result. They will not
+            substitute sample content — nothing shown to a customer is affected.
+          </p>
+        )}
       </div>
 
       {/* Quoting & Compliance Standards */}

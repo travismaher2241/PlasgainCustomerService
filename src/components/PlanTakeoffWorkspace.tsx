@@ -50,6 +50,7 @@ import {
 interface SamplePlan {
   id: string;
   name: string;
+  customerName: string;
   category: string;
   sheetTitle: string;
   drawingNumber: string;
@@ -62,6 +63,7 @@ const SAMPLE_PLANS: SamplePlan[] = [
   {
     id: "ballarat-shared-path",
     name: "Ballarat 1.2km Shared Path Upgrade",
+    customerName: "City of Ballarat",
     category: "Civil & Solar Lighting",
     sheetTitle: "Public Lighting & Trenching Layout - Sheet E-02",
     drawingNumber: "BCC-2025-E02-REV-B",
@@ -149,6 +151,7 @@ const SAMPLE_PLANS: SamplePlan[] = [
   {
     id: "geelong-commercial-park",
     name: "Geelong Commercial Business Park",
+    customerName: "City of Greater Geelong",
     category: "Car Park & Area Lighting",
     sheetTitle: "Site Electrical & External Car Park Lighting - Plan E-101",
     drawingNumber: "GBP-2025-E101",
@@ -323,6 +326,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
   const handleSelectSample = (sample: SamplePlan) => {
     setSelectedPlanId(sample.id);
     setProjectName(sample.name);
+    setCustomerName(sample.customerName);
     setUploadedFile({
       name: `${sample.drawingNumber}.pdf`,
       size: "2.4 MB",
@@ -1391,16 +1395,25 @@ export const PlanTakeoffWorkspace: React.FC = () => {
           onClose={() => setIsReadinessModalOpen(false)}
           context={{
             quoteType: "firm",
+            customerCompany: customerName,
+            projectName,
             productFamily: takeoffResult.billOfMaterials[0]?.category || "Solar Public Lighting",
+            productCode: takeoffResult.billOfMaterials.map((b) => b.recommendedProductCode).filter(Boolean).join(", "),
+            quantity: takeoffResult.billOfMaterials.length,
             isSolar: takeoffResult.billOfMaterials.some((b) => b.category.toLowerCase().includes("solar")),
             isMains: takeoffResult.billOfMaterials.some((b) => b.category.toLowerCase().includes("mains")),
             isPolePackage: takeoffResult.billOfMaterials.some((b) => b.category.toLowerCase().includes("pole")),
             isCivilCableCover: takeoffResult.billOfMaterials.some((b) => b.category.toLowerCase().includes("cable") || b.category.toLowerCase().includes("cover")),
-            solarAutonomyDays: 5,
-            windRegion: "Region B (AS/NZS 1170.2)",
-            mountingHeight: 8,
-            commercialPricingApproved: true,
-            unitPrice: 1450
+            solarAutonomyDays: undefined,
+            windRegion: takeoffResult.drawingMetadata.standardsIdentified?.find((s) => /wind|region\s+[a-d]/i.test(s)),
+            mountingHeight: takeoffResult.billOfMaterials
+              .map((b) => b.itemDescription.match(/\b(\d+(?:\.\d+)?)m\b/i)?.[1])
+              .find(Boolean),
+            lightingCategory: takeoffResult.drawingMetadata.standardsIdentified
+              ?.map((s) => s.match(/\b(?:Cat(?:egory)?\s*)?(P\d+[a-z]?|V\d+[a-z]?)\b/i)?.[1])
+              .find(Boolean),
+            commercialPricingApproved: false,
+            deliveryLocation: customerName || undefined
           }}
           onProceedWithQuote={() => {
             setIsReadinessModalOpen(false);

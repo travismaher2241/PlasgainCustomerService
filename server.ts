@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import express from "express";
+import { createHash, timingSafeEqual } from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
@@ -48,10 +49,17 @@ app.use((err: any, _req: express.Request, res: express.Response, next: express.N
 });
 
 // Lightweight in-process rate limiter for the API surface.
+//
+// 60/min was low enough that a single browser session polling notifications and
+// competitor pricing could exhaust the window and lock the rep out of their own
+// workspace. Health and polling routes are cheap and must never be the thing
+// that trips the limit, so they are exempt.
 const RATE_LIMIT_WINDOW_MS = 60000;
-const RATE_LIMIT_MAX = 60;
+const RATE_LIMIT_MAX = 300;
+const RATE_LIMIT_EXEMPT = /^\/(health|health\/ai|notifications|competitor-pricing)(\/|$)/;
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
 app.use("/api", (req, res, next) => {
+  if (RATE_LIMIT_EXEMPT.test(req.path)) return next();
   const key = req.ip || "unknown";
   const now = Date.now();
   const bucket = rateBuckets.get(key);
@@ -64,6 +72,41 @@ app.use("/api", (req, res, next) => {
   }
   bucket.count += 1;
   return next();
+});
+
+// Keep profile credentials out of the browser bundle and local storage. Set
+// PLASGAIN_PIN_* environment variables in deployed environments to replace the
+// local development values without committing secrets.
+const profilePinHashes: Record<string, Buffer> = {
+  "user-travis-maher": createHash("sha256").update(process.env.PLASGAIN_PIN_TRAVIS || "1234").digest(),
+  "user-sarah-reed": createHash("sha256").update(process.env.PLASGAIN_PIN_SARAH || "2468").digest(),
+  "user-rob-mitchell": createHash("sha256").update(process.env.PLASGAIN_PIN_ROB || "9900").digest()
+};
+const authAttempts = new Map<string, { failures: number; lockedUntil: number }>();
+
+app.post("/api/auth/verify-profile", (req, res) => {
+  const userId = String(req.body?.userId || "");
+  const pin = String(req.body?.pin || "");
+  const key = `${req.ip || "unknown"}:${userId}`;
+  const now = Date.now();
+  const state = authAttempts.get(key);
+  if (state?.lockedUntil && state.lockedUntil > now) {
+    return res.status(429).json({ error: "Too many incorrect attempts. Try again in 15 minutes." });
+  }
+
+  const customEnvKey = `PLASGAIN_PIN_${userId.replace(/^user-/, "").replace(/[^a-z0-9]/gi, "_").toUpperCase()}`;
+  const configuredCustomPin = process.env[customEnvKey];
+  const expected = profilePinHashes[userId] || (configuredCustomPin ? createHash("sha256").update(configuredCustomPin).digest() : undefined);
+  const supplied = createHash("sha256").update(pin).digest();
+  const valid = Boolean(expected && pin.length >= 4 && timingSafeEqual(expected, supplied));
+  if (!valid) {
+    const failures = (state?.failures || 0) + 1;
+    authAttempts.set(key, { failures, lockedUntil: failures >= 5 ? now + 15 * 60 * 1000 : 0 });
+    return res.status(401).json({ error: "Incorrect PIN code for this profile." });
+  }
+
+  authAttempts.delete(key);
+  return res.json({ success: true, userId });
 });
 
 // Raised when the AI cannot be reached or is not configured. Callers must surface
@@ -557,52 +600,11 @@ Return a JSON response with:
   }
 });
 
-// 1. ENQUIRY ANALYSIS ENDPOINT (SUPPORTS BOTH ROUTE PATHS AND SCHEMAS)
-app.post(["/api/enquiry/analyze", "/api/analyse-enquiry", "/api/analyze-enquiry"], async (req, res) => {
-  try {
-    const rawContent =
-      readString(req.body?.rawContent) || readString(req.body?.rawEnquiry) || readString(req.body?.enquiryText) || "";
-    const meta = req.body.metadata || {};
-    const customer = req.body.customer || meta.customerName || meta.customer || "";
-    const contact = req.body.contact || meta.contactName || meta.contact || "";
-    const company = req.body.company || meta.company || "";
-    const project = req.body.project || meta.projectName || meta.project || "";
-    const location = readString(req.body.location) || readString(meta.location) || "";
-    const source = req.body.source || meta.source || "Email / Portal";
-    const attachments = readArray(req.body?.attachments);
-
-    if (!rawContent && attachments.length === 0) {
-      return res.status(400).json({ error: "Enquiry content or attachment is required." });
-    }
-
-    try {
-      const ai = getAI();
-      const systemPrompt = `${MASTER_PLASGAIN_SYSTEM_INSTRUCTION}
-
-ENQUIRY ANALYSIS SPECIFIC RULES:
-- Mark every opportunity field strictly as "Confirmed" (explicitly stated in enquiry text), "Inferred" (logically derived from location/context), or "Unknown" (missing).
-- Calculate an objective Quote Readiness % based on whether critical parameters are present (application, quantity, length/area, mounting height, CCT, operating profile, timeline, wind region).
-- For product recommendations, provide a Primary Recommended Product and up to 2 Alternatives strictly from approved Plasgain models (Superlux, Pro Blade, Intense 50W, Roadway V-LED 70W, Deltalux [with conflict warning], Portable Solar Tower, CCTV, Plaspole, SafePole, Slip Base, Standard URD).
-- If information is missing (e.g. required lux level or CCT), mark it Unknown and generate a precise question in 'questionsBeforeWeQuote'.
-- State that project-specific compliance requires lighting design / Dialux verification.
-- Remind that pricing data is not connected.`;
-
-      const userPrompt = `Analyze this incoming customer enquiry for Plasgain Lighting:
-ENQUIRY TEXT:
-"""
-${rawContent}
-"""
-
-ADDITIONAL CONTEXT:
-Customer: ${customer || "Unknown"}
-Company: ${company || "Unknown"}
-Project: ${project || "Unknown"}
-Location: ${location || "Australia"}
-Contact: ${contact || "Unknown"}
-Source: ${source || "Email / Portal"}
-
-Return JSON conforming to this structure:
-{
+// Canonical response contract for enquiry analysis. Both the buffered and the
+// streaming endpoint must send this to the model - when the streaming prompt
+// omitted it the model invented its own PascalCase shape and the client crashed
+// dereferencing nextBestAction.
+const ENQUIRY_ANALYSIS_JSON_SCHEMA = `{
   "opportunitySummary": {
     "company": {"value": string, "status": "Confirmed" | "Inferred" | "Unknown"},
     "contactName": {"value": string, "status": "Confirmed" | "Inferred" | "Unknown"},
@@ -689,6 +691,111 @@ Return JSON conforming to this structure:
   "pricingGuardrailNotice": "Pricing data is not currently connected to the app. Do not estimate prices."
 }`;
 
+/**
+ * Coerces a model response into the shape the client renders.
+ *
+ * Models occasionally wrap the payload (`{ EnquiryAnalysisResult: {...} }`) or
+ * answer in PascalCase. The client must never dereference a key the model chose
+ * not to emit, so anything still missing after unwrapping is filled with an
+ * explicit "not returned" marker rather than left undefined. This shapes the
+ * envelope only — it never invents business content.
+ */
+export function normalizeEnquiryAnalysis(parsed: any): any {
+  const root =
+    parsed?.EnquiryAnalysisResult ||
+    parsed?.enquiryAnalysisResult ||
+    parsed?.analysis ||
+    parsed ||
+    {};
+
+  const pick = (...keys: string[]) => {
+    for (const key of keys) {
+      if (root[key] !== undefined && root[key] !== null) return root[key];
+    }
+    return undefined;
+  };
+
+  const nextBestAction = pick("nextBestAction", "NextBestAction") || {};
+
+  return {
+    ...root,
+    opportunitySummary: pick("opportunitySummary", "OpportunityFields", "OpportunitySummary") || {},
+    readiness: pick("readiness", "Readiness", "QuoteReadiness") || {
+      score: 0,
+      rating: "Low",
+      knownItems: [],
+      missingItems: [],
+      summaryExplanation: "Readiness was not returned by the analysis."
+    },
+    productRecommendations: pick("productRecommendations", "ProductRecommendations") || {
+      recommendedStartingPoint: pick("PrimaryRecommendedProduct", "primaryRecommendation") || null,
+      alternatives: pick("AlternativeProducts", "alternatives") || []
+    },
+    nextBestAction: {
+      title: nextBestAction.title || nextBestAction.Title || "Review the analysis with the customer",
+      description:
+        nextBestAction.description ||
+        nextBestAction.Description ||
+        "The analysis did not return a recommended next action. Confirm outstanding items with the customer before quoting.",
+      primaryActionLabel: nextBestAction.primaryActionLabel || nextBestAction.PrimaryActionLabel || "Draft Reply",
+      actionType: nextBestAction.actionType || nextBestAction.ActionType || "request_info",
+      urgency: nextBestAction.urgency || nextBestAction.Urgency || "This Week"
+    },
+    questionsBeforeWeQuote: pick("questionsBeforeWeQuote", "QuestionsBeforeWeQuote", "InformationStillRequired") || [],
+    internalSalesCoachTip: pick("internalSalesCoachTip", "InternalSalesCoachTip") || "",
+    pricingGuardrailNotice:
+      pick("pricingGuardrailNotice", "PricingGuardrailNotice") ||
+      "Pricing data is not currently connected to the app. Do not estimate prices."
+  };
+}
+
+// 1. ENQUIRY ANALYSIS ENDPOINT (SUPPORTS BOTH ROUTE PATHS AND SCHEMAS)
+app.post(["/api/enquiry/analyze", "/api/analyse-enquiry", "/api/analyze-enquiry"], async (req, res) => {
+  try {
+    const rawContent =
+      readString(req.body?.rawContent) || readString(req.body?.rawEnquiry) || readString(req.body?.enquiryText) || "";
+    const meta = req.body.metadata || {};
+    const customer = req.body.customer || meta.customerName || meta.customer || "";
+    const contact = req.body.contact || meta.contactName || meta.contact || "";
+    const company = req.body.company || meta.company || "";
+    const project = req.body.project || meta.projectName || meta.project || "";
+    const location = readString(req.body.location) || readString(meta.location) || "";
+    const source = req.body.source || meta.source || "Email / Portal";
+    const attachments = readArray(req.body?.attachments);
+
+    if (!rawContent && attachments.length === 0) {
+      return res.status(400).json({ error: "Enquiry content or attachment is required." });
+    }
+
+    try {
+      const ai = getAI();
+      const systemPrompt = `${MASTER_PLASGAIN_SYSTEM_INSTRUCTION}
+
+ENQUIRY ANALYSIS SPECIFIC RULES:
+- Mark every opportunity field strictly as "Confirmed" (explicitly stated in enquiry text), "Inferred" (logically derived from location/context), or "Unknown" (missing).
+- Calculate an objective Quote Readiness % based on whether critical parameters are present (application, quantity, length/area, mounting height, CCT, operating profile, timeline, wind region).
+- For product recommendations, provide a Primary Recommended Product and up to 2 Alternatives strictly from approved Plasgain models (Superlux, Pro Blade, Intense 50W, Roadway V-LED 70W, Deltalux [with conflict warning], Portable Solar Tower, CCTV, Plaspole, SafePole, Slip Base, Standard URD).
+- If information is missing (e.g. required lux level or CCT), mark it Unknown and generate a precise question in 'questionsBeforeWeQuote'.
+- State that project-specific compliance requires lighting design / Dialux verification.
+- Remind that pricing data is not connected.`;
+
+      const userPrompt = `Analyze this incoming customer enquiry for Plasgain Lighting:
+ENQUIRY TEXT:
+"""
+${rawContent}
+"""
+
+ADDITIONAL CONTEXT:
+Customer: ${customer || "Unknown"}
+Company: ${company || "Unknown"}
+Project: ${project || "Unknown"}
+Location: ${location || "Australia"}
+Contact: ${contact || "Unknown"}
+Source: ${source || "Email / Portal"}
+
+Return JSON conforming to this structure:
+${ENQUIRY_ANALYSIS_JSON_SCHEMA}`;
+
       const response = await generateContentWithFailover({
         preferredModel: DEFAULT_MODEL,
         contents: userPrompt,
@@ -699,7 +806,7 @@ Return JSON conforming to this structure:
         },
       });
 
-      const result = extractJsonFromText(response.text || "{}");
+      const result = normalizeEnquiryAnalysis(extractJsonFromText(response.text || "{}"));
       return res.json(result);
     } catch (aiErr: any) {
       return sendAIUnavailable(res, "enquiry", aiErr);
@@ -2497,7 +2604,8 @@ Company: ${company || "Unknown"}
 Project: ${project || "Unknown"}
 Location: ${location || "Australia"}
 
-Return JSON matching the standard EnquiryAnalysisResult schema.`;
+Return JSON conforming to this structure:
+${ENQUIRY_ANALYSIS_JSON_SCHEMA}`;
 
     try {
       const stream = await generateContentStreamWithFailover({
@@ -2519,7 +2627,7 @@ Return JSON matching the standard EnquiryAnalysisResult schema.`;
         sendSSEChunk(res, text);
       }
 
-      const parsedResult = extractJsonFromText(fullText || "{}");
+      const parsedResult = normalizeEnquiryAnalysis(extractJsonFromText(fullText || "{}"));
 
       // P2-07: Persist analysis by project
       const analysisRecord: ProjectAnalysisRecord = {
@@ -2827,11 +2935,46 @@ app.post("/api/controlled-documents", async (req, res) => {
   }
 });
 
+// Approving a controlled document publishes AS/NZS compliance evidence that
+// goes to councils, so it is an engineering-authority action, not a sales one.
+// The approver identity is taken from the caller and recorded verbatim — it used
+// to default to "Engineering Director" regardless of who clicked, which produced
+// a false audit trail rather than a missing one.
+const DOCUMENT_APPROVER_ROLES = new Set([
+  "engineering lead",
+  "lead engineer",
+  "structural engineer",
+  "compliance manager",
+  "engineering director",
+  "technical director",
+  "sales director"
+]);
+
 app.post("/api/controlled-documents/:id/approve", async (req, res) => {
   try {
     const { id } = req.params;
-    const { approvedBy = "Technical Director", supersedesDocId } = req.body;
-    const approved = await documentGovernanceStore.approveDocument(id, approvedBy, supersedesDocId);
+    const approvedBy = String(req.body?.approvedBy || "").trim();
+    const approverRole = String(req.body?.approverRole || "").trim();
+    const isAdmin = req.body?.approverIsAdmin === true;
+    const { supersedesDocId } = req.body || {};
+
+    if (!approvedBy || !approverRole) {
+      return res.status(400).json({
+        error: "The approving user's name and role are required to record an approval."
+      });
+    }
+
+    if (!isAdmin && !DOCUMENT_APPROVER_ROLES.has(approverRole.toLowerCase())) {
+      return res.status(403).json({
+        error: `${approverRole} is not authorised to approve controlled documents. Ask an engineering lead or workspace admin to approve this revision.`
+      });
+    }
+
+    const approved = await documentGovernanceStore.approveDocument(
+      id,
+      `${approvedBy} (${approverRole})`,
+      supersedesDocId
+    );
     if (!approved) return res.status(404).json({ error: "Document not found" });
     return res.json(approved);
   } catch (err: any) {

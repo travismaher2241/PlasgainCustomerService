@@ -68,6 +68,33 @@ The one exception is the lighting glossary, which is backed by a genuine local
 encyclopedia (`src/data/lightingEncyclopedia.ts`) and only *enriches* those real
 entries with AI when it is available.
 
+Product recommendations are additionally checked against the real catalogue
+before they render. `resolveSingleProduct` (`src/utils/productResolver.ts`) must
+match the recommendation to an entry in `src/data/mockData.ts`; anything it
+cannot place is reported as unavailable rather than shown. The Product Finder
+also displays the resolved catalogue SKU next to the recommendation, so a rep can
+see what a quoted string actually corresponds to.
+
+## Firestore access
+
+`firestore.rules` requires an authenticated caller on every collection and denies
+anything not explicitly listed. The client and server obtain that identity via
+`ensureFirebaseAuth()` before any read or write.
+
+Two deployment steps are required, **in this order**:
+
+1. Enable **Anonymous** sign-in: Firebase Console → Authentication → Sign-in
+   method. Without it, sign-in fails with `auth/configuration-not-found` and all
+   cloud reads and writes fail closed (writes queue locally).
+2. Deploy the rules: `firebase deploy --only firestore:rules`.
+
+Anonymous auth is a floor, not per-user identity — it proves a request came
+through Firebase, not who sent it. Rep-level identity and role-gated writes need
+a real auth provider.
+
+Tests never touch the live project: `isCloudSyncEnabled()` returns false under
+Vitest, and `PLASGAIN_DISABLE_CLOUD=1` turns cloud sync off for local work.
+
 ## Scripts
 
 | Command | What it does |

@@ -33,6 +33,7 @@ export const UserLoginModal: React.FC = () => {
   const [memberToAuthenticate, setMemberToAuthenticate] = useState<UserProfile | null>(null);
   const [pinInput, setPinInput] = useState<string>("");
   const [pinError, setPinError] = useState<string | null>(null);
+  const [isVerifyingPin, setIsVerifyingPin] = useState(false);
 
   const [customDraft, setCustomDraft] = useState<UserProfile>({
     id: "",
@@ -41,7 +42,6 @@ export const UserLoginModal: React.FC = () => {
     location: "Drouin, VIC",
     email: "",
     phone: "",
-    pin: "1234",
     isAdmin: false
   });
 
@@ -56,7 +56,6 @@ export const UserLoginModal: React.FC = () => {
         location: "Drouin, VIC",
         email: "",
         phone: "",
-        pin: "1234",
         isAdmin: false
       });
       setErrorMsg(null);
@@ -79,15 +78,21 @@ export const UserLoginModal: React.FC = () => {
     setPinError(null);
   };
 
-  const handleVerifyPin = (e: React.FormEvent) => {
+  const handleVerifyPin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!memberToAuthenticate) return;
-    const result = switchUserWithPin(memberToAuthenticate.id, pinInput);
+    setIsVerifyingPin(true);
+    const result = await switchUserWithPin(memberToAuthenticate.id, pinInput);
+    setIsVerifyingPin(false);
     if (result.success) {
       setMemberToAuthenticate(null);
       setPinInput("");
       setPinError(null);
     } else {
+      // Clear on failure too. The field is masked and capped at 6 characters, so
+      // a retyped PIN used to append to the failed one and get truncated —
+      // silently corrupting every retry and burning the 5-attempt lockout.
+      setPinInput("");
       setPinError(result.error || "Invalid PIN code. Please try again.");
     }
   };
@@ -117,7 +122,6 @@ export const UserLoginModal: React.FC = () => {
       location: customDraft.location.trim(),
       email: customDraft.email.trim(),
       phone: (customDraft.phone || "").trim(),
-      pin: (customDraft.pin || "1234").trim(),
       isAdmin: customDraft.isAdmin || false
     };
     addTeamMember(newProfile);
@@ -228,16 +232,17 @@ export const UserLoginModal: React.FC = () => {
                   className="w-full text-center text-2xl tracking-[0.3em] font-mono px-3 py-2 rounded-edge border border-line-strong bg-white text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep"
                 />
                 <p className="text-[11px] text-ink-faint mt-1 text-center">
-                  Team default PIN: Travis (1234), Sarah (2468), Rob (9900)
+                  PINs are verified by the server and are never displayed or stored in this browser.
                 </p>
               </div>
 
               <div className="flex items-center gap-2 pt-2">
                 <button
                   type="submit"
+                  disabled={pinInput.trim().length < 4 || isVerifyingPin}
                   className="flex-1 py-2 px-4 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-xs cursor-pointer transition-colors"
                 >
-                  Verify &amp; Sign In
+                  {isVerifyingPin ? "Verifying…" : "Verify & Sign In"}
                 </button>
                 <button
                   type="button"
@@ -414,7 +419,7 @@ export const UserLoginModal: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 <div>
                   <label htmlFor="login-custom-role" className="u-eyebrow text-ink-dim block mb-1">
                     Role / Position
@@ -475,22 +480,11 @@ export const UserLoginModal: React.FC = () => {
                     className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
                   />
                 </div>
-                <div>
-                  <label htmlFor="login-custom-pin" className="u-eyebrow text-ink-dim block mb-1">
-                    Security PIN (4 Digits)
-                  </label>
-                  <input
-                    id="login-custom-pin"
-                    type="password"
-                    maxLength={6}
-                    disabled={!currentUser.isAdmin}
-                    value={customDraft.pin || "1234"}
-                    onChange={(e) => setCustomDraft({ ...customDraft, pin: e.target.value })}
-                    placeholder="1234"
-                    className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors disabled:bg-slate-100 disabled:cursor-not-allowed"
-                  />
-                </div>
               </div>
+
+              <p className="text-spec text-ink-dim bg-paper border border-line rounded-edge p-2.5">
+                New profile credentials must be provisioned in the server environment by an administrator. PINs are not collected or stored in the browser.
+              </p>
 
               <div className="pt-2">
                 <button

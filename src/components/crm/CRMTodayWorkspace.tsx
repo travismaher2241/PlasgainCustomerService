@@ -538,8 +538,23 @@ export const CRMTodayWorkspace: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-urgent-wash text-urgent border border-urgent/20">
-                {heroItem.urgency === "Immediate" ? "🔴 High Urgency" : "🟠 Due Today"}
+              {/* urgency is "Immediate" | "Today" | "Normal". A two-way ternary
+                  here badged every future task as red "Due Today", directly
+                  contradicting the "No tasks due today" list below it. */}
+              <span
+                className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${
+                  heroItem.urgency === "Immediate"
+                    ? "bg-urgent-wash text-urgent border-urgent/20"
+                    : heroItem.urgency === "Today"
+                      ? "bg-soon-wash text-soon border-soon/20"
+                      : "bg-paper text-ink-dim border-line"
+                }`}
+              >
+                {heroItem.urgency === "Immediate"
+                  ? "🔴 High Urgency"
+                  : heroItem.urgency === "Today"
+                    ? "🟠 Due Today"
+                    : `Due ${formatHumanDate(heroItem.dueDate)}`}
               </span>
               {heroItem.value && (
                 <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">

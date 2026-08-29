@@ -569,7 +569,7 @@ export const CRMAccountsView: React.FC = () => {
                     </div>
                     <div className="mt-2 flex items-center justify-between text-spec text-ink-dim">
                       <span>Pipeline: <strong className="text-body font-semibold">${(acc.metrics?.openPipelineValue || 0).toLocaleString()}</strong></span>
-                      <span>Owner: {acc.accountOwner.split(" ")[0]}</span>
+                      <span>Owner: {acc.accountOwner?.trim().split(/\s+/)[0] || "Unassigned"}</span>
                     </div>
                   </div>
                 );

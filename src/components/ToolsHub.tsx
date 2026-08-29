@@ -87,10 +87,17 @@ export const ToolsHub: React.FC = () => {
       rollUnitPrice = 115;
     }
 
-    const rollsNeeded150 = Math.ceil((trenchLengthMeters * (trenchWidthMm / 150)) / 20);
-    const rollsNeeded300 = Math.ceil(trenchLengthMeters / 20);
-    const totalRolls = trenchWidthMm <= 150 ? rollsNeeded150 : rollsNeeded300;
-    const polymericTotalWeightKg = trenchWidthMm <= 150 ? rollsNeeded150 * weightPerRoll150 : rollsNeeded300 * weightPerRoll300;
+    const selectedStripWidthMm = trenchWidthMm <= 150 ? 150 : 300;
+    const parallelStrips = Math.ceil(trenchWidthMm / selectedStripWidthMm);
+    const rollsPerStrip = Math.ceil(trenchLengthMeters / 20);
+    const rollsNeeded150 = rollsPerStrip * Math.ceil(trenchWidthMm / 150);
+    const rollsNeeded300 = rollsPerStrip * parallelStrips;
+    const totalRolls = selectedStripWidthMm === 150 ? rollsNeeded150 : rollsNeeded300;
+    const polymericTotalWeightKg = totalRolls * (selectedStripWidthMm === 150 ? weightPerRoll150 : weightPerRoll300);
+    if (cableVoltage === "LV_240_415") {
+      productCode = selectedStripWidthMm === 150 ? "PCC-150-20M" : "PCC-300-20M";
+      productName = `AS 4702 5mm Polymeric Cable Cover (${selectedStripWidthMm}mm x 20m roll)`;
+    }
 
     // Traditional precast concrete slabs (approx 2400 kg/m3)
     const concreteVolumeM3 = trenchLengthMeters * (trenchWidthMm / 1000) * (concreteThicknessMm / 1000);
@@ -113,6 +120,8 @@ export const ToolsHub: React.FC = () => {
       totalRolls,
       rollsNeeded150,
       rollsNeeded300,
+      parallelStrips,
+      selectedStripWidthMm,
       polymericTotalWeightKg,
       concreteWeightKg: Math.round(concreteWeightKg),
       concreteSlabsCount,
@@ -153,12 +162,18 @@ export const ToolsHub: React.FC = () => {
       illuminanceEav: `${selectedCat.maintainedIlluminanceLux} Lux (avg)`,
       illuminanceEmin: `${selectedCat.minimumIlluminanceLux} Lux (min point)`,
       uniformityUo: selectedCat.uniformityRequirement,
-      recommendedLuminaireCode: luminaireOutputLm >= 6000 ? "PB-100W-3K" : luminaireOutputLm >= 4000 ? "PB-75W-3K" : "PB-50W-3K",
-      recommendedLuminaireName: luminaireOutputLm >= 6000 ? "Plasgain Pro Blade 100W Solar Luminaire (3000K)" : luminaireOutputLm >= 4000 ? "Plasgain Pro Blade 75W Solar Luminaire (3000K)" : "Plasgain Pro Blade 50W Solar Luminaire (3000K)",
+      // Real catalogue families. These were PB-50W-3K / PB-75W-3K / PB-100W-3K,
+      // none of which exist in src/data — a rep quoting them was quoting a SKU
+      // that does not exist.
+      recommendedLuminaireCode: luminaireOutputLm >= 6000 ? "PBS-75 / PBS-125" : "50W-INTENSE",
+      recommendedLuminaireName: luminaireOutputLm >= 6000 ? "Pro Blade Solar 75/125" : "Intense Light - 50W Solar",
       recommendedPoleCode: `PLASPOLE-${poleHeightM}M-DB-GRN`,
       recommendedPoleName: `Plaspole ${poleHeightM}m Recycled Composite Light Pole (Direct Burial)`,
-      luminaireUnitPrice: luminaireOutputLm >= 6000 ? 1950 : luminaireOutputLm >= 4000 ? 1650 : 1350,
-      poleUnitPrice: poleHeightM >= 6 ? 1200 : poleHeightM >= 5 ? 980 : 820,
+      // Zero, not a guess. There is no pricing feed behind this app, so a
+      // rep enters the real figure on the deal rather than inheriting an
+      // invented one that looks authoritative.
+      luminaireUnitPrice: 0,
+      poleUnitPrice: 0,
       provenance: `${selectedCat.displayName} · ${selectedCat.standardReference} (Rev ${selectedCat.datasetRevision})`
     };
   }, [pathwayWidth, selectedCat, poleHeightM, luminaireOutputLm]);
@@ -393,35 +408,67 @@ export const ToolsHub: React.FC = () => {
       return;
     }
     const txt = customTenderText.toLowerCase();
-    let risk = "MEDIUM — Clarification Recommended";
-    let title = "Custom Tender Clause Analysis";
-    let analysis = "The submitted specification contains technical parameters that should be cross-checked against relevant Australian Standards.";
-    let clarification = "Can the client clarify the governing AS/NZS requirement and whether certified equivalents are acceptable?";
-    let rec = "Submit tender qualification highlighting verified product specifications and request technical alignment.";
-    let citation = "AS/NZS 1158.3.1 / AS 4282:2019 / AS/NZS 4509.2";
+    const findings: Array<{ title: string; analysis: string; clarification: string; rec: string; citation: string; severity: "MEDIUM" | "HIGH" | "CRITICAL" }> = [];
 
-    if (txt.includes("5700k") || txt.includes("6500k") || txt.includes("daylight") || txt.includes("cool white")) {
-      risk = "HIGH — Probable Environmental & Council Standard Conflict";
-      title = "High CCT Blue-Rich Spectrum vs AS 4282 / Fauna Protection";
-      analysis = "Tender requests 5700K/6500K CCT. High blue-spectrum light causes excessive sky glow and disrupts nocturnal wildlife. Most Australian councils mandate 3000K warm white or 2200K amber in public reserves.";
-      clarification = "Can the superintendent confirm if 3000K Warm White with zero upward light output (ULR = 0%) is acceptable in lieu of 5700K to comply with AS 4282:2019 and local fauna protection guidelines?";
-      rec = "Recommend Plasgain 3000K Warm White or 2200K Wildlife-friendly LED module, providing compliant horizontal illuminance with zero upward waste.";
-      citation = "AS 4282:2019 (Control of Obtrusive Light) & AS/NZS 1158.3.1 Table 2.1";
-    } else if (txt.includes("galvanized") || txt.includes("galv") || (txt.includes("steel") && (txt.includes("coast") || txt.includes("beach") || txt.includes("marine") || txt.includes("salt")))) {
-      risk = "CRITICAL — Severe Corrosion Durability Conflict (C5-M Zone)";
-      title = "Galvanized Steel in Coastal Atmospheric Corrosivity Zone";
-      analysis = "Galvanized steel within marine environments suffers accelerated zinc degradation (4.2-8.4 µm/yr), resulting in red rust and structural weakness within 3-5 years.";
-      clarification = "Given the marine exposure environment (AS 4312 Cat C5), will council accept corrosion-proof Class 1 Recycled Composite light poles with 25-year structural warranty in place of galvanized steel?";
-      rec = "Specify Plasgain non-conductive composite Plaspole (100% rust-proof, zero maintenance in coastal zones).";
-      citation = "AS/NZS 2312.2 & AS 4312:2019 (Atmospheric Corrosivity Categories)";
-    } else if (txt.includes("spacing") || txt.includes("lux") || txt.includes("height")) {
-      risk = "HIGH — Photometric Geometry Review Required";
-      title = "Pole Spacing & Mounting Height Geometry Check";
-      analysis = "Wide spacing relative to pole height can compromise point minimum illuminance and uniformity (U_o), causing non-compliant dark patches.";
-      clarification = "Can the client provide the specific AS/NZS 1158 subcategory (e.g. P4 or P3) and confirmation that DIALux photometric reports are required with the tender submission?";
-      rec = "Generate point-by-point DIALux calculation verifying maintained illuminance (E_av) and point minimum (E_min) with Plasgain asymmetric optics.";
-      citation = "AS/NZS 1158.3.1:2020 (Lighting for roads and public spaces)";
+    if (/5700k|6500k|daylight|cool white/.test(txt)) {
+      findings.push({
+        severity: "HIGH",
+        title: "High CCT spectrum requires environmental review",
+        analysis: "The requested high CCT may conflict with local fauna, dark-sky or obtrusive-light controls. Suitability cannot be confirmed from CCT alone.",
+        clarification: "Can the superintendent confirm the applicable fauna or obtrusive-light overlay and whether 3000K or 2200K is acceptable?",
+        rec: "Offer an approved warm-white candidate, subject to a project-specific photometric calculation and environmental sign-off.",
+        citation: "AS 4282:2019 and the applicable AS/NZS 1158 subcategory"
+      });
     }
+    if (/galvani[sz]ed|\bgalv\b/.test(txt) && /coast|beach|marine|salt|c5/.test(txt)) {
+      findings.push({
+        severity: "CRITICAL",
+        title: "Coastal pole material durability review",
+        analysis: "Galvanized-steel durability depends on the confirmed atmospheric corrosivity category, coating system and maintenance plan.",
+        clarification: "What AS 4312 corrosivity category and design life apply, and are composite alternatives permitted?",
+        rec: "Compare the specified coating system with an approved composite-pole option and obtain structural approval.",
+        citation: "AS/NZS 2312.2 and AS 4312:2019"
+      });
+    }
+    if (/spacing|interval|lux|mount(?:ing)?\s*height/.test(txt)) {
+      findings.push({
+        severity: /\b(?:[6-9]\d|1\d{2})\s*m\b/.test(txt) ? "HIGH" : "MEDIUM",
+        title: "Pole spacing and mounting geometry require photometric proof",
+        analysis: "Spacing, mounting height, path width and optical distribution must be assessed together; a clause containing these values is not proof of compliance.",
+        clarification: "Please confirm the AS/NZS 1158 subcategory, path geometry and requirement for a certified point-by-point DIALux report.",
+        rec: "Run a controlled IES photometric calculation and qualify any spacing recommendation until the result is approved.",
+        citation: "AS/NZS 1158.3.1:2020"
+      });
+    }
+    if (/region\s*[cd]|cyclon|townsville|darwin/.test(txt) && /footing|pole|foundation|solar/.test(txt)) {
+      findings.push({
+        severity: "CRITICAL",
+        title: "Cyclonic structural design review",
+        analysis: "Pole, luminaire, PV sail area and foundation must be designed as one system for the confirmed wind region and site multipliers.",
+        clarification: "Please provide the certified AS/NZS 1170.2 design wind speed, terrain/topography multipliers and geotechnical parameters.",
+        rec: "Refer the complete assembly to structural engineering before pricing a firm pole or foundation package.",
+        citation: "AS/NZS 1170.2:2021"
+      });
+    }
+    if (findings.length === 0) {
+      findings.push({
+        severity: "MEDIUM",
+        title: "Clause requires standards clarification",
+        analysis: "No known high-risk pattern was detected, but the governing standard and acceptance evidence remain unconfirmed.",
+        clarification: "Can the client clarify the governing Australian Standard and whether certified equivalents are acceptable?",
+        rec: "Submit a qualification referencing controlled product documents and request technical alignment.",
+        citation: "Confirm the project-specific governing standards"
+      });
+    }
+
+    const severityOrder = { MEDIUM: 1, HIGH: 2, CRITICAL: 3 } as const;
+    const highest = findings.reduce((a, b) => severityOrder[b.severity] > severityOrder[a.severity] ? b : a);
+    const risk = `${highest.severity} — ${findings.length} independent check${findings.length === 1 ? "" : "s"} identified`;
+    const title = findings.map((f, index) => `${index + 1}. ${f.title}`).join(" · ");
+    const analysis = findings.map((f, index) => `${index + 1}. ${f.analysis}`).join("\n");
+    const clarification = findings.map((f, index) => `${index + 1}. ${f.clarification}`).join("\n");
+    const rec = findings.map((f, index) => `${index + 1}. ${f.rec}`).join("\n");
+    const citation = Array.from(new Set(findings.map((f) => f.citation))).join(" · ");
 
     setCustomAnalysis({
       title,
@@ -441,7 +488,7 @@ export const ToolsHub: React.FC = () => {
       conflictType: "Environmental & Standard Conflict (AS 4282 & EPBC Act)",
       riskSeverity: "HIGH — Non-Compliant with Council Dark-Sky Wildlife Overlays",
       analysis: "5700K high blue-spectrum light disrupts circadian rhythms of nocturnal birds, glider possums, and bats. Municipal environmental overlays prohibit CCT above 3000K in public reserves.",
-      recommendedResolution: "Substitute 5700K with Plasgain 3000K Warm White or 2200K Amber-certified wildlife luminaires (Intense 50W 3000K). Provides 100% AS/NZS 1158 photometric compliance while achieving fauna sign-off.",
+      recommendedResolution: "Offer Plasgain 3000K Warm White or 2200K wildlife-friendly candidates, subject to certified photometric verification and environmental sign-off.",
       standardCitation: "AS 4282:2019 (Control of Obtrusive Light) & National Light Pollution Guidelines for Wildlife"
     },
     {
@@ -867,7 +914,7 @@ export const ToolsHub: React.FC = () => {
                 <p className="text-ink-dim text-spec">
                   For a <strong>{trenchLengthMeters}m</strong> trench run at <strong>{trenchWidthMm}mm width</strong>, specify{" "}
                   <strong>
-                    {trenchWidthMm <= 150 ? cableCoverCalculations.rollsNeeded150 : cableCoverCalculations.rollsNeeded300}x {cableCoverCalculations.productName} ({cableCoverCalculations.productCode})
+                    {cableCoverCalculations.totalRolls}x {cableCoverCalculations.productName} ({cableCoverCalculations.productCode})
                   </strong>
                   . Saves <strong>{cableCoverCalculations.weightSavedKg.toLocaleString()} kg</strong> of crane and manual handling weight on site.
                 </p>
@@ -877,11 +924,11 @@ export const ToolsHub: React.FC = () => {
                     {trenchWidthMm <= 150
                       ? "• 150mm trench: 1x 150mm continuous polymeric roll covers single conduit bank."
                       : trenchWidthMm <= 300
-                      ? "• 300mm trench: 1x 300mm continuous roll (PCC-300) OR 2x 200mm interlocking slabs with 50mm parallel overlap meeting AS 4702 Clause 4.2."
-                      : "• >300mm wide trench: Requires parallel continuous strips laid side-by-side with interlocking tabs to ensure 100% mechanical shield over all conduit runs."}
+                      ? "• 300mm trench: 1x approved 300mm continuous roll per run. Alternative slab arrangements require engineering confirmation and must not be auto-substituted."
+                      : `• ${trenchWidthMm}mm trench: ${cableCoverCalculations.parallelStrips} parallel ${cableCoverCalculations.selectedStripWidthMm}mm strips per run. Confirm overlap and network-authority requirements before quoting.`}
                   </p>
                   <p className="font-mono text-brand-deep">
-                    Formula: Strips Required = ceil(Trench Width / Strip Width) · Mass Reduction = Concrete Mass ({cableCoverCalculations.concreteWeightKg}kg) - Polymeric Mass ({cableCoverCalculations.polymericTotalWeightKg}kg)
+                    Formula: Total Rolls = ceil(Length / 20m) × ceil(Trench Width / {cableCoverCalculations.selectedStripWidthMm}mm) · Mass Reduction = Concrete Mass ({cableCoverCalculations.concreteWeightKg}kg) - Polymeric Mass ({cableCoverCalculations.polymericTotalWeightKg}kg)
                   </p>
                 </div>
               </div>
@@ -1026,7 +1073,11 @@ export const ToolsHub: React.FC = () => {
               {/* FEAT-01: 1-Click Action to Send to Deal */}
               <div className="pt-2 flex items-center justify-between border-t border-brand-edge">
                 <div className="text-spec text-ink-dim font-medium">
-                  1km Package Est: <strong className="text-body font-bold">${((spacingCalculations.luminaireUnitPrice + spacingCalculations.poleUnitPrice) * spacingCalculations.polesPerKm).toLocaleString()}</strong> (ex GST)
+                  {/* This showed a dollar package estimate built from hardcoded
+                      constants, in an app whose standing guardrail is that
+                      pricing is not connected. Quantities are calculated; money
+                      is not. */}
+                  1km Package: <strong className="text-body font-bold">{spacingCalculations.polesPerKm} luminaires + {spacingCalculations.polesPerKm} poles</strong> · pricing not connected
                 </div>
                 <button
                   onClick={() => handleOpenAddModal("pole-spacing")}

@@ -1,9 +1,60 @@
 rules_version = '2';
+
+// Plasgain CRM data store.
+//
+// This previously read `allow read, write: if true` on `/{document=**}`, which
+// left every account, contact, opportunity, pricing record and controlled
+// document open to anyone holding the web config that ships in the client
+// bundle. Callers must now present a Firebase identity; `ensureFirebaseAuth()`
+// in src/utils/firebase.ts signs in before any read or write.
+//
+// This is the floor, not the ceiling. Anonymous auth proves a request came
+// through Firebase, not who sent it. Per-rep identity and role-gated writes
+// (document approval in particular) need a real auth provider decision.
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow read/write for all authenticated or application CRM collections
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // CRM business records.
+    match /crm_accounts/{docId}    { allow read, write: if signedIn(); }
+    match /crm_contacts/{docId}    { allow read, write: if signedIn(); }
+    match /crm_deals/{docId}       { allow read, write: if signedIn(); }
+    match /crm_leads/{docId}       { allow read, write: if signedIn(); }
+    match /crm_activities/{docId}  { allow read, write: if signedIn(); }
+    match /crm_tasks/{docId}       { allow read, write: if signedIn(); }
+    match /opportunities/{docId}   { allow read, write: if signedIn(); }
+
+    // Pricing, analysis and audit records.
+    match /commercial_pricing_requests/{docId} { allow read, write: if signedIn(); }
+    match /project_analyses/{docId}            { allow read, write: if signedIn(); }
+    match /duplicate_override_audits/{docId}   { allow read, write: if signedIn(); }
+
+    // Workspace configuration and profiles.
+    match /settings/{docId} { allow read, write: if signedIn(); }
+    match /users/{docId}    { allow read, write: if signedIn(); }
+
+    // Knowledge base and controlled documents. The latter carry AS/NZS
+    // compliance evidence that goes to councils, so deletion is never a client
+    // operation — supersede a revision instead of removing the record.
+    match /knowledge_documents/{docId} { allow read, write: if signedIn(); }
+    match /controlled_documents/{docId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn();
+      allow delete: if false;
+    }
+
+    // Connectivity probe used by checkCloudHealth().
+    match /system_health/{docId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // Anything not named above is denied rather than silently world-open.
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }

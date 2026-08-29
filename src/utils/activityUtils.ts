@@ -45,3 +45,18 @@ export function parseActivityTimestamp(activity: Partial<CRMActivity> | any): nu
   const parsed = new Date(raw).getTime();
   return isNaN(parsed) ? 0 : parsed;
 }
+
+/**
+ * Hides repeated system-generated actions that occurred within the same
+ * ten-minute window. The underlying audit records remain intact.
+ */
+export function collapseDuplicateActivities(activities: CRMActivity[]): CRMActivity[] {
+  const seen = new Map<string, number>();
+  return sortActivitiesChronological(activities).filter((activity) => {
+    const key = `${activity.accountId || "none"}|${activity.type}|${activity.title.trim().toLowerCase()}`;
+    const timestamp = parseActivityTimestamp(activity);
+    const previous = seen.get(key);
+    seen.set(key, timestamp);
+    return previous === undefined || Math.abs(previous - timestamp) >= 10 * 60 * 1000;
+  });
+}

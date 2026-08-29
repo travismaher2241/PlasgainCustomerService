@@ -30,8 +30,9 @@ export interface ValidateDealValueOptions {
 }
 
 export function validateDealValue(options: ValidateDealValueOptions): DealValueValidationResult {
-  const { enteredValue, basis, quantity = 1 } = options;
-  const safeQty = Math.max(1, quantity);
+  const { enteredValue, basis, quantity } = options;
+  const quantityProvided = typeof quantity === "number" && Number.isFinite(quantity) && quantity > 0;
+  const safeQty = quantityProvided ? Math.max(1, quantity as number) : 1;
 
   let effectiveTotal = 0;
   let effectiveUnitPrice = 0;
@@ -56,7 +57,28 @@ export function validateDealValue(options: ValidateDealValueOptions): DealValueV
     };
   }
 
-  // 2. Unit Price Outlier - High (> $10,000/ea for standard lighting/poles)
+  // 2. Per-unit basis with no quantity. The most likely per-unit mistake there
+  // is: the deal silently books the unit price as the whole project (a $1,450/ea
+  // job for 34 poles saves as $1,450), and nothing on screen says so. Blocked
+  // rather than warned, because the value is certain to be wrong.
+  if (basis === "PER_UNIT" && !quantityProvided && enteredValue > 0) {
+    return {
+      isValid: false,
+      isOutlier: true,
+      severity: "error",
+      effectiveTotal,
+      effectiveUnitPrice,
+      warningMessage: `Quantity required: $${enteredValue.toLocaleString()} is a per-unit price. Enter the number of units, or switch to Project Total if $${enteredValue.toLocaleString()} is the whole job.`,
+      suggestedCorrection: {
+        basis: "TOTAL",
+        calculatedTotal: enteredValue,
+        explanation: `Switch to Project Total basis to record $${enteredValue.toLocaleString()} as the full project value.`
+      },
+      requiresConfirmation: true
+    };
+  }
+
+  // 3. Unit Price Outlier - High (> $10,000/ea for standard lighting/poles)
   if (effectiveUnitPrice > 10000 && safeQty === 1 && enteredValue > 10000) {
     return {
       isValid: true,

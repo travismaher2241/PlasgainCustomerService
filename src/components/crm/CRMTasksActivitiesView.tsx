@@ -24,7 +24,7 @@ import { useApp } from "../../context/AppContext";
 import { CRMTask, TaskPriority, TaskType } from "../../types/crm";
 
 import { getLocalDateInputValue, addDaysLocal } from "../../utils/dateUtils";
-import { sortActivitiesChronological } from "../../utils/activityUtils";
+import { collapseDuplicateActivities, sortActivitiesChronological } from "../../utils/activityUtils";
 
 export const CRMTasksActivitiesView: React.FC = () => {
   const {
@@ -95,7 +95,8 @@ export const CRMTasksActivitiesView: React.FC = () => {
     return matchesSearch && matchesType && matchesAccount && matchesOwner;
   });
 
-  const sortedActivities = sortActivitiesChronological(filteredActivities, activitySortOrder);
+  const collapsedActivities = collapseDuplicateActivities(filteredActivities);
+  const sortedActivities = sortActivitiesChronological(collapsedActivities, activitySortOrder);
   const totalActivityPages = Math.max(1, Math.ceil(sortedActivities.length / ACTIVITY_PAGE_SIZE));
   const paginatedActivities = sortedActivities.slice(
     (activityPage - 1) * ACTIVITY_PAGE_SIZE,
