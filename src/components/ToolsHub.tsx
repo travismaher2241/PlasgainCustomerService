@@ -373,9 +373,66 @@ export const ToolsHub: React.FC = () => {
   }, [solarZone, solarWatts, solarProfile, solarAutonomyDays, solarQuantity]);
 
   // -------------------------------------------------------------
-  // Tool 5: Standards & Spec Conflict Resolver
+  // Tool 5: Standards & Spec Conflict Resolver (P2: Real Tender Clause Input)
   // -------------------------------------------------------------
   const [selectedConflictId, setSelectedConflictId] = useState<string>("fauna-cct");
+  const [conflictResolverMode, setConflictResolverMode] = useState<"presets" | "custom">("presets");
+  const [customTenderText, setCustomTenderText] = useState("");
+  const [customAnalysis, setCustomAnalysis] = useState<{
+    title: string;
+    riskSeverity: string;
+    analysis: string;
+    clarificationQuestion: string;
+    recommendedResolution: string;
+    standardCitation: string;
+  } | null>(null);
+
+  const handleAnalyzeCustomClause = () => {
+    if (!customTenderText.trim()) {
+      showToast("Please enter or paste a tender clause to analyze", "warning");
+      return;
+    }
+    const txt = customTenderText.toLowerCase();
+    let risk = "MEDIUM — Clarification Recommended";
+    let title = "Custom Tender Clause Analysis";
+    let analysis = "The submitted specification contains technical parameters that should be cross-checked against relevant Australian Standards.";
+    let clarification = "Can the client clarify the governing AS/NZS requirement and whether certified equivalents are acceptable?";
+    let rec = "Submit tender qualification highlighting verified product specifications and request technical alignment.";
+    let citation = "AS/NZS 1158.3.1 / AS 4282:2019 / AS/NZS 4509.2";
+
+    if (txt.includes("5700k") || txt.includes("6500k") || txt.includes("daylight") || txt.includes("cool white")) {
+      risk = "HIGH — Probable Environmental & Council Standard Conflict";
+      title = "High CCT Blue-Rich Spectrum vs AS 4282 / Fauna Protection";
+      analysis = "Tender requests 5700K/6500K CCT. High blue-spectrum light causes excessive sky glow and disrupts nocturnal wildlife. Most Australian councils mandate 3000K warm white or 2200K amber in public reserves.";
+      clarification = "Can the superintendent confirm if 3000K Warm White with zero upward light output (ULR = 0%) is acceptable in lieu of 5700K to comply with AS 4282:2019 and local fauna protection guidelines?";
+      rec = "Recommend Plasgain 3000K Warm White or 2200K Wildlife-friendly LED module, providing compliant horizontal illuminance with zero upward waste.";
+      citation = "AS 4282:2019 (Control of Obtrusive Light) & AS/NZS 1158.3.1 Table 2.1";
+    } else if (txt.includes("galvanized") || txt.includes("galv") || (txt.includes("steel") && (txt.includes("coast") || txt.includes("beach") || txt.includes("marine") || txt.includes("salt")))) {
+      risk = "CRITICAL — Severe Corrosion Durability Conflict (C5-M Zone)";
+      title = "Galvanized Steel in Coastal Atmospheric Corrosivity Zone";
+      analysis = "Galvanized steel within marine environments suffers accelerated zinc degradation (4.2-8.4 µm/yr), resulting in red rust and structural weakness within 3-5 years.";
+      clarification = "Given the marine exposure environment (AS 4312 Cat C5), will council accept corrosion-proof Class 1 Recycled Composite light poles with 25-year structural warranty in place of galvanized steel?";
+      rec = "Specify Plasgain non-conductive composite Plaspole (100% rust-proof, zero maintenance in coastal zones).";
+      citation = "AS/NZS 2312.2 & AS 4312:2019 (Atmospheric Corrosivity Categories)";
+    } else if (txt.includes("spacing") || txt.includes("lux") || txt.includes("height")) {
+      risk = "HIGH — Photometric Geometry Review Required";
+      title = "Pole Spacing & Mounting Height Geometry Check";
+      analysis = "Wide spacing relative to pole height can compromise point minimum illuminance and uniformity (U_o), causing non-compliant dark patches.";
+      clarification = "Can the client provide the specific AS/NZS 1158 subcategory (e.g. P4 or P3) and confirmation that DIALux photometric reports are required with the tender submission?";
+      rec = "Generate point-by-point DIALux calculation verifying maintained illuminance (E_av) and point minimum (E_min) with Plasgain asymmetric optics.";
+      citation = "AS/NZS 1158.3.1:2020 (Lighting for roads and public spaces)";
+    }
+
+    setCustomAnalysis({
+      title,
+      riskSeverity: risk,
+      analysis,
+      clarificationQuestion: clarification,
+      recommendedResolution: rec,
+      standardCitation: citation
+    });
+    showToast("Analyzed tender clause against Australian Standards!", "success");
+  };
   const CONFLICT_SCENARIOS = [
     {
       id: "fauna-cct",
@@ -805,8 +862,8 @@ export const ToolsHub: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-3.5 bg-white rounded-edge border border-brand-edge text-meta space-y-1">
-                <div className="font-bold text-body">Civil Estimating Recommendation:</div>
+              <div className="p-3.5 bg-white rounded-edge border border-brand-edge text-meta space-y-2">
+                <div className="font-bold text-body">Civil Estimating Recommendation &amp; Coverage Arrangement:</div>
                 <p className="text-ink-dim text-spec">
                   For a <strong>{trenchLengthMeters}m</strong> trench run at <strong>{trenchWidthMm}mm width</strong>, specify{" "}
                   <strong>
@@ -814,6 +871,19 @@ export const ToolsHub: React.FC = () => {
                   </strong>
                   . Saves <strong>{cableCoverCalculations.weightSavedKg.toLocaleString()} kg</strong> of crane and manual handling weight on site.
                 </p>
+                <div className="p-2.5 bg-paper rounded text-[11px] text-ink-dim border border-line space-y-1">
+                  <div className="font-bold text-ink">AS 4702 Trench Coverage Engineering Rule:</div>
+                  <p>
+                    {trenchWidthMm <= 150
+                      ? "• 150mm trench: 1x 150mm continuous polymeric roll covers single conduit bank."
+                      : trenchWidthMm <= 300
+                      ? "• 300mm trench: 1x 300mm continuous roll (PCC-300) OR 2x 200mm interlocking slabs with 50mm parallel overlap meeting AS 4702 Clause 4.2."
+                      : "• >300mm wide trench: Requires parallel continuous strips laid side-by-side with interlocking tabs to ensure 100% mechanical shield over all conduit runs."}
+                  </p>
+                  <p className="font-mono text-brand-deep">
+                    Formula: Strips Required = ceil(Trench Width / Strip Width) · Mass Reduction = Concrete Mass ({cableCoverCalculations.concreteWeightKg}kg) - Polymeric Mass ({cableCoverCalculations.polymericTotalWeightKg}kg)
+                  </p>
+                </div>
               </div>
 
               {/* FEAT-01: 1-Click Action to Send to Deal */}
@@ -931,12 +1001,26 @@ export const ToolsHub: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-3.5 bg-white rounded-edge border border-brand-edge text-meta space-y-1">
+              <div className="p-3.5 bg-white rounded-edge border border-brand-edge text-meta space-y-2">
                 <div className="font-bold text-body">Recommended Luminaire &amp; Pole Package:</div>
                 <p className="text-ink-dim text-spec">
                   • <strong>{spacingCalculations.polesPerKm}x</strong> {spacingCalculations.recommendedLuminaireName} ({spacingCalculations.recommendedLuminaireCode})<br />
                   • <strong>{spacingCalculations.polesPerKm}x</strong> {spacingCalculations.recommendedPoleName} ({spacingCalculations.recommendedPoleCode})
                 </p>
+
+                {/* Engineering Disclaimer (P2) */}
+                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-950 space-y-1">
+                  <div className="font-bold flex items-center gap-1 text-amber-900">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Photometric Compliance Requirement:</span>
+                  </div>
+                  <p>
+                    Preliminary estimate based on AS/NZS 1158.3.1 Table 2.1 empirical spacing. Exact point-by-point <strong>DIALux photometric calculation</strong> utilizing verified manufacturer IES files is mandatory for formal council/civil engineering sign-off.
+                  </p>
+                  <p className="font-mono text-brand-deep">
+                    Formula: S_est = S_base * sqrt(Lumen / 4000) * (0.8 + 0.2 * (Height / 5.0m))
+                  </p>
+                </div>
               </div>
 
               {/* FEAT-01: 1-Click Action to Send to Deal */}
@@ -1316,7 +1400,7 @@ export const ToolsHub: React.FC = () => {
         </div>
       )}
 
-      {/* Tab 6: Standards & Specification Conflict Resolver */}
+      {/* Tab 6: Standards & Specification Conflict Resolver (P2: Real Tender Clause Input) */}
       {activeToolTab === "conflict-resolver" && (
         <div className="space-y-6">
           <div className="bg-white p-6 rounded-panel border border-line shadow-xs space-y-4">
@@ -1332,74 +1416,178 @@ export const ToolsHub: React.FC = () => {
                   Identify and resolve contradictory customer RFQ clauses against Australian Standards (AS/NZS 1158, AS 4282, AS 1170.2, AS/NZS 2312.2).
                 </p>
               </div>
+
+              {/* Mode Switcher */}
+              <div className="flex items-center gap-1.5 bg-paper p-1 rounded-edge border border-line shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setConflictResolverMode("presets")}
+                  className={`px-3 py-1.5 text-spec font-bold rounded transition-colors cursor-pointer ${
+                    conflictResolverMode === "presets"
+                      ? "bg-white text-brand-deep shadow-2xs"
+                      : "text-ink-dim hover:text-ink"
+                  }`}
+                >
+                  Curated Scenarios
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConflictResolverMode("custom")}
+                  className={`px-3 py-1.5 text-spec font-bold rounded transition-colors cursor-pointer ${
+                    conflictResolverMode === "custom"
+                      ? "bg-white text-brand-deep shadow-2xs"
+                      : "text-ink-dim hover:text-ink"
+                  }`}
+                >
+                  Analyze Real Tender Clause
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 pt-2">
-              {/* Conflict Presets List */}
-              <div className="lg:col-span-1 space-y-2">
-                <label className="block text-spec font-bold text-ink-dim uppercase">
-                  Select Conflict Scenario
-                </label>
-                {CONFLICT_SCENARIOS.map((c) => {
-                  const isSelected = selectedConflictId === c.id;
-                  return (
+            {conflictResolverMode === "custom" ? (
+              /* Custom Tender Clause Input & Analysis View */
+              <div className="space-y-5 pt-2">
+                <div className="p-4 bg-paper rounded-edge border border-line space-y-3">
+                  <label className="block text-spec font-bold text-ink-dim uppercase">
+                    Paste Custom Tender Clause / Contractor Technical Specification:
+                  </label>
+                  <textarea
+                    rows={3}
+                    value={customTenderText}
+                    onChange={(e) => setCustomTenderText(e.target.value)}
+                    placeholder="e.g. Tender Clause 4.2: Supply and install 5700K Daylight LED fittings along riverside shared path mounted at 4.5m with 60m spacing..."
+                    className="w-full p-3 bg-white rounded border border-line-strong text-meta font-mono"
+                  />
+                  <div className="flex justify-end">
                     <button
-                      key={c.id}
-                      onClick={() => setSelectedConflictId(c.id)}
-                      className={`w-full text-left p-3 rounded-edge border text-meta transition-all cursor-pointer ${
-                        isSelected
-                          ? "bg-brand-wash border-brand-edge text-brand-deep font-bold shadow-2xs"
-                          : "bg-white border-line hover:bg-raised text-body font-medium"
-                      }`}
+                      type="button"
+                      onClick={handleAnalyzeCustomClause}
+                      className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
                     >
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className={`w-4 h-4 shrink-0 ${isSelected ? "text-brand-deep" : "text-ink-faint"}`} />
-                        <span className="line-clamp-2">{c.title}</span>
-                      </div>
+                      <Sparkles className="w-4 h-4" />
+                      <span>Analyze Clause Compliance</span>
                     </button>
-                  );
-                })}
-              </div>
+                  </div>
+                </div>
 
-              {/* Conflict Analysis & Resolution Display */}
-              {(() => {
-                const conf = CONFLICT_SCENARIOS.find((c) => c.id === selectedConflictId) || CONFLICT_SCENARIOS[0];
-                return (
-                  <div className="lg:col-span-3 space-y-4 bg-paper p-5 rounded-panel border border-line">
+                {customAnalysis && (
+                  <div className="space-y-4 bg-white p-5 rounded-panel border border-brand-edge shadow-xs animate-in fade-in duration-150">
                     <div className="flex items-start justify-between gap-3 border-b border-line pb-3">
                       <div>
                         <span className="inline-block px-2.5 py-0.5 rounded-full text-meta font-bold bg-urgent-wash text-urgent border border-urgent mb-1">
-                          {conf.riskSeverity}
+                          {customAnalysis.riskSeverity}
                         </span>
-                        <h3 className="text-lg font-bold text-body">{conf.title}</h3>
-                        <div className="text-spec text-ink-dim mt-0.5">{conf.conflictType}</div>
+                        <h3 className="text-lg font-bold text-body">{customAnalysis.title}</h3>
                       </div>
                     </div>
 
                     <div className="space-y-3 text-meta">
-                      <div className="p-3 bg-white rounded-edge border border-line">
-                        <span className="text-spec font-bold text-ink-dim uppercase block mb-0.5">Tender / Customer Clause</span>
-                        <p className="font-semibold text-body italic">"{conf.tenderClause}"</p>
-                      </div>
-
                       <div className="p-3 bg-hold-wash rounded-edge border border-hold/70">
                         <span className="text-spec font-bold text-hold uppercase block mb-0.5">Technical &amp; Standards Analysis</span>
-                        <p className="text-body leading-relaxed">{conf.analysis}</p>
+                        <p className="text-body leading-relaxed">{customAnalysis.analysis}</p>
+                      </div>
+
+                      <div className="p-3.5 bg-paper rounded-edge border border-line space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-spec font-bold text-ink-dim uppercase block">Customer Clarification / Tender RFI Question</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(customAnalysis.clarificationQuestion);
+                              showToast("Clarification question copied to clipboard!", "success");
+                            }}
+                            className="text-[11px] font-bold text-brand-deep hover:underline flex items-center gap-1 cursor-pointer"
+                          >
+                            <Copy className="w-3 h-3" />
+                            <span>Copy Question</span>
+                          </button>
+                        </div>
+                        <p className="font-semibold text-body italic bg-white p-2.5 rounded border border-line">
+                          "{customAnalysis.clarificationQuestion}"
+                        </p>
                       </div>
 
                       <div className="p-3.5 bg-brand-wash rounded-edge border border-brand-edge space-y-2">
                         <span className="text-spec font-bold text-brand-deep uppercase block">Recommended Sales Resolution &amp; Spec Substantiation</span>
-                        <p className="text-body font-medium leading-relaxed">{conf.recommendedResolution}</p>
+                        <p className="text-body font-medium leading-relaxed">{customAnalysis.recommendedResolution}</p>
                         <div className="flex items-center gap-1.5 text-spec text-brand-deep font-bold pt-1 border-t border-brand-edge">
                           <ShieldCheck className="w-4 h-4 shrink-0" />
-                          <span>Authoritative Citation: {conf.standardCitation}</span>
+                          <span>Authoritative Citation: {customAnalysis.standardCitation}</span>
                         </div>
                       </div>
                     </div>
                   </div>
-                );
-              })()}
-            </div>
+                )}
+              </div>
+            ) : (
+              /* Curated Presets Grid */
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 pt-2">
+                {/* Conflict Presets List */}
+                <div className="lg:col-span-1 space-y-2">
+                  <label className="block text-spec font-bold text-ink-dim uppercase">
+                    Select Conflict Scenario
+                  </label>
+                  {CONFLICT_SCENARIOS.map((c) => {
+                    const isSelected = selectedConflictId === c.id;
+                    return (
+                      <button
+                        key={c.id}
+                        onClick={() => setSelectedConflictId(c.id)}
+                        className={`w-full text-left p-3 rounded-edge border text-meta transition-all cursor-pointer ${
+                          isSelected
+                            ? "bg-brand-wash border-brand-edge text-brand-deep font-bold shadow-2xs"
+                            : "bg-white border-line hover:bg-raised text-body font-medium"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className={`w-4 h-4 shrink-0 ${isSelected ? "text-brand-deep" : "text-ink-faint"}`} />
+                          <span className="line-clamp-2">{c.title}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Conflict Analysis & Resolution Display */}
+                {(() => {
+                  const conf = CONFLICT_SCENARIOS.find((c) => c.id === selectedConflictId) || CONFLICT_SCENARIOS[0];
+                  return (
+                    <div className="lg:col-span-3 space-y-4 bg-paper p-5 rounded-panel border border-line">
+                      <div className="flex items-start justify-between gap-3 border-b border-line pb-3">
+                        <div>
+                          <span className="inline-block px-2.5 py-0.5 rounded-full text-meta font-bold bg-urgent-wash text-urgent border border-urgent mb-1">
+                            {conf.riskSeverity}
+                          </span>
+                          <h3 className="text-lg font-bold text-body">{conf.title}</h3>
+                          <div className="text-spec text-ink-dim mt-0.5">{conf.conflictType}</div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-3 text-meta">
+                        <div className="p-3 bg-white rounded-edge border border-line">
+                          <span className="text-spec font-bold text-ink-dim uppercase block mb-0.5">Tender / Customer Clause</span>
+                          <p className="font-semibold text-body italic">"{conf.tenderClause}"</p>
+                        </div>
+
+                        <div className="p-3 bg-hold-wash rounded-edge border border-hold/70">
+                          <span className="text-spec font-bold text-hold uppercase block mb-0.5">Technical &amp; Standards Analysis</span>
+                          <p className="text-body leading-relaxed">{conf.analysis}</p>
+                        </div>
+
+                        <div className="p-3.5 bg-brand-wash rounded-edge border border-brand-edge space-y-2">
+                          <span className="text-spec font-bold text-brand-deep uppercase block">Recommended Sales Resolution &amp; Spec Substantiation</span>
+                          <p className="text-body font-medium leading-relaxed">{conf.recommendedResolution}</p>
+                          <div className="flex items-center gap-1.5 text-spec text-brand-deep font-bold pt-1 border-t border-brand-edge">
+                            <ShieldCheck className="w-4 h-4 shrink-0" />
+                            <span>Authoritative Citation: {conf.standardCitation}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
           </div>
         </div>
       )}

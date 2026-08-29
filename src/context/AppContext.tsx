@@ -318,6 +318,10 @@ interface AppContextType {
   explainingTerm: string | null;
   setExplainingTerm: (term: string | null) => void;
 
+  // Direct Product Inspection Modal (P2)
+  inspectingProduct: PlasgainProduct | null;
+  setInspectingProduct: (product: PlasgainProduct | null) => void;
+
   // Global Copilot Drawer
   isCopilotOpen: boolean;
   setIsCopilotOpen: (open: boolean) => void;
@@ -714,6 +718,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   const [explainingTerm, setExplainingTerm] = useState<string | null>(null);
+  const [inspectingProduct, setInspectingProduct] = useState<PlasgainProduct | null>(null);
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
@@ -1855,6 +1860,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setRawEnquiryInput,
         explainingTerm,
         setExplainingTerm,
+        inspectingProduct,
+        setInspectingProduct,
         isCopilotOpen,
         setIsCopilotOpen,
         isCopilotContextPinned,

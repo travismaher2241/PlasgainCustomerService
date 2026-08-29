@@ -632,32 +632,124 @@ export const AIEmailComposerModal: React.FC<AIEmailComposerModalProps> = () => {
               )}
             </div>
 
-            {/* Primary Action Button */}
-            <div className="pt-2 flex items-center justify-between">
-              <span className="text-spec text-ink-faint">
-                Grounded on Plasgain lighting specs, standards &amp; live public research
-              </span>
+            {/* Primary Action Button & Offline Templates Selector (P2) */}
+            <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-line">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-spec font-bold text-ink-dim uppercase mr-1">Offline Templates:</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSubject("Sustainable Public Lighting & Civil Cable Protection Solutions — Plasgain");
+                    setSubjectOptions([
+                      "Sustainable Public Lighting & Civil Cable Protection Solutions — Plasgain",
+                      "Plasgain Lighting Engineering Schedules & Civil Protection",
+                      "Introductory Call: Sustainable Infrastructure Solutions"
+                    ]);
+                    setEmailBody(
+`Hi ${recipientName || "there"},
+
+I noticed ${recipientCompany || researchSubject || "your team"}'s recent work across infrastructure and wanted to connect briefly regarding your upcoming public lighting and civil asset requirements.
+
+Plasgain manufactures Australian-designed solar LED luminaires (AS/NZS 1158 Category P compliant), recycled composite light poles (non-conductive and rust-proof in C5 marine environments), and AS 4702 polymeric cable cover slabs that reduce manual handling weight by up to 98% compared to heavy precast concrete.
+
+Are you open to a brief 10-minute introductory call next week to see how our engineering schedules could support your upcoming tenders?
+
+Kind regards,
+${currentUser?.name || "Plasgain Customer Service Team"}
+Plasgain Australia`
+                    );
+                    showToast("Loaded Consultative Intro Template", "info");
+                  }}
+                  className="px-2.5 py-1 bg-white hover:bg-raised text-ink text-spec font-semibold rounded border border-line cursor-pointer shadow-2xs transition-colors"
+                >
+                  Capability Intro
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSubject(`Technical Clarification & AS/NZS 1158 Compliance — ${researchSubject || "Tender"}`);
+                    setSubjectOptions([
+                      `Technical Clarification & AS/NZS 1158 Compliance — ${researchSubject || "Tender"}`,
+                      `Engineering Take-Off & Lighting Schedule — ${researchSubject || "Project"}`,
+                      `Alternative Compliant Specification: ${researchSubject || "Tender"}`
+                    ]);
+                    setEmailBody(
+`Hi ${recipientName || "there"},
+
+Regarding the public lighting and civil trenching schedule for ${researchSubject || "the project"}, we have conducted a preliminary engineering take-off against AS/NZS 1158.3.1 and AS 4702 standards.
+
+We can provide certified DIALux photometric calculations and AS 1170.2 cyclonic wind foundation engineering packages for this submission.
+
+Could you confirm the tender closing date and whether alternative Australian-engineered composite poles and solar fittings can be submitted as compliant options?
+
+Kind regards,
+${currentUser?.name || "Plasgain Technical Sales Team"}
+Plasgain Australia`
+                    );
+                    showToast("Loaded Tender RFI Template", "info");
+                  }}
+                  className="px-2.5 py-1 bg-white hover:bg-raised text-ink text-spec font-semibold rounded border border-line cursor-pointer shadow-2xs transition-colors"
+                >
+                  Tender RFI
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSubject(`Follow-Up: Quotation & Engineering Schedule — ${researchSubject || "Project"}`);
+                    setSubjectOptions([
+                      `Follow-Up: Quotation & Engineering Schedule — ${researchSubject || "Project"}`,
+                      `Commercial Pricing & Technical Schedule Review`,
+                      `Quotation Follow-Up — Plasgain Australia`
+                    ]);
+                    setEmailBody(
+`Hi ${recipientName || "there"},
+
+I'm following up on the formal pricing and product schedule we provided for ${researchSubject || "your project"}.
+
+Please let us know if you or the engineering superintendent require any further technical documentation, IES photometric files, or AS 4702 compliance certificates to finalise the procurement review.
+
+We look forward to partnering with your team on this rollout.
+
+Kind regards,
+${currentUser?.name || "Plasgain Commercial Team"}
+Plasgain Australia`
+                    );
+                    showToast("Loaded Quote Follow-Up Template", "info");
+                  }}
+                  className="px-2.5 py-1 bg-white hover:bg-raised text-ink text-spec font-semibold rounded border border-line cursor-pointer shadow-2xs transition-colors"
+                >
+                  Quote Follow-Up
+                </button>
+              </div>
+
               <button
                 type="button"
                 data-testid="research-and-draft-btn"
                 onClick={handleResearchAndDraft}
                 disabled={isResearching || !researchSubject.trim()}
-                className="px-5 py-2.5 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-sm flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-2.5 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-sm flex items-center gap-2 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
               >
                 <Sparkles className="w-4 h-4" />
-                <span>{isResearching ? "Researching & Drafting..." : "Research and Draft"}</span>
+                <span>{isResearching ? "Researching & Drafting..." : "Research & Draft with AI"}</span>
               </button>
             </div>
           </div>
 
-          {/* Error Message */}
+          {/* Error Message with Offline Fallback */}
           {errorMsg && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-edge flex items-start gap-2 text-meta text-red-800">
-              <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-              <div>
-                <div className="font-bold text-red-900">Research or Drafting Issue</div>
-                <div className="text-spec text-red-700 mt-0.5">{errorMsg}</div>
+            <div className="p-3.5 bg-red-50 border border-red-200 rounded-edge flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-meta text-red-800">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-bold text-red-900">AI Service Unavailable</div>
+                  <div className="text-spec text-red-700 mt-0.5">{errorMsg}</div>
+                </div>
               </div>
+              <span className="text-spec font-bold text-red-900 bg-red-100 px-2.5 py-1 rounded shrink-0">
+                Use Offline Templates Above
+              </span>
             </div>
           )}
 

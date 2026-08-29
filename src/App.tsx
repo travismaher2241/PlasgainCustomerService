@@ -19,6 +19,7 @@ const GlobalCopilot = lazy(() => import("./components/GlobalCopilot").then(m => 
 const ExplainTermModal = lazy(() => import("./components/ExplainTermModal").then(m => ({ default: m.ExplainTermModal })));
 const GlobalSearchModal = lazy(() => import("./components/GlobalSearchModal").then(m => ({ default: m.GlobalSearchModal })));
 const UserLoginModal = lazy(() => import("./components/UserLoginModal").then(m => ({ default: m.UserLoginModal })));
+const ProductDetailModal = lazy(() => import("./components/ProductDetailModal").then(m => ({ default: m.ProductDetailModal })));
 
 const ViewLoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center min-h-[350px] w-full" data-testid="view-loading-spinner">
@@ -30,7 +31,7 @@ const ViewLoadingFallback: React.FC = () => (
 );
 
 const MainLayout: React.FC = () => {
-  const { activeTab, toast } = useApp();
+  const { activeTab, toast, inspectingProduct, setInspectingProduct } = useApp();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -66,6 +67,7 @@ const MainLayout: React.FC = () => {
         <GlobalSearchModal />
         <CRMQuickLogModal />
         <CRMCallPrepModal />
+        <ProductDetailModal product={inspectingProduct} onClose={() => setInspectingProduct(null)} />
       </Suspense>
 
       {/* Toast Notification */}

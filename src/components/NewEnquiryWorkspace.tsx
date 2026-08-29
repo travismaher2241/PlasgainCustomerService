@@ -940,6 +940,64 @@ export const NewEnquiryWorkspace: React.FC = () => {
       {/* STRUCTURED WORKSPACE OUTPUT */}
       {currentEnquiryAnalysis && (
         <div className="space-y-6">
+          {/* Guided Enquiry-to-Quote Journey Stepper (P2) */}
+          <div className="bg-white rounded-panel border border-line p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-spec font-bold uppercase tracking-wider text-ink-dim flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-brand-deep" /> Guided Enquiry-to-Quote Journey
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsReadinessGateOpen(true)}
+                className="text-spec font-bold text-brand-deep hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>Full Readiness Checklist &rarr;</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              <div className="p-2.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-950 text-spec font-semibold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div>
+                  <div className="font-bold">1. Intake</div>
+                  <div className="text-[11px] text-emerald-700">Enquiry Ingested</div>
+                </div>
+              </div>
+
+              <div className="p-2.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-950 text-spec font-semibold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div>
+                  <div className="font-bold">2. Qualified</div>
+                  <div className="text-[11px] text-emerald-700">Standards &amp; Scope</div>
+                </div>
+              </div>
+
+              <div className="p-2.5 rounded bg-brand-wash border border-brand-edge text-brand-deep text-spec font-semibold flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-brand-deep text-white flex items-center justify-center text-[10px] font-bold shrink-0">3</div>
+                <div>
+                  <div className="font-bold">3. Shortlist</div>
+                  <div className="text-[11px] text-ink-dim">{currentEnquiryAnalysis.primaryRecommendation?.productCode || "SKU Grounded"}</div>
+                </div>
+              </div>
+
+              <div className="p-2.5 rounded bg-surface border border-line text-ink text-spec font-semibold flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-line-strong text-ink flex items-center justify-center text-[10px] font-bold shrink-0">4</div>
+                <div>
+                  <div className="font-bold">4. Pricing/BOM</div>
+                  <div className="text-[11px] text-ink-dim">Ostendo ERP Schedule</div>
+                </div>
+              </div>
+
+              <div className="p-2.5 rounded bg-surface border border-line text-ink text-spec font-semibold flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-line-strong text-ink flex items-center justify-center text-[10px] font-bold shrink-0">5</div>
+                <div>
+                  <div className="font-bold">5. Proposal</div>
+                  <div className="text-[11px] text-ink-dim">Follow-Up &amp; Pack</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Top Banner: Next Best Action & Readiness Gauge */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             {/* Next Best Action Card (2 cols) - Editorial Dark Slate */}

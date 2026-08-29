@@ -27,7 +27,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
     currentUser,
     openLoginModal,
     isSidebarCollapsed,
-    toggleSidebar
+    toggleSidebar,
+    openEmailComposer,
+    setIsCopilotOpen
   } = useApp();
   const sidebarRef = React.useRef<HTMLElement>(null);
   const previouslyFocusedElementRef = React.useRef<HTMLElement | null>(null);
@@ -270,6 +272,37 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
               </button>
             );
           })}
+
+          {/* Mobile-only AI Quick Actions (P2: Expose AI email & copilot on mobile) */}
+          {mobileOpen && (
+            <div className="pt-3 mt-2 border-t border-chrome-line/60 space-y-1.5 px-1">
+              <div className="u-eyebrow px-1 pb-1 text-[0.625rem] tracking-[0.16em] text-chrome-dim uppercase">
+                AI Assistants
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen?.(false);
+                  openEmailComposer();
+                }}
+                className="w-full flex items-center gap-2.5 px-2 py-2 rounded-edge text-meta font-medium text-brand-lift bg-brand-deep/20 hover:bg-brand-deep/30 border border-brand-lift/20 cursor-pointer transition-colors text-left"
+              >
+                <div className="w-4 h-4 text-brand-lift">✨</div>
+                <span>Write AI Email</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen?.(false);
+                  setIsCopilotOpen(true);
+                }}
+                className="w-full flex items-center gap-2.5 px-2 py-2 rounded-edge text-meta font-medium text-chrome-text hover:bg-chrome-line/40 border border-chrome-line cursor-pointer transition-colors text-left"
+              >
+                <div className="w-4 h-4 text-chrome-dim">💬</div>
+                <span>Ask Global Copilot</span>
+              </button>
+            </div>
+          )}
         </nav>
 
         {/* Who is signed in / Switch User button */}

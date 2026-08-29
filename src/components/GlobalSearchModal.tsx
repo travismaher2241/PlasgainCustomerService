@@ -19,7 +19,8 @@ import {
   Compass,
   Terminal,
   Settings,
-  Plus
+  Plus,
+  Package
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 
@@ -37,6 +38,7 @@ export const GlobalSearchModal: React.FC = () => {
     navigateToWorkflow,
     navigateToCRM,
     setExplainingTerm,
+    setInspectingProduct,
     openQuickLog
   } = useApp();
 
@@ -497,24 +499,28 @@ export const GlobalSearchModal: React.FC = () => {
             </div>
           )}
 
-          {/* Products */}
+          {/* Products (P2: Direct Open Technical Detail Modal) */}
           {filteredProducts.length > 0 && (
             <div className="space-y-1.5">
-              <span className="text-spec font-bold text-ink-faint uppercase tracking-wider block">
-                Plasgain Products ({filteredProducts.length})
+              <span className="text-spec font-bold text-brand-deep uppercase tracking-wider flex items-center gap-1.5">
+                <Package className="w-3.5 h-3.5" /> Plasgain Products ({filteredProducts.length})
               </span>
               <div className="space-y-1">
-                {filteredProducts.slice(0, 3).map((p) => (
+                {filteredProducts.slice(0, 4).map((p) => (
                   <button
                     key={p.id}
-                    onClick={() => handleSelect(() => navigateToWorkflow("product-finder"))}
-                    className="w-full flex items-center justify-between p-2 rounded-edge hover:bg-raised text-left transition-colors cursor-pointer"
+                    onClick={() => handleSelect(() => setInspectingProduct(p))}
+                    className="w-full flex items-center justify-between p-2 rounded-edge hover:bg-brand-wash/30 text-left transition-colors cursor-pointer border border-line/60"
                   >
                     <div>
-                      <span className="font-bold text-body">{p.name}</span>
-                      <span className="text-ink-dim ml-2">({p.code || p.category})</span>
+                      <span className="font-bold text-body text-ink">{p.name}</span>
+                      <span className="text-ink-dim ml-2 text-spec">({p.code} · {p.category})</span>
                     </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-ink-faint" />
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-paper text-brand-deep border border-brand-edge">
+                        View Spec &rarr;
+                      </span>
+                    </div>
                   </button>
                 ))}
               </div>

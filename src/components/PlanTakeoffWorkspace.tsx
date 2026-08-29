@@ -1056,7 +1056,8 @@ export const PlanTakeoffWorkspace: React.FC = () => {
                   <tr className="border-b border-line text-spec font-bold text-ink-dim uppercase">
                     <th className="text-left py-2 pr-2">Item / Category</th>
                     <th className="text-left py-2 px-2">Plasgain Item Code</th>
-                    <th className="text-left py-2 px-2">Drawing Ref</th>
+                    <th className="text-left py-2 px-2">Drawing &amp; Page Ref</th>
+                    <th className="text-center py-2 px-2">Extraction Confidence</th>
                     <th className="text-center py-2 px-2 w-28">Quantity</th>
                     <th className="text-left py-2 px-2">Notes / Standards</th>
                     <th className="py-2 pl-2 w-8"></th>
@@ -1087,7 +1088,21 @@ export const PlanTakeoffWorkspace: React.FC = () => {
 
                       {/* Drawing Ref */}
                       <td className="py-2.5 px-2 text-spec text-ink-dim">
-                        {item.drawingReference}
+                        <div className="font-semibold text-ink">{item.drawingReference}</div>
+                        <span className="text-[10px] text-ink-faint">Sheet: {takeoffResult?.drawingMetadata.drawingNumber || "E-02"}</span>
+                      </td>
+
+                      {/* Confidence Tag (P2) */}
+                      <td className="py-2.5 px-2 text-center">
+                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded border inline-block ${
+                          item.confidence === "High"
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            : item.confidence === "Medium"
+                            ? "bg-amber-50 text-amber-800 border-amber-200"
+                            : "bg-red-50 text-red-800 border-red-200"
+                        }`}>
+                          {item.confidence || "High"}
+                        </span>
                       </td>
 
                       {/* Quantity & Unit Input */}
