@@ -44,8 +44,8 @@ export function analyzeEnquiryDeterministic(
   if (isSolar && isLighting) {
     scopeCategory = "Clean Energy Solar Lighting (AS/NZS 1158.3.1 / AS/NZS 4509.2)";
     recommendedProduct = {
-      productName: "Plasgain Intense Light 50W Solar Package (LiFePO4)",
-      productCode: "INTENSE-50W-3K",
+      productName: "Intense Light - 50W Solar",
+      productCode: "50W-INTENSE",
       matchLevel: "Candidate — engineering verification required",
       whySuitable: "Approved solar-lighting candidate for off-grid pathways; final battery, optical and pole selection must be verified against project inputs.",
       supportingSpecifications: {
@@ -68,12 +68,12 @@ export function analyzeEnquiryDeterministic(
       sourceCitations: [{
         documentTitle: "Plasgain Intense Light Solar Catalogue 2026.1",
         sectionOrPage: "Section 4.1 - Solar Sizing",
-        authorityLevel: "Approved Datasheet"
+        authorityLevel: "Keyword match — verify against the controlled datasheet"
       }]
     };
     alternatives = [{
-      productName: "Plasgain Pro Blade Solar 75W / 125W Commercial",
-      productCode: "PBS-75W-SOLAR",
+      productName: "Pro Blade Solar 75/125",
+      productCode: "PBS-75 / PBS-125",
       matchLevel: "Higher Output Candidate",
       whenToUse: "When a verified photometric and autonomy calculation requires a larger package.",
       tradeOffs: "Larger PV surface area, battery and wind loading."
@@ -81,8 +81,8 @@ export function analyzeEnquiryDeterministic(
   } else if (isCableCover) {
     scopeCategory = "Civil Mechanical Protection (AS 4702)";
     recommendedProduct = {
-      productName: "Plasgain Heavy Duty Polymeric Cable Cover (AS 4702)",
-      productCode: "CC-HD-150-100M",
+      productName: "AS 4702 Polymeric Cable Cover Mechanical Protection",
+      productCode: "CC-POLY-150-50 / PCC-300-6MM",
       matchLevel: "Strong potential match",
       whySuitable: "Manufactured from 100% recycled HDPE composite conforming to AS 4702 impact and penetration resistance for electrical utilities & underground infrastructure.",
       supportingSpecifications: {
@@ -104,25 +104,20 @@ export function analyzeEnquiryDeterministic(
         {
           documentTitle: "Plasgain Cable Cover Engineering Datasheet 2026.1",
           sectionOrPage: "Page 2 - AS 4702 Compliance",
-          authorityLevel: "Approved Datasheet"
+          authorityLevel: "Keyword match — verify against the controlled datasheet"
         }
       ]
     };
 
-    alternatives = [
-      {
-        productName: "Plasgain Medium Duty Warning Tape & Tile",
-        productCode: "WT-MD-200",
-        matchLevel: "Alternative",
-        whenToUse: "When client specifies secondary warning marker tape alongside hard covers.",
-        tradeOffs: "Lower impact protection than continuous polymeric slab."
-      }
-    ];
+    // No alternative offered. The previous entry ("Plasgain Medium Duty Warning
+    // Tape & Tile", WT-MD-200) is not a product Plasgain sells — it appears
+    // nowhere in the catalogue. An empty list is correct; an invented one is not.
+    alternatives = [];
   } else if (isSolar) {
     scopeCategory = "Clean Energy Solar Lighting (AS/NZS 1158.3.1 / AS 4509)";
     recommendedProduct = {
-      productName: "Plasgain Intense Light 50W Solar Package (LiFePO4)",
-      productCode: "INTENSE-50W-3K",
+      productName: "Intense Light - 50W Solar",
+      productCode: "50W-INTENSE",
       matchLevel: "Strong potential match",
       whySuitable: "Commercial-grade standalone solar luminaire featuring high-efficiency MPPT charging, LiFePO4 battery storage, and 3000K warm fauna-friendly LED engine.",
       supportingSpecifications: {
@@ -146,15 +141,15 @@ export function analyzeEnquiryDeterministic(
         {
           documentTitle: "Plasgain Intense Light Solar Catalogue 2026.1",
           sectionOrPage: "Section 4.1 - Solar Sizing",
-          authorityLevel: "Approved Datasheet"
+          authorityLevel: "Keyword match — verify against the controlled datasheet"
         }
       ]
     };
 
     alternatives = [
       {
-        productName: "Plasgain Pro Blade Solar 75W / 125W Commercial",
-        productCode: "PBS-75W-SOLAR",
+        productName: "Pro Blade Solar 75/125",
+        productCode: "PBS-75 / PBS-125",
         matchLevel: "Higher Output Alternative",
         whenToUse: "When sub-category requires higher lux levels (e.g. PP4 / P11 Carpark).",
         tradeOffs: "Larger PV surface area and heavier luminaire head."
@@ -229,7 +224,7 @@ export function analyzeEnquiryDeterministic(
         {
           documentTitle: "Plasgain Pro Blade Catalogue & Photometric Guide 2026.1",
           sectionOrPage: "Page 6 - Optical Distinctions",
-          authorityLevel: "Approved Datasheet"
+          authorityLevel: "Keyword match — verify against the controlled datasheet"
         }
       ]
     };
@@ -369,12 +364,10 @@ export function analyzeEnquiryDeterministic(
     nextBestAction,
     questionsBeforeWeQuote,
     internalSalesCoachTip: `Offline Rules Match: Recommended ${recommendedProduct.productCode} based on keyword match with Australian Standard ${scopeCategory}. Offer direct-burial Plaspole composite columns as an alternative to reduce civil trenching costs.`,
-    sourcesUsed: [
-      "Plasgain Verified Product Catalogue 2026.1",
-      "AS/NZS 1158 Public Lighting Standards Reference",
-      "AS 4702 Polymeric Cable Cover Specification"
-    ],
-    pricingGuardrailNotice: "Preliminary pricing based on 2026.1 standard catalogue rate card. Subject to quantity tier review."
+    // This engine keyword-matches the customer text. It does not read any
+    // datasheet or standard, so it must not claim to have.
+    sourcesUsed: [],
+    pricingGuardrailNotice: "Pricing data is not currently connected to the app. Do not estimate prices."
   };
 }
 

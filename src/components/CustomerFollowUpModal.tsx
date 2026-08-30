@@ -144,15 +144,15 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
         description: `Sent follow-up regarding quotation ${quoteRef || "pending"} to ${contactName} <${contactEmail}>.\n\nSubject: ${editableSubject}`,
         contactName: contactName || "Customer Contact",
         accountName: companyName || "Client Organisation",
-        dealName: projectName || undefined,
-        status: "Completed",
+        opportunityName: projectName || undefined,
+        performedBy: currentUser.name || "Sales",
         outcome: "Follow-up email dispatched via reviewed workflow"
       });
 
       if (dealId) {
         updateCrmOpportunity(dealId, {
-          lastActivity: `Follow-Up (${cadence}): Email sent`,
-          lastActivityDate: getLocalDateInputValue(new Date()),
+          latestActivity: `Follow-Up (${cadence}): Email sent`,
+          latestActivityDate: getLocalDateInputValue(new Date()),
           stageName: "Follow-Up"
         });
       }
@@ -169,15 +169,16 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
     try {
       addTask?.({
         title: `Follow up ${companyName || "customer"} on quote ${quoteRef || projectName}`,
-        description: `Check customer response to ${cadence.toUpperCase()} cadence email sent on ${getLocalDateInputValue(new Date())}.`,
+        notes: `Check customer response to ${cadence.toUpperCase()} cadence email sent on ${getLocalDateInputValue(new Date())}.`,
         dueDate: nextFollowUpDate,
         priority: cadence === "urgent" ? "Urgent" : "High",
         type: "Follow-up",
         status: "To Do",
         assignedTo: currentUser.name || "Sales Specialist",
-        associatedDeal: projectName,
-        associatedAccount: companyName,
-        associatedContact: contactName
+        createdBy: currentUser.name || "Sales",
+        opportunityName: projectName,
+        accountName: companyName,
+        contactName: contactName
       });
 
       setStepTask("done");
@@ -213,14 +214,14 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
         description: `Dispatched ${cadence} follow-up to ${contactName} (${contactEmail}) for quote ${quoteRef || "active"}.`,
         contactName,
         accountName: companyName,
-        dealName: projectName,
-        status: "Completed",
+        opportunityName: projectName,
+        performedBy: currentUser.name || "Sales",
         outcome: "Dispatched via Reviewed Follow-Up Workflow"
       });
       if (dealId) {
         updateCrmOpportunity(dealId, {
-          lastActivity: `Email dispatched (${cadence})`,
-          lastActivityDate: getLocalDateInputValue(new Date())
+          latestActivity: `Email dispatched (${cadence})`,
+          latestActivityDate: getLocalDateInputValue(new Date())
         });
       }
       setStepActivity("done");
@@ -232,15 +233,16 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
     try {
       addTask?.({
         title: `Follow-up call with ${contactName} (${companyName})`,
-        description: `Review quote status for ${projectName}. Email sent on ${getLocalDateInputValue(new Date())}.`,
+        notes: `Review quote status for ${projectName}. Email sent on ${getLocalDateInputValue(new Date())}.`,
         dueDate: nextFollowUpDate,
         priority: cadence === "urgent" ? "Urgent" : "Medium",
         type: "Follow-up",
         status: "To Do",
         assignedTo: currentUser.name || "Sales Rep",
-        associatedDeal: projectName,
-        associatedAccount: companyName,
-        associatedContact: contactName
+        createdBy: currentUser.name || "Sales",
+        opportunityName: projectName,
+        accountName: companyName,
+        contactName: contactName
       });
       setStepTask("done");
     } catch {

@@ -39,6 +39,7 @@ import {
 } from "../data/crmMockData";
 import { CRMIntelligenceEngine } from "../utils/crmIntelligence";
 import { normalizeNotification, getUnreadNotificationsCount } from "../utils/notificationUtils";
+import { setSessionToken } from "../utils/apiClient";
 import {
   saveDocToCloud,
   loadDocFromCloud,
@@ -324,6 +325,8 @@ interface AppContextType {
   isCopilotContextPinned: boolean;
   setIsCopilotContextPinned: (pinned: boolean) => void;
   clearCopilotContext: () => void;
+  copilotCustomContext: string | null;
+  openCopilotWithContext: (contextStr: string, initialPrompt?: string) => void;
   togglePinCopilotContext: () => void;
 
   // Global Search Modal
@@ -476,7 +479,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!response.ok || !result.success) {
         return { success: false, error: result.error || "Unable to verify this profile." };
       }
-      loginAsUser(target);
+      // Hold the session token so privileged calls carry a verified identity.
+      // The role comes back from the server too — the client no longer decides
+      // its own authority.
+      setSessionToken(result.token || null);
+      loginAsUser({
+        ...target,
+        role: result.profile?.role || target.role,
+        isAdmin: result.profile?.isAdmin === true
+      });
       return { success: true };
     } catch {
       return { success: false, error: "Authentication service unavailable. Please try again shortly." };
@@ -1534,7 +1545,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteCrmOpportunity = async (id: string) => {
     setCrmOpportunities((prev) => prev.filter((d) => d.id !== id));
-    setTasks((prev) => prev.filter((t) => t.dealId !== id && t.relatedEntityId !== id));
+    setTasks((prev) => prev.filter((t) => t.opportunityId !== id));
     setActivities((prev) => prev.filter((a) => a.opportunityId !== id));
     if (selectedCrmOpportunityId === id) {
       setSelectedCrmOpportunityId(null);
@@ -1883,6 +1894,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsCopilotContextPinned,
         clearCopilotContext,
         togglePinCopilotContext,
+        copilotCustomContext,
+        openCopilotWithContext,
         isSearchOpen,
         setIsSearchOpen,
         quickLogModal,

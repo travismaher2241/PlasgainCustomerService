@@ -150,6 +150,11 @@ export const ToolsHub: React.FC = () => {
     else if (selectedCat.id === "P3" || selectedCat.id === "PR3") baseSpacing = 32;
     else if (selectedCat.id === "P4" || selectedCat.id === "PR4") baseSpacing = 40;
     else if (selectedCat.id === "P5") baseSpacing = 48;
+    // Car park classes. Without these they fell through to the P4 default of
+    // 40m, which is far too wide for a 10 lux maintained target.
+    else if (selectedCat.id === "P11a") baseSpacing = 28;
+    else if (selectedCat.id === "P11b") baseSpacing = 31;
+    else if (selectedCat.id === "P12") baseSpacing = 34;
 
     const heightFactor = poleHeightM / 5.0;
     const lumenFactor = luminaireOutputLm / 4000;

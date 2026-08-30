@@ -62,6 +62,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
 
     const existingProducts = targetDeal.products || [];
     const newProductLine = {
+      id: `line-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       productId: product.id,
       productCode: product.code,
       productName: product.name,

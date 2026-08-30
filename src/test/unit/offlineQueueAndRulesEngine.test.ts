@@ -51,7 +51,7 @@ describe('Priority 0: Cloud Sync, Offline Queue & Deterministic Rules Engine', (
 
     expect(result).toBeDefined();
     expect(result.opportunitySummary.project.value).toBe("Drouin Shared Trail");
-    expect(result.productRecommendations.recommendedStartingPoint.productCode).toBe("INTENSE-50W-3K");
+    expect(result.productRecommendations.recommendedStartingPoint.productCode).toBe("50W-INTENSE");
     expect(result.questionsBeforeWeQuote.length).toBeGreaterThanOrEqual(3);
     expect(result.readiness.score).toBeGreaterThan(0);
   });
@@ -64,6 +64,6 @@ describe('Priority 0: Cloud Sync, Offline Queue & Deterministic Rules Engine', (
     });
 
     expect(result.opportunitySummary.application.value).toContain("Civil Mechanical Protection");
-    expect(result.productRecommendations.recommendedStartingPoint.productCode).toBe("CC-HD-150-100M");
+    expect(result.productRecommendations.recommendedStartingPoint.productCode).toBe("CC-POLY-150-50 / PCC-300-6MM");
   });
 });

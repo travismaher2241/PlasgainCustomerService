@@ -199,7 +199,10 @@ export const CRMPipelineView: React.FC = () => {
       accountId: account.id,
       accountName: account.name,
       primaryContactId: `con-${Date.now()}`,
-      primaryContactName: newDealForm.primaryContactName || "Project Engineer",
+      // Left blank when unknown. Inventing "Project Engineer" put a name on the
+      // record that nobody at the customer answers to, and it flows into call
+      // briefings and email drafts.
+      primaryContactName: newDealForm.primaryContactName.trim(),
       opportunityOwner: currentUser.name,
       pipelineId: activePipelineId,
       stageId: stage.id,
@@ -212,7 +215,7 @@ export const CRMPipelineView: React.FC = () => {
       expectedCloseDate: newDealForm.expectedCloseDate,
       products: [],
       projectApplication: newDealForm.projectApplication,
-      location: account.billingAddress?.city || "Australia",
+      location: ("billingAddress" in account ? account.billingAddress?.city : undefined) || "Australia",
       customerNeed: newDealForm.notes,
       keyRequirements: [],
       source: "Manual Ingestion",
@@ -231,7 +234,7 @@ export const CRMPipelineView: React.FC = () => {
       {
         customerCompany: account.name,
         project: newDealForm.name,
-        tenderRef: newDealForm.quoteNumber || newDealForm.ostendoQuoteRef
+        tenderRef: undefined
       },
       crmOpportunities.map((d) => ({
         id: d.id,
@@ -543,7 +546,7 @@ export const CRMPipelineView: React.FC = () => {
                     contactId: selectedDeal.primaryContactId,
                     contactName: selectedDeal.primaryContactName,
                     contactEmail: selectedDeal.primaryContactEmail,
-                    contactRole: selectedDeal.primaryContactRole || "Estimator / Project Manager",
+                    contactRole: undefined,
                     projectName: selectedDeal.name,
                     projectLocation: selectedDeal.location,
                     projectNotes: `${selectedDeal.customerNeed || ""} | ${selectedDeal.notes || ""}`,
@@ -879,7 +882,7 @@ export const CRMPipelineView: React.FC = () => {
                     updateCrmOpportunity(selectedDeal.id, {
                       quoteRevision: nextRev,
                       ostendoQuoteRef: newQuoteRef,
-                      quoteStatus: "Revised",
+                      quoteStatus: "Revising",
                       latestActivity: `Generated Quote Revision ${nextRev} (${newQuoteRef})`,
                       latestActivityDate: new Date().toISOString().split("T")[0]
                     });

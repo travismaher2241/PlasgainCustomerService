@@ -129,7 +129,7 @@ export const AIEmailComposerModal: React.FC<AIEmailComposerModalProps> = () => {
       setSelectedContactId(targetContact.id);
       setRecipientName(`${targetContact.firstName} ${targetContact.lastName}`);
       setRecipientEmail(targetContact.email || "");
-      setRecipientRole(targetContact.jobTitle || targetContact.role || "");
+      setRecipientRole(targetContact.jobTitle || targetContact.roleInBuyingProcess || "");
       setRecipientCompany(ctx?.companyName || "");
     } else {
       setSelectedContactId(ctx?.contactId || "");
@@ -150,7 +150,7 @@ export const AIEmailComposerModal: React.FC<AIEmailComposerModalProps> = () => {
     if (found) {
       setRecipientName(`${found.firstName} ${found.lastName}`);
       setRecipientEmail(found.email || "");
-      setRecipientRole(found.jobTitle || found.role || "");
+      setRecipientRole(found.jobTitle || found.roleInBuyingProcess || "");
     }
   };
 
@@ -252,7 +252,8 @@ export const AIEmailComposerModal: React.FC<AIEmailComposerModalProps> = () => {
       logActivity({
         type: "email",
         title: "AI email draft prepared",
-        notes: `Mode: ${mode} | Subject: "${data.draft?.selectedSubject}" | Research Status: ${data.researchStatus}`,
+        description: `Mode: ${mode} | Subject: "${data.draft?.selectedSubject}" | Research Status: ${data.researchStatus}`,
+        performedBy: currentUser.name,
         accountId: emailComposerLaunchContext?.accountId,
         opportunityId: emailComposerLaunchContext?.opportunityId,
         contactId: selectedContactId || emailComposerLaunchContext?.contactId
@@ -329,7 +330,8 @@ export const AIEmailComposerModal: React.FC<AIEmailComposerModalProps> = () => {
       logActivity({
         type: "email",
         title: "AI email copied",
-        notes: `Subject: "${selectedSubject}" copied to clipboard`,
+        description: `Subject: "${selectedSubject}" copied to clipboard`,
+        performedBy: currentUser.name,
         accountId: emailComposerLaunchContext?.accountId,
         opportunityId: emailComposerLaunchContext?.opportunityId,
         contactId: selectedContactId || emailComposerLaunchContext?.contactId
@@ -354,7 +356,8 @@ export const AIEmailComposerModal: React.FC<AIEmailComposerModalProps> = () => {
     logActivity({
       type: "email",
       title: "AI email opened in Outlook",
-      notes: `Subject: "${selectedSubject}" opened in default mail client`,
+      description: `Subject: "${selectedSubject}" opened in default mail client`,
+      performedBy: currentUser.name,
       accountId: emailComposerLaunchContext?.accountId,
       opportunityId: emailComposerLaunchContext?.opportunityId,
       contactId: selectedContactId || emailComposerLaunchContext?.contactId
@@ -368,7 +371,8 @@ export const AIEmailComposerModal: React.FC<AIEmailComposerModalProps> = () => {
     logActivity({
       type: "email",
       title: "AI email draft prepared",
-      notes: `Subject: ${selectedSubject}\n\n${emailBody}`,
+      description: `Subject: ${selectedSubject}\n\n${emailBody}`,
+      performedBy: currentUser.name,
       accountId: emailComposerLaunchContext?.accountId,
       opportunityId: emailComposerLaunchContext?.opportunityId,
       contactId: selectedContactId || emailComposerLaunchContext?.contactId
@@ -383,7 +387,8 @@ export const AIEmailComposerModal: React.FC<AIEmailComposerModalProps> = () => {
     logActivity({
       type: "email",
       title: "Email sent (AI Draft)",
-      notes: `Sent to: ${recipientEmail || recipientName}\nSubject: ${selectedSubject}\n\n${emailBody}`,
+      description: `Sent to: ${recipientEmail || recipientName}\nSubject: ${selectedSubject}\n\n${emailBody}`,
+      performedBy: currentUser.name,
       accountId: emailComposerLaunchContext?.accountId,
       opportunityId: emailComposerLaunchContext?.opportunityId,
       contactId: selectedContactId || emailComposerLaunchContext?.contactId
@@ -566,7 +571,7 @@ export const AIEmailComposerModal: React.FC<AIEmailComposerModalProps> = () => {
                     <option value="">-- Choose Account Contact --</option>
                     {associatedContacts.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.firstName} {c.lastName} ({c.jobTitle || c.role || "Contact"}) - {c.email || "No email"}
+                        {c.firstName} {c.lastName} ({c.jobTitle || c.roleInBuyingProcess || "Contact"}) - {c.email || "No email"}
                       </option>
                     ))}
                   </select>

@@ -124,6 +124,7 @@ export const GlobalCopilot: React.FC = () => {
     setIsCopilotOpen,
     activeTab,
     setActiveTab,
+    navigateToWorkflow,
     activeCRMTab,
     selectedAccountId,
     selectedCrmOpportunityId,
@@ -349,7 +350,7 @@ export const GlobalCopilot: React.FC = () => {
         uploadedAt: "2026-01-01T00:00:00Z"
       });
     } else if (citation.sourceType === "standard") {
-      setActiveTab("lighting-standards");
+      navigateToWorkflow("tools", "conflict-resolver");
       showToast(`Navigated to ${citation.title}`, "info");
     }
   };
@@ -562,7 +563,7 @@ export const GlobalCopilot: React.FC = () => {
                 prompt: `List all recorded competitor pricing and alternative specs quoted against "${currentAccount.name}".`
               }
             ];
-          } else if (activeTab === "enquiry") {
+          } else if (activeTab === "new-enquiry") {
             chips = [
               {
                 label: "🔍 Extract Pole & Wind Spec",

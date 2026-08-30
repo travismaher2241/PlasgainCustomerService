@@ -8,6 +8,38 @@
  * rather than substituting sample data.
  */
 
+/**
+ * Session token for the signed-in profile.
+ *
+ * Held here rather than in the component tree so every call through this module
+ * carries it. The server decides authority from this token — the client no
+ * longer asserts its own role, because it used to be able to simply claim one.
+ */
+const SESSION_TOKEN_KEY = "plasgain_session_token";
+
+export function setSessionToken(token: string | null): void {
+  try {
+    if (token) localStorage.setItem(SESSION_TOKEN_KEY, token);
+    else localStorage.removeItem(SESSION_TOKEN_KEY);
+  } catch {
+    // Private mode or storage disabled; the session simply won't persist.
+  }
+}
+
+export function getSessionToken(): string | null {
+  try {
+    return localStorage.getItem(SESSION_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+/** Request headers including the session token when one is held. */
+export function authHeaders(base: Record<string, string> = {}): Record<string, string> {
+  const token = getSessionToken();
+  return token ? { ...base, Authorization: `Bearer ${token}` } : base;
+}
+
 /** Thrown when the server could not reach the AI. Carries text fit for the UI. */
 export class AIUnavailableError extends Error {
   public readonly detail: string;
@@ -55,7 +87,7 @@ export async function apiPost<T = any>(url: string, body: unknown, signal?: Abor
   try {
     res = await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: authHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify(body),
       signal
     });
@@ -106,10 +138,10 @@ export async function apiStreamPost<T = any>(
   try {
     res = await fetch(url, {
       method: "POST",
-      headers: {
+      headers: authHeaders({
         "Content-Type": "application/json",
         Accept: "text/event-stream, application/json"
-      },
+      }),
       body: JSON.stringify(body),
       signal: options.signal
     });
@@ -231,7 +263,7 @@ export async function apiStreamPost<T = any>(
 
 /** GETs JSON. Used for health probes; never throws on a degraded AI. */
 export async function apiGet<T = any>(url: string): Promise<T> {
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: authHeaders() });
   const data = await res.json().catch(() => null);
   if (!data) throw new ApiError(res.status, `Request failed (${res.status}).`);
   return data as T;

@@ -175,14 +175,11 @@ export const DocumentLibrary: React.FC = () => {
 
   const handleApproveDocument = async (docId: string) => {
     try {
-      // Record who actually approved it. The server re-checks authority — this
-      // is a UI convenience, not the access control.
-      await apiPost(`/api/controlled-documents/${docId}/approve`, {
-        approvedBy: currentUser.name,
-        approverRole: currentUser.role,
-        approverIsAdmin: currentUser.isAdmin === true
-      });
-      showToast(`Approved and marked Authoritative — recorded against ${currentUser.name}`, "success");
+      // No identity in the body. The server reads it from the session token that
+      // apiPost attaches, so a caller cannot name someone else as the approver
+      // or claim an authority it does not hold.
+      const approved = await apiPost(`/api/controlled-documents/${docId}/approve`, {});
+      showToast(`Approved and marked Authoritative — recorded against ${approved?.approvedBy || currentUser.name}`, "success");
       loadDocuments();
     } catch (err: any) {
       showToast(err?.message || "Failed to approve document", "error");

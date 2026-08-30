@@ -115,7 +115,7 @@ export const GlobalSearchModal: React.FC = () => {
       subtitle: "Extract lighting layout, poles, and BOM from civil PDF",
       icon: Compass,
       keywords: ["takeoff", "plan", "drawing", "pdf", "dwg"],
-      action: () => navigateToWorkflow("plan-takeoff")
+      action: () => navigateToWorkflow("tools", "plan-takeoff")
     },
     {
       id: "cmd-tools",

@@ -134,7 +134,7 @@ export const CRMTodayWorkspace: React.FC = () => {
   const followUpsDueCount = useMemo(() => {
     const quoteNBAs = nextBestActions.filter((a) => a.category === "Quote Follow-up").length;
     const followUpTasks = tasks.filter(
-      (t) => t.status !== "Completed" && t.status !== "Cancelled" && (t.taskType === "Follow-up" || t.dueDate <= todayStr)
+      (t) => t.status !== "Completed" && t.status !== "Cancelled" && (t.type === "Follow-up" || t.dueDate <= todayStr)
     ).length;
     return Math.max(quoteNBAs, followUpTasks);
   }, [nextBestActions, tasks, todayStr]);
@@ -160,7 +160,7 @@ export const CRMTodayWorkspace: React.FC = () => {
     tasks.forEach((task) => {
       if (task.status === "Completed" || task.status === "Cancelled" || snoozedIds.has(task.id)) return;
       seenTaskIds.add(task.id);
-      if (task.dealId) seenDealIds.add(task.dealId);
+      if (task.opportunityId) seenDealIds.add(task.opportunityId);
 
       const isOverdue = task.dueDate < todayStr;
       const isToday = task.dueDate === todayStr;
@@ -171,26 +171,26 @@ export const CRMTodayWorkspace: React.FC = () => {
       else if (isToday) priorityTier = "today";
 
       const matchedAccount = task.accountId ? accounts.find((a) => a.id === task.accountId) : undefined;
-      const matchedDeal = task.dealId ? crmOpportunities.find((d) => d.id === task.dealId) : undefined;
+      const matchedDeal = task.opportunityId ? crmOpportunities.find((d) => d.id === task.opportunityId) : undefined;
 
       items.push({
         id: task.id,
         sourceType: "task",
         title: task.title,
         entityName: task.accountName || matchedAccount?.name || matchedDeal?.name || "General Task",
-        entityType: task.dealId ? "Opportunity" : "Account",
-        entityId: task.dealId || task.accountId,
+        entityType: task.opportunityId ? "Opportunity" : "Account",
+        entityId: task.opportunityId || task.accountId,
         accountId: task.accountId,
-        dealId: task.dealId,
-        context: task.description || (isOverdue ? `Overdue since ${formatHumanDate(task.dueDate)}` : `Due ${formatHumanDate(task.dueDate)}`),
+        dealId: task.opportunityId,
+        context: task.notes || (isOverdue ? `Overdue since ${formatHumanDate(task.dueDate)}` : `Due ${formatHumanDate(task.dueDate)}`),
         reason: isOverdue ? "Overdue commitment directly impacting customer confidence and sales momentum." : "Scheduled priority customer commitment.",
         dueDate: task.dueDate,
         urgency: isOverdue ? "Immediate" : isToday ? "Today" : "Normal",
         priorityTier,
-        category: task.taskType || "Task",
-        primaryActionType: task.taskType === "Call" ? "call" : task.taskType === "Email" ? "email" : "complete",
-        primaryActionLabel: task.taskType === "Call" ? "Log Call" : task.taskType === "Email" ? "Write Email" : "Complete",
-        isCompleted: task.status === "Completed"
+        category: task.type || "Task",
+        primaryActionType: task.type === "Call" ? "call" : task.type === "Email" ? "email" : "complete",
+        primaryActionLabel: task.type === "Call" ? "Log Call" : task.type === "Email" ? "Write Email" : "Complete",
+        isCompleted: false
       });
     });
 
@@ -223,7 +223,7 @@ export const CRMTodayWorkspace: React.FC = () => {
         context: nba.description,
         reason: nba.reason,
         value: matchedDeal?.dealValue,
-        urgency: nba.urgency,
+        urgency: nba.urgency === "Upcoming" ? "Normal" : nba.urgency,
         priorityTier,
         category: nba.category,
         quoteRef: matchedDeal?.quoteNumber,
@@ -274,16 +274,16 @@ export const CRMTodayWorkspace: React.FC = () => {
           id: `lead-hot-${lead.id}`,
           sourceType: "lead",
           title: `Contact High-Intent Lead (${lead.leadScore}/100)`,
-          entityName: `${lead.firstName} ${lead.lastName} · ${lead.companyName || lead.company}`,
+          entityName: `${lead.contactName} · ${lead.company}`,
           entityType: "Lead",
           entityId: lead.id,
-          context: `${lead.projectName || "Inbound Project"} · ${lead.projectLocation || "VIC"}`,
+          context: `${lead.leadName || "Inbound enquiry"} · ${lead.location}`,
           reason: `Score ${lead.leadScore}. ${lead.notes || "High commercial intent detected."}`,
           urgency: lead.leadScore >= 80 ? "Immediate" : "Today",
           priorityTier: lead.leadScore >= 80 ? "do_now" : "today",
           category: "New Lead",
-          contactName: `${lead.firstName} ${lead.lastName}`,
-          contactEmail: lead.email,
+          contactName: lead.contactName,
+          contactEmail: lead.contactEmail,
           primaryActionType: "call",
           primaryActionLabel: "Log Call"
         });
@@ -368,11 +368,13 @@ export const CRMTodayWorkspace: React.FC = () => {
     } else if (item.primaryActionType === "call") {
       openQuickLog("call", item.accountId, item.dealId);
     } else if (item.primaryActionType === "email") {
+      // These keys never existed on EmailComposerLaunchContext, so the composer
+      // opened with no contact, no company and no deal attached.
       openEmailComposer({
-        emailType: "cold_outreach",
-        researchSubject: item.entityName,
-        targetContactName: item.contactName,
-        targetContactEmail: item.contactEmail,
+        defaultMode: "cold-outreach",
+        companyName: item.entityName,
+        contactName: item.contactName,
+        contactEmail: item.contactEmail,
         accountId: item.accountId,
         opportunityId: item.dealId
       });

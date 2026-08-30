@@ -12,7 +12,11 @@
 
 export interface LightingStandardCategory {
   id: string;
-  family: "Category P (Pedestrian & Shared Paths)" | "Category PR (Dedicated Cycleways)" | "Category V (Vehicular Roadways)";
+  family:
+    | "Category P (Pedestrian & Shared Paths)"
+    | "Category P (Outdoor Car Parks)"
+    | "Category PR (Dedicated Cycleways)"
+    | "Category V (Vehicular Roadways)";
   category: string;
   displayName: string;
   subTitle: string;
@@ -149,6 +153,77 @@ export const LIGHTING_STANDARDS_CATEGORIES: LightingStandardCategory[] = [
     datasetRevision: "2026.1",
     notes: "Used in low-density rural or environmentally sensitive reserves where low light pollution is mandatory.",
     sourceId: "AS1158-3-1-P5"
+  },
+
+  // -------------------------------------------------------------
+  // Category P11/P12: Outdoor Car Parks (AS/NZS 1158.3.1)
+  //
+  // The app offers a "Commercial Car Park" application but the class list
+  // stopped at P5, so a rep specifying a car park had to pick a pedestrian
+  // path category with the wrong illuminance target.
+  // -------------------------------------------------------------
+  {
+    id: "P11a",
+    family: "Category P (Outdoor Car Parks)",
+    category: "P11a",
+    displayName: "Category P11a — High Activity Outdoor Car Park",
+    subTitle: "Shopping centres, hospitals, transport interchanges and high-turnover commercial car parks",
+    maintainedIlluminanceLux: 10,
+    minimumIlluminanceLux: 3,
+    uniformityRequirement: "U_o ≤ 3.3 (E_avg / E_min)",
+    maxUniformityRatio: 3.3,
+    typicalMountingHeightM: 8.0,
+    typicalSpacingRangeM: "25m – 32m",
+    recommendedOptics: "Type 3 / Type 4 Area Distribution",
+    cctGuideline: "4000K (Neutral White — Commercial Standard)",
+    standardReference: "AS/NZS 1158.3.1:2020",
+    standardVersion: "AS/NZS 1158.3.1:2020 Table 3.1",
+    effectiveDate: "2020-11-20",
+    datasetRevision: "2026.1",
+    notes: "Applies where pedestrian and vehicle movement is heavy and surveillance matters. Confirm the category with the client — car park classes are set by activity level, not area.",
+    sourceId: "AS1158-3-1-P11a"
+  },
+  {
+    id: "P11b",
+    family: "Category P (Outdoor Car Parks)",
+    category: "P11b",
+    displayName: "Category P11b — Medium Activity Outdoor Car Park",
+    subTitle: "Commercial offices, sporting facilities and council recreation reserve car parks",
+    maintainedIlluminanceLux: 7,
+    minimumIlluminanceLux: 2.1,
+    uniformityRequirement: "U_o ≤ 3.3 (E_avg / E_min)",
+    maxUniformityRatio: 3.3,
+    typicalMountingHeightM: 8.0,
+    typicalSpacingRangeM: "28m – 35m",
+    recommendedOptics: "Type 3 Area Distribution",
+    cctGuideline: "4000K (Neutral White — Commercial Standard)",
+    standardReference: "AS/NZS 1158.3.1:2020",
+    standardVersion: "AS/NZS 1158.3.1:2020 Table 3.1",
+    effectiveDate: "2020-11-20",
+    datasetRevision: "2026.1",
+    notes: "The common council recreation-reserve car park class. Confirm activity level before quoting — P11a carries a materially higher lux target.",
+    sourceId: "AS1158-3-1-P11b"
+  },
+  {
+    id: "P12",
+    family: "Category P (Outdoor Car Parks)",
+    category: "P12",
+    displayName: "Category P12 — Low Activity Outdoor Car Park",
+    subTitle: "Low-turnover reserve, trailhead and rural facility car parks",
+    maintainedIlluminanceLux: 3.5,
+    minimumIlluminanceLux: 1.05,
+    uniformityRequirement: "U_o ≤ 3.3 (E_avg / E_min)",
+    maxUniformityRatio: 3.3,
+    typicalMountingHeightM: 6.0,
+    typicalSpacingRangeM: "30m – 38m",
+    recommendedOptics: "Type 3 Area Distribution",
+    cctGuideline: "3000K – 4000K (site and fauna dependent)",
+    standardReference: "AS/NZS 1158.3.1:2020",
+    standardVersion: "AS/NZS 1158.3.1:2020 Table 3.1",
+    effectiveDate: "2020-11-20",
+    datasetRevision: "2026.1",
+    notes: "Lowest car park class. Verify against the client's own asset standard, which often exceeds the minimum.",
+    sourceId: "AS1158-3-1-P12"
   },
 
   // -------------------------------------------------------------

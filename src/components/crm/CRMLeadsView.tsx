@@ -163,7 +163,7 @@ export const CRMLeadsView: React.FC = () => {
         leadName: newLeadForm.leadName,
         email: newLeadForm.contactEmail,
         phone: newLeadForm.contactPhone,
-        company: newLeadForm.companyName
+        company: newLeadForm.company
       },
       leads
     );
@@ -341,7 +341,7 @@ export const CRMLeadsView: React.FC = () => {
                 <button
                   onClick={() => {
                     const hasProject = Boolean(
-                      selectedLead.projectInterest ||
+                      selectedLead.productInterest ||
                       selectedLead.notes?.toLowerCase().includes("project") ||
                       selectedLead.notes?.toLowerCase().includes("tender") ||
                       selectedLead.enquiryType?.toLowerCase().includes("project")
@@ -350,7 +350,7 @@ export const CRMLeadsView: React.FC = () => {
                       defaultMode: hasProject ? "project-enquiry" : "cold-outreach",
                       leadId: selectedLead.id,
                       contactName: selectedLead.leadName,
-                      contactEmail: selectedLead.email,
+                      contactEmail: selectedLead.contactEmail,
                       companyName: selectedLead.company,
                       projectLocation: selectedLead.location,
                       enquiryType: selectedLead.enquiryType,

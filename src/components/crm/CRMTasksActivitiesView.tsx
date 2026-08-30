@@ -396,7 +396,7 @@ export const CRMTasksActivitiesView: React.FC = () => {
                           type="button"
                           onClick={() => openCallPrep({
                             accountId: t.accountId,
-                            opportunityId: t.dealId || t.opportunityId,
+                            opportunityId: t.opportunityId || t.opportunityId,
                             taskId: t.id,
                             taskTitle: t.title
                           })}
@@ -408,7 +408,7 @@ export const CRMTasksActivitiesView: React.FC = () => {
                       )}
                       <button
                         type="button"
-                        onClick={() => openQuickLog(t.type === "Call" ? "call" : "task", t.accountId, t.dealId || t.opportunityId)}
+                        onClick={() => openQuickLog(t.type === "Call" ? "call" : "task", t.accountId, t.opportunityId || t.opportunityId)}
                         className="px-2 py-0.5 text-spec font-semibold text-ink bg-white border border-line rounded hover:bg-raised transition-colors cursor-pointer"
                       >
                         Log

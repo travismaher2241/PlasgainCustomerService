@@ -11,15 +11,16 @@ const QuickLogTestWrapper: React.FC = () => {
     addAccount({
       id: 'acc-custom-123',
       name: 'Sunshine Coast Council',
-      status: 'Active',
+      status: 'Customer',
       industry: 'Government',
       customerSegment: 'Local Government / Council',
       territory: 'QLD/NT',
       accountOwner: 'Travis Maher',
       relationshipHealth: 'Healthy',
       tags: [],
-      createdDate: '2026-08-28',
-      lastInteractionDate: '2026-08-28'
+      lastInteractionDate: '2026-08-28',
+      leadSource: 'Referral',
+      createdDate: '2026-08-28'
     });
   }, []);
 

@@ -89,15 +89,21 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
     <header className="h-14 bg-surface border-b border-line px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-3 shrink-0 sticky top-0 z-30 min-w-0">
       {/* Left: Mobile Menu & Clean Page Title */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+        {/*
+          Opens the mobile drawer, and nothing else. This button used to call
+          toggleSidebar() as well, which did two wrong things: on mobile the
+          collapse state has no visual effect but still flipped this button's
+          accessible name to "Expand navigation menu", so after one tap the
+          control could no longer be found by name; on desktop the drawer state
+          turned the sidebar into a fixed overlay with no backdrop. Desktop
+          collapse belongs to the sidebar's own control.
+        */}
         <button
           type="button"
-          onClick={() => {
-            onToggleMobileMenu?.();
-            toggleSidebar();
-          }}
-          aria-label={isSidebarCollapsed ? "Expand navigation menu" : "Open navigation menu"}
+          onClick={() => onToggleMobileMenu?.()}
+          aria-label="Open navigation menu"
           title="Open menu"
-          className="min-h-[44px] min-w-[44px] p-2 text-ink-dim hover:text-ink rounded-edge hover:bg-paper cursor-pointer shrink-0 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none transition-colors"
+          className="md:hidden min-h-[44px] min-w-[44px] p-2 text-ink-dim hover:text-ink rounded-edge hover:bg-paper cursor-pointer shrink-0 flex items-center justify-center focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none transition-colors"
         >
           <Menu className="w-5 h-5" />
         </button>

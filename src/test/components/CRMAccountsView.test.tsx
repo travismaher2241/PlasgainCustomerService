@@ -18,8 +18,9 @@ const AccountsTestWrapper: React.FC = () => {
       accountOwner: 'Travis Maher',
       relationshipHealth: 'Healthy',
       tags: [],
-      createdDate: '2026-08-28',
-      lastInteractionDate: '2026-08-28'
+      lastInteractionDate: '2026-08-28',
+      leadSource: 'Referral',
+      createdDate: '2026-08-28'
     });
   }, []);
 

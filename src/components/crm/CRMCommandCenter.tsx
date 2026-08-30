@@ -297,7 +297,7 @@ export const CRMCommandCenter: React.FC = () => {
       </div>
 
       {/* Main CRM Tab View Render */}
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-5 w-full min-w-0">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-5 w-full min-w-0">
         <Suspense
           fallback={
             <div className="flex items-center justify-center min-h-[300px] w-full">
@@ -312,7 +312,7 @@ export const CRMCommandCenter: React.FC = () => {
           {activeCRMTab === "tasks" && <CRMTasksActivitiesView />}
           {activeCRMTab === "competitor-pricing" && <CRMCompetitorPricingView />}
         </Suspense>
-      </main>
+      </div>
     </div>
   );
 };

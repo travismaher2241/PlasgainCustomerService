@@ -36,7 +36,6 @@ import {
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { EnquiryAnalysisResult, StatusField } from "../types";
-import { analyzeEnquiryDeterministic } from "../utils/rulesEngine";
 import { CustomerFollowUpModal } from "./CustomerFollowUpModal";
 import { DatasheetPackageModal } from "./DatasheetPackageModal";
 import { QuoteReadinessModal } from "./QuoteReadinessModal";
@@ -229,42 +228,37 @@ export const NewEnquiryWorkspace: React.FC = () => {
       setActiveBackgroundAnalysisJob({ id: jobId, projectName: pName, status: "complete" });
 
       addNotification({
-        type: "system",
+        type: "info",
         title: "Tender Analysis Completed",
         message: `Structured analysis generated for "${pName}".`,
-        actionUrl: "new-enquiry",
-        dealName: pName
+        isArchived: false
       });
 
       showToast("Enquiry analysed successfully!", "success");
     } catch (err) {
-      console.warn("AI service unavailable, falling back to deterministic rules engine:", err);
-      const fallbackResult = analyzeEnquiryDeterministic(rawEnquiryInput.rawContent, {
-        projectName: rawEnquiryInput.project,
-        company: rawEnquiryInput.company,
-        customerName: rawEnquiryInput.customer,
-        location: rawEnquiryInput.location,
-        source: rawEnquiryInput.source
-      });
+      // No offline substitute. This used to call analyzeEnquiryDeterministic and
+      // present the result as "Tender Analysis Completed (Rules Engine)" — an
+      // analysis built from SKUs that exist nowhere in the catalogue, with
+      // invented lumen figures, a sourcesUsed list it never consulted, and a
+      // pricingGuardrailNotice that claimed a rate card the app does not have.
+      // A rep cannot tell that apart from a grounded analysis.
+      console.warn("Enquiry analysis failed:", err);
+      setCurrentEnquiryAnalysis(null);
+      setAnalysisError(
+        err instanceof AIUnavailableError
+          ? { detail: err.detail, guidance: err.guidance }
+          : {
+              detail: toUserMessage(err),
+              guidance: "Retry, or work the enquiry manually — nothing was generated."
+            }
+      );
 
-      setCurrentEnquiryAnalysis(fallbackResult);
-      setAnalysisSourceHash(computeRawHash(rawEnquiryInput.rawContent));
-      if (fallbackResult.questionsBeforeWeQuote && fallbackResult.questionsBeforeWeQuote.length > 0) {
-        setSelectedQuestions(fallbackResult.questionsBeforeWeQuote.slice(0, 3).map((q) => q.question));
-      }
+      setProgressStages((prev) =>
+        prev.map((s) => (s.status === "complete" ? s : { ...s, status: "failed" }))
+      );
+      setActiveBackgroundAnalysisJob({ id: jobId, projectName: pName, status: "failed" });
 
-      setProgressStages((prev) => prev.map((s) => ({ ...s, status: "complete" })));
-      setActiveBackgroundAnalysisJob({ id: jobId, projectName: pName, status: "complete" });
-
-      addNotification({
-        type: "system",
-        title: "Tender Analysis Completed (Rules Engine)",
-        message: `Processed via Deterministic Rules Engine for "${pName}".`,
-        actionUrl: "new-enquiry",
-        dealName: pName
-      });
-
-      showToast("Processed via Deterministic Rules Engine (Offline Mode)", "info");
+      showToast("Analysis unavailable — no result was generated", "error");
     } finally {
       setIsLoading(false);
     }
@@ -291,7 +285,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
       setGeneratedEmail(data);
     } catch (err) {
       console.warn("AI email generation failed, falling back to standard sales template:", err);
-      const summary = currentEnquiryAnalysis.opportunitySummary || {};
+      const summary = currentEnquiryAnalysis.opportunitySummary;
       const rec = currentEnquiryAnalysis.productRecommendations?.recommendedStartingPoint;
       const recipient = (typeof summary.contactName === "object" ? (summary.contactName as any)?.value : summary.contactName) || rawEnquiryInput.customer || "Valued Client";
       const project = (typeof summary.project === "object" ? (summary.project as any)?.value : summary.project) || rawEnquiryInput.project || "Lighting Project";
@@ -310,7 +304,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
 
       const fallbackEmail = {
         subject: `Plasgain — ${project}`,
-        bodyText: `Dear ${recipient},\n\nThank you for reaching out to Plasgain regarding the lighting requirements for ${project}.${productLine}\n\nSo our engineering team can prepare a Dialux layout and a formal commercial quote, could you please confirm the following:\n\n${qBulletList}\n\nI will follow up with the relevant technical datasheets once these are confirmed.\n\nKind regards,\n\n${currentUser.name}\n${currentUser.role} | Plasgain Australia\nPhone: ${currentUser.phone || ""}\nEmail: ${currentUser.email || ""}`
+        body: `Dear ${recipient},\n\nThank you for reaching out to Plasgain regarding the lighting requirements for ${project}.${productLine}\n\nSo our engineering team can prepare a Dialux layout and a formal commercial quote, could you please confirm the following:\n\n${qBulletList}\n\nI will follow up with the relevant technical datasheets once these are confirmed.\n\nKind regards,\n\n${currentUser.name}\n${currentUser.role} | Plasgain Australia\nPhone: ${currentUser.phone || ""}\nEmail: ${currentUser.email || ""}`
       };
       setGeneratedEmail(fallbackEmail);
       showToast("AI unavailable — inserted a plain template. Review and complete it before sending.", "warning");
@@ -460,7 +454,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
         email: contactEmail,
         mobile: rawEnquiryInput.contact || "",
         preferredContactMethod: "Email",
-        roleInBuyingProcess: "Evaluator",
+        roleInBuyingProcess: "Influencer",
         isDecisionMaker: true,
         influenceLevel: "Medium",
         relationshipStatus: "Warm",
@@ -616,16 +610,16 @@ export const NewEnquiryWorkspace: React.FC = () => {
                         <button
               onClick={() => {
                 const items = [];
-                if (currentEnquiryAnalysis?.primaryRecommendation) {
-                  const resolved = resolveProductsForDeal([currentEnquiryAnalysis.primaryRecommendation.productName]);
-                  const prodCode = resolved[0]?.code || currentEnquiryAnalysis.primaryRecommendation.productCode || "";
+                if (currentEnquiryAnalysis?.productRecommendations?.recommendedStartingPoint) {
+                  const resolved = resolveProductsForDeal([currentEnquiryAnalysis.productRecommendations!.recommendedStartingPoint.productName]);
+                  const prodCode = resolved[0]?.code || currentEnquiryAnalysis.productRecommendations!.recommendedStartingPoint.productCode || "";
                   const qty = parseInt(currentEnquiryAnalysis.opportunitySummary?.quantity?.value || "1", 10) || 1;
                   items.push({
                     itemCode: prodCode,
-                    description: currentEnquiryAnalysis.primaryRecommendation.productName,
+                    description: currentEnquiryAnalysis.productRecommendations!.recommendedStartingPoint.productName,
                     quantity: qty,
                     unit: "ea",
-                    lineNotes: currentEnquiryAnalysis.primaryRecommendation.whySuitable || ""
+                    lineNotes: currentEnquiryAnalysis.productRecommendations!.recommendedStartingPoint.whySuitable || ""
                   });
                 }
 
@@ -648,16 +642,16 @@ export const NewEnquiryWorkspace: React.FC = () => {
             <button
               onClick={async () => {
                 const items = [];
-                if (currentEnquiryAnalysis?.primaryRecommendation) {
-                  const resolved = resolveProductsForDeal([currentEnquiryAnalysis.primaryRecommendation.productName]);
-                  const prodCode = resolved[0]?.code || currentEnquiryAnalysis.primaryRecommendation.productCode || "";
+                if (currentEnquiryAnalysis?.productRecommendations?.recommendedStartingPoint) {
+                  const resolved = resolveProductsForDeal([currentEnquiryAnalysis.productRecommendations!.recommendedStartingPoint.productName]);
+                  const prodCode = resolved[0]?.code || currentEnquiryAnalysis.productRecommendations!.recommendedStartingPoint.productCode || "";
                   const qty = parseInt(currentEnquiryAnalysis.opportunitySummary?.quantity?.value || "1", 10) || 1;
                   items.push({
                     itemCode: prodCode,
-                    description: currentEnquiryAnalysis.primaryRecommendation.productName,
+                    description: currentEnquiryAnalysis.productRecommendations!.recommendedStartingPoint.productName,
                     quantity: qty,
                     unit: "ea",
-                    lineNotes: currentEnquiryAnalysis.primaryRecommendation.whySuitable || ""
+                    lineNotes: currentEnquiryAnalysis.productRecommendations!.recommendedStartingPoint.whySuitable || ""
                   });
                 }
 
@@ -984,7 +978,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
                 <div className="w-4 h-4 rounded-full bg-brand-deep text-white flex items-center justify-center text-[10px] font-bold shrink-0">3</div>
                 <div>
                   <div className="font-bold">3. Shortlist</div>
-                  <div className="text-[11px] text-ink-dim">{currentEnquiryAnalysis.primaryRecommendation?.productCode || "SKU Grounded"}</div>
+                  <div className="text-[11px] text-ink-dim">{currentEnquiryAnalysis.productRecommendations!.recommendedStartingPoint?.productCode || "SKU Grounded"}</div>
                 </div>
               </div>
 
@@ -1576,8 +1570,8 @@ export const NewEnquiryWorkspace: React.FC = () => {
           initialProjectName={rawEnquiryInput.project || currentEnquiryAnalysis?.opportunitySummary?.project?.value || ""}
           initialQuoteRef={ostendoQuoteRef}
           initialProducts={
-            currentEnquiryAnalysis?.primaryRecommendation
-              ? [currentEnquiryAnalysis.primaryRecommendation.productName]
+            currentEnquiryAnalysis?.productRecommendations?.recommendedStartingPoint
+              ? [currentEnquiryAnalysis.productRecommendations!.recommendedStartingPoint.productName]
               : []
           }
         />
@@ -1592,8 +1586,8 @@ export const NewEnquiryWorkspace: React.FC = () => {
           customerName={rawEnquiryInput.company || currentEnquiryAnalysis?.opportunitySummary?.company?.value || "Council / Contractor"}
           quoteRef={ostendoQuoteRef}
           initialProductNames={
-            currentEnquiryAnalysis?.primaryRecommendation
-              ? [currentEnquiryAnalysis.primaryRecommendation.productName]
+            currentEnquiryAnalysis?.productRecommendations?.recommendedStartingPoint
+              ? [currentEnquiryAnalysis.productRecommendations!.recommendedStartingPoint.productName]
               : ["Intense Light - 50W Solar", "Pro Blade Solar 75/125"]
           }
         />

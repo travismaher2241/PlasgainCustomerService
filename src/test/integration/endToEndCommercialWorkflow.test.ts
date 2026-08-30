@@ -49,7 +49,7 @@ describe("End-to-End Commercial Sales Workflow Acceptance Test", () => {
         customerCompany: "City of Ballarat",
         projectName: "Ballarat Shared Path Upgrade",
         deliveryLocation: "Ballarat, Victoria",
-        productCode: "INTENSE-50W-3K",
+        productCode: "50W-INTENSE",
         quantity: 24,
         mountingHeightM: 6,
         windRegion: "Region A",
@@ -80,7 +80,7 @@ describe("End-to-End Commercial Sales Workflow Acceptance Test", () => {
     it("validates and formats itemized BOM for Ostendo ERP", () => {
       const bomItems = [
         {
-          itemCode: "INTENSE-50W-3K",
+          itemCode: "50W-INTENSE",
           description: "Plasgain Intense Light 50W Solar Luminaire (3000K)",
           quantity: 24,
           unit: "ea",
@@ -107,7 +107,7 @@ describe("End-to-End Commercial Sales Workflow Acceptance Test", () => {
       expect(validation.errors).toHaveLength(0);
 
       const csvContent = formatOstendoCSV(bomItems, "OST-BALLARAT-2025");
-      expect(csvContent).toContain("INTENSE-50W-3K");
+      expect(csvContent).toContain("50W-INTENSE");
       expect(csvContent).toContain("PLASPOLE-6M-DB");
       expect(csvContent).toContain("PCC-200-1M");
       expect(csvContent).toContain("OST-BALLARAT-2025");

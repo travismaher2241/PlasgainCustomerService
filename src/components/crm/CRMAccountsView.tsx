@@ -103,7 +103,15 @@ export const CRMAccountsView: React.FC = () => {
       id: acc.id,
       updatedAt: acc.lastInteractionDate || acc.createdDate || "",
       contacts: accContacts,
-      opportunities: accDeals,
+      // The hash reads updatedAt/stage/estimatedValue, none of which exist on
+      // CRMOpportunity — every deal stamped as "undefined_undefined_undefined",
+      // so the cached AI summary never invalidated when a deal moved stage or
+      // changed value. Map onto the shape the hash actually expects.
+      opportunities: accDeals.map((d) => ({
+        updatedAt: d.latestActivityDate,
+        stage: d.stageName,
+        estimatedValue: d.dealValue
+      })),
       activities: accActivities
     });
 
@@ -184,7 +192,11 @@ export const CRMAccountsView: React.FC = () => {
   const [competitorForm, setCompetitorForm] = useState({
     competitorName: "",
     competitorProduct: "",
-    price: 1850,
+    // Starts empty: 1850 was a made-up figure a rep could save without noticing.
+    price: 0,
+    // Was missing from the initial state while the reset and the whole
+    // comparison row read it, so the field was undefined until a reset ran.
+    plasgainQuotedPrice: "" as string | number,
     currency: "AUD",
     priceBasis: "Per Unit" as CompetitorPriceBasis,
     gstStatus: "Ex GST" as CompetitorGstStatus,
@@ -645,7 +657,7 @@ export const CRMAccountsView: React.FC = () => {
                         territory: selectedAccount.territory,
                         projectNotes: selectedAccount.notes,
                         productsQuoted: accountOpps.flatMap((o) => o.products || []),
-                        recentActivities: accountActs.slice(0, 5).map((a) => `${a.type}: ${a.title} (${a.date})`)
+                        recentActivities: accountActs.slice(0, 5).map((a) => `${a.type}: ${a.title} (${a.timestamp})`)
                       });
                     }}
                     className="px-3 py-1.5 text-meta font-bold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash/80 shadow-2xs flex items-center gap-1.5 cursor-pointer"

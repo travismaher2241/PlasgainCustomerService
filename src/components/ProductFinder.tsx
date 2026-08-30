@@ -100,8 +100,9 @@ export const ProductFinder: React.FC = () => {
     code: "",
     name: "",
     category: "Solar Luminaire",
-    unitPrice: 1650,
-    costPrice: 1050,
+    // No pricing feed backs this app, so a rep enters real figures.
+    unitPrice: 0,
+    costPrice: 0,
     quantity: 24
   });
   const [dealInjectMode, setDealInjectMode] = useState<"existing" | "new">("existing");
@@ -119,7 +120,7 @@ export const ProductFinder: React.FC = () => {
   // P2-09: Pricing Modal State
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [pricingProduct, setPricingProduct] = useState<{ code: string; name: string }>({
-    code: "TAIZ-50W",
+    code: "50W-INTENSE",
     name: "Intense Light - 50W Solar"
   });
 
@@ -133,19 +134,32 @@ export const ProductFinder: React.FC = () => {
       setActiveComparison(cached);
       setIsComparisonFromCache(true);
     } else {
+      // Read the real catalogue. This matrix was previously hardcoded — the left
+      // column always claimed "5,000 – 7,500 lm" and "4 Days Continuous
+      // Autonomy" and the right always "Region C Cyclonic", whichever two
+      // products the rep picked, then cached stamped with a standards and
+      // catalogue version as though it had been verified.
+      const a = resolveSingleProduct(prodA).product;
+      const b = resolveSingleProduct(prodB).product;
+      const unknown = "Not published — check the datasheet";
+      const cell = (x?: string, y?: string) => ({ [prodA]: x || unknown, [prodB]: y || unknown });
+
       const generated: ProductComparisonRecord = {
         productIds: [prodA, prodB],
         standardsVersion: "AS/NZS 1158:2020",
-        catalogueVersion: "2026.1",
+        catalogueVersion: DATASET_METADATA.revision,
         comparedAt: Date.now(),
         comparisonMatrix: {
-          luminaireOutput: { [prodA]: "5,000 – 7,500 lm", [prodB]: "8,500 – 14,000 lm" },
-          windRating: { [prodA]: "Region A / B (Up to 45 m/s)", [prodB]: "Region C Cyclonic (Up to 56 m/s)" },
-          batteryReserve: { [prodA]: "4 Days Continuous Autonomy", [prodB]: "6 Days Continuous Autonomy" },
-          mountingHeight: { [prodA]: "4.5m – 6.0m Direct Bury", [prodB]: "6.0m – 8.0m Baseplate / Ragbolt" },
-          warranty: { [prodA]: "5-Year Plasgain System", [prodB]: "5-Year Plasgain System" }
+          luminaireOutput: cell(a?.lumens, b?.lumens),
+          windRating: cell(a?.ingressImpact, b?.ingressImpact),
+          batteryReserve: cell(a?.autonomy, b?.autonomy),
+          mountingHeight: cell(a?.poleHeight, b?.poleHeight),
+          warranty: cell(a?.warranty, b?.warranty)
         },
-        tradeOffsSummary: `${prodB} offers significantly higher lumen output and cyclonic wind rating for major arterial or coastal paths, whereas ${prodA} is optimized for lightweight rapid installation on pedestrian shared paths.`
+        tradeOffsSummary:
+          a && b
+            ? `${a.name} (${a.category}) versus ${b.name} (${b.category}). Figures are drawn from the published catalogue entries; confirm the exact variant and photometric performance against the controlled datasheet before quoting.`
+            : "One or both products could not be matched to a catalogue entry, so this comparison is incomplete."
       };
       productComparisonCache.set([prodA, prodB], generated);
       setActiveComparison(generated);
@@ -1094,28 +1108,28 @@ export const ProductFinder: React.FC = () => {
                   <tbody className="divide-y divide-line">
                     <tr>
                       <td className="p-3 font-bold text-ink">Luminaire Output</td>
-                      <td className="p-3">{activeComparison.comparisonMatrix.luminaireOutput?.[compareProductA] || "Standard Output"}</td>
-                      <td className="p-3">{activeComparison.comparisonMatrix.luminaireOutput?.[compareProductB] || "High Output"}</td>
+                      <td className="p-3">{activeComparison.comparisonMatrix.luminaireOutput?.[compareProductA] || "Not published"}</td>
+                      <td className="p-3">{activeComparison.comparisonMatrix.luminaireOutput?.[compareProductB] || "Not published"}</td>
                     </tr>
                     <tr>
-                      <td className="p-3 font-bold text-ink">Wind Rating (AS 1170.2)</td>
-                      <td className="p-3">{activeComparison.comparisonMatrix.windRating?.[compareProductA] || "Region A/B"}</td>
-                      <td className="p-3">{activeComparison.comparisonMatrix.windRating?.[compareProductB] || "Region C Cyclonic"}</td>
+                      <td className="p-3 font-bold text-ink">Ingress &amp; Impact (IP / IK)</td>
+                      <td className="p-3">{activeComparison.comparisonMatrix.windRating?.[compareProductA] || "Not published"}</td>
+                      <td className="p-3">{activeComparison.comparisonMatrix.windRating?.[compareProductB] || "Not published"}</td>
                     </tr>
                     <tr>
                       <td className="p-3 font-bold text-ink">Battery Autonomy</td>
-                      <td className="p-3">{activeComparison.comparisonMatrix.batteryReserve?.[compareProductA] || "4+ Days"}</td>
-                      <td className="p-3">{activeComparison.comparisonMatrix.batteryReserve?.[compareProductB] || "6+ Days"}</td>
+                      <td className="p-3">{activeComparison.comparisonMatrix.batteryReserve?.[compareProductA] || "Not published"}</td>
+                      <td className="p-3">{activeComparison.comparisonMatrix.batteryReserve?.[compareProductB] || "Not published"}</td>
                     </tr>
                     <tr>
                       <td className="p-3 font-bold text-ink">Mounting Height &amp; Poles</td>
-                      <td className="p-3">{activeComparison.comparisonMatrix.mountingHeight?.[compareProductA] || "4.5m – 6.0m"}</td>
-                      <td className="p-3">{activeComparison.comparisonMatrix.mountingHeight?.[compareProductB] || "6.0m – 8.0m"}</td>
+                      <td className="p-3">{activeComparison.comparisonMatrix.mountingHeight?.[compareProductA] || "Not published"}</td>
+                      <td className="p-3">{activeComparison.comparisonMatrix.mountingHeight?.[compareProductB] || "Not published"}</td>
                     </tr>
                     <tr>
                       <td className="p-3 font-bold text-ink">System Warranty</td>
-                      <td className="p-3 font-semibold text-emerald-800">{activeComparison.comparisonMatrix.warranty?.[compareProductA] || "5-Year"}</td>
-                      <td className="p-3 font-semibold text-emerald-800">{activeComparison.comparisonMatrix.warranty?.[compareProductB] || "5-Year"}</td>
+                      <td className="p-3 font-semibold text-emerald-800">{activeComparison.comparisonMatrix.warranty?.[compareProductA] || "Not published"}</td>
+                      <td className="p-3 font-semibold text-emerald-800">{activeComparison.comparisonMatrix.warranty?.[compareProductB] || "Not published"}</td>
                     </tr>
                   </tbody>
                 </table>

@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { CRMCallPrepModal } from '../../components/crm/CRMCallPrepModal';
 import { CRMQuickLogModal } from '../../components/crm/CRMQuickLogModal';
 import { AppProvider, useApp } from '../../context/AppContext';
+import { makeOpportunity, makeContact } from '../factories';
 
 const CallPrepTestWrapper: React.FC = () => {
   const { openCallPrep, addAccount, addCrmOpportunity, addContact, activities } = useApp();
@@ -12,23 +13,23 @@ const CallPrepTestWrapper: React.FC = () => {
     addAccount({
       id: 'acc-test-99',
       name: 'Moreton Regional Council',
-      status: 'Active',
+      status: 'Customer',
       industry: 'Government',
       customerSegment: 'Local Government / Council',
       territory: 'QLD/NT',
       accountOwner: 'Travis Maher',
       relationshipHealth: 'Healthy',
       tags: [],
-      createdDate: '2026-08-28',
-      lastInteractionDate: '2026-08-28'
+      lastInteractionDate: '2026-08-28',
+      leadSource: 'Referral',
+      createdDate: '2026-08-28'
     });
 
-    addCrmOpportunity({
+    addCrmOpportunity(makeOpportunity({
       id: 'opp-test-99',
       name: 'Bribie Island Foreshore Solar Lighting',
       accountId: 'acc-test-99',
       accountName: 'Moreton Regional Council',
-      pipelineId: 'pipe-major-projects',
       stageId: 'stage-quote',
       stageName: 'Quote / Proposal Submitted',
       dealValue: 74500,
@@ -37,21 +38,19 @@ const CallPrepTestWrapper: React.FC = () => {
       quoteNumber: 'Q-2026-8821',
       quoteExpiryDate: '2026-09-28',
       primaryContactName: 'David Walker',
-      dealHealth: 'Healthy',
-      projectApplication: 'Public Parks & Shared Paths',
-      createdDate: '2026-08-28'
-    });
+      projectApplication: 'Public Parks & Shared Paths'
+    }));
 
-    addContact({
+    addContact(makeContact({
       id: 'con-test-99',
       firstName: 'David',
       lastName: 'Walker',
       accountId: 'acc-test-99',
+      accountName: 'Moreton Regional Council',
       jobTitle: 'Senior Infrastructure Engineer',
       mobile: '0412 345 678',
-      email: 'dwalker@moreton.qld.gov.au',
-      createdDate: '2026-08-28'
-    });
+      email: 'dwalker@moreton.qld.gov.au'
+    }));
   }, []);
 
   return (

@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import express from "express";
-import { createHash, timingSafeEqual } from "crypto";
+import { createHash, timingSafeEqual, randomBytes } from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
@@ -84,6 +84,72 @@ const profilePinHashes: Record<string, Buffer> = {
 };
 const authAttempts = new Map<string, { failures: number; lockedUntil: number }>();
 
+/**
+ * Server-side identity. Roles previously lived only in the client bundle, so
+ * privileged endpoints had to take the caller's word for who they were — a
+ * request could simply assert `approverIsAdmin: true`. Authority is decided
+ * here now, keyed off the profile whose PIN was actually verified.
+ */
+export interface WorkspaceSession {
+  userId: string;
+  name: string;
+  role: string;
+  isAdmin: boolean;
+  issuedAt: number;
+  expiresAt: number;
+}
+
+const PROFILE_DIRECTORY: Record<string, { name: string; role: string; isAdmin: boolean }> = {
+  "user-travis-maher": { name: "Travis Maher", role: "Internal Sales & Technical Lead", isAdmin: true },
+  "user-sarah-reed": { name: "Sarah Reed", role: "Internal Sales", isAdmin: false },
+  "user-rob-mitchell": { name: "Rob Mitchell", role: "Sales Director", isAdmin: true }
+};
+
+const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const sessions = new Map<string, WorkspaceSession>();
+
+function issueSession(userId: string): { token: string; session: WorkspaceSession } {
+  const profile = PROFILE_DIRECTORY[userId];
+  const now = Date.now();
+  const session: WorkspaceSession = {
+    userId,
+    name: profile?.name || userId,
+    role: profile?.role || "Internal Sales",
+    isAdmin: profile?.isAdmin === true,
+    issuedAt: now,
+    expiresAt: now + SESSION_TTL_MS
+  };
+  const token = randomBytes(32).toString("hex");
+  sessions.set(token, session);
+  return { token, session };
+}
+
+function readSession(req: express.Request): WorkspaceSession | null {
+  const header = String(req.headers.authorization || "");
+  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  if (!token) return null;
+  const session = sessions.get(token);
+  if (!session) return null;
+  if (session.expiresAt < Date.now()) {
+    sessions.delete(token);
+    return null;
+  }
+  return session;
+}
+
+/** Gate for endpoints that must know who is calling. */
+function requireSession(
+  req: express.Request,
+  res: express.Response
+): WorkspaceSession | null {
+  const session = readSession(req);
+  if (!session) {
+    res.status(401).json({ error: "Sign in again — this action requires a verified profile." });
+    return null;
+  }
+  return session;
+}
+
 app.post("/api/auth/verify-profile", (req, res) => {
   const userId = String(req.body?.userId || "");
   const pin = String(req.body?.pin || "");
@@ -106,7 +172,34 @@ app.post("/api/auth/verify-profile", (req, res) => {
   }
 
   authAttempts.delete(key);
-  return res.json({ success: true, userId });
+  const { token, session } = issueSession(userId);
+  return res.json({
+    success: true,
+    userId,
+    token,
+    // The client renders these; the server does not trust them coming back.
+    profile: { name: session.name, role: session.role, isAdmin: session.isAdmin },
+    expiresAt: session.expiresAt
+  });
+});
+
+app.post("/api/auth/sign-out", (req, res) => {
+  const header = String(req.headers.authorization || "");
+  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  if (token) sessions.delete(token);
+  return res.json({ success: true });
+});
+
+app.get("/api/auth/session", (req, res) => {
+  const session = readSession(req);
+  if (!session) return res.status(401).json({ error: "No active session." });
+  return res.json({
+    userId: session.userId,
+    name: session.name,
+    role: session.role,
+    isAdmin: session.isAdmin,
+    expiresAt: session.expiresAt
+  });
 });
 
 // Raised when the AI cannot be reached or is not configured. Callers must surface
@@ -2952,27 +3045,24 @@ const DOCUMENT_APPROVER_ROLES = new Set([
 
 app.post("/api/controlled-documents/:id/approve", async (req, res) => {
   try {
+    // Identity comes from the verified session, never from the request body.
+    // Taking `approvedBy` / `approverIsAdmin` off the wire meant any caller
+    // could assert authority and stamp someone else's name on the record.
+    const session = requireSession(req, res);
+    if (!session) return;
+
     const { id } = req.params;
-    const approvedBy = String(req.body?.approvedBy || "").trim();
-    const approverRole = String(req.body?.approverRole || "").trim();
-    const isAdmin = req.body?.approverIsAdmin === true;
     const { supersedesDocId } = req.body || {};
 
-    if (!approvedBy || !approverRole) {
-      return res.status(400).json({
-        error: "The approving user's name and role are required to record an approval."
-      });
-    }
-
-    if (!isAdmin && !DOCUMENT_APPROVER_ROLES.has(approverRole.toLowerCase())) {
+    if (!session.isAdmin && !DOCUMENT_APPROVER_ROLES.has(session.role.toLowerCase())) {
       return res.status(403).json({
-        error: `${approverRole} is not authorised to approve controlled documents. Ask an engineering lead or workspace admin to approve this revision.`
+        error: `${session.role} is not authorised to approve controlled documents. Ask an engineering lead or workspace admin to approve this revision.`
       });
     }
 
     const approved = await documentGovernanceStore.approveDocument(
       id,
-      `${approvedBy} (${approverRole})`,
+      `${session.name} (${session.role})`,
       supersedesDocId
     );
     if (!approved) return res.status(404).json({ error: "Document not found" });

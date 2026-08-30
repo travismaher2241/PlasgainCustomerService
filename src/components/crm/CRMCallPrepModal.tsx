@@ -206,7 +206,7 @@ export const CRMCallPrepModal: React.FC = () => {
                   <span className="text-ink-faint">·</span>
                   <span>
                     <strong className="capitalize text-body">{act.type}:</strong> {act.title}{" "}
-                    {act.date && <span className="text-ink-faint">({act.date})</span>}
+                    {act.timestamp && <span className="text-ink-faint">({new Date(act.timestamp).toLocaleDateString("en-AU", { day: "numeric", month: "short" })})</span>}
                   </span>
                 </div>
               ))}
