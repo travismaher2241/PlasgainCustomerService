@@ -821,7 +821,7 @@ export const CRMAccountsView: React.FC = () => {
                   )}
 
                   {/* Health Reasons */}
-                  {selectedAccount.healthReasons && selectedAccount.healthReasons.length > 0 && (
+                  {Array.isArray(selectedAccount.healthReasons) && selectedAccount.healthReasons.length > 0 && (
                     <div className="p-4 bg-hold-wash rounded-edge border border-hold">
                       <div className="text-meta font-bold text-hold mb-1.5 flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5 text-hold" />
@@ -880,7 +880,7 @@ export const CRMAccountsView: React.FC = () => {
                   <div>
                     <div className="text-meta font-bold mb-2">Account Tags & Classifications</div>
                     <div className="flex flex-wrap gap-1.5">
-                      {selectedAccount.tags.map((tag, idx) => (
+                      {(selectedAccount.tags || []).map((tag, idx) => (
                         <span key={idx} className="px-2.5 py-1 bg-paper border border-line rounded-edge text-meta font-medium">
                           {tag}
                         </span>
@@ -1015,7 +1015,7 @@ export const CRMAccountsView: React.FC = () => {
                             </div>
                           </div>
 
-                          {contact.tags && contact.tags.length > 0 && (
+                          {Array.isArray(contact.tags) && contact.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1 pt-1">
                               {contact.tags.map((t, idx) => (
                                 <span key={idx} className="text-spec px-2 py-0.5 bg-paper text-ink-dim rounded-edge">
@@ -1204,7 +1204,7 @@ export const CRMAccountsView: React.FC = () => {
                               <CheckCircle2 className="w-4 h-4 text-brand-deep" />
                               Confirmed Technical Requirements
                             </div>
-                            {aiSummary.knownRequirements && aiSummary.knownRequirements.length > 0 ? (
+                            {Array.isArray(aiSummary.knownRequirements) && aiSummary.knownRequirements.length > 0 ? (
                               <ul className="space-y-1 pl-4 list-disc text-spec">
                                 {aiSummary.knownRequirements.map((req, i) => (
                                   <li key={i}>{req}</li>
@@ -1221,7 +1221,7 @@ export const CRMAccountsView: React.FC = () => {
                               <TrendingUp className="w-4 h-4 text-brand-deep" />
                               Commercial &amp; Competitor Intelligence
                             </div>
-                            {aiSummary.commercialIntelligence && aiSummary.commercialIntelligence.length > 0 ? (
+                            {Array.isArray(aiSummary.commercialIntelligence) && aiSummary.commercialIntelligence.length > 0 ? (
                               <ul className="space-y-1 pl-4 list-disc text-spec">
                                 {aiSummary.commercialIntelligence.map((intel, i) => (
                                   <li key={i}>{intel}</li>
@@ -1234,7 +1234,7 @@ export const CRMAccountsView: React.FC = () => {
                         </div>
 
                         {/* Risks Matrix */}
-                        {aiSummary.risks && aiSummary.risks.length > 0 && (
+                        {Array.isArray(aiSummary.risks) && aiSummary.risks.length > 0 && (
                           <div className="p-4 bg-raised rounded-edge border border-line space-y-2 text-meta">
                             <div className="font-bold text-urgent flex items-center gap-1.5">
                               <AlertTriangle className="w-4 h-4" />
@@ -1254,7 +1254,7 @@ export const CRMAccountsView: React.FC = () => {
                         )}
 
                         {/* Recommended Next Actions */}
-                        {aiSummary.recommendedNextActions && aiSummary.recommendedNextActions.length > 0 && (
+                        {Array.isArray(aiSummary.recommendedNextActions) && aiSummary.recommendedNextActions.length > 0 && (
                           <div className="p-4 bg-raised rounded-edge border border-line space-y-2 text-meta">
                             <div className="font-bold text-brand-deep flex items-center gap-1.5">
                               <Sparkles className="w-4 h-4" />

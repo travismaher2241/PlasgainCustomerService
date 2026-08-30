@@ -506,7 +506,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                 </button>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {formData.tags.map((tag) => (
+                {(formData.tags || []).map((tag) => (
                   <span
                     key={tag}
                     className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-meta font-semibold bg-brand-wash text-brand-deep border border-brand-edge"

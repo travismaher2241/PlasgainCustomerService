@@ -479,7 +479,7 @@ export const CRMLeadsView: React.FC = () => {
               </div>
 
               <div className="space-y-1.5 text-meta">
-                {selectedLead.scoringFactors?.map((f, idx) => (
+                {(Array.isArray(selectedLead.scoringFactors) ? selectedLead.scoringFactors : []).map((f, idx) => (
                   <div key={idx} className="flex items-center justify-between bg-white p-2 rounded-edge border border-hold/70 text-body">
                     <span className="font-medium">{f.factor} ({f.reason})</span>
                     <span className="font-bold text-brand-deep">+{f.scoreDelta} pts</span>

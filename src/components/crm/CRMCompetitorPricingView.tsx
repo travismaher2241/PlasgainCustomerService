@@ -66,13 +66,15 @@ export const CRMCompetitorPricingView: React.FC = () => {
 
   // Unique Competitor List for Filter
   const uniqueCompetitors = useMemo(() => {
-    const set = new Set(competitorPricingRecords.map((r) => r.competitorName));
+    const records = Array.isArray(competitorPricingRecords) ? competitorPricingRecords : [];
+    const set = new Set(records.map((r) => r.competitorName));
     return Array.from(set).sort();
   }, [competitorPricingRecords]);
 
   // Filtered Records
   const filteredRecords = useMemo(() => {
-    return competitorPricingRecords.filter((r) => {
+    const records = Array.isArray(competitorPricingRecords) ? competitorPricingRecords : [];
+    return records.filter((r) => {
       const q = searchQuery.toLowerCase();
       const matchesSearch =
         r.competitorName.toLowerCase().includes(q) ||

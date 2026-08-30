@@ -364,7 +364,7 @@ export const CRMPipelineView: React.FC = () => {
             className="text-spec font-medium text-ink bg-paper border border-line rounded-edge px-2.5 py-1.5 focus:outline-none focus:border-brand-deep cursor-pointer"
           >
             <option value="all">All Stages</option>
-            {currentPipeline.stages.map((s) => (
+            {(currentPipeline?.stages || []).map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name}
               </option>
@@ -442,7 +442,7 @@ export const CRMPipelineView: React.FC = () => {
                         aria-label={`Change stage for ${deal.name}`}
                         className="text-spec font-bold text-ink bg-paper hover:bg-raised border border-line rounded px-2 py-1 cursor-pointer focus:outline-none focus:border-brand-deep"
                       >
-                        {currentPipeline.stages.map((s) => (
+                        {(currentPipeline?.stages || []).map((s) => (
                           <option key={s.id} value={s.id}>
                             {s.name} ({s.probability}%)
                           </option>
@@ -1027,7 +1027,7 @@ export const CRMPipelineView: React.FC = () => {
               <div className="text-spec text-ink-dim">
                 Action Due: <span className="font-semibold text-body">{selectedDeal.nextActionDate}</span>
               </div>
-              {selectedDeal.dealHealthReasons && (
+              {Array.isArray(selectedDeal.dealHealthReasons) && selectedDeal.dealHealthReasons.length > 0 && (
                 <div className="text-spec text-ink-dim pt-1 space-y-1">
                   <strong className="text-body block">Deal Health Rationale:</strong>
                   <ul className="list-disc list-inside space-y-0.5">
@@ -1720,7 +1720,7 @@ export const CRMPipelineView: React.FC = () => {
                       onChange={(e) => setNewDealForm({ ...newDealForm, stageId: e.target.value })}
                       className="w-full px-3.5 py-2.5 bg-surface border border-line-strong rounded-edge text-body text-ink focus:outline-none focus:border-brand-deep cursor-pointer"
                     >
-                      {currentPipeline.stages.map((s) => (
+                      {(currentPipeline?.stages || []).map((s) => (
                         <option key={s.id} value={s.id}>
                           {s.name} ({s.probability}%)
                         </option>

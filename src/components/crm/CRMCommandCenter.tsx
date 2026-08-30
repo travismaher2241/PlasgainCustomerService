@@ -10,6 +10,7 @@ import {
   Phone
 } from "lucide-react";
 import { useApp, CRMSubTab } from "../../context/AppContext";
+import { ErrorBoundary } from "../ErrorBoundary";
 
 const CRMTodayWorkspace = lazy(() => import("./CRMTodayWorkspace").then(m => ({ default: m.CRMTodayWorkspace })));
 const CRMAccountsView = lazy(() => import("./CRMAccountsView").then(m => ({ default: m.CRMAccountsView })));
@@ -298,20 +299,22 @@ export const CRMCommandCenter: React.FC = () => {
 
       {/* Main CRM Tab View Render */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-5 w-full min-w-0">
-        <Suspense
-          fallback={
-            <div className="flex items-center justify-center min-h-[300px] w-full">
-              <div className="w-7 h-7 border-3 border-brand-deep border-t-transparent rounded-full animate-spin"></div>
-            </div>
-          }
-        >
-          {activeCRMTab === "today" && <CRMTodayWorkspace />}
-          {activeCRMTab === "accounts" && <CRMAccountsView />}
-          {activeCRMTab === "pipeline" && <CRMPipelineView />}
-          {activeCRMTab === "leads" && <CRMLeadsView />}
-          {activeCRMTab === "tasks" && <CRMTasksActivitiesView />}
-          {activeCRMTab === "competitor-pricing" && <CRMCompetitorPricingView />}
-        </Suspense>
+        <ErrorBoundary area="This CRM tab" resetKey={activeCRMTab}>
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center min-h-[300px] w-full">
+                <div className="w-7 h-7 border-3 border-brand-deep border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            }
+          >
+            {activeCRMTab === "today" && <CRMTodayWorkspace />}
+            {activeCRMTab === "accounts" && <CRMAccountsView />}
+            {activeCRMTab === "pipeline" && <CRMPipelineView />}
+            {activeCRMTab === "leads" && <CRMLeadsView />}
+            {activeCRMTab === "tasks" && <CRMTasksActivitiesView />}
+            {activeCRMTab === "competitor-pricing" && <CRMCompetitorPricingView />}
+          </Suspense>
+        </ErrorBoundary>
       </div>
     </div>
   );
