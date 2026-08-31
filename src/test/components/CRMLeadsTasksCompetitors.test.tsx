@@ -1,0 +1,210 @@
+import React from 'react';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { CRMLeadsView } from '../../components/crm/CRMLeadsView';
+import { CRMTasksActivitiesView } from '../../components/crm/CRMTasksActivitiesView';
+import { CRMCompetitorPricingView } from '../../components/crm/CRMCompetitorPricingView';
+import { AppProvider, useApp } from '../../context/AppContext';
+
+const testCompetitorRecords = [
+  {
+    id: "comp-1",
+    accountId: "acc-1",
+    accountName: "Wyndham Civil Group",
+    competitorName: "Orca Solar",
+    competitorProduct: "Vertex 60W Solar Column",
+    price: 2100,
+    currency: "AUD",
+    priceBasis: "Per Unit",
+    gstStatus: "Ex GST",
+    sourceType: "Customer Verbal",
+    observedDate: "2026-08-20",
+    notes: "Quoted on 6m column",
+    status: "Active",
+    createdBy: "Travis Maher"
+  },
+  {
+    id: "comp-2",
+    accountId: "acc-2",
+    accountName: "Legacy Observation",
+    competitorName: "Leadsun",
+    competitorProduct: "AE3 Series (Superseded Model)",
+    price: 1800,
+    currency: "AUD",
+    priceBasis: "Per Unit",
+    gstStatus: "Ex GST",
+    sourceType: "Public Tender Schedule",
+    observedDate: "2025-05-10",
+    notes: "Old generation model",
+    status: "Superseded",
+    createdBy: "Travis Maher"
+  }
+];
+
+const LeadsTestWrapper: React.FC = () => {
+  const { addLead } = useApp();
+
+  React.useEffect(() => {
+    addLead({
+      id: "lead-test-1",
+      leadName: "Cardinia Shire Lighting Upgrade",
+      contactName: "David Miller",
+      contactEmail: "david.miller@cardinia.vic.gov.au",
+      contactPhone: "03 5945 0000",
+      company: "Cardinia Shire Council",
+      source: "Web Form",
+      enquiryType: "Solar Pathway Lighting",
+      leadStatus: "New",
+      leadScore: 85,
+      scoringFactors: ["Verified company organisation", "High intent scope", "Direct phone provided"],
+      estimatedValue: 42000,
+      estimatedValueBasis: "Estimate",
+      territory: "VIC/TAS",
+      productInterest: ["Plasgain Pro Blade 75"],
+      location: "VIC",
+      notes: "Enquiry for 16 composite solar lights on community shared trail.",
+      nextAction: "Schedule technical consultation with council engineer",
+      nextActionDate: "2026-09-05",
+      createdAt: "2026-08-28"
+    });
+  }, []);
+
+  return <CRMLeadsView />;
+};
+
+const TasksTestWrapper: React.FC = () => {
+  const { addTask, logActivity } = useApp();
+
+  React.useEffect(() => {
+    addTask({
+      id: "task-1",
+      title: "Review footing design for cyclone Region C",
+      type: "Review",
+      dueDate: "2026-09-10",
+      priority: "High",
+      status: "Pending",
+      assignedTo: "Travis Maher",
+      accountName: "Townsville City Council",
+      notes: "Confirm embedment depths with structural team."
+    });
+
+    addTask({
+      id: "task-2",
+      title: "Archived historical task",
+      type: "Call",
+      dueDate: "2026-08-01",
+      priority: "Normal",
+      status: "Completed",
+      assignedTo: "Travis Maher"
+    });
+
+    logActivity({
+      type: "meeting",
+      title: "Design alignment meeting with Cardinia Shire",
+      description: "Discussed Cat P4 requirements and confirmed 6m pole heights with zero glare optics.",
+      accountName: "Cardinia Shire Council",
+      performedBy: "Travis Maher"
+    });
+  }, []);
+
+  return <CRMTasksActivitiesView />;
+};
+
+describe("CRM Leads, Tasks, Activity & Competitor Pricing Suite (Step 6)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("Test 1 — Leads view uses 'Leads' title, 'Add lead' action, and collapses score details", () => {
+    render(
+      <AppProvider>
+        <LeadsTestWrapper />
+      </AppProvider>
+    );
+
+    expect(screen.getByRole('heading', { level: 1, name: "Leads" })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Add lead/i })).toBeInTheDocument();
+
+    // Lead row
+    expect(screen.getAllByText("Cardinia Shire Council").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Score 85")).toBeInTheDocument();
+
+    // Next Action near top
+    expect(screen.getAllByText(/Schedule technical consultation with council engineer/i).length).toBeGreaterThanOrEqual(1);
+
+    // Why this score? disclosure
+    const whyScoreBtn = screen.getByRole('button', { name: /Why this score\?/i });
+    expect(whyScoreBtn).toBeInTheDocument();
+    fireEvent.click(whyScoreBtn);
+    expect(screen.getByText(/Verified company organisation/i)).toBeInTheDocument();
+  });
+
+  it("Test 2 — Tasks view hides bulk checkboxes by default and reveals them in Select mode", () => {
+    render(
+      <AppProvider>
+        <TasksTestWrapper />
+      </AppProvider>
+    );
+
+    expect(screen.getByRole('heading', { level: 1, name: "Tasks" })).toBeInTheDocument();
+
+    // In normal mode, selection checkboxes are not present
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+
+    // Open task is visible, completed task is filtered out by default
+    expect(screen.getByText("Review footing design for cyclone Region C")).toBeInTheDocument();
+    expect(screen.queryByText("Archived historical task")).not.toBeInTheDocument();
+
+    // Toggle Select mode
+    const selectModeBtn = screen.getByRole('button', { name: /Select Tasks/i });
+    fireEvent.click(selectModeBtn);
+
+    // Selection checkbox appears
+    expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(0);
+  });
+
+  it("Test 3 — Activity log displays grouped items and expandable note preview", () => {
+    render(
+      <AppProvider>
+        <TasksTestWrapper />
+      </AppProvider>
+    );
+
+    // Switch to Activity Log sub-tab
+    const activityLogTab = screen.getByRole('button', { name: /Activity Log/i });
+    fireEvent.click(activityLogTab);
+
+    expect(screen.getByText("Design alignment meeting with Cardinia Shire")).toBeInTheDocument();
+    expect(screen.getByText(/Discussed Cat P4 requirements and confirmed 6m pole heights/i)).toBeInTheDocument();
+  });
+
+  it("Test 4 — Competitor pricing defaults to Current records and preserves commercial evidence", () => {
+    localStorage.setItem("plasgain_competitor_pricing", JSON.stringify(testCompetitorRecords));
+
+    render(
+      <AppProvider>
+        <CRMCompetitorPricingView />
+      </AppProvider>
+    );
+
+    expect(screen.getByRole('heading', { level: 1, name: "Competitor pricing" })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Add competitor price/i })).toBeInTheDocument();
+
+    // Active record visible
+    expect(screen.getAllByText("Orca Solar").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Vertex 60W Solar Column")).toBeInTheDocument();
+    expect(screen.getByText(/\$2,100/i)).toBeInTheDocument();
+    expect(screen.getByText("Per Unit")).toBeInTheDocument();
+    expect(screen.getByText("Ex GST")).toBeInTheDocument();
+
+    // Superseded record filtered out by default
+    expect(screen.queryByText("AE3 Series (Superseded Model)")).not.toBeInTheDocument();
+
+    // Switch to Superseded filter
+    const supersededFilterBtn = screen.getByRole('button', { name: "Superseded" });
+    fireEvent.click(supersededFilterBtn);
+
+    expect(screen.getAllByText("Leadsun").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("AE3 Series (Superseded Model)")).toBeInTheDocument();
+  });
+});

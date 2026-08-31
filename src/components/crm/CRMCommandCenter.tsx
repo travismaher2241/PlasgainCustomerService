@@ -7,17 +7,30 @@ import {
   CheckCircle2,
   TrendingUp,
   ChevronDown,
-  Phone
+  Phone,
+  Plus
 } from "lucide-react";
 import { useApp, CRMSubTab } from "../../context/AppContext";
 import { ErrorBoundary } from "../ErrorBoundary";
 
-const CRMTodayWorkspace = lazy(() => import("./CRMTodayWorkspace").then(m => ({ default: m.CRMTodayWorkspace })));
-const CRMAccountsView = lazy(() => import("./CRMAccountsView").then(m => ({ default: m.CRMAccountsView })));
-const CRMPipelineView = lazy(() => import("./CRMPipelineView").then(m => ({ default: m.CRMPipelineView })));
-const CRMLeadsView = lazy(() => import("./CRMLeadsView").then(m => ({ default: m.CRMLeadsView })));
-const CRMTasksActivitiesView = lazy(() => import("./CRMTasksActivitiesView").then(m => ({ default: m.CRMTasksActivitiesView })));
-const CRMCompetitorPricingView = lazy(() => import("./CRMCompetitorPricingView").then(m => ({ default: m.CRMCompetitorPricingView })));
+const CRMTodayWorkspace = lazy(() =>
+  import("./CRMTodayWorkspace").then((m) => ({ default: m.CRMTodayWorkspace }))
+);
+const CRMAccountsView = lazy(() =>
+  import("./CRMAccountsView").then((m) => ({ default: m.CRMAccountsView }))
+);
+const CRMPipelineView = lazy(() =>
+  import("./CRMPipelineView").then((m) => ({ default: m.CRMPipelineView }))
+);
+const CRMLeadsView = lazy(() =>
+  import("./CRMLeadsView").then((m) => ({ default: m.CRMLeadsView }))
+);
+const CRMTasksActivitiesView = lazy(() =>
+  import("./CRMTasksActivitiesView").then((m) => ({ default: m.CRMTasksActivitiesView }))
+);
+const CRMCompetitorPricingView = lazy(() =>
+  import("./CRMCompetitorPricingView").then((m) => ({ default: m.CRMCompetitorPricingView }))
+);
 
 export const CRMCommandCenter: React.FC = () => {
   const {
@@ -46,138 +59,166 @@ export const CRMCommandCenter: React.FC = () => {
   }, []);
 
   const overdueCount = tasks.filter(
-    (t) => t.status !== "Completed" && t.status !== "Cancelled" && t.dueDate < new Date().toISOString().split("T")[0]
+    (t) =>
+      t.status !== "Completed" &&
+      t.status !== "Cancelled" &&
+      t.dueDate < new Date().toISOString().split("T")[0]
   ).length;
 
   const hotLeadsCount = leads.filter(
-    (l) => l.leadStatus !== "Converted" && l.leadStatus !== "Unqualified" && l.leadScore >= 70
+    (l) =>
+      l.leadStatus !== "Converted" &&
+      l.leadStatus !== "Unqualified" &&
+      l.leadScore >= 70
   ).length;
 
-  const isMoreTabActive = activeCRMTab === "leads" || activeCRMTab === "tasks" || activeCRMTab === "competitor-pricing";
+  const isMoreTabActive =
+    activeCRMTab === "leads" ||
+    activeCRMTab === "tasks" ||
+    activeCRMTab === "competitor-pricing";
 
   return (
     <div className="min-h-screen bg-raised w-full min-w-0 overflow-x-hidden">
-      {/* Top CRM Navigation Bar - No Horizontal Swiping */}
+      {/* Top CRM Navigation Bar */}
       <div className="bg-white border-b border-line sticky top-0 z-20 shadow-2xs w-full min-w-0">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 w-full min-w-0">
-          <div className="flex items-center justify-between h-11 w-full min-w-0">
-            
-            {/* Unified Responsive CRM Destination Navigation */}
-            <div className="flex items-center gap-1 sm:gap-1.5 py-1 min-w-0 w-full sm:w-auto">
-              {/* 1. Today's Focus (Always visible) */}
+          <div className="flex items-center justify-between h-11 w-full min-w-0 gap-2">
+            {/* Unified Standardised CRM Navigation (PART A) */}
+            <nav
+              aria-label="CRM Navigation"
+              className="flex items-center gap-1 sm:gap-1.5 py-1 min-w-0 overflow-x-auto scrollbar-none"
+            >
+              {/* 1. Today */}
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeCRMTab === "today"}
                 onClick={() => setActiveCRMTab("today")}
-                className={`flex-1 sm:flex-none px-2 sm:px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center justify-center sm:justify-start gap-1 sm:gap-1.5 shrink-0 cursor-pointer ${
+                className={`px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "today"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <Sun className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden sm:inline">Today's Focus</span>
-                <span className="sm:hidden text-[12px]">Today</span>
+                <span>Today</span>
                 {nextBestActions.length > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeCRMTab === "today" ? "bg-chrome text-white font-semibold" : "bg-line text-ink font-semibold"}`}>
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                      activeCRMTab === "today"
+                        ? "bg-chrome text-white font-semibold"
+                        : "bg-line text-ink font-semibold"
+                    }`}
+                  >
                     {nextBestActions.length}
                   </span>
                 )}
               </button>
 
-              {/* 2. Accounts (Always visible) */}
+              {/* 2. Accounts */}
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeCRMTab === "accounts"}
                 onClick={() => setActiveCRMTab("accounts")}
-                className={`flex-1 sm:flex-none px-2 sm:px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center justify-center sm:justify-start gap-1 sm:gap-1.5 shrink-0 cursor-pointer ${
+                className={`px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "accounts"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <Building2 className="w-3.5 h-3.5 shrink-0" />
-                <span className="text-[12px] sm:text-spec">Accounts</span>
-                {accounts.length > 0 && (
-                  <span className="hidden sm:inline text-[11px] opacity-80">({accounts.length})</span>
-                )}
+                <span>Accounts</span>
               </button>
 
-              {/* 3. Deals Pipeline (Always visible) */}
+              {/* 3. Deals */}
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeCRMTab === "pipeline"}
                 onClick={() => setActiveCRMTab("pipeline")}
-                className={`flex-1 sm:flex-none px-2 sm:px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center justify-center sm:justify-start gap-1 sm:gap-1.5 shrink-0 cursor-pointer ${
+                className={`px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "pipeline"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <Kanban className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden sm:inline">Deals Pipeline</span>
-                <span className="sm:hidden text-[12px]">Deals</span>
-                {crmOpportunities.filter((d) => d.stageId !== "stage-won" && d.stageId !== "stage-lost").length > 0 && (
-                  <span className="hidden sm:inline text-[11px] opacity-80">
-                    ({crmOpportunities.filter((d) => d.stageId !== "stage-won" && d.stageId !== "stage-lost").length})
-                  </span>
-                )}
+                <span>Deals</span>
               </button>
 
-              {/* 4. Leads Hub (Desktop only; on Mobile lives in More) */}
+              {/* 4. Leads (Desktop) */}
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeCRMTab === "leads"}
                 onClick={() => setActiveCRMTab("leads")}
-                className={`hidden lg:flex px-2.5 py-1 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer ${
+                className={`hidden md:flex px-2.5 py-1 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "leads"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <Flame className="w-3.5 h-3.5 shrink-0" />
-                <span>Leads Hub</span>
+                <span>Leads</span>
                 {hotLeadsCount > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeCRMTab === "leads" ? "bg-chrome text-white font-semibold" : "bg-line text-ink font-semibold"}`}>
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                      activeCRMTab === "leads"
+                        ? "bg-chrome text-white font-semibold"
+                        : "bg-line text-ink font-semibold"
+                    }`}
+                  >
                     {hotLeadsCount}
                   </span>
                 )}
               </button>
 
-              {/* 5. Direct Desktop Tab: Tasks & Log */}
+              {/* 5. Tasks (Desktop) */}
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeCRMTab === "tasks"}
                 onClick={() => setActiveCRMTab("tasks")}
-                className={`hidden lg:flex px-2.5 py-1 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer ${
+                className={`hidden md:flex px-2.5 py-1 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "tasks"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                <span>Tasks &amp; Log</span>
+                <span>Tasks</span>
                 {overdueCount > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${activeCRMTab === "tasks" ? "bg-chrome text-white font-semibold" : "bg-line text-ink font-semibold"}`}>
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                      activeCRMTab === "tasks"
+                        ? "bg-chrome text-white font-semibold"
+                        : "bg-urgent text-white font-semibold"
+                    }`}
+                  >
                     {overdueCount}
                   </span>
                 )}
               </button>
 
-              {/* 6. Direct Desktop Tab: Competitor Intel */}
+              {/* 6. Competitors (Desktop) */}
               <button
                 type="button"
+                role="tab"
+                aria-selected={activeCRMTab === "competitor-pricing"}
                 onClick={() => setActiveCRMTab("competitor-pricing")}
-                className={`hidden lg:flex px-2.5 py-1 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer ${
+                className={`hidden md:flex px-2.5 py-1 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "competitor-pricing"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <TrendingUp className="w-3.5 h-3.5 shrink-0" />
-                <span>Competitor Intel</span>
-                {competitorPricingRecords.length > 0 && (
-                  <span className="text-[11px] opacity-80">({competitorPricingRecords.length})</span>
-                )}
+                <span>Competitors</span>
               </button>
 
-              {/* Mobile / Tablet Responsive More Menu (< 1024px) */}
-              <div className="relative lg:hidden shrink-0" ref={moreMenuRef}>
+              {/* Mobile More dropdown (< 768px) */}
+              <div className="relative md:hidden shrink-0" ref={moreMenuRef}>
                 <button
                   type="button"
                   onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
@@ -189,20 +230,20 @@ export const CRMCommandCenter: React.FC = () => {
                   aria-expanded={isMoreMenuOpen}
                   aria-label="More CRM destinations"
                 >
-                  <span className="text-[12px] sm:text-spec">
+                  <span className="text-spec">
                     {activeCRMTab === "leads"
                       ? "Leads"
                       : activeCRMTab === "tasks"
                       ? "Tasks"
                       : activeCRMTab === "competitor-pricing"
-                      ? "Intel"
+                      ? "Competitors"
                       : "More"}
                   </span>
                   <ChevronDown className="w-3 h-3 shrink-0" />
                 </button>
 
                 {isMoreMenuOpen && (
-                  <div className="absolute right-0 top-full mt-1 w-52 max-w-[calc(100vw-24px)] bg-surface rounded-edge border border-line shadow-lg py-1 z-30 text-spec">
+                  <div className="absolute right-0 top-full mt-1 w-48 bg-surface rounded-edge border border-line shadow-lg py-1 z-30 text-spec">
                     <button
                       type="button"
                       onClick={() => {
@@ -210,15 +251,17 @@ export const CRMCommandCenter: React.FC = () => {
                         setIsMoreMenuOpen(false);
                       }}
                       className={`w-full px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
-                        activeCRMTab === "leads" ? "bg-brand-wash text-brand-deep font-bold" : "text-ink hover:bg-hover"
+                        activeCRMTab === "leads"
+                          ? "bg-brand-wash text-brand-deep font-bold"
+                          : "text-ink hover:bg-hover"
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <Flame className="w-3.5 h-3.5 text-brand-deep shrink-0" />
-                        <span className="truncate">Leads Hub</span>
+                        <span>Leads</span>
                       </div>
                       {hotLeadsCount > 0 && (
-                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-brand-deep text-white font-bold shrink-0 ml-1">
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-brand-deep text-white font-bold">
                           {hotLeadsCount}
                         </span>
                       )}
@@ -231,15 +274,17 @@ export const CRMCommandCenter: React.FC = () => {
                         setIsMoreMenuOpen(false);
                       }}
                       className={`w-full px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
-                        activeCRMTab === "tasks" ? "bg-brand-wash text-brand-deep font-bold" : "text-ink hover:bg-hover"
+                        activeCRMTab === "tasks"
+                          ? "bg-brand-wash text-brand-deep font-bold"
+                          : "text-ink hover:bg-hover"
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <CheckCircle2 className="w-3.5 h-3.5 text-brand-deep shrink-0" />
-                        <span className="truncate">Tasks &amp; Log</span>
+                        <span>Tasks</span>
                       </div>
                       {overdueCount > 0 && (
-                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-urgent text-white font-bold shrink-0 ml-1">
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-urgent text-white font-bold">
                           {overdueCount}
                         </span>
                       )}
@@ -252,58 +297,45 @@ export const CRMCommandCenter: React.FC = () => {
                         setIsMoreMenuOpen(false);
                       }}
                       className={`w-full px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
-                        activeCRMTab === "competitor-pricing" ? "bg-brand-wash text-brand-deep font-bold" : "text-ink hover:bg-hover"
+                        activeCRMTab === "competitor-pricing"
+                          ? "bg-brand-wash text-brand-deep font-bold"
+                          : "text-ink hover:bg-hover"
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <TrendingUp className="w-3.5 h-3.5 text-brand-deep shrink-0" />
-                        <span className="truncate">Competitor Intel</span>
+                        <span>Competitors</span>
                       </div>
-                      <span className="text-[10px] font-bold text-ink-dim shrink-0 ml-1">
-                        {competitorPricingRecords.length}
-                      </span>
-                    </button>
-
-                    <div className="border-t border-line my-1"></div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        openQuickLog("call");
-                        setIsMoreMenuOpen(false);
-                      }}
-                      className="w-full px-3 py-2 text-left text-ink hover:bg-hover flex items-center gap-2 cursor-pointer font-bold text-brand-deep"
-                    >
-                      <Phone className="w-3.5 h-3.5 shrink-0" />
-                      <span className="truncate">Quick Log Interaction</span>
                     </button>
                   </div>
                 )}
               </div>
-            </div>
+            </nav>
 
-            {/* Quick Action Button on Desktop */}
-            <div className="hidden sm:flex items-center gap-2 shrink-0">
+            {/* Quick Log Action (Always visible) */}
+            <div className="shrink-0">
               <button
                 type="button"
-                onClick={() => openQuickLog("call")}
-                className="inline-flex items-center gap-1 px-2.5 py-1 text-spec font-semibold text-ink bg-paper hover:bg-raised border border-line rounded-edge transition-colors cursor-pointer"
+                onClick={() => openQuickLog({ isOpen: true, type: "call" })}
+                className="px-2.5 sm:px-3 py-1 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                title="Quick Log Call, Email, Meeting, or Note"
               >
-                <Phone className="w-3 h-3 text-brand-deep" />
-                <span>Quick Log</span>
+                <Phone className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Quick Log</span>
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main CRM Tab View Render */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-5 w-full min-w-0">
-        <ErrorBoundary area="This CRM tab" resetKey={activeCRMTab}>
+      {/* Main CRM Tab Content Area */}
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 w-full min-w-0">
+        <ErrorBoundary>
           <Suspense
             fallback={
-              <div className="flex items-center justify-center min-h-[300px] w-full">
-                <div className="w-7 h-7 border-3 border-brand-deep border-t-transparent rounded-full animate-spin"></div>
+              <div className="p-12 text-center text-spec text-ink-dim flex items-center justify-center gap-2">
+                <div className="w-5 h-5 border-2 border-brand-deep border-t-transparent rounded-full animate-spin"></div>
+                <span>Loading workspace...</span>
               </div>
             }
           >
@@ -315,7 +347,7 @@ export const CRMCommandCenter: React.FC = () => {
             {activeCRMTab === "competitor-pricing" && <CRMCompetitorPricingView />}
           </Suspense>
         </ErrorBoundary>
-      </div>
+      </main>
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Kanban,
   ListFilter,
@@ -20,10 +20,7 @@ import {
   ArrowRight,
   TrendingUp,
   Mail,
-  FileSpreadsheet,
-  Download,
-  Copy,
-  Trash2,
+  MoreVertical,
   Sliders,
   Tag,
   Check,
@@ -32,23 +29,13 @@ import {
   Phone,
   Zap,
   ClipboardCheck,
-  X
+  X,
+  Trash2,
+  Archive
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { CRMOpportunity, DealHealthRating, OpportunityProductLine } from "../../types/crm";
 import { CustomerFollowUpModal } from "../CustomerFollowUpModal";
-import { DatasheetPackageModal } from "../DatasheetPackageModal";
-import { SAMPLE_PRODUCTS } from "../../data/mockData";
-import { validateDealValue, ValueBasis } from "../../utils/dealValueValidator";
-import { detectDuplicateOpportunity, DuplicateMatchResult } from "../../utils/duplicateDetector";
-import { CRMDuplicateWarningModal } from "./CRMDuplicateWarningModal";
-import {
-  formatOstendoCSV,
-  formatOstendoTabDelimited,
-  validateOstendoItems,
-  downloadOstendoCSV,
-  copyOstendoProductList
-} from "../../utils/datasheetExporter";
 import { CRMDealDetailsWorkspace } from "./CRMDealDetailsWorkspace";
 
 export const CRMPipelineView: React.FC = () => {
@@ -56,6 +43,7 @@ export const CRMPipelineView: React.FC = () => {
     crmOpportunities,
     updateCrmOpportunity,
     addCrmOpportunity,
+    deleteCrmOpportunity,
     selectedCrmOpportunityId,
     setSelectedCrmOpportunityId,
     pipelines,
@@ -66,852 +54,433 @@ export const CRMPipelineView: React.FC = () => {
     openCallPrep,
     openEmailComposer,
     navigateToCRM,
-    logActivity,
-    addTask,
     currentUser,
     showToast
   } = useApp();
 
-  const [stageFilter, setStageFilter] = useState("all");
-  const [sortColumn, setSortColumn] = useState<string>("dealValue");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
-
-  const handleSort = (column: string) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
-    } else {
-      setSortColumn(column);
-      setSortDirection("desc");
-    }
-  };
   const [searchQuery, setSearchQuery] = useState("");
+  const [stageFilter, setStageFilter] = useState("all");
   const [healthFilter, setHealthFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<"active" | "closed" | "all">("active");
+  const [showWeightedValue, setShowWeightedValue] = useState(false);
+  const [activeMenuDealId, setActiveMenuDealId] = useState<string | null>(null);
+
+  // New Deal Modal State
   const [isNewDealModalOpen, setIsNewDealModalOpen] = useState(false);
-  const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
-  const [isDatasheetModalOpen, setIsDatasheetModalOpen] = useState(false);
-  const [duplicateMatch, setDuplicateMatch] = useState<DuplicateMatchResult<any> | null>(null);
-  const [pendingDealToCreate, setPendingDealToCreate] = useState<CRMOpportunity | null>(null);
-  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
-
-  // BOM Editor local state
-  const [isAddingBomLine, setIsAddingBomLine] = useState(false);
-  const [newBomLine, setNewBomLine] = useState<{
-    catalogId: string;
-    productCode: string;
-    productName: string;
-    category: string;
-    quantity: number;
-    unitPrice: number;
-    costPrice: number;
-    unit: string;
-  }>({
-    catalogId: "",
-    productCode: "50W-INTENSE",
-    productName: "Intense Light - 50W Solar",
-    category: "Solar Luminaire",
-    quantity: 10,
-    unitPrice: 1600,
-    costPrice: 1000,
-    unit: "ea"
-  });
-  const [targetMarginSlider, setTargetMarginSlider] = useState<number>(35);
-  const [showIncGst, setShowIncGst] = useState<boolean>(false);
-
-  // Active pipeline configuration
-  const currentPipeline = pipelines.find((p) => p.id === activePipelineId) || pipelines[0];
-
-  // Filtered opportunities
-  const filteredDeals = crmOpportunities.filter((deal) => {
-    const matchesPipeline = deal.pipelineId === activePipelineId;
-    const matchesSearch =
-      (deal.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (deal.accountName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (deal.projectApplication || "").toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesHealth = healthFilter === "all" || deal.dealHealth === healthFilter;
-    const matchesStage = stageFilter === "all" || deal.stageId === stageFilter;
-    return matchesPipeline && matchesSearch && matchesHealth && matchesStage;
-  });
-
-  // Sorted deals for table view
-  const sortedDeals = [...filteredDeals].sort((a, b) => {
-    let aVal: any = (a as any)[sortColumn] || "";
-    let bVal: any = (b as any)[sortColumn] || "";
-    if (typeof aVal === "string") aVal = aVal.toLowerCase();
-    if (typeof bVal === "string") bVal = bVal.toLowerCase();
-
-    if (aVal < bVal) return sortDirection === "asc" ? -1 : 1;
-    if (aVal > bVal) return sortDirection === "asc" ? 1 : -1;
-    return 0;
-  });
-
-  const totalTableValue = filteredDeals.reduce((sum, d) => sum + (d.dealValue || 0), 0);
-  const totalTableWeighted = filteredDeals.reduce((sum, d) => sum + (d.weightedValue || 0), 0);
-  const selectedDeal = crmOpportunities.find((d) => d.id === selectedCrmOpportunityId);
-
-  // New Deal Form State (P1: Zero Fabrication Defaults)
   const [newDealForm, setNewDealForm] = useState({
     name: "",
     accountId: accounts[0]?.id || "",
-    primaryContactName: "",
-    dealValue: "" as string | number,
-    unitPrice: "" as string | number,
-    quantity: "" as string | number,
-    valueBasis: "TOTAL" as ValueBasis,
-    commercialState: "Estimate" as "Known" | "Estimate" | "Unknown",
-    stageId: currentPipeline.stages[0]?.id || "stage-new",
-    projectApplication: "",
-    expectedCloseDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+    dealValue: 25000,
+    stageName: "Discovery & Qualification" as const,
+    expectedCloseDate: new Date(Date.now() + 45 * 86400000).toISOString().split("T")[0],
+    projectApplication: "Solar Public Lighting",
     notes: ""
   });
 
-  const dealValidation = React.useMemo(() => {
-    const rawVal = newDealForm.valueBasis === "PER_UNIT" ? Number(newDealForm.unitPrice) || 0 : Number(newDealForm.dealValue) || 0;
-    // A blank quantity must stay blank. Coercing it to 1 here is what let a
-    // per-unit price save as the whole project value.
-    const parsedQty = Number(newDealForm.quantity);
-    const qty = Number.isFinite(parsedQty) && parsedQty > 0 ? parsedQty : undefined;
-    return validateDealValue({
-      enteredValue: rawVal,
-      basis: newDealForm.valueBasis,
-      quantity: qty
-    });
-  }, [newDealForm.valueBasis, newDealForm.unitPrice, newDealForm.dealValue, newDealForm.quantity]);
+  const selectedDeal = crmOpportunities.find((d) => d.id === selectedCrmOpportunityId);
+
+  // If a deal is selected, render the completed Step 2 Deal Details Workspace!
+  if (selectedCrmOpportunityId && selectedDeal) {
+    return <CRMDealDetailsWorkspace deal={selectedDeal} onClose={() => setSelectedCrmOpportunityId(null)} />;
+  }
+
+  // Filter deals
+  const filteredDeals = crmOpportunities.filter((deal) => {
+    const isClosed = deal.stageName.includes("Won") || deal.stageName.includes("Lost") || deal.stageId === "stage-won" || deal.stageId === "stage-lost";
+    if (statusFilter === "active" && isClosed) return false;
+    if (statusFilter === "closed" && !isClosed) return false;
+
+    const matchesSearch =
+      deal.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (deal.accountName && deal.accountName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      deal.projectApplication?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesStage = stageFilter === "all" || deal.stageName === stageFilter || deal.stageId === stageFilter;
+    const matchesHealth = healthFilter === "all" || deal.dealHealth === healthFilter;
+
+    return matchesSearch && matchesStage && matchesHealth;
+  });
+
+  const totalValue = filteredDeals.reduce((sum, d) => sum + (d.dealValue || 0), 0);
+  const totalWeightedValue = filteredDeals.reduce((sum, d) => sum + (d.weightedValue || ((d.dealValue || 0) * (d.probability || 25)) / 100), 0);
 
   const handleCreateDeal = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDealForm.name.trim()) return;
-    if (!dealValidation.isValid) {
-      showToast(dealValidation.warningMessage || "Check the deal value before saving.", "error");
-      return;
-    }
 
-    const account = accounts.find((a) => a.id === newDealForm.accountId) || accounts[0] || {
-      id: `acc-cust-${Date.now()}`,
-      name: "Direct Commercial Client"
-    };
-    const stage = currentPipeline.stages.find((s) => s.id === newDealForm.stageId) || currentPipeline.stages[0];
-    const rawVal = newDealForm.valueBasis === "PER_UNIT" ? Number(newDealForm.unitPrice) : Number(newDealForm.dealValue);
-    const finalDealValue = isNaN(rawVal) || rawVal <= 0 ? 0 : dealValidation.effectiveTotal;
-    const commercialBasis = finalDealValue > 0 ? newDealForm.commercialState : "Unknown";
+    const acc = accounts.find((a) => a.id === newDealForm.accountId) || accounts[0];
 
     const newDeal: CRMOpportunity = {
       id: `opp-${Date.now()}`,
       name: newDealForm.name,
-      accountId: account.id,
-      accountName: account.name,
-      primaryContactId: `con-${Date.now()}`,
-      // Left blank when unknown. Inventing "Project Engineer" put a name on the
-      // record that nobody at the customer answers to, and it flows into call
-      // briefings and email drafts.
-      primaryContactName: newDealForm.primaryContactName.trim(),
+      accountId: acc?.id || "acc-general",
+      accountName: acc?.name || "General Account",
       opportunityOwner: currentUser.name,
-      pipelineId: activePipelineId,
-      stageId: stage.id,
-      stageName: stage.name,
-      dealValue: finalDealValue,
-      dealValueBasis: commercialBasis,
-      weightedValue: (finalDealValue * stage.probability) / 100,
-      probability: stage.probability,
+      pipelineId: "pipe-major-projects",
+      stageId: "stage-discovery",
+      stageName: newDealForm.stageName,
+      dealValue: Number(newDealForm.dealValue) || 0,
+      weightedValue: (Number(newDealForm.dealValue) || 0) * 0.25,
+      probability: 25,
       forecastCategory: "Pipeline",
       expectedCloseDate: newDealForm.expectedCloseDate,
       products: [],
       projectApplication: newDealForm.projectApplication,
-      location: ("billingAddress" in account ? account.billingAddress?.city : undefined) || "Australia",
+      location: acc?.territory || "VIC",
       customerNeed: newDealForm.notes,
-      keyRequirements: [],
-      source: "Manual Ingestion",
-      latestActivity: "Deal created in CRM",
+      keyRequirements: ["Verify AS/NZS 1158 compliance"],
+      source: "Direct Sales Opportunity",
+      latestActivity: `Created by ${currentUser.name}`,
       latestActivityDate: new Date().toISOString().split("T")[0],
-      nextAction: "Perform technical requirements discovery",
-      nextActionDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      nextAction: "Initial scope consultation and photometric requirements",
+      nextActionDate: new Date().toISOString().split("T")[0],
       daysInCurrentStage: 0,
       totalDealAgeDays: 0,
       dealHealth: "Healthy",
-      dealHealthReasons: ["New opportunity with fresh timeline"],
+      dealHealthReasons: ["New opportunity"],
       notes: newDealForm.notes
     };
 
-    const duplicate = detectDuplicateOpportunity(
-      {
-        customerCompany: account.name,
-        project: newDealForm.name,
-        tenderRef: undefined
-      },
-      crmOpportunities.map((d) => ({
-        id: d.id,
-        customerCompany: d.accountName,
-        project: d.name,
-        quoteNumber: d.quoteNumber,
-        ostendoQuoteRef: d.ostendoQuoteRef,
-        status: d.stageName
-      } as any))
-    );
-
-    if (duplicate) {
-      setPendingDealToCreate(newDeal);
-      setDuplicateMatch(duplicate);
-      setIsDuplicateModalOpen(true);
-      return;
-    }
-
     addCrmOpportunity(newDeal);
-    setSelectedCrmOpportunityId(newDeal.id);
     setIsNewDealModalOpen(false);
+    showToast(`Deal "${newDeal.name}" created!`, "success");
   };
 
-  const handleStageChange = (dealId: string, newStageId: string) => {
-    const stage = currentPipeline.stages.find((s) => s.id === newStageId);
-    if (!stage) return;
-
-    const deal = crmOpportunities.find((d) => d.id === dealId);
-
-    updateCrmOpportunity(dealId, {
-      stageId: stage.id,
-      stageName: stage.name,
-      probability: stage.probability,
-      weightedValue: ((deal?.dealValue ?? 0) * stage.probability) / 100,
-      daysInCurrentStage: 0,
-      latestActivity: `Moved stage to ${stage.name}`,
-      latestActivityDate: new Date().toISOString().split("T")[0]
-    });
-  };
-
-  const getHealthBadge = (health: DealHealthRating) => {
+  const getHealthBadge = (health?: DealHealthRating) => {
     switch (health) {
       case "Healthy":
-        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-brand-wash text-brand-deep">Healthy</span>;
+        return <span className="px-2 py-0.2 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">Healthy</span>;
       case "Needs Attention":
-        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-soon-wash text-soon">Needs Attention</span>;
+        return <span className="px-2 py-0.2 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">Attention</span>;
       case "At Risk":
-        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-urgent-wash text-urgent">At Risk</span>;
-      case "Stalled":
-        return <span className="px-2 py-0.5 rounded-full text-spec font-semibold bg-hold-wash text-hold">Stalled</span>;
+        return <span className="px-2 py-0.2 rounded-full text-xs font-bold bg-red-50 text-red-800 border border-red-200">At Risk</span>;
+      default:
+        return <span className="px-2 py-0.2 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{health || "Normal"}</span>;
     }
   };
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-16 w-full min-w-0">
-      {/* 1. Page Header & Primary Action */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-line w-full min-w-0">
-        <div className="min-w-0 flex-1">
-          <h1 className="text-xl font-bold text-ink tracking-tight">Deals Pipeline</h1>
+      {/* HEADER & PIPELINE ACTIONS */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-body tracking-tight">Deals</h1>
           <p className="text-spec text-ink-dim mt-0.5">
-            Manage opportunities from enquiry through to close.
+            {filteredDeals.length} deals · Total pipeline: <strong>${totalValue.toLocaleString()} (Ex GST)</strong>
+            {showWeightedValue && <span> · Weighted: ${totalWeightedValue.toLocaleString()}</span>}
           </p>
         </div>
 
         <button
           type="button"
           onClick={() => setIsNewDealModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-spec font-bold text-white bg-brand-deep rounded-edge hover:bg-brand transition-colors shadow-2xs cursor-pointer self-start sm:self-auto"
+          className="px-4 py-2 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
-          <span>+ Add Deal</span>
+          <span>New deal</span>
         </button>
       </div>
 
-      {/* 2. Pipeline Selector & Filters Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-3 rounded-panel border border-line shadow-2xs">
-        <div className="flex items-center gap-2">
-          <span className="text-spec font-bold uppercase text-ink-dim shrink-0">Pipeline:</span>
-          <select
-            value={activePipelineId}
-            onChange={(e) => setActivePipelineId(e.target.value)}
-            aria-label="Select Pipeline"
-            className="text-spec font-bold text-ink bg-paper border border-line rounded-edge px-2.5 py-1.5 focus:outline-none focus:border-brand-deep cursor-pointer"
-          >
-            {pipelines.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap flex-1 md:justify-end">
-          <div className="flex items-center gap-1.5 bg-paper border border-line rounded-edge px-2.5 py-1.5 flex-1 max-w-xs">
-            <Search className="w-3.5 h-3.5 text-ink-faint shrink-0" />
+      {/* CONSOLIDATED TOOLBAR (PART C) */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white p-3 rounded-panel border border-line shadow-2xs">
+        <div className="flex items-center gap-2 flex-1 flex-wrap">
+          {/* SEARCH */}
+          <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+            <Search className="w-3.5 h-3.5 text-ink-dim absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search opportunities..."
+              placeholder="Search deals or accounts..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-spec bg-transparent focus:outline-none placeholder:text-ink-faint text-ink"
+              className="w-full pl-8 pr-3 py-1.5 text-spec border border-line rounded-edge bg-white placeholder:text-ink-dim/60 focus:border-brand-deep focus:ring-1 focus:ring-brand-deep"
             />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery("")} className="text-ink-dim hover:text-ink cursor-pointer">
-                <X className="w-3 h-3" />
-              </button>
-            )}
           </div>
 
+          {/* ACTIVE VS CLOSED SELECTOR */}
+          <div className="flex items-center rounded-edge border border-line overflow-hidden text-spec font-medium bg-paper/60">
+            <button
+              type="button"
+              onClick={() => setStatusFilter("active")}
+              className={`px-2.5 py-1 text-xs cursor-pointer ${
+                statusFilter === "active" ? "bg-chrome text-white font-bold" : "text-ink-dim hover:text-body"
+              }`}
+            >
+              Active
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("closed")}
+              className={`px-2.5 py-1 text-xs cursor-pointer ${
+                statusFilter === "closed" ? "bg-chrome text-white font-bold" : "text-ink-dim hover:text-body"
+              }`}
+            >
+              Closed
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter("all")}
+              className={`px-2.5 py-1 text-xs cursor-pointer ${
+                statusFilter === "all" ? "bg-chrome text-white font-bold" : "text-ink-dim hover:text-body"
+              }`}
+            >
+              All
+            </button>
+          </div>
+
+          {/* STAGE FILTER */}
           <select
+            aria-label="Filter by stage"
+            value={stageFilter}
+            onChange={(e) => setStageFilter(e.target.value)}
+            className="p-1.5 text-xs border border-line rounded-edge bg-white text-body font-medium"
+          >
+            <option value="all">All Stages</option>
+            <option value="Discovery & Qualification">Discovery</option>
+            <option value="Design & Compliance">Design</option>
+            <option value="Proposal & Quoting">Proposal</option>
+            <option value="Negotiation & Review">Negotiation</option>
+            <option value="Closed Won">Closed Won</option>
+            <option value="Closed Lost">Closed Lost</option>
+          </select>
+
+          {/* HEALTH FILTER */}
+          <select
+            aria-label="Filter by health"
             value={healthFilter}
             onChange={(e) => setHealthFilter(e.target.value)}
-            aria-label="Filter by Deal Health"
-            className="text-spec font-medium text-ink bg-paper border border-line rounded-edge px-2.5 py-1.5 focus:outline-none focus:border-brand-deep cursor-pointer"
+            className="p-1.5 text-xs border border-line rounded-edge bg-white text-body font-medium"
           >
-            <option value="all">All Deal Health</option>
+            <option value="all">All Health</option>
             <option value="Healthy">Healthy</option>
             <option value="Needs Attention">Needs Attention</option>
             <option value="At Risk">At Risk</option>
-            <option value="Stalled">Stalled</option>
-          </select>
-
-          <select
-            value={stageFilter}
-            onChange={(e) => setStageFilter(e.target.value)}
-            aria-label="Filter by Stage"
-            className="text-spec font-medium text-ink bg-paper border border-line rounded-edge px-2.5 py-1.5 focus:outline-none focus:border-brand-deep cursor-pointer"
-          >
-            <option value="all">All Stages</option>
-            {(currentPipeline?.stages || []).map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
           </select>
         </div>
+
+        {/* OPTIONAL WEIGHTED VALUE TOGGLE */}
+        <button
+          type="button"
+          onClick={() => setShowWeightedValue(!showWeightedValue)}
+          className="text-xs text-ink-dim hover:text-body font-medium underline self-end sm:self-auto cursor-pointer"
+        >
+          {showWeightedValue ? "Hide weighted value" : "Show weighted value"}
+        </button>
       </div>
 
-      {/* 3. Pure Table View (Canonical CRM View) */}
-      <div className="bg-white rounded-panel border border-line shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-meta">
-            <thead>
-              <tr className="bg-raised border-b border-line text-spec font-bold text-ink-dim uppercase select-none">
-                <th onClick={() => handleSort("name")} className="text-left py-3 px-4 cursor-pointer hover:text-brand-deep">
-                  Opportunity {sortColumn === "name" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                </th>
-                <th onClick={() => handleSort("accountName")} className="text-left py-3 px-3 cursor-pointer hover:text-brand-deep">
-                  Account {sortColumn === "accountName" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                </th>
-                <th onClick={() => handleSort("stageName")} className="text-left py-3 px-3 cursor-pointer hover:text-brand-deep">
-                  Stage {sortColumn === "stageName" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                </th>
-                <th onClick={() => handleSort("dealValue")} className="text-right py-3 px-3 cursor-pointer hover:text-brand-deep">
-                  Value {sortColumn === "dealValue" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                </th>
-                <th onClick={() => handleSort("weightedValue")} className="text-right py-3 px-3 cursor-pointer hover:text-brand-deep hidden sm:table-cell">
-                  Weighted {sortColumn === "weightedValue" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                </th>
-                <th onClick={() => handleSort("expectedCloseDate")} className="text-left py-3 px-3 cursor-pointer hover:text-brand-deep hidden md:table-cell">
-                  Close Date {sortColumn === "expectedCloseDate" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                </th>
-                <th onClick={() => handleSort("dealHealth")} className="text-center py-3 px-3 cursor-pointer hover:text-brand-deep">
-                  Health {sortColumn === "dealHealth" ? (sortDirection === "asc" ? "▲" : "▼") : ""}
-                </th>
-                <th className="text-left py-3 px-4 hidden lg:table-cell">Next Action</th>
-                <th className="text-right py-3 px-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {sortedDeals.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="p-8 text-center text-ink-dim">
-                    <p className="font-bold text-body">No deals found matching your search or filters.</p>
-                  </td>
+      {/* COMPACT DEALS TABLE (PART C) */}
+      {filteredDeals.length === 0 ? (
+        <div className="p-12 text-center space-y-2 bg-white rounded-panel border border-line shadow-2xs">
+          <Kanban className="w-10 h-10 text-ink-faint mx-auto" />
+          <h2 className="text-base font-bold text-body">No deals found</h2>
+          <p className="text-spec text-ink-dim max-w-md mx-auto">
+            Try adjusting your search or stage filters, or create a new deal.
+          </p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-panel border border-line shadow-2xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-spec">
+              <thead>
+                <tr className="border-b border-line bg-paper/60 text-ink-dim text-xs font-bold uppercase tracking-wider">
+                  <th className="py-2.5 px-4">Deal / Customer</th>
+                  <th className="py-2.5 px-4">Stage</th>
+                  <th className="py-2.5 px-4">Value (Ex GST)</th>
+                  <th className="py-2.5 px-4">Next Action &amp; Due</th>
+                  <th className="py-2.5 px-4">Health</th>
+                  <th className="py-2.5 px-4 text-right">Actions</th>
                 </tr>
-              ) : (
-                sortedDeals.map((deal) => (
+              </thead>
+              <tbody className="divide-y divide-line">
+                {filteredDeals.map((deal) => (
                   <tr
                     key={deal.id}
                     onClick={() => setSelectedCrmOpportunityId(deal.id)}
-                    className={`hover:bg-raised/50 cursor-pointer transition-colors ${
-                      selectedCrmOpportunityId === deal.id ? "bg-brand-wash/40" : ""
-                    }`}
+                    className="hover:bg-raised/60 transition-colors cursor-pointer"
                   >
-                    <td className="py-3 px-4">
-                      <div className="font-bold text-body text-ink">{deal.name}</div>
-                      <div className="text-spec text-ink-dim">{deal.projectApplication || "Application not set"}</div>
+                    {/* DEAL NAME & ACCOUNT BENEATH (PART C) */}
+                    <td className="py-3 px-4 min-w-[220px]">
+                      <div className="font-bold text-body text-spec hover:text-brand-deep transition-colors">
+                        {deal.name}
+                      </div>
+                      <div className="text-xs text-ink-dim mt-0.5">
+                        {deal.accountName || "Direct Customer"}
+                      </div>
                     </td>
-                    <td className="py-3 px-3">
-                      <span className="font-semibold text-ink-dim">{deal.accountName}</span>
+
+                    {/* STAGE */}
+                    <td className="py-3 px-4 whitespace-nowrap">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge">
+                        {deal.stageName}
+                      </span>
                     </td>
-                    <td className="py-3 px-3">
-                      {/* Direct Interactive Stage Switcher */}
-                      <select
-                        value={deal.stageId}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => {
-                          handleStageChange(deal.id, e.target.value);
-                          const targetStage = currentPipeline.stages.find((s) => s.id === e.target.value);
-                          if (targetStage) {
-                            showToast(`Updated "${deal.name}" stage to ${targetStage.name}!`, "success");
-                          }
-                        }}
-                        aria-label={`Change stage for ${deal.name}`}
-                        className="text-spec font-bold text-ink bg-paper hover:bg-raised border border-line rounded px-2 py-1 cursor-pointer focus:outline-none focus:border-brand-deep"
-                      >
-                        {(currentPipeline?.stages || []).map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.name} ({s.probability}%)
-                          </option>
-                        ))}
-                      </select>
+
+                    {/* VALUE */}
+                    <td className="py-3 px-4 whitespace-nowrap font-mono font-bold text-body">
+                      <div>${(deal.dealValue || 0).toLocaleString()}</div>
+                      {showWeightedValue && (
+                        <div className="text-[11px] text-ink-dim font-normal">
+                          w: ${(deal.weightedValue || ((deal.dealValue || 0) * (deal.probability || 25)) / 100).toLocaleString()}
+                        </div>
+                      )}
                     </td>
-                    <td className="py-3 px-3 text-right font-bold text-body">
-                      ${(deal.dealValue || 0).toLocaleString()}
+
+                    {/* NEXT ACTION & DUE DATE */}
+                    <td className="py-3 px-4 min-w-[220px]">
+                      <div className="text-xs font-medium text-body line-clamp-1">
+                        {deal.nextAction || "Follow up quotation"}
+                      </div>
+                      <div className="text-[11px] text-ink-dim mt-0.5 flex items-center gap-1 font-mono">
+                        <Clock className="w-3 h-3 text-ink-dim" />
+                        <span>Target Close: {deal.expectedCloseDate || "2026-10-30"}</span>
+                      </div>
                     </td>
-                    <td className="py-3 px-3 text-right font-semibold text-brand-deep hidden sm:table-cell">
-                      ${Math.round(deal.weightedValue !== undefined ? deal.weightedValue : ((deal.dealValue || 0) * (deal.probability || 0)) / 100).toLocaleString()}
-                    </td>
-                    <td className="py-3 px-3 text-ink-dim text-spec hidden md:table-cell">
-                      {deal.expectedCloseDate}
-                    </td>
-                    <td className="py-3 px-3 text-center">
+
+                    {/* HEALTH */}
+                    <td className="py-3 px-4 whitespace-nowrap">
                       {getHealthBadge(deal.dealHealth)}
                     </td>
-                    <td className="py-3 px-4 text-spec text-ink-dim truncate max-w-xs hidden lg:table-cell">
-                      {deal.nextAction || "-"}
-                    </td>
-                    <td className="py-3 px-4 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1">
+
+                    {/* ROW MENU */}
+                    <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <div className="relative inline-block">
                         <button
                           type="button"
-                          onClick={() => openCallPrep({ accountId: deal.accountId, opportunityId: deal.id })}
-                          className="p-1.5 text-brand-deep hover:bg-brand-wash rounded-edge border border-transparent hover:border-brand-edge transition-colors cursor-pointer"
-                          title="Prep Call"
+                          aria-label={`Actions for ${deal.name}`}
+                          onClick={() => setActiveMenuDealId(activeMenuDealId === deal.id ? null : deal.id)}
+                          className="p-1 rounded hover:bg-line text-ink-dim hover:text-body transition-colors cursor-pointer"
                         >
-                          <Phone className="w-3.5 h-3.5 text-brand-deep" />
+                          <MoreVertical className="w-4 h-4" />
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => openQuickLog("call", deal.accountId, deal.id)}
-                          className="p-1.5 text-ink-dim hover:text-brand-deep hover:bg-brand-wash rounded-edge border border-transparent hover:border-brand-edge transition-colors cursor-pointer"
-                          title="Log Call"
-                        >
-                          <Phone className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openQuickLog("email", deal.accountId, deal.id)}
-                          className="p-1.5 text-ink-dim hover:text-brand-deep hover:bg-brand-wash rounded-edge border border-transparent hover:border-brand-edge transition-colors cursor-pointer"
-                          title="Log Email"
-                        >
-                          <Mail className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setSelectedCrmOpportunityId(deal.id)}
-                          className="p-1.5 text-brand-deep hover:bg-brand-wash rounded-edge border border-transparent hover:border-brand-edge transition-colors cursor-pointer"
-                          title="View Deal 360°"
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
+
+                        {activeMenuDealId === deal.id && (
+                          <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-line rounded-panel shadow-lg py-1 z-30 text-spec text-left animate-in fade-in zoom-in-95 duration-100">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveMenuDealId(null);
+                                setSelectedCrmOpportunityId(deal.id);
+                              }}
+                              className="w-full px-3 py-1.5 hover:bg-raised flex items-center gap-2 text-body"
+                            >
+                              <FileText className="w-3.5 h-3.5 text-ink-dim" />
+                              <span>View Details</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveMenuDealId(null);
+                                openQuickLog({ isOpen: true, type: "call", dealId: deal.id, accountId: deal.accountId });
+                              }}
+                              className="w-full px-3 py-1.5 hover:bg-raised flex items-center gap-2 text-body"
+                            >
+                              <Phone className="w-3.5 h-3.5 text-ink-dim" />
+                              <span>Log Activity</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-            <tfoot className="bg-raised/70 border-t-2 border-line font-bold text-body">
-              <tr>
-                <td className="py-3 px-4" colSpan={3}>
-                  Total Pipeline ({filteredDeals.length} Deals)
-                </td>
-                <td className="py-3 px-3 text-right text-brand-deep font-bold">
-                  ${totalTableValue.toLocaleString()}
-                </td>
-                <td className="py-3 px-3 text-right text-brand-deep font-bold hidden sm:table-cell">
-                  ${Math.round(totalTableWeighted).toLocaleString()}
-                </td>
-                <td colSpan={4}></td>
-              </tr>
-            </tfoot>
-          </table>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
-
-      {/* Selected Deal Detail Workspace (Step 2 Rebuild) */}
-      {selectedDeal && (
-        <CRMDealDetailsWorkspace
-          deal={selectedDeal}
-          onClose={() => setSelectedCrmOpportunityId(null)}
-        />
       )}
 
-      {/* New Deal Modal - Responsive Mobile-First Form */}
+      {/* NEW DEAL MODAL */}
       {isNewDealModalOpen && (
-        <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-lg w-full max-h-[92dvh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between border-b border-line px-4 sm:px-5 py-3.5 bg-white shrink-0">
-              <h3 className="text-lead font-bold text-ink">Create New Deal</h3>
-              <button
-                type="button"
-                onClick={() => setIsNewDealModalOpen(false)}
-                className="p-1.5 -mr-1 text-ink-dim hover:text-ink hover:bg-hover rounded-full transition-colors cursor-pointer"
-                aria-label="Close dialog"
-              >
+        <div className="fixed inset-0 z-50 bg-chrome/70 backdrop-blur-xs p-4 flex items-center justify-center animate-in fade-in duration-150">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="new-deal-modal-title"
+            className="bg-surface rounded-panel max-w-lg w-full p-5 border border-line shadow-2xl space-y-4"
+          >
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <h3 id="new-deal-modal-title" className="font-bold text-body text-base">
+                Create New Deal
+              </h3>
+              <button onClick={() => setIsNewDealModalOpen(false)} className="text-ink-dim hover:text-body">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Scrollable Modal Form Body */}
-            <form onSubmit={handleCreateDeal} className="flex flex-col flex-1 overflow-hidden min-h-0">
-              <div className="p-4 sm:p-5 overflow-y-auto flex-1 space-y-4 text-meta">
-                {/* 1. Opportunity / Project Name */}
+            <form onSubmit={handleCreateDeal} className="space-y-3">
+              <div>
+                <label className="block text-spec font-bold mb-1">Deal Name *</label>
+                <input
+                  required
+                  value={newDealForm.name}
+                  onChange={(e) => setNewDealForm({ ...newDealForm, name: e.target.value })}
+                  className="w-full p-2 border border-line rounded-edge bg-white text-spec"
+                  placeholder="e.g. Wyndham Regional Park Solar Lighting"
+                />
+              </div>
+
+              <div>
+                <label className="block text-spec font-bold mb-1">Account *</label>
+                <select
+                  required
+                  value={newDealForm.accountId}
+                  onChange={(e) => setNewDealForm({ ...newDealForm, accountId: e.target.value })}
+                  className="w-full p-2 border border-line rounded-edge bg-white text-spec"
+                >
+                  {accounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="deal-project-name" className="block text-spec font-bold text-ink mb-1.5">
-                    Opportunity / Project Name *
-                  </label>
+                  <label className="block text-spec font-bold mb-1">Value ($ Ex GST)</label>
                   <input
-                    id="deal-project-name"
-                    type="text"
+                    type="number"
+                    min={0}
                     required
-                    placeholder="e.g. Waterfront Esplanade Solar Upgrade"
-                    value={newDealForm.name}
-                    onChange={(e) => setNewDealForm({ ...newDealForm, name: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-surface border border-line-strong rounded-edge text-body text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
+                    value={newDealForm.dealValue}
+                    onChange={(e) => setNewDealForm({ ...newDealForm, dealValue: parseFloat(e.target.value) || 0 })}
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec font-mono"
                   />
                 </div>
 
-                {/* 2. Account */}
                 <div>
-                  <label htmlFor="deal-account-select" className="block text-spec font-bold text-ink mb-1.5">
-                    Account *
-                  </label>
+                  <label className="block text-spec font-bold mb-1">Stage</label>
                   <select
-                    id="deal-account-select"
-                    value={newDealForm.accountId}
-                    onChange={(e) => setNewDealForm({ ...newDealForm, accountId: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-surface border border-line-strong rounded-edge text-body text-ink focus:outline-none focus:border-brand-deep transition-colors cursor-pointer"
+                    value={newDealForm.stageName}
+                    onChange={(e) => setNewDealForm({ ...newDealForm, stageName: e.target.value as any })}
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
                   >
-                    {accounts.length === 0 ? (
-                      <option value="">No accounts available</option>
-                    ) : (
-                      accounts.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name}
-                        </option>
-                      ))
-                    )}
+                    <option>Discovery &amp; Qualification</option>
+                    <option>Design &amp; Compliance</option>
+                    <option>Proposal &amp; Quoting</option>
+                    <option>Negotiation &amp; Review</option>
                   </select>
-                </div>
-
-                {/* 3. Dedicated DEAL VALUE Section */}
-                <div className="bg-raised/60 border border-line rounded-panel p-3.5 sm:p-4 space-y-3.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-spec font-bold text-ink uppercase tracking-wider">
-                      DEAL VALUE
-                    </span>
-                    <span className="text-[11px] font-semibold text-ink-dim">
-                      AUD ex GST
-                    </span>
-                  </div>
-
-                  {/* Value Basis Toggle */}
-                  <div>
-                    <label className="block text-spec font-bold text-ink mb-1.5">
-                      Commercial Calculation Method *
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setNewDealForm({ ...newDealForm, valueBasis: "TOTAL" })}
-                        className={`py-2 px-3 rounded-edge font-bold text-spec transition-all flex items-center justify-center cursor-pointer border ${
-                          newDealForm.valueBasis === "TOTAL"
-                            ? "bg-brand-deep text-white border-brand-deep shadow-xs"
-                            : "bg-surface text-ink-dim border-line hover:bg-hover hover:text-ink"
-                        }`}
-                      >
-                        Project Total ($)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setNewDealForm({ ...newDealForm, valueBasis: "PER_UNIT" })}
-                        className={`py-2 px-3 rounded-edge font-bold text-spec transition-all flex items-center justify-center cursor-pointer border ${
-                          newDealForm.valueBasis === "PER_UNIT"
-                            ? "bg-brand-deep text-white border-brand-deep shadow-xs"
-                            : "bg-surface text-ink-dim border-line hover:bg-hover hover:text-ink"
-                        }`}
-                      >
-                        Per Unit ($/ea)
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Commercial Value Basis (P1: Known, Estimate, Unknown) */}
-                  <div>
-                    <label className="block text-spec font-bold text-ink mb-1.5">
-                      Commercial Value Basis (Confidence) *
-                    </label>
-                    <select
-                      value={newDealForm.commercialState}
-                      onChange={(e) => setNewDealForm({ ...newDealForm, commercialState: e.target.value as any })}
-                      className="w-full px-3.5 py-2 bg-surface border border-line-strong rounded-edge text-spec text-ink font-semibold focus:outline-none focus:border-brand-deep cursor-pointer"
-                    >
-                      <option value="Estimate">Estimate (Preliminary / Budgetary)</option>
-                      <option value="Known">Known (Client Confirmed / Formal Specification)</option>
-                      <option value="Unknown">Unknown (Pending Discovery / Scope TBD)</option>
-                    </select>
-                  </div>
-
-                  {/* Progressive Disclosure: Total vs Per Unit */}
-                  {newDealForm.valueBasis === "TOTAL" ? (
-                    <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-3">
-                      <div>
-                        <label htmlFor="deal-total-val" className="block text-spec font-bold text-ink mb-1.5">
-                          Project Total ($ AUD ex GST)
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-dim font-bold">$</span>
-                          <input
-                            id="deal-total-val"
-                            type="number"
-                            min={0}
-                            step="any"
-                            value={newDealForm.dealValue}
-                            onChange={(e) => setNewDealForm({ ...newDealForm, dealValue: e.target.value })}
-                            placeholder="e.g. 25000"
-                            className="w-full pl-8 pr-3.5 py-2.5 bg-surface border border-line-strong rounded-edge font-mono text-body text-ink focus:outline-none focus:border-brand-deep"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label htmlFor="deal-qty-total" className="block text-spec font-bold text-ink mb-1.5">
-                          Quantity (Units)
-                        </label>
-                        <input
-                          id="deal-qty-total"
-                          type="number"
-                          min={1}
-                          value={newDealForm.quantity}
-                          onChange={(e) => setNewDealForm({ ...newDealForm, quantity: e.target.value })}
-                          placeholder="e.g. 10"
-                          className="w-full px-3.5 py-2.5 bg-surface border border-line-strong rounded-edge font-mono text-body text-ink focus:outline-none focus:border-brand-deep"
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-3">
-                      <div>
-                        <label htmlFor="deal-unit-val" className="block text-spec font-bold text-ink mb-1.5">
-                          Unit Price ($ AUD ex GST)
-                        </label>
-                        <div className="relative">
-                          <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-dim font-bold">$</span>
-                          <input
-                            id="deal-unit-val"
-                            type="number"
-                            min={0}
-                            step="any"
-                            value={newDealForm.unitPrice}
-                            onChange={(e) => setNewDealForm({ ...newDealForm, unitPrice: e.target.value })}
-                            placeholder="e.g. 1650"
-                            className="w-full pl-8 pr-3.5 py-2.5 bg-surface border border-line-strong rounded-edge font-mono text-body text-ink focus:outline-none focus:border-brand-deep"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label htmlFor="deal-qty-unit" className="block text-spec font-bold text-ink mb-1.5">
-                          Quantity (Units)
-                        </label>
-                        <input
-                          id="deal-qty-unit"
-                          type="number"
-                          min={1}
-                          value={newDealForm.quantity}
-                          onChange={(e) => setNewDealForm({ ...newDealForm, quantity: e.target.value })}
-                          placeholder="e.g. 10"
-                          className="w-full px-3.5 py-2.5 bg-surface border border-line-strong rounded-edge font-mono text-body text-ink focus:outline-none focus:border-brand-deep"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Read-Only Summary of Calculated Values */}
-                  <div className="bg-white border border-line rounded-edge p-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
-                    <div>
-                      <span className="text-spec font-bold text-ink-dim block">Calculated Deal Value</span>
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-lg font-bold text-ink font-mono">
-                          ${dealValidation.effectiveTotal.toLocaleString()}
-                        </span>
-                        <span className="text-spec text-ink-dim font-semibold">ex GST</span>
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-raised text-ink-dim border border-line">
-                          {newDealForm.commercialState}
-                        </span>
-                      </div>
-                    </div>
-                    {Number(newDealForm.quantity) > 0 && dealValidation.effectiveTotal > 0 && (
-                      <div className="text-spec font-semibold text-ink-dim">
-                        <span>Approx. <strong className="text-ink">${Math.round(dealValidation.effectiveUnitPrice).toLocaleString()}</strong> / unit</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Outlier Warning Banner */}
-                  {dealValidation.isOutlier && (
-                    <div className="p-3 bg-soon-wash border border-soon text-soon rounded-edge text-meta space-y-1.5 animate-in fade-in duration-150">
-                      <div className="flex items-center gap-1.5 font-bold">
-                        <AlertTriangle className="w-4 h-4 shrink-0" />
-                        <span>Unusual Deal Value Notice</span>
-                      </div>
-                      <p className="text-spec text-body font-medium leading-relaxed">
-                        {dealValidation.warningMessage}
-                      </p>
-                      {dealValidation.suggestedCorrection && (
-                        <div className="pt-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setNewDealForm({
-                                ...newDealForm,
-                                valueBasis: dealValidation.suggestedCorrection!.basis,
-                                unitPrice: newDealForm.dealValue
-                              });
-                            }}
-                            className="px-2.5 py-1 bg-soon text-white text-spec font-bold rounded hover:bg-soon-hover cursor-pointer"
-                          >
-                            {dealValidation.suggestedCorrection.explanation}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* 4. Initial Stage & Target Close Date */}
-                <div className="space-y-4 sm:space-y-0 sm:grid sm:grid-cols-2 sm:gap-3.5">
-                  <div>
-                    <label htmlFor="deal-initial-stage" className="block text-spec font-bold text-ink mb-1.5">
-                      Initial Stage
-                    </label>
-                    <select
-                      id="deal-initial-stage"
-                      value={newDealForm.stageId}
-                      onChange={(e) => setNewDealForm({ ...newDealForm, stageId: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-surface border border-line-strong rounded-edge text-body text-ink focus:outline-none focus:border-brand-deep cursor-pointer"
-                    >
-                      {(currentPipeline?.stages || []).map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name} ({s.probability}%)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label htmlFor="deal-close-date" className="block text-spec font-bold text-ink mb-1.5">
-                      Target Close Date
-                    </label>
-                    <input
-                      id="deal-close-date"
-                      type="date"
-                      value={newDealForm.expectedCloseDate}
-                      onChange={(e) => setNewDealForm({ ...newDealForm, expectedCloseDate: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-surface border border-line-strong rounded-edge text-body text-ink focus:outline-none focus:border-brand-deep"
-                    />
-                  </div>
-                </div>
-
-                {/* 5. Project Application */}
-                <div>
-                  <label htmlFor="deal-project-app" className="block text-spec font-bold text-ink mb-1.5">
-                    Project Application
-                  </label>
-                  <input
-                    id="deal-project-app"
-                    type="text"
-                    list="deal-project-applications"
-                    placeholder="e.g. Solar Pathway Lighting (AS/NZS 1158 Cat P)"
-                    value={newDealForm.projectApplication}
-                    onChange={(e) => setNewDealForm({ ...newDealForm, projectApplication: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-surface border border-line-strong rounded-edge text-body text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep"
-                  />
-                  <datalist id="deal-project-applications">
-                    <option value="Solar Pathway Lighting (AS/NZS 1158 Cat P)" />
-                    <option value="Pedestrian Shared Trail" />
-                    <option value="Local Roads &amp; Intersections (Cat V / Cat P)" />
-                    <option value="Parks &amp; Open Spaces" />
-                    <option value="Commercial Car Parks" />
-                    <option value="Industrial / Resource Yards" />
-                    <option value="Highway &amp; Arterial Road Lighting" />
-                  </datalist>
                 </div>
               </div>
 
-              {/* Sticky Mobile/Desktop Action Footer */}
-              <div className="border-t border-line bg-surface/95 backdrop-blur-xs p-4 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-end gap-2.5 shrink-0">
+              <div className="flex justify-end gap-2 pt-3 border-t border-line">
                 <button
                   type="button"
                   onClick={() => setIsNewDealModalOpen(false)}
-                  className="w-full sm:w-auto px-4 py-2.5 text-body font-bold text-ink-dim hover:text-ink hover:bg-hover rounded-edge transition-colors cursor-pointer text-center"
+                  className="px-3 py-1.5 border border-line rounded-edge text-spec font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="w-full sm:w-auto px-5 py-2.5 text-body font-bold text-white bg-brand-deep hover:bg-brand rounded-edge shadow-xs transition-colors cursor-pointer text-center"
+                  className="px-4 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge"
                 >
-                  Save Opportunity
+                  Create Deal
                 </button>
               </div>
             </form>
-          </div>
+          </section>
         </div>
-      )}
-
-      {/* Customer Follow-Up Generator Modal */}
-      {isFollowUpModalOpen && selectedDeal && (
-        <CustomerFollowUpModal
-          isOpen={isFollowUpModalOpen}
-          onClose={() => setIsFollowUpModalOpen(false)}
-          dealId={selectedDeal.id}
-          accountId={selectedDeal.accountId}
-          initialContactName={selectedDeal.primaryContactName}
-          initialCompanyName={selectedDeal.accountName}
-          initialProjectName={selectedDeal.name}
-          initialQuoteRef={selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber || ""}
-          initialProducts={(selectedDeal.products || []).map((p) => p.productName || p.productCode)}
-        />
-      )}
-
-      {/* Datasheet & Tender Spec Package Modal */}
-      {isDatasheetModalOpen && selectedDeal && (
-        <DatasheetPackageModal
-          isOpen={isDatasheetModalOpen}
-          onClose={() => setIsDatasheetModalOpen(false)}
-          projectName={selectedDeal.name}
-          customerName={selectedDeal.accountName}
-          quoteRef={selectedDeal.ostendoQuoteRef || selectedDeal.quoteNumber || ""}
-          initialProductNames={(selectedDeal.products || []).map((p) => p.productName || p.productCode)}
-        />
-      )}
-
-      {/* P2-13: CRM Duplicate Deal / Opportunity Warning Modal */}
-      {isDuplicateModalOpen && duplicateMatch && pendingDealToCreate && (
-        <CRMDuplicateWarningModal<any>
-          isOpen={isDuplicateModalOpen}
-          onClose={() => {
-            setIsDuplicateModalOpen(false);
-            setDuplicateMatch(null);
-            setPendingDealToCreate(null);
-          }}
-          entityType="Opportunity"
-          candidateName={pendingDealToCreate.name}
-          matchResult={duplicateMatch}
-          onOpenExisting={(existingOpp) => {
-            setSelectedCrmOpportunityId(existingOpp.id);
-            setIsNewDealModalOpen(false);
-            showToast(`Navigated to active deal "${existingOpp.project || existingOpp.name}"`, "info");
-          }}
-          onUseExisting={(existingOpp) => {
-            setSelectedCrmOpportunityId(existingOpp.id);
-            setIsNewDealModalOpen(false);
-            showToast(`Attached to existing deal "${existingOpp.project || existingOpp.name}"`, "success");
-          }}
-          onCreateAnyway={() => {
-            addCrmOpportunity(pendingDealToCreate);
-            setSelectedCrmOpportunityId(pendingDealToCreate.id);
-            setIsNewDealModalOpen(false);
-            showToast(`Created opportunity "${pendingDealToCreate.name}" (Duplicate override audit recorded)`, "warning");
-          }}
-        />
       )}
     </div>
   );

@@ -2,8 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CRMTodayWorkspace } from '../../components/crm/CRMTodayWorkspace';
-import { CRMCommandCenter } from '../../components/crm/CRMCommandCenter';
-import { AppProvider } from '../../context/AppContext';
+import { AppProvider, useApp } from '../../context/AppContext';
 
 const testDeals = [
   {
@@ -11,8 +10,8 @@ const testDeals = [
     accountId: "acc-custom-1",
     accountName: "Sunshine Coast Council",
     name: "Coastal Pathway Solar Lighting",
-    stageId: "stage-new",
-    stageName: "New Opportunity",
+    stageId: "stage-proposal",
+    stageName: "Proposal & Quoting",
     pipelineId: "pipe-major-projects",
     dealValue: 68400,
     expectedCloseDate: "2026-09-26",
@@ -26,101 +25,73 @@ const testTasks = [
   {
     id: "task-custom-1",
     title: "Call Sarah about DIALux spacing",
-    taskType: "Call",
+    type: "Call",
     dueDate: "2026-08-20",
     priority: "High",
     status: "Pending",
     assignedTo: "Travis Maher",
-    relatedEntityType: "Opportunity",
-    relatedEntityId: "opp-custom-1",
-    relatedEntityName: "Coastal Pathway Solar Lighting"
+    accountId: "acc-custom-1",
+    accountName: "Sunshine Coast Council"
   }
 ];
 
-describe("CRM Today's Focus & Action Workspace Suite", () => {
+const TodayTestWrapper: React.FC<{ deals?: any[]; tasks?: any[] }> = ({ deals = testDeals, tasks = testTasks }) => {
+  const { addCrmOpportunity, addTask } = useApp();
+
+  React.useEffect(() => {
+    deals.forEach((d) => addCrmOpportunity(d));
+    tasks.forEach((t) => addTask(t));
+  }, []);
+
+  return <CRMTodayWorkspace />;
+};
+
+describe("CRM Today's Action Queue Suite (Step 6)", () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it("renders compact header, Needs Attention strip, and Hero Next Best Action when items exist", () => {
-    localStorage.setItem("plasgain_crm_deals", JSON.stringify(testDeals));
-    localStorage.setItem("plasgain_crm_tasks", JSON.stringify(testTasks));
+  it("Test 1 — Renders compact header, thin metric strip, and integrated top recommendation", () => {
+    render(
+      <AppProvider>
+        <TodayTestWrapper />
+      </AppProvider>
+    );
 
+    // 1. Clean Header
+    expect(screen.getByRole('heading', { level: 1, name: "Today" })).toBeInTheDocument();
+
+    // 2. Summary Metric Strip
+    expect(screen.getAllByText(/overdue/i).length).toBeGreaterThanOrEqual(1);
+
+    // 3. Unified Work Queue with Top Priority item
+    expect(screen.getByText(/Call Sarah about DIALux spacing/i)).toBeInTheDocument();
+    expect(screen.getByText(/Top Priority/i)).toBeInTheDocument();
+  });
+
+  it("Test 2 — Renders concise empty state when no action items exist", () => {
     render(
       <AppProvider>
         <CRMTodayWorkspace />
       </AppProvider>
     );
 
-    // 1. Compact Header
-    expect(screen.getByRole('heading', { level: 1, name: /Today's Focus/i })).toBeInTheDocument();
-    expect(screen.getByText(/Here's what needs your attention/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /\+ Task/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /View Pipeline/i })).toBeInTheDocument();
-
-    // 2. Needs Attention Filter Strip
-    expect(screen.getByText(/Follow-ups Due/i)).toBeInTheDocument();
-    expect(screen.getByText(/Quotes Awaiting Response/i)).toBeInTheDocument();
-
-    // 3. Hero Next Best Action
-    expect(screen.getByText(/NEXT BEST ACTION/i)).toBeInTheDocument();
-    expect(screen.getByText(/Why this matters:/i)).toBeInTheDocument();
-
-    // 4. Unified Work Queue Header
-    expect(screen.getByText(/Your Work Today/i)).toBeInTheDocument();
-
-    // 5. Today's Snapshot at the bottom
-    expect(screen.getByText(/TODAY'S SNAPSHOT/i)).toBeInTheDocument();
-    expect(screen.getByText(/Open Pipeline:/i)).toBeInTheDocument();
+    // Clean single empty state
+    expect(screen.getByText(/No sales activity has been created yet/i)).toBeInTheDocument();
   });
 
-  it("allows filtering work queue using the Needs Attention pills", () => {
-    localStorage.setItem("plasgain_crm_deals", JSON.stringify(testDeals));
-
+  it("Test 3 — Filters work queue items using compact category pills", () => {
     render(
       <AppProvider>
-        <CRMTodayWorkspace />
+        <TodayTestWrapper />
       </AppProvider>
     );
 
-    // Find and click the Quotes filter button
-    const quotesBtn = screen.getByRole('button', { name: /Quotes Awaiting Response/i });
-    expect(quotesBtn).toBeInTheDocument();
-    fireEvent.click(quotesBtn);
+    // Find and click Overdue filter
+    const overdueBtn = screen.getByRole('button', { name: /Overdue/i });
+    expect(overdueBtn).toBeInTheDocument();
+    fireEvent.click(overdueBtn);
 
-    // Clear filter button should now be visible
-    expect(screen.getByRole('button', { name: /Clear filter/i })).toBeInTheDocument();
-
-    // Click Clear filter
-    fireEvent.click(screen.getByRole('button', { name: /Clear filter/i }));
-    expect(screen.queryByRole('button', { name: /Clear filter/i })).not.toBeInTheDocument();
-  });
-
-  it("renders fast-scanning work items with primary action buttons", () => {
-    localStorage.setItem("plasgain_crm_deals", JSON.stringify(testDeals));
-    localStorage.setItem("plasgain_crm_tasks", JSON.stringify(testTasks));
-
-    render(
-      <AppProvider>
-        <CRMTodayWorkspace />
-      </AppProvider>
-    );
-
-    // Verify presence of primary actionable buttons
-    const actionButtons = screen.getAllByRole('button', { name: /Follow Up|Open Deal|Log Call|Write Email|Complete|Action/i });
-    expect(actionButtons.length).toBeGreaterThan(0);
-  });
-
-  it("renders CRMCommandCenter with streamlined compact tabs", () => {
-    render(
-      <AppProvider>
-        <CRMCommandCenter />
-      </AppProvider>
-    );
-
-    expect(screen.getByRole('button', { name: /Today's Focus/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Accounts/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Deals Pipeline/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Leads Hub/i })).toBeInTheDocument();
+    expect(screen.getByText(/Call Sarah about DIALux spacing/i)).toBeInTheDocument();
   });
 });

@@ -868,8 +868,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsCopilotOpen(true);
   };
 
-  // Server-backed Competitor Pricing Intelligence & Team Alerts
-  const [competitorPricingRecords, setCompetitorPricingRecords] = useState<CompetitorPricingRecord[]>([]);
+  // Server-backed Competitor Pricing Intelligence & Team Alerts (with localStorage fallback)
+  const [competitorPricingRecords, setCompetitorPricingRecords] = useState<CompetitorPricingRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem("plasgain_competitor_pricing");
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
   const [competitorAlerts, setCompetitorAlerts] = useState<CompetitorPricingAlert[]>([]);
 
   const getApiUrl = (endpoint: string) => {
