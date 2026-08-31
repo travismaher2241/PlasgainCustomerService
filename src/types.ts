@@ -1,8 +1,11 @@
-export type FieldStatus = "Confirmed" | "Inferred" | "Unknown";
+export type FieldStatus = "Confirmed" | "Inferred" | "Unknown" | "Missing" | "Conflicting" | "Needs clarification";
 
 export interface StatusField {
   value: string;
   status: FieldStatus;
+  source?: string;
+  sources?: string[];
+  conflictingValues?: string[];
 }
 
 export interface OpportunitySummary {
