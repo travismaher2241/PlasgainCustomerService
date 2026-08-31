@@ -4,7 +4,6 @@ import { createHash, timingSafeEqual, randomBytes } from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
-import { createServer as createViteServer } from "vite";
 import {
   PLASGAIN_KNOWLEDGE_BASE_TEXT,
   VALIDATION_TESTS,
@@ -3057,12 +3056,25 @@ app.all("/api/*", (req, res) => {
   });
 });
 
+// Global API error handler ensuring errors are cleanly returned as JSON
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error(`[Express Unhandled Error on ${req.method} ${req.originalUrl || req.url}]:`, err);
+  if (!res.headersSent) {
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: err?.message || String(err),
+      path: req.originalUrl || req.url
+    });
+  }
+});
+
 // -------------------------------------------------------------
 // VITE MIDDLEWARE SETUP
 // -------------------------------------------------------------
 async function startServer() {
   const isProduction = process.env.NODE_ENV === "production" || __filename.includes("dist");
   if (!isProduction) {
+    const { createServer: createViteServer } = await import("vite");
     const vite = await createViteServer({
       server: {
         middlewareMode: true,
