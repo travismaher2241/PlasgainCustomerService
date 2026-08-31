@@ -25,7 +25,7 @@ describe('App Component Layout and Navigation', () => {
     const toolsNav = screen.getByRole('button', { name: /^Tools$/i });
     fireEvent.click(toolsNav);
 
-    expect(await screen.findByText(/Technical Estimators & Plan Take-off/i, {}, { timeout: 10000 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: /Plan Take-off/i }, { timeout: 10000 })).toBeInTheDocument();
 
     // Click Product Finder
     const prodNav = screen.getByRole('button', { name: /Product Finder/i });

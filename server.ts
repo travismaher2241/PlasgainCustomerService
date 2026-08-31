@@ -140,13 +140,12 @@ function readSession(req: express.Request): WorkspaceSession | null {
     }
     sessions.delete(token);
   }
-  // Fallback to active profile so dev server restarts don't lock out live reps
+  // Fallback to active profile if explicit X-User-Id header is provided
   const userIdHeader = String(req.headers["x-user-id"] || "");
-  const profileKey = userIdHeader && PROFILE_DIRECTORY[userIdHeader] ? userIdHeader : "user-travis-maher";
-  if (PROFILE_DIRECTORY[profileKey]) {
-    const profile = PROFILE_DIRECTORY[profileKey];
+  if (userIdHeader && PROFILE_DIRECTORY[userIdHeader]) {
+    const profile = PROFILE_DIRECTORY[userIdHeader];
     return {
-      userId: profileKey,
+      userId: userIdHeader,
       name: profile.name,
       role: profile.role,
       isAdmin: profile.isAdmin,

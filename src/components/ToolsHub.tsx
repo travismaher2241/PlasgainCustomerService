@@ -709,91 +709,78 @@ export const ToolsHub: React.FC = () => {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      {/* Header */}
-      <div className="border-b border-line pb-4">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-meta font-semibold px-2 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge">
-            Engineering &amp; Estimating Hub
-          </span>
-        </div>
-        <h1 className="text-2xl font-bold text-body tracking-tight">Technical Estimators &amp; Plan Take-off</h1>
-        <p className="text-meta text-ink-dim">
-          Engineering drawing deciphering, polymeric mechanical protection sizing, AS/NZS 1158 spacing, and AS 1170.2 wind &amp; foundation hardware calculators.
-        </p>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-line pb-2">
+      {/* Compact Segmented Navigation Strip for Tools */}
+      <div className="flex items-center gap-1.5 p-1.5 bg-paper rounded-panel border border-line overflow-x-auto no-scrollbar shadow-2xs">
         <button
           onClick={() => setActiveToolTab("plan-takeoff" as ToolSubTab)}
-          className={`px-3.5 py-2 text-meta font-bold rounded-edge flex items-center gap-2 transition-colors cursor-pointer ${
+          className={`px-3.5 py-1.5 text-meta font-bold rounded-edge flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
             activeToolTab === "plan-takeoff"
-              ? "bg-brand-deep text-white shadow-xs"
-              : "bg-white text-ink-dim hover:text-body hover:bg-raised border border-line"
+              ? "bg-brand text-white shadow-xs"
+              : "text-ink-dim hover:text-body hover:bg-raised"
           }`}
         >
           <FileSpreadsheet className="w-4 h-4" />
-          <span>Plan Take-off (BOM Schedule)</span>
+          <span>Take-off</span>
         </button>
 
         <button
           onClick={() => setActiveToolTab("cable-cover-calc" as ToolSubTab)}
-          className={`px-3.5 py-2 text-meta font-bold rounded-edge flex items-center gap-2 transition-colors cursor-pointer ${
+          className={`px-3.5 py-1.5 text-meta font-bold rounded-edge flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
             activeToolTab === "cable-cover-calc"
-              ? "bg-brand-deep text-white shadow-xs"
-              : "bg-white text-ink-dim hover:text-body hover:bg-raised border border-line"
+              ? "bg-brand text-white shadow-xs"
+              : "text-ink-dim hover:text-body hover:bg-raised"
           }`}
         >
           <ShieldCheck className="w-4 h-4" />
-          <span>Polymeric Cable Cover (AS 4702)</span>
+          <span>Cable Cover</span>
         </button>
 
         <button
           onClick={() => setActiveToolTab("pole-spacing-calc" as ToolSubTab)}
-          className={`px-3.5 py-2 text-meta font-bold rounded-edge flex items-center gap-2 transition-colors cursor-pointer ${
+          className={`px-3.5 py-1.5 text-meta font-bold rounded-edge flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
             activeToolTab === "pole-spacing-calc"
-              ? "bg-brand-deep text-white shadow-xs"
-              : "bg-white text-ink-dim hover:text-body hover:bg-raised border border-line"
+              ? "bg-brand text-white shadow-xs"
+              : "text-ink-dim hover:text-body hover:bg-raised"
           }`}
         >
           <Zap className="w-4 h-4" />
-          <span>Pathway Pole Spacing (AS/NZS 1158)</span>
+          <span>Pole Spacing</span>
         </button>
 
         <button
           onClick={() => setActiveToolTab("wind-foundation-calc" as ToolSubTab)}
-          className={`px-3.5 py-2 text-meta font-bold rounded-edge flex items-center gap-2 transition-colors cursor-pointer ${
+          className={`px-3.5 py-1.5 text-meta font-bold rounded-edge flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
             activeToolTab === "wind-foundation-calc"
-              ? "bg-brand-deep text-white shadow-xs"
-              : "bg-white text-ink-dim hover:text-body hover:bg-raised border border-line"
+              ? "bg-brand text-white shadow-xs"
+              : "text-ink-dim hover:text-body hover:bg-raised"
           }`}
         >
           <Wind className="w-4 h-4" />
-          <span>Wind Region &amp; Foundation Hardware (AS 1170.2)</span>
+          <span>Foundations</span>
         </button>
 
         <button
           onClick={() => setActiveToolTab("solar-autonomy" as ToolSubTab)}
-          className={`px-3.5 py-2 text-meta font-bold rounded-edge flex items-center gap-2 transition-colors cursor-pointer ${
+          className={`px-3.5 py-1.5 text-meta font-bold rounded-edge flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
             activeToolTab === "solar-autonomy"
-              ? "bg-brand-deep text-white shadow-xs"
-              : "bg-white text-ink-dim hover:text-body hover:bg-raised border border-line"
+              ? "bg-brand text-white shadow-xs"
+              : "text-ink-dim hover:text-body hover:bg-raised"
           }`}
         >
           <Sun className="w-4 h-4" />
-          <span>Solar PV &amp; Battery Autonomy (AS/NZS 4509)</span>
+          <span>Solar Sizing</span>
         </button>
 
         <button
           onClick={() => setActiveToolTab("conflict-resolver" as ToolSubTab)}
-          className={`px-3.5 py-2 text-meta font-bold rounded-edge flex items-center gap-2 transition-colors cursor-pointer ${
+          className={`px-3.5 py-1.5 text-meta font-bold rounded-edge flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
             activeToolTab === "conflict-resolver"
-              ? "bg-brand-deep text-white shadow-xs"
-              : "bg-white text-ink-dim hover:text-body hover:bg-raised border border-line"
+              ? "bg-brand text-white shadow-xs"
+              : "text-ink-dim hover:text-body hover:bg-raised"
           }`}
         >
           <AlertTriangle className="w-4 h-4" />
-          <span>Standards &amp; Spec Conflict Resolver</span>
+          <span>Spec Review</span>
         </button>
       </div>
 

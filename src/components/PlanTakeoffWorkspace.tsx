@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   Sparkles,
   UploadCloud,
@@ -27,7 +27,12 @@ import {
   Eye,
   RefreshCw,
   Mail,
-  X
+  X,
+  ChevronDown,
+  Columns,
+  Maximize,
+  CheckSquare,
+  AlertCircle
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { BOMItem, DrawingTakeoffResult } from "../types";
@@ -46,6 +51,19 @@ import {
   downloadOstendoCSV,
   copyOstendoProductList
 } from "../utils/datasheetExporter";
+
+export type TakeoffReviewStatus =
+  | "Extracted"
+  | "Needs review"
+  | "Reviewed"
+  | "Confirmed from source"
+  | "Product matched"
+  | "Match needs review"
+  | "Unresolved";
+
+export interface ExtendedBOMItem extends BOMItem {
+  reviewStatus?: TakeoffReviewStatus;
+}
 
 interface SamplePlan {
   id: string;
@@ -243,17 +261,26 @@ export const PlanTakeoffWorkspace: React.FC = () => {
   const [drawingNotes, setDrawingNotes] = useState("");
   const [projectName, setProjectName] = useState("");
   const [customerName, setCustomerName] = useState("");
+  const [drawingRef, setDrawingRef] = useState("");
   const [isAnalysing, setIsAnalysing] = useState(false);
   const [analysisError, setAnalysisError] = useState<{ detail: string; guidance?: string } | null>(null);
 
   // Take-off Result State
   const [takeoffResult, setTakeoffResult] = useState<DrawingTakeoffResult | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [isExamplePlan, setIsExamplePlan] = useState(false);
+
+  // Mobile Tab Switcher
+  const [mobileActiveTab, setMobileActiveTab] = useState<"preview" | "schedule">("preview");
 
   // Plan Canvas Zoom & Pan State
   const [zoomLevel, setZoomLevel] = useState<number>(1.0);
   const [rotation, setRotation] = useState<number>(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Action Dropdowns
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isSampleDropdownOpen, setIsSampleDropdownOpen] = useState(false);
 
   // Export & Datasheet Modal State
   const [isDatasheetModalOpen, setIsDatasheetModalOpen] = useState(false);
@@ -270,7 +297,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
     dealValue: 0
   });
 
-  // P2-08, P2-09 & P2-13: Quote Readiness, Pricing & Duplicate Detection State
+  // Quote Readiness, Pricing & Duplicate Detection State
   const [isReadinessModalOpen, setIsReadinessModalOpen] = useState(false);
   const [isPricingModalOpen, setIsPricingModalOpen] = useState(false);
   const [selectedProductForPricing, setSelectedProductForPricing] = useState<{
@@ -282,7 +309,18 @@ export const PlanTakeoffWorkspace: React.FC = () => {
   const [pendingAccountToCreate, setPendingAccountToCreate] = useState<Account | null>(null);
   const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
 
-    // File Input Handler with Strict Validation (F-04)
+  // Close menus on outside click
+  useEffect(() => {
+    const handleDocumentClick = () => {
+      setIsExportMenuOpen(false);
+      setIsMoreMenuOpen(false);
+      setIsSampleDropdownOpen(false);
+    };
+    document.addEventListener("click", handleDocumentClick);
+    return () => document.removeEventListener("click", handleDocumentClick);
+  }, []);
+
+  // File Input Handler with Strict Validation
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
@@ -300,10 +338,11 @@ export const PlanTakeoffWorkspace: React.FC = () => {
         return;
       }
 
-      // Immediately clear prior plan take-off result to prevent misleading BOM displays
+      // Clear previous plan take-off results
       setTakeoffResult(null);
       setAnalysisError(null);
       setExportValidationErrors([]);
+      setIsExamplePlan(false);
 
       const reader = new FileReader();
       reader.onload = () => {
@@ -315,8 +354,10 @@ export const PlanTakeoffWorkspace: React.FC = () => {
           dataUrl
         });
         setSelectedPlanId("custom");
-        setProjectName(file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "));
-        showToast(`Loaded "${file.name}". Click "Decipher Plan" to run AI vision analysis.`, "info");
+        const cleanName = file.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+        if (!projectName) setProjectName(cleanName);
+        setDrawingRef(file.name.replace(/\.[^/.]+$/, ""));
+        showToast(`Loaded "${file.name}". Click "Analyse plan" to generate take-off.`, "info");
       };
       reader.readAsDataURL(file);
     }
@@ -325,22 +366,50 @@ export const PlanTakeoffWorkspace: React.FC = () => {
   // Load Sample Plan
   const handleSelectSample = (sample: SamplePlan) => {
     setSelectedPlanId(sample.id);
+    setIsExamplePlan(true);
     setProjectName(sample.name);
     setCustomerName(sample.customerName);
+    setDrawingRef(sample.drawingNumber);
     setUploadedFile({
       name: `${sample.drawingNumber}.pdf`,
       size: "2.4 MB",
       type: "application/pdf"
     });
-    setTakeoffResult(sample.result);
+    // Set initial review status for sample line items
+    const extendedBOM = sample.result.billOfMaterials.map((item, idx) => ({
+      ...item,
+      reviewStatus: (idx === 0 ? "Reviewed" : "Extracted") as TakeoffReviewStatus
+    }));
+    setTakeoffResult({
+      ...sample.result,
+      billOfMaterials: extendedBOM
+    });
     setZoomLevel(1.0);
     setRotation(0);
     setExportValidationErrors([]);
-    showToast(`Loaded sample plan: ${sample.name}`, "success");
+    showToast(`Loaded example plan (Demo): ${sample.name}`, "info");
+  };
+
+  // Clear Uploaded Plan
+  const handleClearPlan = () => {
+    setUploadedFile(null);
+    setSelectedPlanId(null);
+    setIsExamplePlan(false);
+    setTakeoffResult(null);
+    setAnalysisError(null);
+    setExportValidationErrors([]);
+    setProjectName("");
+    setCustomerName("");
+    setDrawingRef("");
+    setDrawingNotes("");
   };
 
   // Run AI Drawing Analysis
   const handleRunAnalysis = async () => {
+    if (!uploadedFile && !selectedPlanId) {
+      showToast("Please upload a drawing before analysing", "warning");
+      return;
+    }
     setIsAnalysing(true);
     setAnalysisError(null);
     setExportValidationErrors([]);
@@ -357,12 +426,17 @@ export const PlanTakeoffWorkspace: React.FC = () => {
 
       const result = await apiPost<DrawingTakeoffResult>("/api/analyse-drawing", payload);
       if (result && result.billOfMaterials) {
-        setTakeoffResult(result);
-        showToast("Plan successfully deciphered by Gemini Multimodal Vision!", "success");
+        // Tag initial review statuses
+        const taggedBOM = result.billOfMaterials.map((item) => ({
+          ...item,
+          reviewStatus: (item.confidence === "High" ? "Extracted" : "Needs review") as TakeoffReviewStatus
+        }));
+        setTakeoffResult({ ...result, billOfMaterials: taggedBOM });
+        setMobileActiveTab("schedule");
+        showToast("Plan analysed successfully. Review extracted line items.", "success");
       }
     } catch (err) {
       console.error("Drawing analysis error:", err);
-      setTakeoffResult(null);
       if (err instanceof AIUnavailableError) {
         setAnalysisError({ detail: err.detail, guidance: err.guidance });
         showToast(`AI Vision unavailable: ${err.detail}`, "error");
@@ -377,11 +451,32 @@ export const PlanTakeoffWorkspace: React.FC = () => {
   };
 
   // Edit BOM Item
-  const handleUpdateItem = (id: string, field: keyof BOMItem, value: any) => {
+  const handleUpdateItem = (id: string, field: keyof ExtendedBOMItem, value: any) => {
     if (!takeoffResult) return;
     const updatedBOM = takeoffResult.billOfMaterials.map((item) => {
       if (item.id === id) {
         return { ...item, [field]: value };
+      }
+      return item;
+    });
+
+    setTakeoffResult({
+      ...takeoffResult,
+      billOfMaterials: updatedBOM
+    });
+  };
+
+  // Toggle Review Status on Item
+  const handleToggleItemStatus = (id: string) => {
+    if (!takeoffResult) return;
+    const updatedBOM = takeoffResult.billOfMaterials.map((item) => {
+      if (item.id === id) {
+        const current = (item as ExtendedBOMItem).reviewStatus || "Extracted";
+        const next: TakeoffReviewStatus =
+          current === "Reviewed" || current === "Confirmed from source"
+            ? "Needs review"
+            : "Reviewed";
+        return { ...item, reviewStatus: next };
       }
       return item;
     });
@@ -406,7 +501,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
   // Add New Custom Line Item
   const handleAddItem = () => {
     if (!takeoffResult) return;
-    const newItem: BOMItem = {
+    const newItem: ExtendedBOMItem = {
       id: `bom-${Date.now()}`,
       category: "Solar Luminaire & Fitting",
       itemDescription: "Plasgain Additional Luminaire / Custom Fitting",
@@ -415,6 +510,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
       recommendedProductCode: "PB-75W-3K",
       drawingReference: "User Added Item",
       confidence: "High",
+      reviewStatus: "Reviewed",
       notes: "Manually added to take-off schedule"
     };
 
@@ -428,7 +524,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
 
   const handleOpenTakeoffSaveModal = () => {
     if (!takeoffResult || !takeoffResult.billOfMaterials || takeoffResult.billOfMaterials.length === 0) {
-      showToast("No verified product take-off items to save to CRM", "warning");
+      showToast("No product take-off items to save to CRM", "warning");
       return;
     }
 
@@ -448,104 +544,89 @@ export const PlanTakeoffWorkspace: React.FC = () => {
       dealValue: 0
     });
     setAccountMismatchConfirmed(false);
-
     setIsTakeoffSaveModalOpen(true);
   };
 
   const handleInlineCreateAccount = () => {
-    const newAccName = (customerName || "Council Authority").trim();
-    const newAccId = `acc-${Date.now()}`;
-    const isCouncil = newAccName.toLowerCase().includes("council") || newAccName.toLowerCase().includes("city") || newAccName.toLowerCase().includes("shire");
-    const isVic = newAccName.toLowerCase().includes("ballarat") || newAccName.toLowerCase().includes("geelong") || newAccName.toLowerCase().includes("melbourne") || newAccName.toLowerCase().includes("bendigo");
+    if (!customerName.trim()) {
+      showToast("Please enter an account name to create", "warning");
+      return;
+    }
 
-    const newAcc: Account = {
-      id: newAccId,
-      name: newAccName,
-      status: "Prospect",
-      industry: "Government & Public Infrastructure",
-      customerSegment: isCouncil ? "Local Government / Council" : "Civil Contractor",
-      territory: isVic ? "VIC/TAS" : "QLD/NT",
-      accountOwner: currentUser.name,
-      leadSource: "Plan Take-off Ingestion",
+    const candidateAccount: Account = {
+      id: `acc-auto-${Date.now()}`,
+      name: customerName.trim(),
+      industry: "Local Government / Civil",
+      tier: "Tier 2",
+      type: "Customer",
+      status: "Active",
+      relationshipHealth: "Good",
+      address: {
+        street: "1 Main Street",
+        suburb: "Central",
+        state: "VIC",
+        postcode: "3000",
+        country: "Australia"
+      },
+      contacts: [],
+      territory: "VIC South-East",
+      assignedSalesRep: currentUser.name,
+      annualRevenuePotential: 75000,
+      currentYearSpend: 0,
+      pricingTier: "Tier 2",
+      approvedTerms: "Net 30 Days",
       createdDate: new Date().toISOString().split("T")[0],
       lastInteractionDate: new Date().toISOString().split("T")[0],
-      relationshipHealth: "Healthy",
-      tags: ["Plan Take-off", "Infrastructure"],
-      notes: `Created from plan take-off for project "${takeoffSaveFormData.projectName}"`,
-      metrics: {
-        openPipelineValue: Number(takeoffSaveFormData.dealValue) || 0,
-        totalDealsWon: 0,
-        activeDealsCount: 1,
-        totalEnquiries: 1
-      }
+      openOpportunitiesCount: 1,
+      totalDealsValue: 0,
+      tags: ["Auto-Created from Plan Take-off"]
     };
 
-    const duplicate = detectDuplicateAccount({ name: newAccName }, accounts);
-    if (duplicate) {
-      setPendingAccountToCreate(newAcc);
-      setDuplicateMatch(duplicate);
+    const duplicateCheck = detectDuplicateAccount(candidateAccount, accounts);
+    if (duplicateCheck.hasMatch && duplicateCheck.confidence !== "low") {
+      setDuplicateMatch(duplicateCheck);
+      setPendingAccountToCreate(candidateAccount);
       setIsDuplicateModalOpen(true);
       return;
     }
 
-    addAccount(newAcc);
+    addAccount(candidateAccount);
     setTakeoffSaveFormData((prev) => ({
       ...prev,
-      accountId: newAccId,
-      accountName: newAccName
+      accountId: candidateAccount.id,
+      accountName: candidateAccount.name
     }));
-    setAccountMismatchConfirmed(true);
-    showToast(`Created and linked new CRM Account: "${newAccName}"!`, "success");
+    showToast(`Created account "${candidateAccount.name}"`, "success");
   };
 
   const handleConfirmTakeoffSave = () => {
-    if (!takeoffResult || !takeoffResult.billOfMaterials) return;
-    if (!takeoffSaveFormData.accountId) {
-      showToast("Please select or create an account before saving to CRM pipeline.", "error");
-      return;
-    }
-    const acc = accounts.find((a) => a.id === takeoffSaveFormData.accountId);
-    if (!acc) {
-      showToast("Selected account was not found. Please choose an account.", "error");
-      return;
-    }
+    if (!takeoffResult) return;
+    const dealId = `deal-takeoff-${Date.now()}`;
+    const selectedAccount = accounts.find((a) => a.id === takeoffSaveFormData.accountId);
+    const selectedPipeline = pipelines.find((p) => p.id === takeoffSaveFormData.pipelineId) || pipelines[0];
+    const selectedStage = selectedPipeline.stages.find((s) => s.id === takeoffSaveFormData.stageId) || selectedPipeline.stages[0];
 
-    const isConflict = Boolean(
-      acc &&
-      customerName &&
-      !acc.name.toLowerCase().includes(customerName.toLowerCase()) &&
-      !customerName.toLowerCase().includes(acc.name.toLowerCase())
-    );
-
-    if (isConflict && !accountMismatchConfirmed) {
-      showToast(`Cannot save: Selected account "${acc.name}" conflicts with drawing customer "${customerName}". Please confirm override or create a matching account.`, "error");
-      return;
-    }
-    const pipe = pipelines.find((p) => p.id === takeoffSaveFormData.pipelineId) || pipelines[0];
-    const stage = pipe.stages.find((s) => s.id === takeoffSaveFormData.stageId) || pipe.stages[0];
-
-    const dealId = `opp-takeoff-${Date.now()}`;
     const newDeal = {
       id: dealId,
-      name: takeoffSaveFormData.projectName,
-      accountId: acc.id,
-      accountName: acc.name,
+      name: takeoffSaveFormData.projectName || "Plan Take-off Project",
+      accountId: selectedAccount?.id || "acc-general",
+      accountName: selectedAccount?.name || customerName || "General Council / Contractor",
       primaryContactId: "con-001",
-      primaryContactName: "Engineering / Project Estimator",
+      primaryContactName: "Technical Estimator",
       opportunityOwner: currentUser.name,
-      pipelineId: pipe.id,
-      stageId: stage.id,
-      stageName: stage.name,
-      dealValue: Number(takeoffSaveFormData.dealValue) || 0,
-      weightedValue: (Number(takeoffSaveFormData.dealValue) || 0) * (stage.probability / 100),
-      probability: stage.probability,
+      pipelineId: selectedPipeline.id,
+      stageId: selectedStage.id,
+      stageName: selectedStage.name,
+      dealValue: takeoffSaveFormData.dealValue || 0,
+      weightedValue: (takeoffSaveFormData.dealValue || 0) * (selectedStage.probability / 100),
+      probability: selectedStage.probability,
       forecastCategory: "Pipeline" as const,
       expectedCloseDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       products: takeoffResult.billOfMaterials.map((bom, idx) => ({
-        id: `prod-${idx + 1}`,
-        productCode: bom.recommendedProductCode || "",
+        id: `deal-prod-${Date.now()}-${idx}`,
+        productCode: bom.recommendedProductCode || `PROD-TAKEOFF-${idx + 1}`,
         productName: bom.itemDescription,
-        category: bom.category,
+        category: bom.category || "General Take-off",
         quantity: bom.quantity,
         unit: bom.unit || "ea",
         notes: `Drawing Ref: ${bom.drawingReference || "N/A"} | ${bom.notes || ""}`
@@ -559,14 +640,14 @@ export const PlanTakeoffWorkspace: React.FC = () => {
       ],
       source: "AI Plan & Drawing Deciphering",
       ostendoQuoteRef: ostendoQuoteRef || undefined,
-      latestActivity: `Plan take-off verified (${takeoffResult.billOfMaterials.length} items)`,
+      latestActivity: `Plan take-off created (${takeoffResult.billOfMaterials.length} items)`,
       latestActivityDate: new Date().toISOString().split("T")[0],
-      nextAction: "Draft Ostendo quotation from verified product take-off schedule",
+      nextAction: "Draft Ostendo quotation from product take-off schedule",
       nextActionDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       daysInCurrentStage: 0,
       totalDealAgeDays: 0,
       dealHealth: "Healthy" as const,
-      dealHealthReasons: ["Technical take-off verified from engineering drawing"],
+      dealHealthReasons: ["Technical take-off extracted from engineering drawing"],
       notes: `Drawing: ${takeoffResult.drawingMetadata?.drawingNumber || "N/A"} (${takeoffResult.drawingMetadata?.revision || "Rev A"}). ${takeoffResult.summary}`
     };
 
@@ -576,7 +657,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
     navigateToCRM("pipeline", dealId);
   };
 
-    // Download Ostendo CSV (Strict product-only, validated)
+  // Download Ostendo CSV (Strict product-only, validated)
   const handleDownloadOstendoCSV = () => {
     if (!takeoffResult) return;
 
@@ -598,8 +679,8 @@ export const PlanTakeoffWorkspace: React.FC = () => {
 
     setExportValidationErrors([]);
     const csvData = formatOstendoCSV(items, ostendoQuoteRef || takeoffResult.drawingMetadata.drawingNumber);
-    downloadOstendoCSV(csvData, `Ostendo_Product_List_${projectName.replace(/\s+/g, "_")}.csv`);
-    showToast("Ostendo CSV downloaded. Ostendo will calculate customer pricing, tax and totals.", "success");
+    downloadOstendoCSV(csvData, `Ostendo_Product_List_${(projectName || "Takeoff").replace(/\s+/g, "_")}.csv`);
+    showToast("Ostendo CSV downloaded. Pricing & tax calculate in Ostendo.", "success");
   };
 
   // Copy Product List for Ostendo
@@ -624,7 +705,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
 
     setExportValidationErrors([]);
     await copyOstendoProductList(items, ostendoQuoteRef || takeoffResult.drawingMetadata.drawingNumber);
-    showToast("Product list copied to clipboard! Pricing will be calculated in Ostendo.", "success");
+    showToast("Product list copied to clipboard (Ostendo format)", "success");
   };
 
   // Export Schedule as clean CSV
@@ -639,6 +720,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
       "Quantity",
       "Unit",
       "Drawing Reference",
+      "Review Status",
       "Confidence",
       "Notes"
     ];
@@ -651,69 +733,81 @@ export const PlanTakeoffWorkspace: React.FC = () => {
       item.quantity,
       `"${item.unit}"`,
       `"${item.drawingReference.replace(/"/g, '""')}"`,
+      `"${(item as ExtendedBOMItem).reviewStatus || "Extracted"}"`,
       `"${item.confidence}"`,
       `"${(item.notes || "").replace(/"/g, '""')}"`
     ]);
 
-    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(r => r.join(","))].join("\r\n");
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\r\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `Takeoff_Schedule_${projectName.replace(/\s+/g, "_")}.csv`);
+    link.setAttribute("download", `Takeoff_Schedule_${(projectName || "Project").replace(/\s+/g, "_")}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 
-    showToast("Downloaded Take-off Schedule CSV!", "success");
+    showToast("Downloaded Take-off Schedule CSV", "success");
   };
 
-  return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      
-      {/* Header & Feature Context */}
-      <div className="bg-gradient-to-r from-brand-deep via-brand to-brand-deep text-white p-6 rounded-panel shadow-md relative overflow-hidden">
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-white/5 skew-x-12 transform origin-top-right pointer-events-none" />
-        
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
-          <div className="space-y-1.5">
-            <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-white/15 text-white text-spec font-bold tracking-wide uppercase">
-              <Sparkles className="w-3.5 h-3.5 text-soon" />
-              <span>AI Drawing &amp; Plan Deciphering</span>
-            </div>
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight">
-              Engineering Plan &amp; Product Take-off
-            </h1>
-            <p className="text-white/80 text-meta max-w-2xl">
-              Extract luminaire schedules, pole tables, and civil cable cover quantities directly from engineering drawings. Exports validated product lists for Ostendo ERP entry.
-            </p>
-          </div>
+  // Verification Counts
+  const statusCounts = useMemo(() => {
+    if (!takeoffResult || !takeoffResult.billOfMaterials) return { total: 0, reviewed: 0, needsReview: 0, extracted: 0 };
+    const items = takeoffResult.billOfMaterials as ExtendedBOMItem[];
+    const reviewed = items.filter((i) => i.reviewStatus === "Reviewed" || i.reviewStatus === "Confirmed from source").length;
+    const needsReview = items.filter((i) => i.reviewStatus === "Needs review" || i.reviewStatus === "Unresolved" || i.reviewStatus === "Match needs review").length;
+    const extracted = items.filter((i) => !i.reviewStatus || i.reviewStatus === "Extracted" || i.reviewStatus === "Product matched").length;
+    return { total: items.length, reviewed, needsReview, extracted };
+  }, [takeoffResult]);
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setIsDatasheetModalOpen(true)}
-              className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-edge font-bold text-meta backdrop-blur-xs flex items-center gap-2 border border-white/20 transition-colors cursor-pointer"
-              title="Download consolidated Tender Spec Package"
-            >
-              <Download className="w-4 h-4 text-cyan-300" />
-              <span>Tender Package</span>
-            </button>
+  return (
+    <div className="space-y-5 max-w-7xl mx-auto pb-16">
+      
+      {/* 1. Clear Single Tool Header & Primary Actions */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-4">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl md:text-2xl font-bold text-body tracking-tight">Plan Take-off</h1>
+            {isExamplePlan && (
+              <span className="text-spec font-bold px-2 py-0.5 rounded bg-soon-wash text-soon border border-soon/40">
+                Example Demo Plan
+              </span>
+            )}
+          </div>
+          <p className="text-meta text-ink-dim mt-0.5">
+            Upload an engineering drawing to extract luminaire schedules, pole tables, and civil quantities.
+          </p>
+        </div>
+
+        {/* Header Action Button */}
+        <div className="flex items-center gap-2 shrink-0">
+          {takeoffResult ? (
             <button
               onClick={handleRunAnalysis}
-              disabled={isAnalysing}
-              className="px-4 py-2 bg-soon hover:bg-soon text-ink-base font-bold rounded-edge text-meta shadow-sm hover:shadow flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+              disabled={isAnalysing || (!uploadedFile && !selectedPlanId)}
+              className="px-3.5 py-1.5 bg-paper hover:bg-raised text-body font-bold text-meta rounded-edge border border-line flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
             >
-              <RefreshCw className={`w-4 h-4 ${isAnalysing ? "animate-spin" : ""}`} />
-              <span>{isAnalysing ? "Deciphering Plan..." : "Re-Analyse Plan"}</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isAnalysing ? "animate-spin" : ""}`} />
+              <span>{isAnalysing ? "Analysing..." : "Re-analyse plan"}</span>
             </button>
-          </div>
+          ) : (
+            <button
+              onClick={handleRunAnalysis}
+              disabled={isAnalysing || (!uploadedFile && !selectedPlanId)}
+              className="px-4 py-2 bg-brand hover:bg-brand-deep text-white font-bold text-meta rounded-edge shadow-xs flex items-center gap-2 transition-colors cursor-pointer disabled:opacity-50"
+            >
+              <Sparkles className={`w-4 h-4 ${isAnalysing ? "animate-spin" : ""}`} />
+              <span>{isAnalysing ? "Analysing plan..." : "Analyse plan"}</span>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Validation Error Notice if any */}
+      {/* Validation Error Banner */}
       {exportValidationErrors.length > 0 && (
-        <div className="p-4 bg-urgent-wash border border-urgent/30 rounded-panel text-meta text-urgent space-y-1.5 animate-in fade-in duration-150">
+        <div className="p-3.5 bg-urgent-wash border border-urgent/30 rounded-panel text-meta text-urgent space-y-1.5 animate-in fade-in duration-150">
           <div className="flex items-center gap-2 font-bold">
             <AlertTriangle className="w-4 h-4" />
             <span>Ostendo Export Blocked — Please correct the following line items:</span>
@@ -726,448 +820,638 @@ export const PlanTakeoffWorkspace: React.FC = () => {
         </div>
       )}
 
-      {/* Blueprint Ingestion Ribbon */}
-      <div className="bg-white p-5 rounded-panel border border-line shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-line pb-3">
-          <div className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-brand-deep" />
-            <h2 className="font-bold text-body text-meta">Select or Upload Plan Drawing</h2>
-          </div>
+      {/* AI Unavailable Notification */}
+      {analysisError && (
+        <AIUnavailableNotice
+          context="AI Plan &amp; Drawing Deciphering"
+          detail={analysisError.detail}
+          guidance={analysisError.guidance || "Do not quote from this screen until analysis is restored."}
+          onDismiss={() => setAnalysisError(null)}
+        />
+      )}
 
-          {/* Sample Switcher */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-spec text-ink-dim font-semibold">Load Sample:</span>
-            {SAMPLE_PLANS.map((sample) => (
-              <button
-                key={sample.id}
-                onClick={() => handleSelectSample(sample)}
-                className={`px-2.5 py-1 text-spec font-bold rounded border transition-colors cursor-pointer ${
-                  selectedPlanId === sample.id
-                    ? "bg-brand-deep text-white border-brand-deep"
-                    : "bg-paper text-ink hover:bg-raised border-line"
-                }`}
-              >
-                {sample.name.split(" ")[0]} Plan
-              </button>
-            ))}
+      {/* 2. Upload Plan & Compact Project Details Section */}
+      <div className="bg-white p-4 rounded-panel border border-line shadow-2xs space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-line pb-2.5">
+          <span className="text-spec font-bold text-ink-dim uppercase tracking-wider">
+            Upload Plan &amp; Project Details
+          </span>
+
+          {/* Example Plan Switcher */}
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setIsSampleDropdownOpen((prev) => !prev)}
+              className="text-spec font-semibold text-brand-deep hover:text-brand bg-brand-wash/60 hover:bg-brand-wash px-2.5 py-1 rounded-edge border border-brand-edge flex items-center gap-1.5 cursor-pointer transition-colors"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
+              <span>Load Example Plan (Demo)</span>
+              <ChevronDown className="w-3 h-3" />
+            </button>
+
+            {isSampleDropdownOpen && (
+              <div className="absolute right-0 mt-1 w-64 bg-white rounded-panel shadow-lg border border-line py-1 z-30 animate-in fade-in zoom-in-95 duration-100">
+                <div className="px-3 py-1.5 text-[11px] font-bold uppercase text-ink-faint border-b border-line">
+                  Select Demo Plan
+                </div>
+                {SAMPLE_PLANS.map((sample) => (
+                  <button
+                    key={sample.id}
+                    onClick={() => {
+                      handleSelectSample(sample);
+                      setIsSampleDropdownOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 text-meta hover:bg-raised transition-colors flex flex-col ${
+                      selectedPlanId === sample.id ? "bg-brand-wash/40 font-bold text-brand-deep" : "text-body"
+                    }`}
+                  >
+                    <span className="font-semibold">{sample.name}</span>
+                    <span className="text-spec text-ink-dim">{sample.drawingNumber} • {sample.category}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Upload & Context Inputs */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+        {/* Upload Dropzone & Core Metadata Inputs */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5 items-center">
           
           {/* Dropzone */}
-          <div className="md:col-span-6 relative border-2 border-dashed border-line-strong hover:border-brand rounded-panel p-4 text-center bg-paper transition-colors">
+          <div className="md:col-span-6 relative border-2 border-dashed border-line-strong hover:border-brand rounded-panel p-3.5 text-center bg-paper transition-colors">
             <input
               type="file"
               accept=".pdf,.png,.jpg,.jpeg,.tiff,.webp"
               onChange={handleFileUpload}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
-            <div className="flex flex-col items-center gap-1.5 pointer-events-none">
-              <UploadCloud className="w-6 h-6 text-brand-deep" />
+            <div className="flex flex-col items-center gap-1 pointer-events-none">
+              <UploadCloud className="w-5 h-5 text-brand" />
               <div className="text-meta font-bold text-body">
                 {uploadedFile ? uploadedFile.name : "Drop Engineering PDF, CAD Drawing, or Site Plan here"}
               </div>
               <div className="text-spec text-ink-faint">
-                {uploadedFile ? `${uploadedFile.type} • ${uploadedFile.size}` : "Supports PDF, PNG, JPG, TIFF (up to 25MB)"}
+                {uploadedFile
+                  ? `${uploadedFile.type || "PDF"} • ${uploadedFile.size}`
+                  : "PDF, PNG, JPG (up to 25 MB)"}
               </div>
             </div>
+            {uploadedFile && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClearPlan();
+                }}
+                className="absolute top-2 right-2 p-1 text-ink-faint hover:text-urgent rounded bg-white border border-line shadow-2xs cursor-pointer z-10"
+                title="Remove plan"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
-          {/* Project & Context Fields */}
+          {/* Project Details Fields */}
           <div className="md:col-span-6 space-y-2">
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-spec font-bold uppercase text-ink-dim mb-0.5">Project Name</label>
                 <input
                   type="text"
+                  placeholder="e.g. Ballarat Shared Path"
                   value={projectName}
                   onChange={(e) => setProjectName(e.target.value)}
-                  className="w-full p-2 bg-paper text-meta rounded-edge border border-line font-medium"
+                  className="w-full p-2 bg-paper text-meta rounded-edge border border-line font-medium focus:ring-1 focus:ring-brand"
                 />
               </div>
               <div>
-                <label className="block text-spec font-bold uppercase text-ink-dim mb-0.5">Customer / Authority</label>
+                <label className="block text-spec font-bold uppercase text-ink-dim mb-0.5">Customer / Account</label>
                 <input
                   type="text"
+                  placeholder="e.g. City of Ballarat"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full p-2 bg-paper text-meta rounded-edge border border-line font-medium"
+                  className="w-full p-2 bg-paper text-meta rounded-edge border border-line font-medium focus:ring-1 focus:ring-brand"
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-spec font-bold uppercase text-ink-dim mb-0.5">
-                Engineer Notes / Clarifications
-              </label>
-              <input
-                type="text"
-                value={drawingNotes}
-                onChange={(e) => setDrawingNotes(e.target.value)}
-                placeholder="e.g. Verify 3000K wildlife buffer and 1.2m footing embedment depth"
-                className="w-full p-2 bg-paper text-meta rounded-edge border border-line"
-              />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="block text-spec font-bold uppercase text-ink-dim mb-0.5">Drawing Number / Rev</label>
+                <input
+                  type="text"
+                  placeholder="e.g. BCC-2025-E02 (Rev B)"
+                  value={drawingRef}
+                  onChange={(e) => setDrawingRef(e.target.value)}
+                  className="w-full p-2 bg-paper text-meta rounded-edge border border-line font-medium focus:ring-1 focus:ring-brand"
+                />
+              </div>
+              <div>
+                <label className="block text-spec font-bold uppercase text-ink-dim mb-0.5">Engineering Notes</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 3000K wildlife buffer"
+                  value={drawingNotes}
+                  onChange={(e) => setDrawingNotes(e.target.value)}
+                  className="w-full p-2 bg-paper text-meta rounded-edge border border-line focus:ring-1 focus:ring-brand"
+                />
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Split-Screen Workspace */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      {/* 3. Main Working Layout: Responsive Split View */}
+      
+      {/* Mobile Tab Switcher */}
+      <div className="flex md:hidden items-center gap-1 p-1 bg-paper border border-line rounded-lg">
+        <button
+          onClick={() => setMobileActiveTab("preview")}
+          className={`flex-1 py-1.5 text-meta font-bold rounded-edge text-center ${
+            mobileActiveTab === "preview" ? "bg-white text-body shadow-2xs border border-line" : "text-ink-dim"
+          }`}
+        >
+          Plan Preview
+        </button>
+        <button
+          onClick={() => setMobileActiveTab("schedule")}
+          className={`flex-1 py-1.5 text-meta font-bold rounded-edge text-center flex items-center justify-center gap-1.5 ${
+            mobileActiveTab === "schedule" ? "bg-white text-body shadow-2xs border border-line" : "text-ink-dim"
+          }`}
+        >
+          <span>Take-off Schedule</span>
+          {takeoffResult && (
+            <span className="text-spec px-1.5 py-0.2 rounded-full bg-brand-wash text-brand-deep font-bold">
+              {takeoffResult.billOfMaterials.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Split Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-start">
         
-        {/* Left Column: Interactive CAD & Drawing Viewer */}
-        <div className="lg:col-span-5 bg-slate-950 rounded-panel p-4 text-white shadow-md border border-slate-800 space-y-3">
-          
-          {/* Viewer Toolbar */}
-          <div className="flex items-center justify-between border-b border-white/10 pb-3">
-            <div className="flex items-center gap-2">
+        {/* Left Column: Plan Preview */}
+        <div
+          className={`${
+            mobileActiveTab === "preview" ? "block" : "hidden md:block"
+          } md:col-span-5 bg-slate-950 rounded-panel p-3.5 text-white shadow-md border border-slate-800 space-y-3`}
+        >
+          {/* Toolbar */}
+          <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
+            <div className="flex items-center gap-2 truncate">
               <span className="font-mono text-spec font-bold bg-cyan-950 text-cyan-400 border border-cyan-800 px-2 py-0.5 rounded">
-                {takeoffResult?.drawingMetadata.drawingNumber || "CAD-VIEW"}
+                {takeoffResult?.drawingMetadata.drawingNumber || drawingRef || (uploadedFile ? "PDF" : "NO PLAN")}
               </span>
-              <span className="text-spec text-slate-400 truncate max-w-[180px]">
-                {takeoffResult?.drawingMetadata.sheetTitle || "Engineering Layout"}
+              <span className="text-spec text-slate-400 truncate max-w-[160px]">
+                {takeoffResult?.drawingMetadata.sheetTitle || projectName || "Drawing View"}
               </span>
             </div>
 
             {/* Zoom / Rotate Controls */}
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setZoomLevel((prev) => Math.max(0.6, prev - 0.2))}
-                className="p-1.5 bg-white/10 hover:bg-white/20 rounded cursor-pointer transition-colors"
-                title="Zoom Out"
-              >
-                <ZoomOut className="w-3.5 h-3.5 text-cyan-300" />
-              </button>
-              <span className="text-spec font-mono font-bold text-slate-300 w-10 text-center">
-                {Math.round(zoomLevel * 100)}%
-              </span>
-              <button
-                onClick={() => setZoomLevel((prev) => Math.min(2.5, prev + 0.2))}
-                className="p-1.5 bg-white/10 hover:bg-white/20 rounded cursor-pointer transition-colors"
-                title="Zoom In"
-              >
-                <ZoomIn className="w-3.5 h-3.5 text-cyan-300" />
-              </button>
-              <button
-                onClick={() => setRotation((prev) => (prev + 90) % 360)}
-                className="p-1.5 bg-white/10 hover:bg-white/20 rounded cursor-pointer transition-colors"
-                title="Rotate 90°"
-              >
-                <RotateCw className="w-3.5 h-3.5 text-cyan-300" />
-              </button>
-            </div>
+            {uploadedFile && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setZoomLevel((prev) => Math.max(0.6, prev - 0.2))}
+                  className="p-1 bg-white/10 hover:bg-white/20 rounded cursor-pointer transition-colors"
+                  title="Zoom Out"
+                >
+                  <ZoomOut className="w-3.5 h-3.5 text-cyan-300" />
+                </button>
+                <span className="text-spec font-mono font-bold text-slate-300 w-9 text-center">
+                  {Math.round(zoomLevel * 100)}%
+                </span>
+                <button
+                  onClick={() => setZoomLevel((prev) => Math.min(2.5, prev + 0.2))}
+                  className="p-1 bg-white/10 hover:bg-white/20 rounded cursor-pointer transition-colors"
+                  title="Zoom In"
+                >
+                  <ZoomIn className="w-3.5 h-3.5 text-cyan-300" />
+                </button>
+                <button
+                  onClick={() => setRotation((prev) => (prev + 90) % 360)}
+                  className="p-1 bg-white/10 hover:bg-white/20 rounded cursor-pointer transition-colors"
+                  title="Rotate 90°"
+                >
+                  <RotateCw className="w-3.5 h-3.5 text-cyan-300" />
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Interactive Canvas View */}
-          <div className="relative h-[420px] bg-slate-900 rounded-edge border border-cyan-950 overflow-hidden flex items-center justify-center p-4">
+          {/* Working Preview Canvas */}
+          <div className="relative min-h-[400px] h-[460px] bg-slate-900 rounded-edge border border-slate-800 overflow-hidden flex items-center justify-center p-2">
             
-            {/* Blueprint Grid Overlay */}
-            <div
-              className="absolute inset-0 opacity-15 pointer-events-none"
-              style={{
-                backgroundImage:
-                  "linear-gradient(to right, #06b6d4 1px, transparent 1px), linear-gradient(to bottom, #06b6d4 1px, transparent 1px)",
-                backgroundSize: "24px 24px"
-              }}
-            />
-
-            {/* Drawing Content Simulation with Zoom & Rotate */}
-            <div
-              className="transition-transform duration-150 ease-out flex flex-col items-center justify-center text-center p-6 space-y-4 max-w-sm"
-              style={{
-                transform: `scale(${zoomLevel}) rotate(${rotation}deg)`
-              }}
-            >
-              {/* Simulated CAD Sheet Graphics */}
-              <div className="w-56 h-36 border-2 border-cyan-500/40 rounded bg-cyan-950/20 p-3 relative flex flex-col justify-between">
-                
-                {/* Title Block Box */}
-                <div className="text-left font-mono text-[9px] text-cyan-400 border-b border-cyan-500/30 pb-1">
-                  <div>DWG: {takeoffResult?.drawingMetadata.drawingNumber || "E-02"}</div>
-                  <div>SCALE: {takeoffResult?.drawingMetadata.scale || "1:500"}</div>
+            {/* 1. Honest Empty State */}
+            {!uploadedFile && !selectedPlanId && (
+              <div className="flex flex-col items-center justify-center h-full p-6 text-center text-slate-400 space-y-2.5">
+                <div className="w-12 h-12 rounded-full bg-slate-800 flex items-center justify-center text-slate-500 border border-slate-700">
+                  <FileText className="w-6 h-6" />
                 </div>
-
-                {/* Simulated Pole & Luminaire Symbols */}
-                <div className="flex justify-around items-center py-2">
-                  <div className="flex flex-col items-center gap-0.5">
-                    <div className="w-3 h-3 rounded-full bg-amber-400 shadow-md shadow-amber-500/50 animate-pulse" />
-                    <span className="text-[8px] font-mono text-amber-300 font-bold">P1 (6m)</span>
-                  </div>
-                  <div className="h-0.5 w-12 bg-dashed border-b border-dashed border-orange-400" />
-                  <div className="flex flex-col items-center gap-0.5">
-                    <div className="w-3 h-3 rounded-full bg-amber-400 shadow-md shadow-amber-500/50 animate-pulse" />
-                    <span className="text-[8px] font-mono text-amber-300 font-bold">P2 (6m)</span>
-                  </div>
-                  <div className="h-0.5 w-12 bg-dashed border-b border-dashed border-orange-400" />
-                  <div className="flex flex-col items-center gap-0.5">
-                    <div className="w-3 h-3 rounded-full bg-amber-400 shadow-md shadow-amber-500/50 animate-pulse" />
-                    <span className="text-[8px] font-mono text-amber-300 font-bold">P3 (6m)</span>
-                  </div>
-                </div>
-
-                {/* Underground Trench Callout */}
-                <div className="text-[8px] font-mono text-orange-400 bg-orange-950/60 px-1 py-0.5 rounded border border-orange-500/30">
-                  ⚡ 1,200m Polymeric Cover Slab Run
+                <div className="space-y-1 max-w-xs">
+                  <h3 className="font-bold text-white text-meta">No plan uploaded</h3>
+                  <p className="text-spec text-slate-400 leading-relaxed">
+                    Upload an engineering PDF or site drawing to inspect the source drawing and extract bill of materials.
+                  </p>
                 </div>
               </div>
+            )}
 
-              {/* Bottom Metadata Bar */}
-              <div className="relative z-10 flex justify-between items-end text-spec text-cyan-300 font-mono pt-2 border-t border-white/10 w-full">
-                <div className="text-[10px] text-slate-400">
-                  Standards: {(takeoffResult?.drawingMetadata.standardsIdentified || []).join(" • ")}
+            {/* 2. Real Uploaded PDF Preview */}
+            {uploadedFile && uploadedFile.dataUrl && uploadedFile.type === "application/pdf" && (
+              <div
+                className="w-full h-full flex items-center justify-center transition-transform duration-150"
+                style={{ transform: `scale(${zoomLevel}) rotate(${rotation}deg)` }}
+              >
+                <object
+                  data={uploadedFile.dataUrl}
+                  type="application/pdf"
+                  className="w-full h-full rounded bg-white shadow-inner pointer-events-auto"
+                >
+                  <div className="p-4 text-center text-spec text-slate-300">
+                    PDF loaded ({uploadedFile.name}). Preview supported in browser.
+                  </div>
+                </object>
+              </div>
+            )}
+
+            {/* 3. Real Uploaded Image (PNG/JPG) Preview */}
+            {uploadedFile && uploadedFile.dataUrl && uploadedFile.type !== "application/pdf" && (
+              <div
+                className="w-full h-full flex items-center justify-center overflow-auto"
+                style={{ transform: `scale(${zoomLevel}) rotate(${rotation}deg)` }}
+              >
+                <img
+                  src={uploadedFile.dataUrl}
+                  alt={uploadedFile.name}
+                  className="max-w-full max-h-full object-contain rounded"
+                />
+              </div>
+            )}
+
+            {/* 4. Example Demo Drawing View */}
+            {isExamplePlan && (
+              <div className="relative w-full h-full flex flex-col items-center justify-center p-4">
+                <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-soon-wash text-soon border border-soon/40 text-[10px] font-mono font-bold">
+                  DEMO EXAMPLE DRAWING
                 </div>
-                <div className="text-[10px] text-emerald-400 font-bold">
-                  {takeoffResult?.billOfMaterials.length || 0} ITEMS IDENTIFIED
+                <div
+                  className="transition-transform duration-150 flex flex-col items-center text-center p-4 space-y-3"
+                  style={{ transform: `scale(${zoomLevel}) rotate(${rotation}deg)` }}
+                >
+                  <div className="w-56 h-36 border-2 border-cyan-500/40 rounded bg-cyan-950/20 p-3 relative flex flex-col justify-between">
+                    <div className="text-left font-mono text-[9px] text-cyan-400 border-b border-cyan-500/30 pb-1">
+                      <div>DWG: {takeoffResult?.drawingMetadata.drawingNumber || "E-02"}</div>
+                      <div>SCALE: {takeoffResult?.drawingMetadata.scale || "1:500"}</div>
+                    </div>
+                    <div className="flex justify-around items-center py-2">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <div className="w-3 h-3 rounded-full bg-amber-400 shadow-md shadow-amber-500/50" />
+                        <span className="text-[8px] font-mono text-amber-300 font-bold">P1 (6m)</span>
+                      </div>
+                      <div className="h-0.5 w-12 bg-dashed border-b border-dashed border-orange-400" />
+                      <div className="flex flex-col items-center gap-0.5">
+                        <div className="w-3 h-3 rounded-full bg-amber-400 shadow-md shadow-amber-500/50" />
+                        <span className="text-[8px] font-mono text-amber-300 font-bold">P2 (6m)</span>
+                      </div>
+                      <div className="h-0.5 w-12 bg-dashed border-b border-dashed border-orange-400" />
+                      <div className="flex flex-col items-center gap-0.5">
+                        <div className="w-3 h-3 rounded-full bg-amber-400 shadow-md shadow-amber-500/50" />
+                        <span className="text-[8px] font-mono text-amber-300 font-bold">P3 (6m)</span>
+                      </div>
+                    </div>
+                    <div className="text-[8px] font-mono text-orange-400 bg-orange-950/60 px-1 py-0.5 rounded border border-orange-500/30">
+                      ⚡ 1,200m Polymeric Cover Run
+                    </div>
+                  </div>
                 </div>
               </div>
-
-            </div>
+            )}
           </div>
 
-          {/* Legends & Symbol Cross-reference */}
-          <div className="pt-2 border-t border-white/10">
-            <span className="text-spec font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-              Deciphered Drawing Legend &amp; Symbols:
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-spec">
-              {takeoffResult?.legendAndSchedules.map((leg, idx) => (
-                <div key={idx} className="p-2 rounded bg-white/5 border border-white/10 flex items-start gap-2">
-                  <span className="font-mono font-bold text-cyan-300 bg-cyan-950/60 px-1.5 py-0.5 rounded shrink-0">
-                    {leg.symbol}
-                  </span>
-                  <span className="text-slate-300 text-meta truncate">{leg.description}</span>
-                </div>
-              ))}
+          {/* Legends & Symbols (Only shown if available) */}
+          {takeoffResult?.legendAndSchedules && takeoffResult.legendAndSchedules.length > 0 && (
+            <div className="pt-2 border-t border-white/10">
+              <span className="text-spec font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                Drawing Legend &amp; Symbols
+              </span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-spec">
+                {takeoffResult.legendAndSchedules.map((leg, idx) => (
+                  <div key={idx} className="p-1.5 rounded bg-white/5 border border-white/10 flex items-start gap-1.5">
+                    <span className="font-mono font-bold text-cyan-300 bg-cyan-950/60 px-1.5 py-0.5 rounded shrink-0 text-[10px]">
+                      {leg.symbol}
+                    </span>
+                    <span className="text-slate-300 text-spec truncate">{leg.description}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Right Column: Editable Product & Quantity List & Actions */}
-        <div className="lg:col-span-7 space-y-4">
-          
-          {/* Action Ribbon & Product Schedule Context */}
-          <div className="bg-white p-4 rounded-panel border border-line shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <span className="text-spec font-bold text-ink-dim uppercase tracking-wider block">
-                Product &amp; Quantity Take-off Schedule
-              </span>
-              <div className="text-lg font-black text-body mt-0.5 flex items-center gap-2">
-                <span>{takeoffResult?.billOfMaterials.length || 0} Line Items Verified</span>
-                <span className="text-spec font-normal text-brand-deep bg-brand-wash px-2 py-0.5 rounded">
-                  Pricing calculated in Ostendo ERP
-                </span>
+        {/* Right Column: Take-off Schedule */}
+        <div
+          className={`${
+            mobileActiveTab === "schedule" ? "block" : "hidden md:block"
+          } md:col-span-7 space-y-4`}
+        >
+          {/* Result Action Bar (Only shown when results exist) */}
+          {takeoffResult && (
+            <div className="bg-white p-3.5 rounded-panel border border-line shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-meta font-bold text-body">
+                    Take-off Schedule ({statusCounts.total} items)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-spec text-ink-dim mt-0.5">
+                  <span className="text-slate-600 font-semibold">{statusCounts.extracted} Extracted</span>
+                  <span>•</span>
+                  <span className="text-emerald-700 font-semibold">{statusCounts.reviewed} Reviewed</span>
+                  {statusCounts.needsReview > 0 && (
+                    <>
+                      <span>•</span>
+                      <span className="text-amber-700 font-semibold">{statusCounts.needsReview} Needs Review</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Action Buttons: Save to Deal + Export Menu + More Menu */}
+              <div className="flex flex-wrap items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                {/* 1. Primary Action: Save to CRM Deal */}
+                <button
+                  onClick={handleOpenTakeoffSaveModal}
+                  className="px-3.5 py-1.5 bg-brand hover:bg-brand-deep text-white font-bold text-meta rounded-edge shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Save take-off to CRM Pipeline"
+                >
+                  <KanbanSquare className="w-3.5 h-3.5" />
+                  <span>Save to deal</span>
+                </button>
+
+                {/* 2. Consolidated Export Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setIsExportMenuOpen((prev) => !prev);
+                      setIsMoreMenuOpen(false);
+                    }}
+                    className="px-3 py-1.5 bg-paper hover:bg-raised text-body font-bold text-meta rounded-edge border border-line flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5 text-ink-dim" />
+                    <span>Export</span>
+                    <ChevronDown className="w-3 h-3 text-ink-faint" />
+                  </button>
+
+                  {isExportMenuOpen && (
+                    <div className="absolute right-0 mt-1 w-56 bg-white rounded-panel shadow-lg border border-line py-1 z-30 animate-in fade-in zoom-in-95 duration-100">
+                      <button
+                        onClick={() => {
+                          handleDownloadOstendoCSV();
+                          setIsExportMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-meta hover:bg-raised transition-colors flex items-center gap-2 text-body"
+                      >
+                        <FileSpreadsheet className="w-3.5 h-3.5 text-brand-deep" />
+                        <span>Download Ostendo CSV</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          handleCopyOstendoProductList();
+                          setIsExportMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-meta hover:bg-raised transition-colors flex items-center gap-2 text-body"
+                      >
+                        <Copy className="w-3.5 h-3.5 text-brand" />
+                        <span>Copy Product List</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          handleExportCSV();
+                          setIsExportMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-meta hover:bg-raised transition-colors flex items-center gap-2 text-body border-t border-line"
+                      >
+                        <Download className="w-3.5 h-3.5 text-ink-dim" />
+                        <span>Export Schedule CSV</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Consolidated More Actions Dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => {
+                      setIsMoreMenuOpen((prev) => !prev);
+                      setIsExportMenuOpen(false);
+                    }}
+                    className="px-2.5 py-1.5 bg-paper hover:bg-raised text-ink-dim hover:text-body font-semibold text-meta rounded-edge border border-line flex items-center gap-1 transition-colors cursor-pointer"
+                    title="Additional tools and package actions"
+                  >
+                    <span>More</span>
+                    <ChevronDown className="w-3 h-3" />
+                  </button>
+
+                  {isMoreMenuOpen && (
+                    <div className="absolute right-0 mt-1 w-52 bg-white rounded-panel shadow-lg border border-line py-1 z-30 animate-in fade-in zoom-in-95 duration-100">
+                      <button
+                        onClick={() => {
+                          setIsDatasheetModalOpen(true);
+                          setIsMoreMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-meta hover:bg-raised transition-colors flex items-center gap-2 text-body"
+                      >
+                        <Download className="w-3.5 h-3.5 text-cyan-600" />
+                        <span>Tender Package</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setIsReadinessModalOpen(true);
+                          setIsMoreMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-meta hover:bg-raised transition-colors flex items-center gap-2 text-body"
+                      >
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Quote Readiness</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          const firstItem = takeoffResult?.billOfMaterials[0];
+                          setSelectedProductForPricing({
+                            code: firstItem?.recommendedProductCode || "SOLAR-01",
+                            name: firstItem?.itemDescription || "Public Lighting Luminaire",
+                            quantity: firstItem?.quantity || 12
+                          });
+                          setIsPricingModalOpen(true);
+                          setIsMoreMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-meta hover:bg-raised transition-colors flex items-center gap-2 text-body"
+                      >
+                        <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Request Pricing</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+          )}
 
-                        {/* Actions: Download Ostendo CSV, Copy Product List, Tender Package, Export CSV, Save to CRM */}
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={handleDownloadOstendoCSV}
-                className="px-3 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-                title="Download standard UTF-8 CRLF CSV for Ostendo ERP"
-              >
-                <FileSpreadsheet className="w-3.5 h-3.5 text-cyan-200" />
-                <span>Download Ostendo CSV</span>
-              </button>
-
-              <button
-                onClick={handleCopyOstendoProductList}
-                className="px-3 py-1.5 bg-white hover:bg-brand-wash text-brand-deep border border-brand-edge font-bold text-meta rounded-edge flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
-                title="Copy tab-delimited product and quantity list to clipboard"
-              >
-                <Copy className="w-3.5 h-3.5" />
-                <span>Copy Product List</span>
-              </button>
-
-              <button
-                onClick={() => setIsDatasheetModalOpen(true)}
-                className="px-3 py-1.5 bg-paper hover:bg-raised text-body font-bold text-meta rounded-edge border border-line flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
-                title="Generate and download consolidated Tender Spec Package"
-              >
-                <Download className="w-3.5 h-3.5 text-ink-dim" />
-                <span>Tender Package</span>
-              </button>
-
-              <button
-                onClick={handleExportCSV}
-                className="px-3 py-1.5 bg-paper hover:bg-raised text-meta font-bold rounded-edge border border-line flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
-                title="Download Take-off Schedule spreadsheet"
-              >
-                <Download className="w-3.5 h-3.5 text-ink-dim" />
-                <span>Export Schedule</span>
-              </button>
-
-              <button
-                onClick={() => setIsReadinessModalOpen(true)}
-                className="px-3 py-1.5 bg-paper hover:bg-raised text-body font-bold text-meta rounded-edge border border-line flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
-                title="Evaluate pre-quote readiness gate for this take-off"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-brand" />
-                <span>Quote Readiness</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  const firstItem = takeoffResult?.billOfMaterials[0];
-                  setSelectedProductForPricing({
-                    code: firstItem?.recommendedProductCode || "SOLAR-TAIZ-01",
-                    name: firstItem?.itemDescription || "Public Lighting Luminaire",
-                    quantity: firstItem?.quantity || 12
-                  });
-                  setIsPricingModalOpen(true);
-                }}
-                className="px-3 py-1.5 bg-paper hover:bg-raised text-body font-bold text-meta rounded-edge border border-line flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
-                title="Submit commercial pricing request to sales leadership"
-              >
-                <HelpCircle className="w-3.5 h-3.5 text-amber-600" />
-                <span>Request Pricing</span>
-              </button>
-
-              <button
-                onClick={handleOpenTakeoffSaveModal}
-                className="px-3.5 py-1.5 bg-brand-wash hover:bg-brand-wash/80 text-brand-deep text-meta font-bold rounded-edge border border-brand-edge shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
-                title="Push products & quantities to CRM Command Centre Deal"
-              >
-                <KanbanSquare className="w-3.5 h-3.5 text-brand" />
-                <span>Save to CRM Deal</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Interactive Product & Quantity Table */}
-          <div className="bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-line">
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-meta text-body">Itemized Products &amp; Quantities</h3>
-                <span className="text-spec font-bold px-2 py-0.5 rounded-full bg-brand-wash text-brand-deep">
-                  {takeoffResult?.billOfMaterials.length || 0} Line Items
-                </span>
+          {/* Schedule Table (Only rendered when results exist) */}
+          {takeoffResult && (
+            <div className="bg-white p-4 rounded-panel border border-line shadow-2xs space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-line">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-meta text-body">Itemized Products &amp; Quantities</h3>
+                </div>
+                <button
+                  onClick={handleAddItem}
+                  className="text-spec font-bold text-brand hover:text-brand-deep hover:bg-brand-wash px-2.5 py-1 rounded-edge border border-brand-edge flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Add Item</span>
+                </button>
               </div>
-              <button
-                onClick={handleAddItem}
-                className="text-spec font-bold text-brand-deep hover:bg-brand-wash px-2.5 py-1 rounded-edge border border-brand-edge flex items-center gap-1 cursor-pointer transition-colors"
-              >
-                <Plus className="w-3 h-3" />
-                Add Item
-              </button>
-            </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-meta">
-                <thead>
-                  <tr className="border-b border-line text-spec font-bold text-ink-dim uppercase">
-                    <th className="text-left py-2 pr-2">Item / Category</th>
-                    <th className="text-left py-2 px-2">Plasgain Item Code</th>
-                    <th className="text-left py-2 px-2">Drawing &amp; Page Ref</th>
-                    <th className="text-center py-2 px-2">Extraction Confidence</th>
-                    <th className="text-center py-2 px-2 w-28">Quantity</th>
-                    <th className="text-left py-2 px-2">Notes / Standards</th>
-                    <th className="py-2 pl-2 w-8"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {takeoffResult?.billOfMaterials.map((item) => (
-                    <tr key={item.id} className="hover:bg-raised/50 group transition-colors">
-                      
-                      {/* Description & Category */}
-                      <td className="py-2.5 pr-2">
-                        <div className="font-bold text-body text-meta">{item.itemDescription}</div>
-                        <span className="text-spec text-ink-dim px-1.5 py-0.5 bg-paper rounded border border-line">
-                          {item.category}
-                        </span>
-                      </td>
-
-                      {/* Explicit Item Code */}
-                      <td className="py-2.5 px-2">
-                        <input
-                          type="text"
-                          value={item.recommendedProductCode}
-                          onChange={(e) => handleUpdateItem(item.id, "recommendedProductCode", e.target.value)}
-                          placeholder="e.g. PB-75W-3K"
-                          className="font-mono text-spec font-bold text-brand-deep bg-brand-wash border border-brand-edge px-2 py-1 rounded w-36 focus:ring-1 focus:ring-brand"
-                        />
-                      </td>
-
-                      {/* Drawing Ref */}
-                      <td className="py-2.5 px-2 text-spec text-ink-dim">
-                        <div className="font-semibold text-ink">{item.drawingReference}</div>
-                        <span className="text-[10px] text-ink-faint">Sheet: {takeoffResult?.drawingMetadata.drawingNumber || "E-02"}</span>
-                      </td>
-
-                      {/* Confidence Tag (P2) */}
-                      <td className="py-2.5 px-2 text-center">
-                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded border inline-block ${
-                          item.confidence === "High"
-                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                            : item.confidence === "Medium"
-                            ? "bg-amber-50 text-amber-800 border-amber-200"
-                            : "bg-red-50 text-red-800 border-red-200"
-                        }`}>
-                          {item.confidence || "High"}
-                        </span>
-                      </td>
-
-                      {/* Quantity & Unit Input */}
-                      <td className="py-2.5 px-2 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          <input
-                            type="number"
-                            min="1"
-                            value={item.quantity}
-                            onChange={(e) => handleUpdateItem(item.id, "quantity", Number(e.target.value) || 1)}
-                            className="w-16 p-1 text-center font-bold bg-paper rounded border border-line focus:ring-1 focus:ring-brand text-meta"
-                          />
-                          <span className="text-spec font-bold text-ink-dim">{item.unit || "ea"}</span>
-                        </div>
-                      </td>
-
-                      {/* Notes / Specs */}
-                      <td className="py-2.5 px-2 text-spec text-ink-dim">
-                        <input
-                          type="text"
-                          value={item.notes || ""}
-                          onChange={(e) => handleUpdateItem(item.id, "notes", e.target.value)}
-                          placeholder="Line notes for Ostendo / spec sheet"
-                          className="w-full p-1 text-spec bg-paper rounded border border-line"
-                        />
-                      </td>
-
-                      {/* Delete */}
-                      <td className="py-2.5 pl-2 text-center">
-                        <button
-                          onClick={() => handleDeleteItem(item.id)}
-                          className="text-ink-faint hover:text-urgent p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                          title="Remove line item"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-meta min-w-[560px]">
+                  <thead>
+                    <tr className="border-b border-line text-spec font-bold text-ink-dim uppercase">
+                      <th className="text-left py-2 pr-2">Item / Category</th>
+                      <th className="text-left py-2 px-2">Plasgain SKU</th>
+                      <th className="text-left py-2 px-2">Drawing Ref</th>
+                      <th className="text-center py-2 px-2">Status</th>
+                      <th className="text-center py-2 px-2 w-24">Quantity</th>
+                      <th className="text-left py-2 px-2">Notes</th>
+                      <th className="py-2 pl-2 w-7"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {takeoffResult.billOfMaterials.map((item) => {
+                      const extItem = item as ExtendedBOMItem;
+                      const status = extItem.reviewStatus || "Extracted";
+                      const isReviewed = status === "Reviewed" || status === "Confirmed from source";
+                      const isWarning = status === "Needs review" || status === "Unresolved" || status === "Match needs review";
 
-            <div className="pt-3 border-t border-line flex justify-between items-center text-spec text-ink-dim">
-              <span>* Line items above will be exported to Ostendo ERP where unit pricing, customer tiers, and GST are calculated.</span>
-            </div>
-          </div>
+                      return (
+                        <tr key={item.id} className="hover:bg-raised/50 group transition-colors">
+                          {/* Item Description & Category */}
+                          <td className="py-2.5 pr-2 max-w-[200px]">
+                            <div className="font-bold text-body text-meta truncate" title={item.itemDescription}>
+                              {item.itemDescription}
+                            </div>
+                            <span className="text-[11px] text-ink-dim px-1.5 py-0.2 bg-paper rounded border border-line inline-block mt-0.5">
+                              {item.category}
+                            </span>
+                          </td>
 
-          {/* Engineering & Site Shading Warnings */}
+                          {/* SKU Code */}
+                          <td className="py-2.5 px-2">
+                            <input
+                              type="text"
+                              value={item.recommendedProductCode}
+                              onChange={(e) => handleUpdateItem(item.id, "recommendedProductCode", e.target.value)}
+                              placeholder="e.g. PB-75W-3K"
+                              className="font-mono text-spec font-bold text-brand-deep bg-brand-wash/40 border border-brand-edge px-2 py-1 rounded w-32 focus:ring-1 focus:ring-brand"
+                            />
+                          </td>
+
+                          {/* Drawing Reference */}
+                          <td className="py-2.5 px-2 text-spec text-ink-dim">
+                            <input
+                              type="text"
+                              value={item.drawingReference}
+                              onChange={(e) => handleUpdateItem(item.id, "drawingReference", e.target.value)}
+                              className="w-full text-spec bg-paper px-1.5 py-1 rounded border border-line"
+                            />
+                          </td>
+
+                          {/* Review / Verification Status */}
+                          <td className="py-2.5 px-2 text-center">
+                            <button
+                              type="button"
+                              onClick={() => handleToggleItemStatus(item.id)}
+                              className={`text-[11px] font-bold px-2 py-0.5 rounded border inline-flex items-center gap-1 cursor-pointer transition-colors ${
+                                isReviewed
+                                  ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                                  : isWarning
+                                  ? "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                                  : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200"
+                              }`}
+                              title="Click to toggle status"
+                            >
+                              {isReviewed && <Check className="w-2.5 h-2.5" />}
+                              {isWarning && <AlertCircle className="w-2.5 h-2.5" />}
+                              <span>{status}</span>
+                            </button>
+                          </td>
+
+                          {/* Quantity & Unit */}
+                          <td className="py-2.5 px-2 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={(e) => handleUpdateItem(item.id, "quantity", Number(e.target.value) || 1)}
+                                className="w-14 p-1 text-center font-bold bg-paper rounded border border-line focus:ring-1 focus:ring-brand text-meta"
+                              />
+                              <span className="text-spec font-bold text-ink-dim">{item.unit || "ea"}</span>
+                            </div>
+                          </td>
+
+                          {/* Notes */}
+                          <td className="py-2.5 px-2 text-spec text-ink-dim">
+                            <input
+                              type="text"
+                              value={item.notes || ""}
+                              onChange={(e) => handleUpdateItem(item.id, "notes", e.target.value)}
+                              placeholder="Line notes..."
+                              className="w-full p-1 text-spec bg-paper rounded border border-line"
+                            />
+                          </td>
+
+                          {/* Delete */}
+                          <td className="py-2.5 pl-2 text-center">
+                            <button
+                              onClick={() => handleDeleteItem(item.id)}
+                              className="text-ink-faint hover:text-urgent p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                              title="Remove line item"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="pt-2.5 border-t border-line text-spec text-ink-dim">
+                <span>* Line items above export to Ostendo ERP where live customer pricing and GST are applied.</span>
+              </div>
+            </div>
+          )}
+
+          {/* Engineering & Site Notes (Only rendered if notes exist) */}
           {takeoffResult?.engineeringAndSiteNotes && takeoffResult.engineeringAndSiteNotes.length > 0 && (
-            <div className="bg-white p-4 rounded-panel border border-line shadow-2xs space-y-2.5">
+            <div className="bg-white p-4 rounded-panel border border-line shadow-2xs space-y-2">
               <div className="flex items-center gap-2 text-meta font-bold text-body border-b border-line pb-2">
                 <AlertTriangle className="w-4 h-4 text-brand-deep" />
-                <span>AI Engineering &amp; Environmental Intelligence</span>
+                <span>Engineering &amp; Environmental Intelligence</span>
               </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {takeoffResult.engineeringAndSiteNotes.map((note, idx) => (
                   <div
                     key={idx}
-                    className={`p-3 rounded-edge border text-meta space-y-1 ${
+                    className={`p-2.5 rounded-edge border text-meta space-y-1 ${
                       note.type === "warning"
                         ? "bg-urgent-wash border-urgent/20 text-urgent"
                         : note.type === "compliance"
@@ -1175,7 +1459,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
                         : "bg-paper border-line text-ink"
                     }`}
                   >
-                    <div className="font-bold flex items-center gap-1.5">
+                    <div className="font-bold flex items-center gap-1.5 text-spec">
                       {note.type === "warning" && <AlertTriangle className="w-3.5 h-3.5" />}
                       {note.type === "compliance" && <ShieldCheck className="w-3.5 h-3.5" />}
                       {note.type === "info" && <Info className="w-3.5 h-3.5" />}
@@ -1188,6 +1472,18 @@ export const PlanTakeoffWorkspace: React.FC = () => {
             </div>
           )}
 
+          {/* Initial State Helper (When no result yet) */}
+          {!takeoffResult && (
+            <div className="bg-white p-6 rounded-panel border border-line shadow-2xs text-center space-y-2">
+              <div className="w-10 h-10 rounded-full bg-paper flex items-center justify-center text-ink-dim mx-auto border border-line">
+                <FileSpreadsheet className="w-5 h-5" />
+              </div>
+              <h3 className="font-bold text-body text-meta">Take-off Schedule Ready</h3>
+              <p className="text-spec text-ink-dim max-w-md mx-auto">
+                Once a drawing is uploaded or selected, click <strong>Analyse plan</strong> to extract line items, verify quantities, and export to Ostendo.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1203,8 +1499,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
         />
       )}
 
-
-      {/* Save Take-off to CRM Confirmation Modal (F-02, F-06) */}
+      {/* Save Take-off to CRM Confirmation Modal */}
       {isTakeoffSaveModalOpen && (
         <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-panel max-w-lg w-full shadow-2xl border border-line p-6 space-y-4 animate-in fade-in zoom-in-95 duration-150">
@@ -1244,7 +1539,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
                   <label className="block text-spec font-bold text-ink-dim uppercase">
                     Target Customer Account *
                   </label>
-                  {customerName && !accounts.some(a => a.name.toLowerCase() === customerName.toLowerCase()) && (
+                  {customerName && !accounts.some((a) => a.name.toLowerCase() === customerName.toLowerCase()) && (
                     <button
                       type="button"
                       onClick={handleInlineCreateAccount}
@@ -1285,9 +1580,9 @@ export const PlanTakeoffWorkspace: React.FC = () => {
                   const selAcc = accounts.find((a) => a.id === takeoffSaveFormData.accountId);
                   const isConflict = Boolean(
                     selAcc &&
-                    customerName &&
-                    !selAcc.name.toLowerCase().includes(customerName.toLowerCase()) &&
-                    !customerName.toLowerCase().includes(selAcc.name.toLowerCase())
+                      customerName &&
+                      !selAcc.name.toLowerCase().includes(customerName.toLowerCase()) &&
+                      !customerName.toLowerCase().includes(selAcc.name.toLowerCase())
                   );
                   if (isConflict && selAcc) {
                     return (
@@ -1347,7 +1642,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
 
               <div className="p-2.5 bg-paper rounded-edge border border-line text-spec text-ink-dim">
                 <span className="font-bold text-body">Product Units Preserved: </span>
-                Quantities and units ({takeoffResult?.billOfMaterials?.map(b => `${b.quantity} ${b.unit}`).join(", ")}) will be carried to Ostendo CSV export.
+                Quantities and units ({takeoffResult?.billOfMaterials?.map((b) => `${b.quantity} ${b.unit}`).join(", ")}) will be carried to Ostendo CSV export.
               </div>
             </div>
 
@@ -1362,9 +1657,9 @@ export const PlanTakeoffWorkspace: React.FC = () => {
                 const selAcc = accounts.find((a) => a.id === takeoffSaveFormData.accountId);
                 const isConflict = Boolean(
                   selAcc &&
-                  customerName &&
-                  !selAcc.name.toLowerCase().includes(customerName.toLowerCase()) &&
-                  !customerName.toLowerCase().includes(selAcc.name.toLowerCase())
+                    customerName &&
+                    !selAcc.name.toLowerCase().includes(customerName.toLowerCase()) &&
+                    !customerName.toLowerCase().includes(selAcc.name.toLowerCase())
                 );
                 const isBlocked = !takeoffSaveFormData.accountId || (isConflict && !accountMismatchConfirmed);
 
@@ -1374,7 +1669,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
                     disabled={isBlocked}
                     className={`px-4 py-2 font-bold text-meta rounded-edge shadow-xs flex items-center gap-1.5 transition-colors ${
                       !isBlocked
-                        ? "bg-brand-deep hover:bg-brand text-white cursor-pointer"
+                        ? "bg-brand hover:bg-brand-deep text-white cursor-pointer"
                         : "bg-ink-faint text-white cursor-not-allowed opacity-75"
                     }`}
                   >
@@ -1388,7 +1683,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
         </div>
       )}
 
-      {/* P2-08: Pre-Quote Readiness Gate Modal */}
+      {/* Pre-Quote Readiness Gate Modal */}
       {isReadinessModalOpen && takeoffResult && (
         <QuoteReadinessModal
           isOpen={isReadinessModalOpen}
@@ -1422,7 +1717,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
         />
       )}
 
-      {/* P2-09: Commercial Pricing Request Modal */}
+      {/* Commercial Pricing Request Modal */}
       {isPricingModalOpen && (
         <CommercialPricingRequestModal
           isOpen={isPricingModalOpen}
@@ -1440,7 +1735,7 @@ export const PlanTakeoffWorkspace: React.FC = () => {
         />
       )}
 
-      {/* P2-13: Conservative Duplicate Account Warning Modal */}
+      {/* Conservative Duplicate Account Warning Modal */}
       {isDuplicateModalOpen && duplicateMatch && pendingAccountToCreate && (
         <CRMDuplicateWarningModal
           isOpen={isDuplicateModalOpen}
