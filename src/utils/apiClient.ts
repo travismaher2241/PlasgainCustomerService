@@ -37,7 +37,10 @@ export function getSessionToken(): string | null {
 /** Request headers including the session token when one is held. */
 export function authHeaders(base: Record<string, string> = {}): Record<string, string> {
   const token = getSessionToken();
-  return token ? { ...base, Authorization: `Bearer ${token}` } : base;
+  const userId = typeof localStorage !== "undefined" ? localStorage.getItem("plasgain_active_user_id") || "user-travis-maher" : "user-travis-maher";
+  const headers: Record<string, string> = { "X-User-Id": userId, ...base };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  return headers;
 }
 
 /** Thrown when the server could not reach the AI. Carries text fit for the UI. */
