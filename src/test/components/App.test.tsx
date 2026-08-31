@@ -31,7 +31,7 @@ describe('App Component Layout and Navigation', () => {
     const prodNav = screen.getByRole('button', { name: /Product Finder/i });
     fireEvent.click(prodNav);
 
-    expect(await screen.findByText(/Intelligent Product Finder/i, {}, { timeout: 10000 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: /^Product Finder$/i }, { timeout: 10000 })).toBeInTheDocument();
 
     // Verify Learn is not in sidebar
     expect(screen.queryByText('Learn')).not.toBeInTheDocument();

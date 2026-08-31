@@ -58,7 +58,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
       case "new-enquiry":
         return "Enquiry & Tender Analysis";
       case "product-finder":
-        return "Product Matcher";
+        return "Product Finder";
       case "documents":
         return "Documents";
       case "tools":

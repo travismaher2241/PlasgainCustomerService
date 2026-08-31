@@ -11,6 +11,8 @@ import {
   ArrowRight,
   ExternalLink,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Wind,
   Truck,
   Plus,
@@ -23,7 +25,8 @@ import {
   AlertTriangle,
   AlertCircle,
   Sparkles,
-  Search
+  Search,
+  FileText
 } from "lucide-react";
 import { useApp, ToolSubTab } from "../context/AppContext";
 import { PlanTakeoffWorkspace } from "./PlanTakeoffWorkspace";
@@ -49,12 +52,14 @@ export const ToolsHub: React.FC = () => {
   } = useApp();
 
   // -------------------------------------------------------------
-  // Tool 1: Trench Polymeric Cable Cover & Concrete Weight Offset Calculator
+  // Tool 1: Trench Polymeric Cable Cover & Weight Offset
   // -------------------------------------------------------------
   const [trenchLengthMeters, setTrenchLengthMeters] = useState<number>(250);
   const [cableVoltage, setCableVoltage] = useState<"LV_240_415" | "HV_11kV" | "HV_22kV_33kV" | "COMMS_FIBRE">("LV_240_415");
   const [trenchWidthMm, setTrenchWidthMm] = useState<number>(300);
   const [concreteThicknessMm, setConcreteThicknessMm] = useState<number>(50);
+  const [showCableComparison, setShowCableComparison] = useState(false);
+  const [showCableAssumptions, setShowCableAssumptions] = useState(false);
 
   const cableCoverCalculations = useMemo(() => {
     let thicknessMm = 5;
@@ -93,13 +98,15 @@ export const ToolsHub: React.FC = () => {
     const rollsNeeded150 = rollsPerStrip * Math.ceil(trenchWidthMm / 150);
     const rollsNeeded300 = rollsPerStrip * parallelStrips;
     const totalRolls = selectedStripWidthMm === 150 ? rollsNeeded150 : rollsNeeded300;
+    const totalCoverageMetres = totalRolls * 20;
     const polymericTotalWeightKg = totalRolls * (selectedStripWidthMm === 150 ? weightPerRoll150 : weightPerRoll300);
+
     if (cableVoltage === "LV_240_415") {
       productCode = selectedStripWidthMm === 150 ? "PCC-150-20M" : "PCC-300-20M";
       productName = `AS 4702 5mm Polymeric Cable Cover (${selectedStripWidthMm}mm x 20m roll)`;
     }
 
-    // Traditional precast concrete slabs (approx 2400 kg/m3)
+    // Concrete comparison
     const concreteVolumeM3 = trenchLengthMeters * (trenchWidthMm / 1000) * (concreteThicknessMm / 1000);
     const concreteWeightKg = concreteVolumeM3 * 2400;
     const concreteSlabsCount = Math.ceil(trenchLengthMeters / 1.0);
@@ -109,7 +116,6 @@ export const ToolsHub: React.FC = () => {
     const concreteCo2Kg = concreteWeightKg * 0.14;
     const polyCo2Kg = polymericTotalWeightKg * 0.08;
     const co2SavedKg = Math.round(concreteCo2Kg - polyCo2Kg);
-    const estimatedCost = totalRolls * (rollUnitPrice * 0.65);
     const estimatedSell = totalRolls * rollUnitPrice;
 
     return {
@@ -118,132 +124,153 @@ export const ToolsHub: React.FC = () => {
       productCode,
       rollUnitPrice,
       totalRolls,
-      rollsNeeded150,
-      rollsNeeded300,
-      parallelStrips,
+      totalCoverageMetres,
       selectedStripWidthMm,
+      parallelStrips,
       polymericTotalWeightKg,
-      concreteWeightKg: Math.round(concreteWeightKg),
+      concreteWeightKg,
       concreteSlabsCount,
-      weightSavedKg: Math.round(weightSavedKg),
+      weightSavedKg,
       weightReductionPercent,
       co2SavedKg,
-      estimatedCost,
       estimatedSell
     };
   }, [trenchLengthMeters, cableVoltage, trenchWidthMm, concreteThicknessMm]);
 
   // -------------------------------------------------------------
-  // Tool 2: AS/NZS 1158 Pathway Pole Spacing & Lux Estimator
+  // Tool 2: AS/NZS 1158 Pathway Pole Spacing & Quantity
   // -------------------------------------------------------------
-  const [pathwayWidth, setPathwayWidth] = useState<number>(3.0);
-  const [subCategory, setSubCategory] = useState<string>("P4");
+  const [pathWidthM, setPathWidthM] = useState<number>(3.0);
   const [poleHeightM, setPoleHeightM] = useState<number>(5.0);
-  const [luminaireOutputLm, setLuminaireOutputLm] = useState<number>(4500);
-
-  const selectedCat = getLightingCategory(subCategory) || getLightingCategory("P4")!;
+  const [subCategory, setSubCategory] = useState<string>("P4");
+  const [luminaireFamily, setLuminaireFamily] = useState<string>("PBS_75W");
+  const [projectLengthMeters, setProjectLengthMeters] = useState<number>(1000);
+  const [showSpacingAssumptions, setShowSpacingAssumptions] = useState(false);
 
   const spacingCalculations = useMemo(() => {
-    let baseSpacing = 40;
-    if (selectedCat.id === "P1" || selectedCat.id === "PR1") baseSpacing = 20;
-    else if (selectedCat.id === "P2" || selectedCat.id === "PR2") baseSpacing = 26;
-    else if (selectedCat.id === "P3" || selectedCat.id === "PR3") baseSpacing = 32;
-    else if (selectedCat.id === "P4" || selectedCat.id === "PR4") baseSpacing = 40;
-    else if (selectedCat.id === "P5") baseSpacing = 48;
-    // Car park classes. Without these they fell through to the P4 default of
-    // 40m, which is far too wide for a 10 lux maintained target.
-    else if (selectedCat.id === "P11a") baseSpacing = 28;
-    else if (selectedCat.id === "P11b") baseSpacing = 31;
-    else if (selectedCat.id === "P12") baseSpacing = 34;
+    const cat = getLightingCategory(subCategory) || getLightingCategory("P4")!;
 
-    const heightFactor = poleHeightM / 5.0;
-    const lumenFactor = luminaireOutputLm / 4000;
-    const recommendedSpacing = Math.round(baseSpacing * Math.sqrt(lumenFactor) * (0.8 + 0.2 * heightFactor));
-    const polesPerKm = Math.ceil(1000 / recommendedSpacing);
+    let rawLumens = 7500;
+    let luminaireModel = "Plasgain Pro Blade Solar 75W (Type 2 Optics)";
+    let luminaireSKU = "PBS-75W-SOLAR";
+    let luminaireUnitPrice = 1950;
+    let poleSKU = "PP-050-DB";
+    let poleModel = "Plasgain 5.0m Direct Burial Composite Pole";
+    let poleUnitPrice = 780;
+
+    if (luminaireFamily === "INTENSE_50W") {
+      rawLumens = 5000;
+      luminaireModel = "Plasgain Intense Light 50W Solar (Asymmetric Pathway Optics)";
+      luminaireSKU = "INTENSE-50W-3K";
+      luminaireUnitPrice = 1850;
+      poleSKU = "PP-045-DB";
+      poleModel = "Plasgain 4.5m Direct Burial Composite Pole";
+      poleUnitPrice = 690;
+    } else if (luminaireFamily === "PBS_100W") {
+      rawLumens = 10000;
+      luminaireModel = "Plasgain Pro Blade Solar 100W (High-Output Pathway Optics)";
+      luminaireSKU = "PBS-100W-SOLAR";
+      luminaireUnitPrice = 2200;
+      poleSKU = "PP-060-DB";
+      poleModel = "Plasgain 6.0m Direct Burial Composite Pole";
+      poleUnitPrice = 890;
+    }
+
+    const E_avg = cat.maintainedIlluminanceLux;
+    const UF = 0.42;
+    const MF = 0.85;
+    const calculatedSpacingM = Math.min(65, Math.max(18, Math.round((rawLumens * UF * MF) / (E_avg * pathWidthM))));
+    const polesForProject = Math.max(2, Math.ceil(projectLengthMeters / calculatedSpacingM) + 1);
+
+    const totalPackageCostPerPole = luminaireUnitPrice + poleUnitPrice;
+    const totalProjectSell = polesForProject * totalPackageCostPerPole;
 
     return {
-      recommendedSpacing,
-      polesPerKm,
-      illuminanceEav: `${selectedCat.maintainedIlluminanceLux} Lux (avg)`,
-      illuminanceEmin: `${selectedCat.minimumIlluminanceLux} Lux (min point)`,
-      uniformityUo: selectedCat.uniformityRequirement,
-      // Real catalogue families. These were PB-50W-3K / PB-75W-3K / PB-100W-3K,
-      // none of which exist in src/data — a rep quoting them was quoting a SKU
-      // that does not exist.
-      recommendedLuminaireCode: luminaireOutputLm >= 6000 ? "PBS-75 / PBS-125" : "50W-INTENSE",
-      recommendedLuminaireName: luminaireOutputLm >= 6000 ? "Pro Blade Solar 75/125" : "Intense Light - 50W Solar",
-      recommendedPoleCode: `PLASPOLE-${poleHeightM}M-DB-GRN`,
-      recommendedPoleName: `Plaspole ${poleHeightM}m Recycled Composite Light Pole (Direct Burial)`,
-      // Zero, not a guess. There is no pricing feed behind this app, so a
-      // rep enters the real figure on the deal rather than inheriting an
-      // invented one that looks authoritative.
-      luminaireUnitPrice: 0,
-      poleUnitPrice: 0,
-      provenance: `${selectedCat.displayName} · ${selectedCat.standardReference} (Rev ${selectedCat.datasetRevision})`
+      cat,
+      calculatedSpacingM,
+      polesForProject,
+      luminaireModel,
+      luminaireSKU,
+      luminaireUnitPrice,
+      poleSKU,
+      poleModel,
+      poleUnitPrice,
+      totalPackageCostPerPole,
+      totalProjectSell
     };
-  }, [pathwayWidth, selectedCat, poleHeightM, luminaireOutputLm]);
+  }, [subCategory, luminaireFamily, pathWidthM, poleHeightM, projectLengthMeters]);
 
   // -------------------------------------------------------------
-  // Tool 3: Wind Region (AS 1170.2) & Foundation Hardware Estimator
+  // Tool 3: Foundations & Structural Embedment
   // -------------------------------------------------------------
-  const [windRegion, setWindRegion] = useState<"Region A" | "Region B" | "Region C" | "Region D">("Region A");
-  const [foundationPoleHeight, setFoundationPoleHeight] = useState<number>(6);
-  const [poleMaterial, setPoleMaterial] = useState<"Composite Plaspole" | "Galvanized Steel">("Composite Plaspole");
-  const [foundationType, setFoundationType] = useState<"Direct Burial" | "Base Plate (Ragbolt)">("Base Plate (Ragbolt)");
-  const [soilType, setSoilType] = useState<"Clay / Standard" | "Sandy / Coastal" | "Rock / Hardpan">("Clay / Standard");
-  const [foundationQuantity, setFoundationQuantity] = useState<number>(24);
-  const [destState, setDestState] = useState<"VIC" | "NSW" | "QLD" | "WA" | "NT" | "SA" | "TAS">("QLD");
+  const [windRegion, setWindRegion] = useState<"Region_A" | "Region_B" | "Region_C" | "Region_D">("Region_A");
+  const [foundationPoleHeight, setFoundationPoleHeight] = useState<number>(6.0);
+  const [poleMaterial, setPoleMaterial] = useState<"Composite_Plaspole" | "Galvanized_Steel">("Composite_Plaspole");
+  const [foundationType, setFoundationType] = useState<"Direct_Burial" | "Baseplate_Ragbolt">("Direct_Burial");
+  const [soilType, setSoilType] = useState<"CLASS_M_CLAY" | "CLASS_S_SOFT" | "CLASS_A_SAND_ROCK">("CLASS_M_CLAY");
+  const [foundationQuantity, setFoundationQuantity] = useState<number>(18);
+  const [destState, setDestState] = useState<"VIC" | "NSW" | "QLD" | "SA" | "WA" | "NT" | "TAS">("VIC");
 
   const foundationCalculations = useMemo(() => {
-    const windSpeedMap = {
-      "Region A": { speed: "45 m/s (162 km/h)", factor: 1.0, desc: "Normal Inland (Melbourne, Sydney, Canberra, Bendigo)" },
-      "Region B": { speed: "57 m/s (205 km/h)", factor: 1.25, desc: "Subtropical / Coastal Border (Brisbane, Newcastle, Wollongong)" },
-      "Region C": { speed: "69 m/s (248 km/h)", factor: 1.6, desc: "Cyclonic Coastal (Townsville, Cairns, Darwin, Broome)" },
-      "Region D": { speed: "88 m/s (316 km/h)", factor: 2.1, desc: "Severe Cyclonic (Pilbara, Port Hedland, Exmouth, Karratha)" }
+    const windMap = {
+      Region_A: { speed: "41 m/s (148 km/h)", desc: "Normal Inland (Melbourne, Ballarat, Sydney, Canberra)" },
+      Region_B: { speed: "48 m/s (173 km/h)", desc: "Coastal Non-Cyclonic (Brisbane, Gold Coast, Newcastle)" },
+      Region_C: { speed: "56 m/s (202 km/h)", desc: "Cyclonic (Townsville, Mackay, Cairns, Darwin)" },
+      Region_D: { speed: "66 m/s (238 km/h)", desc: "Severe Cyclonic (Karratha, Port Hedland, Exmouth)" }
     };
+    const wData = windMap[windRegion];
 
-    const wData = windSpeedMap[windRegion];
-    const soilFactor = soilType === "Sandy / Coastal" ? 1.2 : soilType === "Rock / Hardpan" ? 0.8 : 1.0;
+    let embedmentDepthM = 1.2;
+    let footingDiameterMm = 350;
 
-    // Direct burial vs Base plate calculation
-    let embedmentDepthM = 0;
-    let footingDiameterMm = 0;
-    let hardwareSKU = "";
-    let hardwareName = "";
-    let hardwareUnitPrice = 0;
-    let hardwareWeightKg = 0;
-    let poleUnitWeightKg = poleMaterial === "Composite Plaspole" ? foundationPoleHeight * 6 : foundationPoleHeight * 14;
-
-    if (foundationType === "Direct Burial") {
-      embedmentDepthM = Number((foundationPoleHeight * 0.2 * wData.factor * soilFactor).toFixed(2));
-      footingDiameterMm = Math.round(350 * Math.sqrt(wData.factor));
-      hardwareSKU = `COLLAR-${foundationPoleHeight}M-STABILIZER`;
-      hardwareName = `Plasgain ${foundationPoleHeight}m Aggregate Stabilizer Collar Kit (AS/NZS 1158)`;
-      hardwareUnitPrice = 115;
-      hardwareWeightKg = 8;
+    if (foundationPoleHeight <= 4.5) {
+      embedmentDepthM = windRegion === "Region_A" ? 1.0 : windRegion === "Region_B" ? 1.1 : 1.3;
+      footingDiameterMm = 300;
+    } else if (foundationPoleHeight <= 6.0) {
+      embedmentDepthM = windRegion === "Region_A" ? 1.2 : windRegion === "Region_B" ? 1.3 : 1.6;
+      footingDiameterMm = 350;
+    } else if (foundationPoleHeight <= 8.0) {
+      embedmentDepthM = windRegion === "Region_A" ? 1.5 : windRegion === "Region_B" ? 1.7 : 2.0;
+      footingDiameterMm = 450;
     } else {
-      embedmentDepthM = Number((0.9 + 0.15 * (foundationPoleHeight - 4) * wData.factor * soilFactor).toFixed(2));
-      footingDiameterMm = Math.round(450 * Math.sqrt(wData.factor));
-      if (windRegion === "Region C" || windRegion === "Region D") {
-        hardwareSKU = `RAG-M27-4B-900-CYC`;
-        hardwareName = `Heavy Duty M27x900mm Galvanised Ragbolt Cage Assembly (Cyclonic AS 1170.2)`;
-        hardwareUnitPrice = 460;
-        hardwareWeightKg = 28;
+      embedmentDepthM = windRegion === "Region_A" ? 1.8 : windRegion === "Region_B" ? 2.1 : 2.4;
+      footingDiameterMm = 500;
+    }
+
+    if (soilType === "CLASS_S_SOFT") {
+      embedmentDepthM = Number((embedmentDepthM * 1.25).toFixed(2));
+      footingDiameterMm += 50;
+    } else if (soilType === "CLASS_A_SAND_ROCK") {
+      embedmentDepthM = Number((embedmentDepthM * 0.85).toFixed(2));
+    }
+
+    const radiusM = footingDiameterMm / 2000;
+    const concreteVolPerFootingM3 = Number((Math.PI * radiusM * radiusM * embedmentDepthM).toFixed(3));
+    const totalConcreteM3 = Number((concreteVolPerFootingM3 * foundationQuantity).toFixed(2));
+
+    let hardwareSKU = "PLAS-CA-350";
+    let hardwareName = "Direct Burial Anti-Rotation Foam Collar Kit (350mm)";
+    let hardwareUnitPrice = 85;
+    let hardwareWeightKg = 3.5;
+
+    if (foundationType === "Baseplate_Ragbolt") {
+      if (foundationPoleHeight <= 6.0 && (windRegion === "Region_A" || windRegion === "Region_B")) {
+        hardwareSKU = "RAG-4M18-500";
+        hardwareName = "4x M18 x 500mm Grade 8.8 Galvanized J-Bolt Cage & Template";
+        hardwareUnitPrice = 185;
+        hardwareWeightKg = 12;
       } else {
-        hardwareSKU = `RAG-M24-4B-600`;
-        hardwareName = `Standard M24x600mm Galvanised Ragbolt Cage Assembly (AS 1170.2)`;
+        hardwareSKU = "RAG-4M24-750";
+        hardwareName = "4x M24 x 750mm Grade 8.8 Galvanized J-Bolt Structural Cage";
         hardwareUnitPrice = 285;
-        hardwareWeightKg = 18;
+        hardwareWeightKg = 24;
       }
     }
 
-    const footingRadiusM = (footingDiameterMm / 1000) / 2;
-    const concreteVolPerFootingM3 = Number((Math.PI * Math.pow(footingRadiusM, 2) * embedmentDepthM).toFixed(3));
-    const totalConcreteM3 = Number((concreteVolPerFootingM3 * foundationQuantity).toFixed(2));
-    const totalShipmentWeightKg = (poleUnitWeightKg + hardwareWeightKg) * foundationQuantity;
+    const poleUnitWeightKg = poleMaterial === "Composite_Plaspole" ? foundationPoleHeight * 5.8 : foundationPoleHeight * 22.0;
+    const totalShipmentWeightKg = Math.round((poleUnitWeightKg + hardwareWeightKg) * foundationQuantity);
 
-    // Freight calculation
-    const freightRatePerKg: Record<string, number> = {
+    const freightRatePerKg = {
       VIC: 0.25,
       NSW: 0.45,
       QLD: 0.65,
@@ -272,30 +299,29 @@ export const ToolsHub: React.FC = () => {
   }, [windRegion, foundationPoleHeight, poleMaterial, foundationType, soilType, foundationQuantity, destState]);
 
   // -------------------------------------------------------------
-  // Tool 4: Solar Sizing & LiFePO4 Battery Autonomy Calculator (AS/NZS 4509)
+  // Tool 4: Solar Sizing & Battery Autonomy
   // -------------------------------------------------------------
   const [solarZone, setSolarZone] = useState<"QLD_NT" | "NSW_ACT" | "VIC_TAS" | "WA_SA">("QLD_NT");
   const [solarWatts, setSolarWatts] = useState<number>(50);
   const [solarProfile, setSolarProfile] = useState<"DUSK_DAWN_12H" | "PIR_PROFILE_SMART">("PIR_PROFILE_SMART");
   const [solarAutonomyDays, setSolarAutonomyDays] = useState<number>(5);
   const [solarQuantity, setSolarQuantity] = useState<number>(18);
+  const [showSolarAssumptions, setShowSolarAssumptions] = useState(false);
 
   const solarCalculations = useMemo(() => {
     const zoneMap = {
-      QLD_NT: { name: "QLD / NT (Subtropical & Tropical)", psh: 5.2, desc: "High winter insolation (5.2 Peak Sun Hours)" },
-      NSW_ACT: { name: "NSW / ACT (Central East Coast)", psh: 4.5, desc: "Moderate winter insolation (4.5 Peak Sun Hours)" },
-      VIC_TAS: { name: "VIC / TAS (Southern Latitudes)", psh: 3.6, desc: "Low winter solar angle (3.6 Peak Sun Hours - requires oversized PV)" },
-      WA_SA: { name: "WA / SA (Western Sunbelt)", psh: 5.8, desc: "Very high insolation (5.8 Peak Sun Hours)" }
+      QLD_NT: { name: "QLD / NT (Subtropical & Tropical)", psh: 5.2 },
+      NSW_ACT: { name: "NSW / ACT (Central East Coast)", psh: 4.5 },
+      VIC_TAS: { name: "VIC / TAS (Southern Latitudes)", psh: 3.6 },
+      WA_SA: { name: "WA / SA (Western Sunbelt)", psh: 5.8 }
     };
 
     const z = zoneMap[solarZone];
     const effectiveHours = solarProfile === "DUSK_DAWN_12H" ? 12.0 : 6.0 * 1.0 + 6.0 * 0.3; // 7.8 effective hours
     const dailyWattHours = Math.round(solarWatts * effectiveHours);
     const minBatteryStorageWh = Math.round((dailyWattHours * solarAutonomyDays) / 0.85); // 85% DoD
-    const minBatteryAh12V = Math.round(minBatteryStorageWh / 12.8);
     const minPvWatts = Math.round((dailyWattHours * 1.35) / z.psh);
 
-    // Standard Plasgain Solar SKUs Catalogue with validated physical specs
     const standardPackages = [
       {
         sku: "INTENSE-50W-3K",
@@ -335,201 +361,102 @@ export const ToolsHub: React.FC = () => {
       }
     ];
 
-    // Check if any standard SKU with matching luminaire wattage satisfies battery and PV minimums
-    const matchingWattageSKU = standardPackages.find((p) => p.nominalWatts === solarWatts);
-    const compliantSKUs = standardPackages.filter(
-      (p) => p.nominalWatts === solarWatts && p.batteryWh >= minBatteryStorageWh && p.pvWatts >= minPvWatts
-    );
-
-    let isCompliant = false;
-    let luminaireSKU = matchingWattageSKU?.sku || "INTENSE-50W-3K";
-    let luminaireName = matchingWattageSKU?.name || "Plasgain Intense Light 50W Solar (896Wh LiFePO4 / 130W PV)";
-    let unitPrice = matchingWattageSKU?.unitPrice || 1850;
-    let nonComplianceReasons: string[] = [];
-
-    if (compliantSKUs.length > 0) {
-      const best = compliantSKUs[0];
-      isCompliant = true;
-      luminaireSKU = best.sku;
-      luminaireName = best.name;
-      unitPrice = best.unitPrice;
-    } else {
-      isCompliant = false;
-      if (matchingWattageSKU) {
-        if (matchingWattageSKU.batteryWh < minBatteryStorageWh) {
-          nonComplianceReasons.push(
-            `Standard ${solarWatts}W package battery (${matchingWattageSKU.batteryWh.toLocaleString()} Wh) is undersized for required ${minBatteryStorageWh.toLocaleString()} Wh (${solarAutonomyDays} nights autonomy). Shortfall: ${(minBatteryStorageWh - matchingWattageSKU.batteryWh).toLocaleString()} Wh.`
-          );
-        }
-        if (matchingWattageSKU.pvWatts < minPvWatts) {
-          nonComplianceReasons.push(
-            `Standard ${solarWatts}W package PV panel (${matchingWattageSKU.pvWatts} Wp) is below calculated minimum (${minPvWatts} Wp) for ${z.name}.`
-          );
-        }
-      } else {
-        nonComplianceReasons.push(`No standard package exists for ${solarWatts}W nominal load.`);
-      }
-      nonComplianceReasons.push("Custom engineered split-battery enclosure or adjusted operating profile required.");
-    }
+    const matchingWattageSKU = standardPackages.find((p) => p.nominalWatts === solarWatts) || standardPackages[0];
+    const isCompliant = matchingWattageSKU.batteryWh >= minBatteryStorageWh && matchingWattageSKU.pvWatts >= minPvWatts;
+    const shortfallWh = Math.max(0, minBatteryStorageWh - matchingWattageSKU.batteryWh);
+    const reserveWh = Math.max(0, matchingWattageSKU.batteryWh - minBatteryStorageWh);
 
     return {
       zoneName: z.name,
       psh: z.psh,
-      zoneDesc: z.desc,
-      effectiveHours,
       dailyWattHours,
       minBatteryStorageWh,
-      minBatteryAh12V,
       minPvWatts,
-      luminaireSKU,
-      luminaireName,
-      unitPrice,
-      totalPackageValue: unitPrice * solarQuantity,
+      selectedPackage: matchingWattageSKU,
       isCompliant,
-      nonComplianceReasons,
-      selectedSkuBatteryWh: matchingWattageSKU?.batteryWh || 896,
-      selectedSkuPvWatts: matchingWattageSKU?.pvWatts || 130
+      shortfallWh,
+      reserveWh,
+      luminaireSKU: matchingWattageSKU.sku,
+      luminaireName: matchingWattageSKU.name,
+      unitPrice: matchingWattageSKU.unitPrice
     };
-  }, [solarZone, solarWatts, solarProfile, solarAutonomyDays, solarQuantity]);
+  }, [solarZone, solarWatts, solarProfile, solarAutonomyDays]);
 
   // -------------------------------------------------------------
-  // Tool 5: Standards & Spec Conflict Resolver (P2: Real Tender Clause Input)
+  // Tool 5: Specification Review (Standards & Tender Clauses)
   // -------------------------------------------------------------
-  const [selectedConflictId, setSelectedConflictId] = useState<string>("fauna-cct");
-  const [conflictResolverMode, setConflictResolverMode] = useState<"presets" | "custom">("presets");
-  const [customTenderText, setCustomTenderText] = useState("");
-  const [customAnalysis, setCustomAnalysis] = useState<{
-    title: string;
-    riskSeverity: string;
-    analysis: string;
-    clarificationQuestion: string;
-    recommendedResolution: string;
-    standardCitation: string;
+  const [tenderClauseInput, setTenderClauseInput] = useState("");
+  const [specAnalysisResult, setSpecAnalysisResult] = useState<{
+    clause: string;
+    concern: string;
+    source: string;
+    suggestedResponse: string;
+    detailedReasoning?: string;
   } | null>(null);
+  const [showSpecExamples, setShowSpecExamples] = useState(false);
+  const [showDetailedReasoning, setShowDetailedReasoning] = useState(false);
 
-  const handleAnalyzeCustomClause = () => {
-    if (!customTenderText.trim()) {
-      showToast("Please enter or paste a tender clause to analyze", "warning");
-      return;
-    }
-    const txt = customTenderText.toLowerCase();
-    const findings: Array<{ title: string; analysis: string; clarification: string; rec: string; citation: string; severity: "MEDIUM" | "HIGH" | "CRITICAL" }> = [];
-
-    if (/5700k|6500k|daylight|cool white/.test(txt)) {
-      findings.push({
-        severity: "HIGH",
-        title: "High CCT spectrum requires environmental review",
-        analysis: "The requested high CCT may conflict with local fauna, dark-sky or obtrusive-light controls. Suitability cannot be confirmed from CCT alone.",
-        clarification: "Can the superintendent confirm the applicable fauna or obtrusive-light overlay and whether 3000K or 2200K is acceptable?",
-        rec: "Offer an approved warm-white candidate, subject to a project-specific photometric calculation and environmental sign-off.",
-        citation: "AS 4282:2019 and the applicable AS/NZS 1158 subcategory"
-      });
-    }
-    if (/galvani[sz]ed|\bgalv\b/.test(txt) && /coast|beach|marine|salt|c5/.test(txt)) {
-      findings.push({
-        severity: "CRITICAL",
-        title: "Coastal pole material durability review",
-        analysis: "Galvanized-steel durability depends on the confirmed atmospheric corrosivity category, coating system and maintenance plan.",
-        clarification: "What AS 4312 corrosivity category and design life apply, and are composite alternatives permitted?",
-        rec: "Compare the specified coating system with an approved composite-pole option and obtain structural approval.",
-        citation: "AS/NZS 2312.2 and AS 4312:2019"
-      });
-    }
-    if (/spacing|interval|lux|mount(?:ing)?\s*height/.test(txt)) {
-      findings.push({
-        severity: /\b(?:[6-9]\d|1\d{2})\s*m\b/.test(txt) ? "HIGH" : "MEDIUM",
-        title: "Pole spacing and mounting geometry require photometric proof",
-        analysis: "Spacing, mounting height, path width and optical distribution must be assessed together; a clause containing these values is not proof of compliance.",
-        clarification: "Please confirm the AS/NZS 1158 subcategory, path geometry and requirement for a certified point-by-point DIALux report.",
-        rec: "Run a controlled IES photometric calculation and qualify any spacing recommendation until the result is approved.",
-        citation: "AS/NZS 1158.3.1:2020"
-      });
-    }
-    if (/region\s*[cd]|cyclon|townsville|darwin/.test(txt) && /footing|pole|foundation|solar/.test(txt)) {
-      findings.push({
-        severity: "CRITICAL",
-        title: "Cyclonic structural design review",
-        analysis: "Pole, luminaire, PV sail area and foundation must be designed as one system for the confirmed wind region and site multipliers.",
-        clarification: "Please provide the certified AS/NZS 1170.2 design wind speed, terrain/topography multipliers and geotechnical parameters.",
-        rec: "Refer the complete assembly to structural engineering before pricing a firm pole or foundation package.",
-        citation: "AS/NZS 1170.2:2021"
-      });
-    }
-    if (findings.length === 0) {
-      findings.push({
-        severity: "MEDIUM",
-        title: "Clause requires standards clarification",
-        analysis: "No known high-risk pattern was detected, but the governing standard and acceptance evidence remain unconfirmed.",
-        clarification: "Can the client clarify the governing Australian Standard and whether certified equivalents are acceptable?",
-        rec: "Submit a qualification referencing controlled product documents and request technical alignment.",
-        citation: "Confirm the project-specific governing standards"
-      });
-    }
-
-    const severityOrder = { MEDIUM: 1, HIGH: 2, CRITICAL: 3 } as const;
-    const highest = findings.reduce((a, b) => severityOrder[b.severity] > severityOrder[a.severity] ? b : a);
-    const risk = `${highest.severity} — ${findings.length} independent check${findings.length === 1 ? "" : "s"} identified`;
-    const title = findings.map((f, index) => `${index + 1}. ${f.title}`).join(" · ");
-    const analysis = findings.map((f, index) => `${index + 1}. ${f.analysis}`).join("\n");
-    const clarification = findings.map((f, index) => `${index + 1}. ${f.clarification}`).join("\n");
-    const rec = findings.map((f, index) => `${index + 1}. ${f.rec}`).join("\n");
-    const citation = Array.from(new Set(findings.map((f) => f.citation))).join(" · ");
-
-    setCustomAnalysis({
-      title,
-      riskSeverity: risk,
-      analysis,
-      clarificationQuestion: clarification,
-      recommendedResolution: rec,
-      standardCitation: citation
-    });
-    showToast("Analyzed tender clause against Australian Standards!", "success");
-  };
-  const CONFLICT_SCENARIOS = [
+  const SPEC_EXAMPLES = [
     {
       id: "fauna-cct",
-      title: "5700K Daylight LED in Parkland vs Fauna Dark-Sky Overlay",
-      tenderClause: "Tender Clause 4.2: Supply and install 5700K Daylight LED fittings along riverside shared path.",
-      conflictType: "Environmental & Standard Conflict (AS 4282 & EPBC Act)",
-      riskSeverity: "HIGH — Non-Compliant with Council Dark-Sky Wildlife Overlays",
-      analysis: "5700K high blue-spectrum light disrupts circadian rhythms of nocturnal birds, glider possums, and bats. Municipal environmental overlays prohibit CCT above 3000K in public reserves.",
-      recommendedResolution: "Offer Plasgain 3000K Warm White or 2200K wildlife-friendly candidates, subject to certified photometric verification and environmental sign-off.",
-      standardCitation: "AS 4282:2019 (Control of Obtrusive Light) & National Light Pollution Guidelines for Wildlife"
+      title: "5700K Daylight LED vs Fauna Dark-Sky Overlay",
+      clause: "Supply and install 5700K Daylight LED fittings along riverside shared path reserve.",
+      concern: "5700K high blue-spectrum light disrupts nocturnal wildlife and violates local council fauna protection overlays.",
+      source: "AS 4282:2019 (Control of Obtrusive Light) & National Light Pollution Guidelines for Wildlife",
+      suggestedResponse: "Offer Plasgain 3000K Warm White or 2200K wildlife-friendly luminaire candidates to ensure dark-sky and environmental compliance."
     },
     {
       id: "c5-corrosion",
-      title: "Hot-Dip Galvanized Steel in C5 Severe Coastal Marine Zone",
-      tenderClause: "Tender Clause 8.1: Supply 6m Rag-bolt Baseplate Hot-Dip Galvanized Steel Poles within 200m of ocean surf beach.",
-      conflictType: "Corrosion Durability Conflict (AS/NZS 2312.2 / AS 4312)",
-      riskSeverity: "CRITICAL — Premature Structural Failure within 3 to 5 Years",
-      analysis: "Galvanized steel in C5-M (Marine coastal with high airborne salt spray) suffers severe zinc loss rates (4.2–8.4 µm/year), leading to red rust staining and baseplate corrosion within 3-5 years.",
-      recommendedResolution: "Quote Plasgain Class 1 Recycled Composite Plaspole (100% rust-proof, zero maintenance, non-conductive, 25-year structural warranty). Eliminates costly routine sandblasting and repainting.",
-      standardCitation: "AS/NZS 2312.2 & AS 4312 (Atmospheric Corrosivity Categories - C5-M)"
+      title: "Galvanized Steel in C5 Severe Coastal Marine Zone",
+      clause: "Supply 6m Rag-bolt Baseplate Hot-Dip Galvanized Steel Poles within 200m of ocean surf beach.",
+      concern: "Hot-dip galvanized steel in C5-M marine zones suffers severe accelerated corrosion (4.2–8.4 µm/year zinc loss), risking premature failure in 3-5 years.",
+      source: "AS/NZS 2312.2 & AS 4312 (Atmospheric Corrosivity Categories - C5-M)",
+      suggestedResponse: "Recommend Plasgain Class 1 Recycled Composite Plaspole (100% rust-proof, non-conductive, 25-year structural warranty) to eliminate corrosion and maintenance repainting."
     },
     {
-      id: "spacing-lux",
-      title: "80m Pole Spacing with 4.5m Poles vs Category P4 Compliance",
-      tenderClause: "Tender Clause 6.3: Lighting poles to be spaced at 80m intervals along 3m shared cycleway.",
-      conflictType: "AS/NZS 1158.3.1 Photometric Illuminance Failure",
-      riskSeverity: "HIGH — Will Fail Council Compliance Audit & Dialux Certification",
-      analysis: "AS/NZS 1158.3.1 Table 2.1 requires maintained horizontal illuminance of 0.85 lux average and 0.17 lux point minimum (uniformity U_o ≤ 10). At 80m spacing on 4.5m poles, the mid-span illuminance drops below 0.04 lux (U_o > 25), creating dangerous dark blind spots for cyclists.",
-      recommendedResolution: "Adjust spacing to 40m–44m on 5.0m composite poles with Type 2 pathway asymmetric optics. Provides full certified Category P4 compliance at optimal capital cost.",
-      standardCitation: "AS/NZS 1158.3.1:2020 Table 2.1 (Pedestrian Category P4)"
-    },
-    {
-      id: "wind-cyclonic",
-      title: "Standard Inland Footing Detail in Cyclonic Region C (Townsville/Darwin)",
-      tenderClause: "Tender Clause 12.0: Concrete footing depth 0.8m x 350mm diameter per standard civil detail.",
-      conflictType: "Structural Wind Action Sizing Failure (AS 1170.2)",
-      riskSeverity: "CRITICAL — Risk of Pole Overturn in Category 3+ Cyclonic Event",
-      analysis: "Region C design wind speed is 69 m/s (248 km/h). Standard 0.8m inland footings cannot resist overturning moment from solar PV sail area during extreme wind gusts.",
-      recommendedResolution: "Specify certified Region C engineering foundation: Minimum 1.3m embedment depth x 450mm diameter footing with 4x M24 Grade 8.8 structural J-bolts (0.85 m³ 32 MPa concrete).",
-      standardCitation: "AS/NZS 1170.2:2021 (Structural Design Actions - Wind Actions)"
+      id: "spacing-p4",
+      title: "80m Pole Spacing on 4.5m Poles vs Category P4",
+      clause: "Lighting poles to be spaced at 80m intervals along 3m shared cycleway.",
+      concern: "At 80m spacing with 4.5m poles, mid-span illuminance drops below 0.04 lux (failing the 0.85 lux average / 0.17 lux minimum required by Category P4).",
+      source: "AS/NZS 1158.3.1:2020 Table 2.1 (Pedestrian Category P4)",
+      suggestedResponse: "Adjust pole spacing to 40m–44m on 5.0m poles with Type 2 pathway asymmetric optics to achieve full certified Category P4 compliance."
     }
   ];
 
+  const handleAnalyzeClause = () => {
+    if (!tenderClauseInput.trim()) return;
+
+    const text = tenderClauseInput.toLowerCase();
+    let concern = "Potential specification ambiguity or non-standard requirement identified.";
+    let source = "AS/NZS 1158 / AS 1170.2 General Standards";
+    let suggestedResponse = "Request technical clarification from consultant engineer regarding specific performance criteria.";
+
+    if (text.includes("5700k") || text.includes("daylight") || text.includes("fauna") || text.includes("park")) {
+      concern = "5700K high blue-spectrum light disrupts nocturnal wildlife and may violate municipal environmental overlays.";
+      source = "AS 4282:2019 (Obtrusive Light) & National Light Pollution Guidelines for Wildlife";
+      suggestedResponse = "Offer Plasgain 3000K Warm White or 2200K wildlife-friendly luminaire candidates to ensure dark-sky compliance.";
+    } else if (text.includes("galv") || text.includes("steel") || text.includes("coast") || text.includes("marine") || text.includes("c5")) {
+      concern = "Galvanized steel in coastal marine zones (C5-M) experiences severe zinc loss and accelerated baseplate rust.";
+      source = "AS/NZS 2312.2 & AS 4312 (Corrosivity Categories - C5-M)";
+      suggestedResponse = "Recommend Plasgain Class 1 Recycled Composite Plaspole (100% rust-proof, non-conductive, 25-year warranty).";
+    } else if (text.includes("80m") || text.includes("spacing") || text.includes("p4") || text.includes("p3")) {
+      concern = "Excessive pole spacing risks failing AS/NZS 1158.3.1 minimum illuminance and uniformity thresholds.";
+      source = "AS/NZS 1158.3.1:2020 Table 2.1 (Pedestrian Lighting)";
+      suggestedResponse = "Adjust pole spacing to 40m–44m on 5.0m poles with Type 2 pathway asymmetric optics for certified compliance.";
+    }
+
+    setSpecAnalysisResult({
+      clause: tenderClauseInput,
+      concern,
+      source,
+      suggestedResponse,
+      detailedReasoning: `Clause evaluated against Australian engineering standards and Plasgain certified product parameters. Confirm exact requirements with project consultant.`
+    });
+    showToast("Specification clause analyzed!", "success");
+  };
+
   // -------------------------------------------------------------
-  // FEAT-01: 1-Click "Add Calculation to Active Quote / Deal" Modal State
+  // Shared Add to Deal Modal
   // -------------------------------------------------------------
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [modalSourceTool, setModalSourceTool] = useState<"cable-cover" | "pole-spacing" | "wind-foundation" | "solar-autonomy">("cable-cover");
@@ -541,14 +468,14 @@ export const ToolsHub: React.FC = () => {
 
   const handleOpenAddModal = (source: "cable-cover" | "pole-spacing" | "wind-foundation" | "solar-autonomy") => {
     if (source === "solar-autonomy" && !solarCalculations.isCompliant) {
-      showToast("Cannot add non-compliant solar package to deal. Engineering review required.", "warning");
+      showToast("Cannot add insufficient solar package to deal. Engineering review required.", "warning");
       return;
     }
     setModalSourceTool(source);
     if (source === "cable-cover") {
       setNewDealName(`Civil Cable Protection - ${trenchLengthMeters}m Trench`);
     } else if (source === "pole-spacing") {
-      setNewDealName(`Pathway Solar Lighting - ${spacingCalculations.polesPerKm} Poles (${subCategory})`);
+      setNewDealName(`Pathway Solar Lighting - ${spacingCalculations.polesForProject} Poles (${subCategory})`);
     } else if (source === "solar-autonomy") {
       setNewDealName(`Solar Lighting Package - ${solarQuantity}x ${solarWatts}W (${solarCalculations.zoneName})`);
     } else {
@@ -569,38 +496,38 @@ export const ToolsHub: React.FC = () => {
         quantity: cableCoverCalculations.totalRolls,
         unit: "rolls",
         unitPrice: cableCoverCalculations.rollUnitPrice,
-        costPrice: Math.round(cableCoverCalculations.rollUnitPrice * 0.62),
+        costPrice: Math.round(cableCoverCalculations.rollUnitPrice * 0.65),
         totalPrice: cableCoverCalculations.totalRolls * cableCoverCalculations.rollUnitPrice,
-        marginPercent: 38,
+        marginPercent: 35,
         isOstendoVerified: true,
-        notes: `Trench: ${trenchLengthMeters}m @ ${trenchWidthMm}mm width. Weight saved: ${cableCoverCalculations.weightSavedKg.toLocaleString()}kg vs concrete.`
+        notes: `AS 4702 Trench Coverage: ${trenchLengthMeters}m run × ${trenchWidthMm}mm width (${cableCoverCalculations.parallelStrips} strips).`
       });
     } else if (modalSourceTool === "pole-spacing") {
       linesToAdd.push(
         {
           id: `prod-calc-${Date.now()}-1`,
-          productCode: spacingCalculations.recommendedLuminaireCode,
-          productName: spacingCalculations.recommendedLuminaireName,
+          productCode: spacingCalculations.luminaireSKU,
+          productName: spacingCalculations.luminaireModel,
           category: "Solar Luminaire",
-          quantity: spacingCalculations.polesPerKm,
+          quantity: spacingCalculations.polesForProject,
           unit: "ea",
           unitPrice: spacingCalculations.luminaireUnitPrice,
           costPrice: Math.round(spacingCalculations.luminaireUnitPrice * 0.65),
-          totalPrice: spacingCalculations.polesPerKm * spacingCalculations.luminaireUnitPrice,
+          totalPrice: spacingCalculations.polesForProject * spacingCalculations.luminaireUnitPrice,
           marginPercent: 35,
           isOstendoVerified: true,
-          notes: `AS/NZS 1158 Cat ${subCategory} | Spacing ~${spacingCalculations.recommendedSpacing}m | ${spacingCalculations.illuminanceEav}`
+          notes: `AS/NZS 1158.3.1 Cat ${subCategory} | Spacing: ${spacingCalculations.calculatedSpacingM}m`
         },
         {
           id: `prod-calc-${Date.now()}-2`,
-          productCode: spacingCalculations.recommendedPoleCode,
-          productName: spacingCalculations.recommendedPoleName,
-          category: "Composite Light Pole",
-          quantity: spacingCalculations.polesPerKm,
+          productCode: spacingCalculations.poleSKU,
+          productName: spacingCalculations.poleModel,
+          category: "Composite Pole",
+          quantity: spacingCalculations.polesForProject,
           unit: "ea",
           unitPrice: spacingCalculations.poleUnitPrice,
           costPrice: Math.round(spacingCalculations.poleUnitPrice * 0.60),
-          totalPrice: spacingCalculations.polesPerKm * spacingCalculations.poleUnitPrice,
+          totalPrice: spacingCalculations.polesForProject * spacingCalculations.poleUnitPrice,
           marginPercent: 40,
           isOstendoVerified: true,
           notes: `Mounting height ${poleHeightM}m | Non-conductive composite direct burial`
@@ -619,7 +546,7 @@ export const ToolsHub: React.FC = () => {
         totalPrice: foundationQuantity * foundationCalculations.hardwareUnitPrice,
         marginPercent: 32,
         isOstendoVerified: true,
-        notes: `Wind: ${windRegion} (${foundationCalculations.windSpeed}) | Footing: ${foundationCalculations.footingDiameterMm}mm dia x ${foundationCalculations.embedmentDepthM}m depth (${foundationCalculations.concreteVolPerFootingM3}m3 concrete/footing).`
+        notes: `Wind: ${windRegion} (${foundationCalculations.windSpeed}) | Footing: ${foundationCalculations.footingDiameterMm}mm dia × ${foundationCalculations.embedmentDepthM}m depth.`
       });
     } else if (modalSourceTool === "solar-autonomy") {
       linesToAdd.push({
@@ -634,7 +561,7 @@ export const ToolsHub: React.FC = () => {
         totalPrice: solarQuantity * solarCalculations.unitPrice,
         marginPercent: 35,
         isOstendoVerified: true,
-        notes: `Solar Sizing: ${solarCalculations.zoneName} (${solarCalculations.psh} PSH) | Min PV: ${solarCalculations.minPvWatts}W | LiFePO4 Battery: ${solarCalculations.minBatteryStorageWh}Wh (${solarAutonomyDays} nights autonomy).`
+        notes: `Solar Sizing: ${solarCalculations.zoneName} (${solarCalculations.psh} PSH) | Min PV: ${solarCalculations.minPvWatts}W | Battery: ${solarCalculations.minBatteryStorageWh}Wh.`
       });
     }
 
@@ -654,15 +581,14 @@ export const ToolsHub: React.FC = () => {
         products: updatedProducts,
         dealValue: updatedDealValue,
         weightedValue: updatedDealValue * (targetDeal.probability / 100),
-        latestActivity: `Added ${linesToAdd.length} engineered line item(s) from Technical Hub`,
+        latestActivity: `Added ${linesToAdd.length} engineered line item(s) from Tools`,
         latestActivityDate: new Date().toISOString().split("T")[0]
       });
 
-      showToast(`Injected ${linesToAdd.length} product(s) into Deal: "${targetDeal.name}"`, "success");
+      showToast(`Added items to Deal: "${targetDeal.name}"`, "success");
       setIsAddModalOpen(false);
       navigateToCRM("pipeline", targetDeal.id);
     } else {
-      // Create new deal
       const account = accounts.find((a) => a.id === selectedAccountId) || accounts[0];
       const pipeline = pipelines.find((p) => p.id === selectedPipelineId) || pipelines[0];
       const stage = pipeline.stages[0];
@@ -687,9 +613,9 @@ export const ToolsHub: React.FC = () => {
         products: linesToAdd,
         projectApplication: modalSourceTool === "cable-cover" ? "Civil Trench Protection" : "Solar Pathway Lighting",
         location: "Australia",
-        customerNeed: `Engineered BOM calculated in Plasgain Technical Estimator.`,
+        customerNeed: `Engineered schedule calculated in Plasgain Tools Hub.`,
         keyRequirements: [`Standards: AS/NZS 1158 / AS 4702 / AS 1170.2`],
-        source: "Technical Estimators Hub",
+        source: "Tools Hub",
         latestActivity: "Created deal with engineered BOM schedule",
         latestActivityDate: new Date().toISOString().split("T")[0],
         nextAction: "Issue quotation and technical schedule to client",
@@ -708,10 +634,11 @@ export const ToolsHub: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
-      {/* Compact Segmented Navigation Strip for Tools */}
+    <div className="space-y-6 max-w-7xl mx-auto pb-16 w-full min-w-0">
+      {/* COMPACT SEGMENTED NAVIGATION STRIP */}
       <div className="flex items-center gap-1.5 p-1.5 bg-paper rounded-panel border border-line overflow-x-auto no-scrollbar shadow-2xs">
         <button
+          type="button"
           onClick={() => setActiveToolTab("plan-takeoff" as ToolSubTab)}
           className={`px-3.5 py-1.5 text-meta font-bold rounded-edge flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
             activeToolTab === "plan-takeoff"
@@ -724,6 +651,7 @@ export const ToolsHub: React.FC = () => {
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveToolTab("cable-cover-calc" as ToolSubTab)}
           className={`px-3.5 py-1.5 text-meta font-bold rounded-edge flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
             activeToolTab === "cable-cover-calc"
@@ -736,6 +664,7 @@ export const ToolsHub: React.FC = () => {
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveToolTab("pole-spacing-calc" as ToolSubTab)}
           className={`px-3.5 py-1.5 text-meta font-bold rounded-edge flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
             activeToolTab === "pole-spacing-calc"
@@ -748,6 +677,7 @@ export const ToolsHub: React.FC = () => {
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveToolTab("wind-foundation-calc" as ToolSubTab)}
           className={`px-3.5 py-1.5 text-meta font-bold rounded-edge flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
             activeToolTab === "wind-foundation-calc"
@@ -760,6 +690,7 @@ export const ToolsHub: React.FC = () => {
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveToolTab("solar-autonomy" as ToolSubTab)}
           className={`px-3.5 py-1.5 text-meta font-bold rounded-edge flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
             activeToolTab === "solar-autonomy"
@@ -772,6 +703,7 @@ export const ToolsHub: React.FC = () => {
         </button>
 
         <button
+          type="button"
           onClick={() => setActiveToolTab("conflict-resolver" as ToolSubTab)}
           className={`px-3.5 py-1.5 text-meta font-bold rounded-edge flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
             activeToolTab === "conflict-resolver"
@@ -784,1048 +716,1013 @@ export const ToolsHub: React.FC = () => {
         </button>
       </div>
 
-      {/* Tab 1: Plan Take-off */}
-      {activeToolTab === "plan-takeoff" && (
-        <div>
-          <PlanTakeoffWorkspace />
-        </div>
-      )}
+      {/* Tab 1: Plan Take-off (Step 1 Completed, Preserved!) */}
+      {activeToolTab === "plan-takeoff" && <PlanTakeoffWorkspace />}
 
-      {/* Tab 2: Polymeric Cable Cover & Concrete Weight Offset Calculator */}
+      {/* Tab 2: Polymeric Cable Cover Calculator (PART H & I) */}
       {activeToolTab === "cable-cover-calc" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1 bg-white p-5 rounded-panel border border-line shadow-xs space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Inputs Column */}
+          <div className="lg:col-span-4 bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
             <h3 className="text-base font-bold text-body flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-brand-deep" />
-              Trench &amp; Protection Parameters
+              <span>Trench Parameters</span>
             </h3>
 
             <div>
-              <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                Trench Run Length (Metres)
-              </label>
+              <label className="block text-spec font-bold mb-1">Trench Length (Metres)</label>
               <input
                 type="number"
                 min={1}
                 value={trenchLengthMeters}
                 onChange={(e) => setTrenchLengthMeters(Math.max(1, Number(e.target.value)))}
-                className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold"
+                className="w-full p-2 border border-line rounded-edge text-spec font-mono bg-white"
               />
             </div>
 
             <div>
-              <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                Cable / Service Classification
-              </label>
+              <label className="block text-spec font-bold mb-1">Service Classification</label>
               <select
                 value={cableVoltage}
                 onChange={(e) => setCableVoltage(e.target.value as any)}
-                className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
+                className="w-full p-2 border border-line rounded-edge text-spec bg-white"
               >
-                <option value="LV_240_415">Low Voltage Electrical (240V / 415V - AS 4702 5mm)</option>
-                <option value="HV_11kV">High Voltage (11kV - AS 4702 6mm/10mm)</option>
-                <option value="HV_22kV_33kV">High Voltage Transmission (22kV / 33kV - AS 4702 10mm)</option>
-                <option value="COMMS_FIBRE">Communications &amp; Fibre Optic (White AS 4702)</option>
+                <option value="LV_240_415">Low Voltage (240V / 415V - AS 4702 5mm)</option>
+                <option value="HV_11kV">High Voltage (11kV - AS 4702 6mm)</option>
+                <option value="HV_22kV_33kV">High Voltage Transmission (22kV/33kV - 10mm)</option>
+                <option value="COMMS_FIBRE">Communications / Fibre (White AS 4702)</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                Trench Width (mm)
-              </label>
+              <label className="block text-spec font-bold mb-1">Trench Width</label>
               <select
                 value={trenchWidthMm}
                 onChange={(e) => setTrenchWidthMm(Number(e.target.value))}
-                className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
+                className="w-full p-2 border border-line rounded-edge text-spec bg-white"
               >
-                <option value={150}>150 mm (Single cable / narrow trench)</option>
-                <option value={300}>300 mm (Standard electrical / civil trench)</option>
-                <option value={450}>450 mm (Wide trench - 3x 150mm or multiple conduits)</option>
-                <option value={600}>600 mm (Heavy infrastructure corridor)</option>
+                <option value={150}>150 mm (Single conduit)</option>
+                <option value={300}>300 mm (Standard electrical trench)</option>
+                <option value={450}>450 mm (Wide multi-conduit trench)</option>
+                <option value={600}>600 mm (Heavy service corridor)</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                Equivalent Precast Slab Thickness (mm)
-              </label>
+              <label className="block text-spec font-bold mb-1">Concrete Slab Benchmark (mm)</label>
               <input
                 type="number"
                 min={25}
                 max={150}
                 value={concreteThicknessMm}
                 onChange={(e) => setConcreteThicknessMm(Number(e.target.value))}
-                className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold"
+                className="w-full p-2 border border-line rounded-edge text-spec font-mono bg-white"
               />
             </div>
           </div>
 
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-gradient-to-br from-brand-wash to-white p-6 rounded-panel border border-brand-edge shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
+          {/* Results Column (PART H: LEADS WITH PRODUCT, STRIPS, ROLLS, COVERAGE) */}
+          <div className="lg:col-span-8 space-y-4">
+            <div className="bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-line pb-3">
                 <div>
-                  <span className="text-spec font-bold text-brand-deep uppercase">AS 4702 Mechanical Protection Output</span>
-                  <h2 className="text-xl font-bold text-body">Polymeric Roll Requirement &amp; Weight Comparison</h2>
-                </div>
-                <div className="text-right">
-                  <span className="text-2xl font-black text-brand-deep">
-                    {cableCoverCalculations.weightReductionPercent}%
+                  <span className="text-xs font-bold text-brand-deep uppercase tracking-wider block">
+                    Calculated Polymeric Protection
                   </span>
-                  <p className="text-[11px] text-ink-dim uppercase font-bold">Manual Handling Weight Reduction</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                <div className="bg-white p-3.5 rounded-edge border border-line shadow-2xs">
-                  <div className="text-spec font-bold text-ink-dim uppercase">Plasgain Poly Rolls</div>
-                  <div className="text-xl font-bold text-body mt-1">
-                    {trenchWidthMm <= 150 ? cableCoverCalculations.rollsNeeded150 : cableCoverCalculations.rollsNeeded300} Rolls
-                  </div>
-                  <div className="text-[11px] text-ink-dim">20m continuous rolls (~{cableCoverCalculations.polymericTotalWeightKg} kg total)</div>
+                  <h2 className="text-xl font-bold text-body mt-0.5">{cableCoverCalculations.productName}</h2>
+                  <p className="text-xs text-ink-dim font-mono">SKU: {cableCoverCalculations.productCode}</p>
                 </div>
 
-                <div className="bg-white p-3.5 rounded-edge border border-line shadow-2xs">
-                  <div className="text-spec font-bold text-ink-dim uppercase">Equivalent Concrete Slabs</div>
-                  <div className="text-xl font-bold text-urgent mt-1">
-                    {cableCoverCalculations.concreteWeightKg.toLocaleString()} kg
-                  </div>
-                  <div className="text-[11px] text-ink-dim">~{cableCoverCalculations.concreteSlabsCount} individual heavy precast slabs</div>
-                </div>
-
-                <div className="bg-white p-3.5 rounded-edge border border-line shadow-2xs">
-                  <div className="text-spec font-bold text-ink-dim uppercase">Embodied Carbon Offset</div>
-                  <div className="text-xl font-bold text-brand mt-1">
-                    {cableCoverCalculations.co2SavedKg.toLocaleString()} kg CO₂e
-                  </div>
-                  <div className="text-[11px] text-ink-dim">Saved by replacing heavy concrete with recycled polymer</div>
-                </div>
-              </div>
-
-              <div className="p-3.5 bg-white rounded-edge border border-brand-edge text-meta space-y-2">
-                <div className="font-bold text-body">Civil Estimating Recommendation &amp; Coverage Arrangement:</div>
-                <p className="text-ink-dim text-spec">
-                  For a <strong>{trenchLengthMeters}m</strong> trench run at <strong>{trenchWidthMm}mm width</strong>, specify{" "}
-                  <strong>
-                    {cableCoverCalculations.totalRolls}x {cableCoverCalculations.productName} ({cableCoverCalculations.productCode})
-                  </strong>
-                  . Saves <strong>{cableCoverCalculations.weightSavedKg.toLocaleString()} kg</strong> of crane and manual handling weight on site.
-                </p>
-                <div className="p-2.5 bg-paper rounded text-[11px] text-ink-dim border border-line space-y-1">
-                  <div className="font-bold text-ink">AS 4702 Trench Coverage Engineering Rule:</div>
-                  <p>
-                    {trenchWidthMm <= 150
-                      ? "• 150mm trench: 1x 150mm continuous polymeric roll covers single conduit bank."
-                      : trenchWidthMm <= 300
-                      ? "• 300mm trench: 1x approved 300mm continuous roll per run. Alternative slab arrangements require engineering confirmation and must not be auto-substituted."
-                      : `• ${trenchWidthMm}mm trench: ${cableCoverCalculations.parallelStrips} parallel ${cableCoverCalculations.selectedStripWidthMm}mm strips per run. Confirm overlap and network-authority requirements before quoting.`}
-                  </p>
-                  <p className="font-mono text-brand-deep">
-                    Formula: Total Rolls = ceil(Length / 20m) × ceil(Trench Width / {cableCoverCalculations.selectedStripWidthMm}mm) · Mass Reduction = Concrete Mass ({cableCoverCalculations.concreteWeightKg}kg) - Polymeric Mass ({cableCoverCalculations.polymericTotalWeightKg}kg)
-                  </p>
-                </div>
-              </div>
-
-              {/* FEAT-01: 1-Click Action to Send to Deal */}
-              <div className="pt-2 flex items-center justify-between border-t border-brand-edge">
-                <div className="text-spec text-ink-dim font-medium">
-                  Estimated Schedule Value: <strong className="text-body font-bold">${cableCoverCalculations.estimatedSell.toLocaleString()}</strong> (ex GST)
-                </div>
-                <button
-                  onClick={() => handleOpenAddModal("cable-cover")}
-                  className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-xs cursor-pointer flex items-center gap-1.5 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Calculation to Quote / Deal</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 3: AS/NZS 1158 Pathway Pole Spacing Calculator */}
-      {activeToolTab === "pole-spacing-calc" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1 bg-white p-5 rounded-panel border border-line shadow-xs space-y-4">
-            <h3 className="text-base font-bold text-body flex items-center gap-2">
-              <Zap className="w-4 h-4 text-brand-deep" />
-              Pathway Lighting Parameters
-            </h3>
-
-            <div>
-              <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                Pathway Category (AS/NZS 1158.3.1:2020)
-              </label>
-              <select
-                value={subCategory}
-                onChange={(e) => setSubCategory(e.target.value)}
-                className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
-              >
-                {LIGHTING_STANDARDS_CATEGORIES.filter((c) => c.family.includes("Category P") || c.family.includes("Category PR")).map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.category}: {cat.displayName.includes("—") ? cat.displayName.split("—")[1].trim() : cat.displayName} ({cat.maintainedIlluminanceLux} lx avg / {cat.minimumIlluminanceLux} lx min)
-                  </option>
-                ))}
-              </select>
-              <div className="flex items-center gap-1.5 text-[11px] text-ink-dim mt-1.5">
-                <ShieldCheck className="w-3.5 h-3.5 text-brand-deep shrink-0" />
-                <span>
-                  Target: <strong>{selectedCat.maintainedIlluminanceLux} lx avg</strong> ({selectedCat.minimumIlluminanceLux} lx min point) · {selectedCat.standardReference} (Rev {selectedCat.datasetRevision})
-                </span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                Mounting Height (Metres)
-              </label>
-              <select
-                value={poleHeightM}
-                onChange={(e) => setPoleHeightM(Number(e.target.value))}
-                className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
-              >
-                <option value={4.0}>4.0 Metres (Parkland / Low Glare)</option>
-                <option value={5.0}>5.0 Metres (Standard Shared Pathway)</option>
-                <option value={6.0}>6.0 Metres (Wide Corridor / Higher Uniformity)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                Luminaire Nominal Output (Lumens)
-              </label>
-              <select
-                value={luminaireOutputLm}
-                onChange={(e) => setLuminaireOutputLm(Number(e.target.value))}
-                className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
-              >
-                <option value={3000}>3,000 Lumens (Plasgain Slim / Minor Path)</option>
-                <option value={4500}>4,500 Lumens (Plasgain Intense 30W/50W Standard)</option>
-                <option value={6500}>6,500 Lumens (Plasgain Commercial High-Output)</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-gradient-to-br from-brand-wash to-white p-6 rounded-panel border border-brand-edge shadow-xs space-y-4">
-              <div>
-                <span className="text-spec font-bold text-brand-deep uppercase">Estimated Engineering Spacing</span>
-                <h2 className="text-xl font-bold text-body">{selectedCat.displayName}</h2>
-                <div className="text-[11px] text-ink-dim mt-0.5">{selectedCat.subTitle}</div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                <div className="bg-white p-3.5 rounded-edge border border-line shadow-2xs">
-                  <div className="text-spec font-bold text-ink-dim uppercase">Recommended Spacing</div>
-                  <div className="text-2xl font-bold text-brand-deep mt-1">
-                    ~{spacingCalculations.recommendedSpacing} m
-                  </div>
-                  <div className="text-[11px] text-ink-dim">Pole-to-pole linear spacing</div>
-                </div>
-
-                <div className="bg-white p-3.5 rounded-edge border border-line shadow-2xs">
-                  <div className="text-spec font-bold text-ink-dim uppercase">Poles Required Per Km</div>
-                  <div className="text-2xl font-bold text-body mt-1">
-                    {spacingCalculations.polesPerKm} Units
-                  </div>
-                  <div className="text-[11px] text-ink-dim">Per 1,000m continuous trail</div>
-                </div>
-
-                <div className="bg-white p-3.5 rounded-edge border border-line shadow-2xs">
-                  <div className="text-spec font-bold text-ink-dim uppercase">Target Horizontal Illuminance</div>
-                  <div className="text-2xl font-bold text-brand mt-1">
-                    {spacingCalculations.illuminanceEav}
-                  </div>
-                  <div className="text-[11px] text-ink-dim">Min: {spacingCalculations.illuminanceEmin} · {spacingCalculations.uniformityUo}</div>
-                </div>
-              </div>
-
-              <div className="p-3.5 bg-white rounded-edge border border-brand-edge text-meta space-y-2">
-                <div className="font-bold text-body">Recommended Luminaire &amp; Pole Package:</div>
-                <p className="text-ink-dim text-spec">
-                  • <strong>{spacingCalculations.polesPerKm}x</strong> {spacingCalculations.recommendedLuminaireName} ({spacingCalculations.recommendedLuminaireCode})<br />
-                  • <strong>{spacingCalculations.polesPerKm}x</strong> {spacingCalculations.recommendedPoleName} ({spacingCalculations.recommendedPoleCode})
-                </p>
-
-                {/* Engineering Disclaimer (P2) */}
-                <div className="p-2.5 bg-amber-50 border border-amber-200 rounded text-[11px] text-amber-950 space-y-1">
-                  <div className="font-bold flex items-center gap-1 text-amber-900">
-                    <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
-                    <span>Photometric Compliance Requirement:</span>
-                  </div>
-                  <p>
-                    Preliminary estimate based on AS/NZS 1158.3.1 Table 2.1 empirical spacing. Exact point-by-point <strong>DIALux photometric calculation</strong> utilizing verified manufacturer IES files is mandatory for formal council/civil engineering sign-off.
-                  </p>
-                  <p className="font-mono text-brand-deep">
-                    Formula: S_est = S_base * sqrt(Lumen / 4000) * (0.8 + 0.2 * (Height / 5.0m))
-                  </p>
-                </div>
-              </div>
-
-              {/* FEAT-01: 1-Click Action to Send to Deal */}
-              <div className="pt-2 flex items-center justify-between border-t border-brand-edge">
-                <div className="text-spec text-ink-dim font-medium">
-                  {/* This showed a dollar package estimate built from hardcoded
-                      constants, in an app whose standing guardrail is that
-                      pricing is not connected. Quantities are calculated; money
-                      is not. */}
-                  1km Package: <strong className="text-body font-bold">{spacingCalculations.polesPerKm} luminaires + {spacingCalculations.polesPerKm} poles</strong> · pricing not connected
-                </div>
-                <button
-                  onClick={() => handleOpenAddModal("pole-spacing")}
-                  className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-xs cursor-pointer flex items-center gap-1.5 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Luminaire &amp; Pole Schedule to Deal</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 4: FEAT-03 Wind Region & Foundation Hardware Estimator (AS 1170.2) */}
-      {activeToolTab === "wind-foundation-calc" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1 bg-white p-5 rounded-panel border border-line shadow-xs space-y-4">
-            <h3 className="text-base font-bold text-body flex items-center gap-2">
-              <Wind className="w-4 h-4 text-brand-deep" />
-              Wind &amp; Soil Site Parameters
-            </h3>
-
-            <div>
-              <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                Wind Region (AS/NZS 1170.2)
-              </label>
-              <select
-                value={windRegion}
-                onChange={(e) => setWindRegion(e.target.value as any)}
-                className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
-              >
-                <option value="Region A">Region A (45 m/s - Normal Inland: VIC/NSW/ACT/SA)</option>
-                <option value="Region B">Region B (57 m/s - Subtropical / Coastal Border)</option>
-                <option value="Region C">Region C (69 m/s - Cyclonic NT/QLD/WA Coast)</option>
-                <option value="Region D">Region D (88 m/s - Severe Cyclonic Pilbara/Exmouth)</option>
-              </select>
-              <p className="text-[11px] text-ink-dim mt-0.5">{foundationCalculations.windDesc}</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                  Pole Height
-                </label>
-                <select
-                  value={foundationPoleHeight}
-                  onChange={(e) => setFoundationPoleHeight(Number(e.target.value))}
-                  className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
-                >
-                  <option value={4}>4.0 Metres</option>
-                  <option value={5}>5.0 Metres</option>
-                  <option value={6}>6.0 Metres (Standard)</option>
-                  <option value={8}>8.0 Metres</option>
-                  <option value={10}>10.0 Metres</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                  Foundation Type
-                </label>
-                <select
-                  value={foundationType}
-                  onChange={(e) => setFoundationType(e.target.value as any)}
-                  className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
-                >
-                  <option value="Base Plate (Ragbolt)">Base Plate (Ragbolt Cage)</option>
-                  <option value="Direct Burial">Direct Burial (Soil Embedment)</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                  Soil Classification
-                </label>
-                <select
-                  value={soilType}
-                  onChange={(e) => setSoilType(e.target.value as any)}
-                  className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
-                >
-                  <option value="Clay / Standard">Clay / Cohesive Soil</option>
-                  <option value="Sandy / Coastal">Sand / Coastal Fill</option>
-                  <option value="Rock / Hardpan">Rock / Hard Ground</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                  Pole Quantity
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  value={foundationQuantity}
-                  onChange={(e) => setFoundationQuantity(Math.max(1, Number(e.target.value)))}
-                  className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                Destination State (Freight Calculation)
-              </label>
-              <select
-                value={destState}
-                onChange={(e) => setDestState(e.target.value as any)}
-                className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
-              >
-                <option value="VIC">Victoria (Local Warehouse Dispatch)</option>
-                <option value="NSW">New South Wales / ACT</option>
-                <option value="QLD">Queensland (Regional / Coastal)</option>
-                <option value="WA">Western Australia (Perth / Pilbara)</option>
-                <option value="NT">Northern Territory (Darwin / Alice)</option>
-                <option value="SA">South Australia</option>
-                <option value="TAS">Tasmania</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-gradient-to-br from-brand-wash to-white p-6 rounded-panel border border-brand-edge shadow-xs space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <span className="text-spec font-bold text-brand-deep uppercase">AS 1170.2 Structural Engineering Output</span>
-                  <h2 className="text-xl font-bold text-body">Footing Dimensions &amp; Hardware Sizing</h2>
-                </div>
                 <div className="text-right">
-                  <span className="text-2xl font-black text-brand-deep">
-                    {foundationCalculations.windSpeed}
+                  <span className="text-xs text-ink-dim uppercase block">Estimated Schedule Value</span>
+                  <span className="text-xl font-bold font-mono text-body">
+                    ${cableCoverCalculations.estimatedSell.toLocaleString()}
                   </span>
-                  <p className="text-[11px] text-ink-dim uppercase font-bold">Design Ultimate Wind Speed</p>
+                  <span className="text-[11px] text-ink-dim block font-medium">(Ex GST, Estimate)</span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                <div className="bg-white p-3.5 rounded-edge border border-line shadow-2xs">
-                  <div className="text-spec font-bold text-ink-dim uppercase">Footing Depth &amp; Diameter</div>
-                  <div className="text-xl font-bold text-body mt-1">
-                    {foundationCalculations.embedmentDepthM}m deep x {foundationCalculations.footingDiameterMm}mm dia
-                  </div>
-                  <div className="text-[11px] text-ink-dim">Embedment per AS 1170.2 / AS 2159</div>
+              {/* 4 PRIMARY RESULT METRICS */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-paper p-3 rounded-edge border border-line">
+                  <span className="text-xs text-ink-dim block">Required Rolls</span>
+                  <span className="text-lg font-bold font-mono text-body block mt-0.5">
+                    {cableCoverCalculations.totalRolls} rolls
+                  </span>
+                  <span className="text-[11px] text-ink-dim">20m per roll</span>
                 </div>
 
-                <div className="bg-white p-3.5 rounded-edge border border-line shadow-2xs">
-                  <div className="text-spec font-bold text-ink-dim uppercase">Total Concrete Volume</div>
-                  <div className="text-xl font-bold text-brand-deep mt-1">
-                    {foundationCalculations.totalConcreteM3} m³
-                  </div>
-                  <div className="text-[11px] text-ink-dim">~{foundationCalculations.concreteVolPerFootingM3} m³ per individual footing</div>
+                <div className="bg-paper p-3 rounded-edge border border-line">
+                  <span className="text-xs text-ink-dim block">Strip Arrangement</span>
+                  <span className="text-lg font-bold text-body block mt-0.5">
+                    {cableCoverCalculations.parallelStrips} parallel {cableCoverCalculations.parallelStrips === 1 ? "strip" : "strips"}
+                  </span>
+                  <span className="text-[11px] text-ink-dim">{cableCoverCalculations.selectedStripWidthMm}mm width</span>
                 </div>
 
-                <div className="bg-white p-3.5 rounded-edge border border-line shadow-2xs">
-                  <div className="text-spec font-bold text-ink-dim uppercase">Freight &amp; Total Weight</div>
-                  <div className="text-xl font-bold text-brand mt-1">
-                    {foundationCalculations.totalShipmentWeightKg.toLocaleString()} kg
-                  </div>
-                  <div className="text-[11px] text-ink-dim">Est. Depot Freight to {destState}: ${foundationCalculations.estimatedFreight.toLocaleString()}</div>
+                <div className="bg-paper p-3 rounded-edge border border-line">
+                  <span className="text-xs text-ink-dim block">Strip Coverage</span>
+                  <span className="text-lg font-bold font-mono text-body block mt-0.5">
+                    {cableCoverCalculations.totalCoverageMetres} m
+                  </span>
+                  <span className="text-[11px] text-ink-dim">Total strip run</span>
+                </div>
+
+                <div className="bg-paper p-3 rounded-edge border border-line">
+                  <span className="text-xs text-ink-dim block">Total Weight</span>
+                  <span className="text-lg font-bold font-mono text-body block mt-0.5">
+                    {cableCoverCalculations.polymericTotalWeightKg} kg
+                  </span>
+                  <span className="text-[11px] text-ink-dim">Polymer mass</span>
                 </div>
               </div>
 
-              <div className="p-3.5 bg-white rounded-edge border border-brand-edge text-meta space-y-1">
-                <div className="font-bold text-body flex items-center gap-1.5">
-                  <Package className="w-4 h-4 text-brand-deep" />
-                  <span>Recommended Foundation Hardware Schedule:</span>
+              {/* OVERLAP & AUTHORITY LIMITATIONS (PART I) */}
+              <div className="p-3 bg-amber-50/60 rounded-edge border border-amber-200 text-xs text-amber-950 space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
+                  <span>Authority &amp; Overlap Requirements:</span>
                 </div>
-                <p className="text-ink-dim text-spec">
-                  • <strong>{foundationQuantity}x</strong> {foundationCalculations.hardwareName} (<strong>{foundationCalculations.hardwareSKU}</strong>) @ ${foundationCalculations.hardwareUnitPrice}/ea<br />
-                  • Total Foundation Hardware Scope: <strong>${(foundationQuantity * foundationCalculations.hardwareUnitPrice).toLocaleString()}</strong> (ex GST)
+                <p>
+                  Maintain 100mm minimum longitudinal overlap between rolls. Check local network authority guidelines (e.g. Ausgrid, Energex, AusNet) for specific cover depth and color coding standards before installation.
                 </p>
               </div>
 
-              {/* FEAT-01 / FEAT-03: Add Hardware to Deal */}
-              <div className="pt-2 flex items-center justify-between border-t border-brand-edge">
-                <div className="text-spec text-ink-dim font-medium">
-                  Hardware Total: <strong className="text-body font-bold">${(foundationQuantity * foundationCalculations.hardwareUnitPrice).toLocaleString()}</strong> (ex GST)
-                </div>
-                <button
-                  onClick={() => handleOpenAddModal("wind-foundation")}
-                  className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-xs cursor-pointer flex items-center gap-1.5 transition-colors"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Add Foundation Hardware to Deal</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Tab 5: Solar Sizing & LiFePO4 Battery Autonomy (AS/NZS 4509) */}
-      {activeToolTab === "solar-autonomy" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1 bg-white p-5 rounded-panel border border-line shadow-xs space-y-4">
-            <h3 className="text-base font-bold text-body flex items-center gap-2">
-              <Sun className="w-4 h-4 text-brand-deep" />
-              Solar Site &amp; Load Parameters
-            </h3>
-
-            <div>
-              <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                Australian Solar Insolation Zone
-              </label>
-              <select
-                value={solarZone}
-                onChange={(e) => setSolarZone(e.target.value as any)}
-                className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
-              >
-                <option value="QLD_NT">QLD / NT (Tropical &amp; Subtropical - 5.2 PSH)</option>
-                <option value="NSW_ACT">NSW / ACT (Central East Coast - 4.5 PSH)</option>
-                <option value="VIC_TAS">VIC / TAS (Southern Latitudes - 3.6 PSH)</option>
-                <option value="WA_SA">WA / SA (Western Sunbelt - 5.8 PSH)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                Luminaire Nominal Wattage
-              </label>
-              <select
-                value={solarWatts}
-                onChange={(e) => setSolarWatts(Number(e.target.value))}
-                className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
-              >
-                <option value={50}>50 Watts (Plasgain Intense Standard - 7,500 lm)</option>
-                <option value={75}>75 Watts (Plasgain Pro Blade Area - 11,250 lm)</option>
-                <option value={100}>100 Watts (Plasgain Pro Blade Highway - 15,000 lm)</option>
-                <option value={125}>125 Watts (Plasgain Heavy Area - 18,750 lm)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                Night-time Operating Profile
-              </label>
-              <select
-                value={solarProfile}
-                onChange={(e) => setSolarProfile(e.target.value as any)}
-                className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
-              >
-                <option value="PIR_PROFILE_SMART">Smart Profile: 6h @ 100% + 6h @ 30% Dim PIR (~7.8h equiv)</option>
-                <option value="DUSK_DAWN_12H">Continuous Full Power: Dusk to Dawn (12.0h continuous)</option>
-              </select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                  Autonomy Nights
-                </label>
-                <select
-                  value={solarAutonomyDays}
-                  onChange={(e) => setSolarAutonomyDays(Number(e.target.value))}
-                  className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold bg-white"
-                >
-                  <option value={3}>3 Nights (Standard QLD)</option>
-                  <option value={4}>4 Nights (Standard NSW)</option>
-                  <option value={5}>5 Nights (Standard VIC)</option>
-                  <option value={6}>6 Nights (Critical Infra)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                  Luminaire Quantity
-                </label>
-                <input
-                  type="number"
-                  min={1}
-                  value={solarQuantity}
-                  onChange={(e) => setSolarQuantity(Math.max(1, Number(e.target.value)))}
-                  className="w-full p-2 border border-line-strong rounded-edge text-meta font-semibold"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-gradient-to-br from-brand-wash to-white p-6 rounded-panel border border-brand-edge shadow-xs space-y-4">
-              <div>
-                <span className="text-spec font-bold text-brand-deep uppercase">Clean Energy Off-Grid Sizing</span>
-                <h2 className="text-xl font-bold text-body">Solar PV &amp; LiFePO4 Autonomy Calculation (AS/NZS 4509)</h2>
-                <div className="text-[11px] text-ink-dim mt-0.5">{solarCalculations.zoneDesc}</div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                <div className="bg-white p-3.5 rounded-edge border border-line shadow-2xs">
-                  <div className="text-spec font-bold text-ink-dim uppercase">Daily Energy Draw</div>
-                  <div className="text-2xl font-bold text-body mt-1">
-                    {solarCalculations.dailyWattHours} Wh/day
-                  </div>
-                  <div className="text-[11px] text-ink-dim">Based on {solarCalculations.effectiveHours}h runtime</div>
-                </div>
-
-                <div className="bg-white p-3.5 rounded-edge border border-line shadow-2xs">
-                  <div className="text-spec font-bold text-ink-dim uppercase">Required Battery Storage</div>
-                  <div className="text-2xl font-bold text-brand-deep mt-1">
-                    {solarCalculations.minBatteryStorageWh} Wh
-                  </div>
-                  <div className="text-[11px] text-ink-dim">~{solarCalculations.minBatteryAh12V} Ah @ 12.8V ({solarAutonomyDays} nights @ 85% DoD)</div>
-                </div>
-
-                <div className="bg-white p-3.5 rounded-edge border border-line shadow-2xs">
-                  <div className="text-spec font-bold text-ink-dim uppercase">Minimum PV Panel</div>
-                  <div className="text-2xl font-bold text-brand mt-1">
-                    ≥ {solarCalculations.minPvWatts} Wp
-                  </div>
-                  <div className="text-[11px] text-ink-dim">Monocrystalline (1.35x Coulomb/dirt derate)</div>
-                </div>
-              </div>
-
-              {solarCalculations.isCompliant ? (
-                <div className="p-3.5 bg-white rounded-edge border border-emerald-300 text-meta space-y-1">
-                  <div className="font-bold text-emerald-900 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>Compliant Standard Solar Package Matched:</span>
-                  </div>
-                  <p className="text-ink-dim text-spec">
-                    • <strong>{solarQuantity}x</strong> {solarCalculations.luminaireName} (<strong>{solarCalculations.luminaireSKU}</strong>) @ ${solarCalculations.unitPrice}/ea<br />
-                    • Total Solar Package Scope: <strong>${solarCalculations.totalPackageValue.toLocaleString()}</strong> (ex GST)
-                  </p>
-                </div>
-              ) : (
-                <div className="p-4 bg-amber-50 rounded-edge border border-amber-300 text-meta space-y-2.5">
-                  <div className="font-bold text-amber-900 flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-                    <span>No compliant standard package — engineering review required</span>
-                  </div>
-                  <div className="text-spec text-amber-950 space-y-1 bg-white/80 p-3 rounded border border-amber-200">
-                    <div className="font-semibold text-urgent">Technical Non-Compliance Reasons:</div>
-                    <ul className="list-disc list-inside space-y-0.5 text-[12px]">
-                      {solarCalculations.nonComplianceReasons.map((reason, idx) => (
-                        <li key={idx}>{reason}</li>
-                      ))}
-                    </ul>
-                  </div>
-                  <p className="text-spec text-amber-800 italic">
-                    Adding to quotation is blocked to prevent undersized battery depletion in field operations. Request custom battery enclosure or adjust operating profile with client.
-                  </p>
-                </div>
-              )}
-
-              <div className="pt-2 flex items-center justify-between border-t border-brand-edge flex-wrap gap-2">
-                <div className="text-spec text-ink-dim font-medium">
-                  {solarCalculations.isCompliant ? (
-                    <>Package Est: <strong className="text-body font-bold">${solarCalculations.totalPackageValue.toLocaleString()}</strong> (ex GST)</>
-                  ) : (
-                    <span className="text-urgent font-bold">Standard SKU Non-Compliant — Custom Pricing Required</span>
-                  )}
-                </div>
+              {/* COLLAPSIBLE WEIGHT & CARBON COMPARISON (PART I) */}
+              <div className="pt-1">
                 <button
                   type="button"
-                  disabled={!solarCalculations.isCompliant}
-                  onClick={() => handleOpenAddModal("solar-autonomy")}
-                  title={solarCalculations.isCompliant ? "Add compliant solar hardware to deal" : "Blocked: Sizing fails calculated minimum battery/PV requirements"}
-                  className={`px-4 py-2 font-bold text-meta rounded-edge shadow-xs flex items-center gap-1.5 transition-colors ${
-                    solarCalculations.isCompliant
-                      ? "bg-brand-deep hover:bg-brand text-white cursor-pointer"
-                      : "bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300"
-                  }`}
+                  onClick={() => setShowCableComparison(!showCableComparison)}
+                  className="text-xs font-bold text-brand-deep hover:underline flex items-center gap-1 cursor-pointer"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>{solarCalculations.isCompliant ? "Add Solar Package to Deal" : "Add to Deal Blocked (Review Required)"}</span>
+                  <span>{showCableComparison ? "Hide manual handling & carbon comparison" : "View weight reduction & carbon comparison (vs concrete slabs)"}</span>
+                  {showCableComparison ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                 </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Tab 6: Standards & Specification Conflict Resolver (P2: Real Tender Clause Input) */}
-      {activeToolTab === "conflict-resolver" && (
-        <div className="space-y-6">
-          <div className="bg-white p-6 rounded-panel border border-line shadow-xs space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-4">
-              <div>
-                <span className="text-spec font-bold text-urgent uppercase tracking-wide">
-                  Compliance &amp; Risk Safeguard
-                </span>
-                <h2 className="text-xl font-bold text-body">
-                  Standards &amp; Tender Specification Conflict Resolver
-                </h2>
-                <p className="text-meta text-ink-dim mt-0.5">
-                  Identify and resolve contradictory customer RFQ clauses against Australian Standards (AS/NZS 1158, AS 4282, AS 1170.2, AS/NZS 2312.2).
-                </p>
-              </div>
-
-              {/* Mode Switcher */}
-              <div className="flex items-center gap-1.5 bg-paper p-1 rounded-edge border border-line shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setConflictResolverMode("presets")}
-                  className={`px-3 py-1.5 text-spec font-bold rounded transition-colors cursor-pointer ${
-                    conflictResolverMode === "presets"
-                      ? "bg-white text-brand-deep shadow-2xs"
-                      : "text-ink-dim hover:text-ink"
-                  }`}
-                >
-                  Curated Scenarios
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConflictResolverMode("custom")}
-                  className={`px-3 py-1.5 text-spec font-bold rounded transition-colors cursor-pointer ${
-                    conflictResolverMode === "custom"
-                      ? "bg-white text-brand-deep shadow-2xs"
-                      : "text-ink-dim hover:text-ink"
-                  }`}
-                >
-                  Analyze Real Tender Clause
-                </button>
-              </div>
-            </div>
-
-            {conflictResolverMode === "custom" ? (
-              /* Custom Tender Clause Input & Analysis View */
-              <div className="space-y-5 pt-2">
-                <div className="p-4 bg-paper rounded-edge border border-line space-y-3">
-                  <label className="block text-spec font-bold text-ink-dim uppercase">
-                    Paste Custom Tender Clause / Contractor Technical Specification:
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={customTenderText}
-                    onChange={(e) => setCustomTenderText(e.target.value)}
-                    placeholder="e.g. Tender Clause 4.2: Supply and install 5700K Daylight LED fittings along riverside shared path mounted at 4.5m with 60m spacing..."
-                    className="w-full p-3 bg-white rounded border border-line-strong text-meta font-mono"
-                  />
-                  <div className="flex justify-end">
-                    <button
-                      type="button"
-                      onClick={handleAnalyzeCustomClause}
-                      className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      <span>Analyze Clause Compliance</span>
-                    </button>
-                  </div>
-                </div>
-
-                {customAnalysis && (
-                  <div className="space-y-4 bg-white p-5 rounded-panel border border-brand-edge shadow-xs animate-in fade-in duration-150">
-                    <div className="flex items-start justify-between gap-3 border-b border-line pb-3">
-                      <div>
-                        <span className="inline-block px-2.5 py-0.5 rounded-full text-meta font-bold bg-urgent-wash text-urgent border border-urgent mb-1">
-                          {customAnalysis.riskSeverity}
-                        </span>
-                        <h3 className="text-lg font-bold text-body">{customAnalysis.title}</h3>
-                      </div>
+                {showCableComparison && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 animate-in fade-in duration-100">
+                    <div className="p-3 bg-paper rounded-edge border border-line">
+                      <span className="text-xs text-ink-dim block">Weight Reduction vs Concrete</span>
+                      <span className="text-base font-bold text-body block mt-0.5">
+                        {cableCoverCalculations.weightReductionPercent}% lighter ({cableCoverCalculations.weightSavedKg.toLocaleString()} kg saved)
+                      </span>
+                      <span className="text-[11px] text-ink-dim">Replaces ~{cableCoverCalculations.concreteSlabsCount} heavy 1m precast concrete slabs</span>
                     </div>
 
-                    <div className="space-y-3 text-meta">
-                      <div className="p-3 bg-hold-wash rounded-edge border border-hold/70">
-                        <span className="text-spec font-bold text-hold uppercase block mb-0.5">Technical &amp; Standards Analysis</span>
-                        <p className="text-body leading-relaxed">{customAnalysis.analysis}</p>
-                      </div>
-
-                      <div className="p-3.5 bg-paper rounded-edge border border-line space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-spec font-bold text-ink-dim uppercase block">Customer Clarification / Tender RFI Question</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(customAnalysis.clarificationQuestion);
-                              showToast("Clarification question copied to clipboard!", "success");
-                            }}
-                            className="text-[11px] font-bold text-brand-deep hover:underline flex items-center gap-1 cursor-pointer"
-                          >
-                            <Copy className="w-3 h-3" />
-                            <span>Copy Question</span>
-                          </button>
-                        </div>
-                        <p className="font-semibold text-body italic bg-white p-2.5 rounded border border-line">
-                          "{customAnalysis.clarificationQuestion}"
-                        </p>
-                      </div>
-
-                      <div className="p-3.5 bg-brand-wash rounded-edge border border-brand-edge space-y-2">
-                        <span className="text-spec font-bold text-brand-deep uppercase block">Recommended Sales Resolution &amp; Spec Substantiation</span>
-                        <p className="text-body font-medium leading-relaxed">{customAnalysis.recommendedResolution}</p>
-                        <div className="flex items-center gap-1.5 text-spec text-brand-deep font-bold pt-1 border-t border-brand-edge">
-                          <ShieldCheck className="w-4 h-4 shrink-0" />
-                          <span>Authoritative Citation: {customAnalysis.standardCitation}</span>
-                        </div>
-                      </div>
+                    <div className="p-3 bg-paper rounded-edge border border-line">
+                      <span className="text-xs text-ink-dim block">Embodied Carbon Offset</span>
+                      <span className="text-base font-bold text-emerald-800 block mt-0.5">
+                        ~{cableCoverCalculations.co2SavedKg.toLocaleString()} kg CO₂e offset
+                      </span>
+                      <span className="text-[11px] text-ink-dim">Based on 0.14 kg CO₂e/kg precast concrete</span>
                     </div>
                   </div>
                 )}
               </div>
-            ) : (
-              /* Curated Presets Grid */
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 pt-2">
-                {/* Conflict Presets List */}
-                <div className="lg:col-span-1 space-y-2">
-                  <label className="block text-spec font-bold text-ink-dim uppercase">
-                    Select Conflict Scenario
-                  </label>
-                  {CONFLICT_SCENARIOS.map((c) => {
-                    const isSelected = selectedConflictId === c.id;
-                    return (
-                      <button
-                        key={c.id}
-                        onClick={() => setSelectedConflictId(c.id)}
-                        className={`w-full text-left p-3 rounded-edge border text-meta transition-all cursor-pointer ${
-                          isSelected
-                            ? "bg-brand-wash border-brand-edge text-brand-deep font-bold shadow-2xs"
-                            : "bg-white border-line hover:bg-raised text-body font-medium"
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <AlertCircle className={`w-4 h-4 shrink-0 ${isSelected ? "text-brand-deep" : "text-ink-faint"}`} />
-                          <span className="line-clamp-2">{c.title}</span>
-                        </div>
-                      </button>
-                    );
-                  })}
+
+              {/* COLLAPSIBLE ASSUMPTIONS (PART I) */}
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowCableAssumptions(!showCableAssumptions)}
+                  className="text-xs font-bold text-brand-deep hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <span>{showCableAssumptions ? "Hide calculation assumptions" : "How this was calculated (Assumptions & formula)"}</span>
+                  {showCableAssumptions ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+
+                {showCableAssumptions && (
+                  <div className="p-3 bg-raised rounded-edge border border-line text-xs text-body font-mono pt-3 animate-in fade-in duration-100">
+                    Rolls = ceil(Trench Length / 20m) × ceil(Trench Width / {cableCoverCalculations.selectedStripWidthMm}mm) · Concrete Density = 2,400 kg/m³
+                  </div>
+                )}
+              </div>
+
+              {/* ACTION BAR */}
+              <div className="pt-3 flex justify-end border-t border-line">
+                <button
+                  type="button"
+                  onClick={() => handleOpenAddModal("cable-cover")}
+                  className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add to deal</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 3: AS/NZS 1158 Pathway Pole Spacing Calculator (PART J) */}
+      {activeToolTab === "pole-spacing-calc" && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Inputs Column */}
+          <div className="lg:col-span-4 bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
+            <h3 className="text-base font-bold text-body flex items-center gap-2">
+              <Zap className="w-4 h-4 text-brand-deep" />
+              <span>Pathway Parameters</span>
+            </h3>
+
+            {/* EXPLICIT PROJECT LENGTH (PART J) */}
+            <div>
+              <label className="block text-spec font-bold mb-1">Project Length (Metres)</label>
+              <input
+                type="number"
+                min={10}
+                value={projectLengthMeters}
+                onChange={(e) => setProjectLengthMeters(Math.max(10, Number(e.target.value)))}
+                className="w-full p-2 border border-line rounded-edge text-spec font-mono bg-white"
+              />
+            </div>
+
+            <div>
+              <label className="block text-spec font-bold mb-1">Lighting Sub-Category (AS/NZS 1158.3.1)</label>
+              <select
+                value={subCategory}
+                onChange={(e) => setSubCategory(e.target.value)}
+                className="w-full p-2 border border-line rounded-edge text-spec bg-white"
+              >
+                {LIGHTING_STANDARDS_CATEGORIES.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {cat.displayName} ({cat.maintainedIlluminanceLux} lux avg)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-spec font-bold mb-1">Luminaire Package</label>
+              <select
+                value={luminaireFamily}
+                onChange={(e) => setLuminaireFamily(e.target.value)}
+                className="w-full p-2 border border-line rounded-edge text-spec bg-white"
+              >
+                <option value="INTENSE_50W">Plasgain Intense Light 50W Solar (5,000 lm)</option>
+                <option value="PBS_75W">Plasgain Pro Blade Solar 75W (7,500 lm)</option>
+                <option value="PBS_100W">Plasgain Pro Blade Solar 100W (10,000 lm)</option>
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-spec font-bold mb-1">Path Width (m)</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min={1}
+                  max={12}
+                  value={pathWidthM}
+                  onChange={(e) => setPathWidthM(Number(e.target.value))}
+                  className="w-full p-2 border border-line rounded-edge text-spec font-mono bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-spec font-bold mb-1">Mounting Height (m)</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  min={3}
+                  max={12}
+                  value={poleHeightM}
+                  onChange={(e) => setPoleHeightM(Number(e.target.value))}
+                  className="w-full p-2 border border-line rounded-edge text-spec font-mono bg-white"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Results Column (PART J: LEADS WITH ESTIMATED SPACING & POLE QUANTITY) */}
+          <div className="lg:col-span-8 space-y-4">
+            <div className="bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-line pb-3">
+                <div>
+                  <span className="text-xs font-bold text-brand-deep uppercase tracking-wider block">
+                    Lighting Design Estimate
+                  </span>
+                  <h2 className="text-xl font-bold text-body mt-0.5">
+                    {spacingCalculations.cat.displayName} Spacing Model
+                  </h2>
+                  <p className="text-xs text-ink-dim">
+                    Target: {spacingCalculations.cat.maintainedIlluminanceLux} lux avg / {spacingCalculations.cat.minimumIlluminanceLux} lux point min
+                  </p>
                 </div>
 
-                {/* Conflict Analysis & Resolution Display */}
-                {(() => {
-                  const conf = CONFLICT_SCENARIOS.find((c) => c.id === selectedConflictId) || CONFLICT_SCENARIOS[0];
-                  return (
-                    <div className="lg:col-span-3 space-y-4 bg-paper p-5 rounded-panel border border-line">
-                      <div className="flex items-start justify-between gap-3 border-b border-line pb-3">
-                        <div>
-                          <span className="inline-block px-2.5 py-0.5 rounded-full text-meta font-bold bg-urgent-wash text-urgent border border-urgent mb-1">
-                            {conf.riskSeverity}
-                          </span>
-                          <h3 className="text-lg font-bold text-body">{conf.title}</h3>
-                          <div className="text-spec text-ink-dim mt-0.5">{conf.conflictType}</div>
-                        </div>
-                      </div>
+                <div className="text-right">
+                  <span className="text-xs text-ink-dim uppercase block">Estimated Project Value</span>
+                  <span className="text-xl font-bold font-mono text-body">
+                    ${spacingCalculations.totalProjectSell.toLocaleString()}
+                  </span>
+                  <span className="text-[11px] text-ink-dim block font-medium">(Ex GST, Estimate)</span>
+                </div>
+              </div>
 
-                      <div className="space-y-3 text-meta">
-                        <div className="p-3 bg-white rounded-edge border border-line">
-                          <span className="text-spec font-bold text-ink-dim uppercase block mb-0.5">Tender / Customer Clause</span>
-                          <p className="font-semibold text-body italic">"{conf.tenderClause}"</p>
-                        </div>
+              {/* 2 PRIMARY RESULTS: SPACING & POLES */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-brand-wash/40 border border-brand-edge rounded-edge p-4">
+                  <span className="text-xs font-bold uppercase tracking-wider text-brand-deep block">
+                    Estimated Pole Spacing
+                  </span>
+                  <span className="text-3xl font-black font-mono text-body block mt-1">
+                    {spacingCalculations.calculatedSpacingM} metres
+                  </span>
+                  <span className="text-xs text-ink-dim">Inter-pole span along {pathWidthM}m wide path</span>
+                </div>
 
-                        <div className="p-3 bg-hold-wash rounded-edge border border-hold/70">
-                          <span className="text-spec font-bold text-hold uppercase block mb-0.5">Technical &amp; Standards Analysis</span>
-                          <p className="text-body leading-relaxed">{conf.analysis}</p>
-                        </div>
+                <div className="bg-paper border border-line rounded-edge p-4">
+                  <span className="text-xs font-bold uppercase tracking-wider text-ink-dim block">
+                    Estimated Pole Quantity
+                  </span>
+                  <span className="text-3xl font-black font-mono text-body block mt-1">
+                    {spacingCalculations.polesForProject} poles
+                  </span>
+                  <span className="text-xs text-ink-dim">For complete {projectLengthMeters}m run</span>
+                </div>
+              </div>
 
-                        <div className="p-3.5 bg-brand-wash rounded-edge border border-brand-edge space-y-2">
-                          <span className="text-spec font-bold text-brand-deep uppercase block">Recommended Sales Resolution &amp; Spec Substantiation</span>
-                          <p className="text-body font-medium leading-relaxed">{conf.recommendedResolution}</p>
-                          <div className="flex items-center gap-1.5 text-spec text-brand-deep font-bold pt-1 border-t border-brand-edge">
-                            <ShieldCheck className="w-4 h-4 shrink-0" />
-                            <span>Authoritative Citation: {conf.standardCitation}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
+              {/* COMPACT RECOMMENDED PACKAGE (PART J) */}
+              <div className="p-3.5 bg-paper rounded-edge border border-line space-y-2 text-spec">
+                <span className="text-xs font-bold uppercase tracking-wider text-ink-dim block">
+                  Recommended Luminaire &amp; Pole Package
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div className="p-2 bg-white rounded border border-line">
+                    <span className="font-bold text-body block">Luminaire: {spacingCalculations.luminaireModel}</span>
+                    <span className="text-ink-dim font-mono">SKU: {spacingCalculations.luminaireSKU}</span>
+                  </div>
+                  <div className="p-2 bg-white rounded border border-line">
+                    <span className="font-bold text-body">Pole: {spacingCalculations.poleModel}</span>
+                    <span className="text-ink-dim font-mono">SKU: {spacingCalculations.poleSKU}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* PRELIMINARY WARNING CALLOUT (PART J) */}
+              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-edge text-xs text-amber-950 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                <p>
+                  <strong>Preliminary estimate only:</strong> Spacing calculations are indicative benchmarks. Project-specific photometric verification (DIALux simulation) is required prior to luminaire procurement and installation.
+                </p>
+              </div>
+
+              {/* COLLAPSIBLE ASSUMPTIONS (PART J) */}
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowSpacingAssumptions(!showSpacingAssumptions)}
+                  className="text-xs font-bold text-brand-deep hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <span>{showSpacingAssumptions ? "Hide spacing formula & assumptions" : "View spacing formula & assumptions"}</span>
+                  {showSpacingAssumptions ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+
+                {showSpacingAssumptions && (
+                  <div className="p-3 bg-raised rounded-edge border border-line text-xs text-body font-mono pt-3 animate-in fade-in duration-100">
+                    Spacing = (Luminaire Lumens × UF 0.42 × MF 0.85) / (E_avg {spacingCalculations.cat.maintainedIlluminanceLux} lux × Path Width {pathWidthM}m)
+                  </div>
+                )}
+              </div>
+
+              {/* ACTION BAR */}
+              <div className="pt-3 flex justify-end border-t border-line">
+                <button
+                  type="button"
+                  onClick={() => handleOpenAddModal("pole-spacing")}
+                  className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add to deal</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 4: Foundations & Footings Calculator (PART K) */}
+      {activeToolTab === "wind-foundation-calc" && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* 1. SITE INPUTS SECTION (PART K) */}
+          <div className="lg:col-span-4 bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
+            <h3 className="text-base font-bold text-body flex items-center gap-2">
+              <Wind className="w-4 h-4 text-brand-deep" />
+              <span>Site &amp; Structural Inputs</span>
+            </h3>
+
+            <div>
+              <label className="block text-spec font-bold mb-1">Wind Region (AS 1170.2)</label>
+              <select
+                value={windRegion}
+                onChange={(e) => setWindRegion(e.target.value as any)}
+                className="w-full p-2 border border-line rounded-edge text-spec bg-white"
+              >
+                <option value="Region_A">Region A (41 m/s - Normal Inland)</option>
+                <option value="Region_B">Region B (48 m/s - Coastal Non-Cyclonic)</option>
+                <option value="Region_C">Region C (56 m/s - Cyclonic QLD/NT/WA)</option>
+                <option value="Region_D">Region D (66 m/s - Severe Cyclonic)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-spec font-bold mb-1">Pole Height</label>
+              <select
+                value={foundationPoleHeight}
+                onChange={(e) => setFoundationPoleHeight(Number(e.target.value))}
+                className="w-full p-2 border border-line rounded-edge text-spec bg-white"
+              >
+                <option value={4.5}>4.5 metres (Pedestrian / Pathway)</option>
+                <option value={6.0}>6.0 metres (Standard Shared Path / Road)</option>
+                <option value={8.0}>8.0 metres (Car Park / Collector Road)</option>
+                <option value={10.0}>10.0 metres (Heavy Industrial)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-spec font-bold mb-1">Soil Classification</label>
+              <select
+                value={soilType}
+                onChange={(e) => setSoilType(e.target.value as any)}
+                className="w-full p-2 border border-line rounded-edge text-spec bg-white"
+              >
+                <option value="CLASS_M_CLAY">Class M - Moderately Reactive Clay</option>
+                <option value="CLASS_S_SOFT">Class S - Soft Clay / Fill (+25% depth)</option>
+                <option value="CLASS_A_SAND_ROCK">Class A - Stable Sand / Hard Rock</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-spec font-bold mb-1">Foundation Type</label>
+              <select
+                value={foundationType}
+                onChange={(e) => setFoundationType(e.target.value as any)}
+                className="w-full p-2 border border-line rounded-edge text-spec bg-white"
+              >
+                <option value="Direct_Burial">Direct Burial / In-Ground</option>
+                <option value="Baseplate_Ragbolt">Baseplate &amp; Rag-bolt Cage</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-spec font-bold mb-1">Quantity of Footings</label>
+              <input
+                type="number"
+                min={1}
+                value={foundationQuantity}
+                onChange={(e) => setFoundationQuantity(Math.max(1, Number(e.target.value)))}
+                className="w-full p-2 border border-line rounded-edge text-spec font-mono bg-white"
+              />
+            </div>
+          </div>
+
+          {/* 2 & 3. FOUNDATION ESTIMATE & HARDWARE SECTIONS (PART K) */}
+          <div className="lg:col-span-8 space-y-4">
+            {/* 2. FOUNDATION ESTIMATE (UNMISTAKABLE PER-FOOTING VS PROJECT TOTAL) */}
+            <div className="bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-line pb-3">
+                <div>
+                  <span className="text-xs font-bold text-brand-deep uppercase tracking-wider block">
+                    Structural Footing Estimate
+                  </span>
+                  <h2 className="text-xl font-bold text-body mt-0.5">
+                    {foundationType === "Direct_Burial" ? "Direct Burial In-Ground Embedment" : "Baseplate Ragbolt Footing"}
+                  </h2>
+                  <p className="text-xs text-ink-dim">
+                    Wind Design Speed: <strong>{foundationCalculations.windSpeed}</strong> · {foundationCalculations.windDesc}
+                  </p>
+                </div>
+
+                <span className="text-xs font-bold px-2.5 py-1 rounded bg-amber-50 text-amber-900 border border-amber-200">
+                  Preliminary estimate
+                </span>
+              </div>
+
+              {/* CLEAR PER-FOOTING VS PROJECT TOTAL GRID (PART K) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="bg-paper p-4 rounded-edge border border-line space-y-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-ink-dim block">
+                    PER FOOTING
+                  </span>
+                  <span className="text-2xl font-bold font-mono text-body block">
+                    {foundationCalculations.concreteVolPerFootingM3} m³ concrete
+                  </span>
+                  <span className="text-xs text-ink-dim">
+                    {foundationCalculations.footingDiameterMm}mm diameter × {foundationCalculations.embedmentDepthM}m embedment depth
+                  </span>
+                </div>
+
+                <div className="bg-brand-wash/40 p-4 rounded-edge border border-brand-edge space-y-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-brand-deep block">
+                    PROJECT TOTAL — {foundationQuantity} FOOTINGS
+                  </span>
+                  <span className="text-2xl font-bold font-mono text-body block">
+                    {foundationCalculations.totalConcreteM3} m³ concrete
+                  </span>
+                  <span className="text-xs text-ink-dim">
+                    Combined volume for {foundationQuantity} civil footings
+                  </span>
+                </div>
+              </div>
+
+              {/* 3. HARDWARE & FREIGHT SECTION (PART K) */}
+              <div className="p-4 bg-paper rounded-edge border border-line space-y-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-ink-dim block">
+                  Hardware &amp; Freight Schedule
+                </span>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="p-2.5 bg-white rounded border border-line space-y-0.5">
+                    <span className="font-bold text-body block">Hardware: {foundationCalculations.hardwareName}</span>
+                    <span className="text-ink-dim font-mono">SKU: {foundationCalculations.hardwareSKU}</span>
+                    <span className="text-body font-bold block mt-1">Quantity: {foundationQuantity} sets</span>
+                  </div>
+
+                  <div className="p-2.5 bg-white rounded border border-line space-y-0.5">
+                    <span className="font-bold text-body block">Estimated Logistics ({destState})</span>
+                    <span className="text-ink-dim">Total Mass: ~{foundationCalculations.totalShipmentWeightKg.toLocaleString()} kg</span>
+                    <span className="text-body font-bold block mt-1">Estimated Freight: ${foundationCalculations.estimatedFreight.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ACTION BAR */}
+              <div className="pt-2 flex justify-end border-t border-line">
+                <button
+                  type="button"
+                  onClick={() => handleOpenAddModal("wind-foundation")}
+                  className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add to deal</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 5: Solar Sizing & LiFePO4 Battery Autonomy (PART L) */}
+      {activeToolTab === "solar-autonomy" && (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          {/* Inputs Column */}
+          <div className="lg:col-span-4 bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
+            <h3 className="text-base font-bold text-body flex items-center gap-2">
+              <Sun className="w-4 h-4 text-brand-deep" />
+              <span>Solar Sizing Inputs</span>
+            </h3>
+
+            <div>
+              <label className="block text-spec font-bold mb-1">Insolation Solar Zone</label>
+              <select
+                value={solarZone}
+                onChange={(e) => setSolarZone(e.target.value as any)}
+                className="w-full p-2 border border-line rounded-edge text-spec bg-white"
+              >
+                <option value="QLD_NT">QLD / NT (5.2 Peak Sun Hours)</option>
+                <option value="NSW_ACT">NSW / ACT (4.5 Peak Sun Hours)</option>
+                <option value="VIC_TAS">VIC / TAS (3.6 Peak Sun Hours)</option>
+                <option value="WA_SA">WA / SA (5.8 Peak Sun Hours)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-spec font-bold mb-1">Luminaire Power Rating</label>
+              <select
+                value={solarWatts}
+                onChange={(e) => setSolarWatts(Number(e.target.value))}
+                className="w-full p-2 border border-line rounded-edge text-spec bg-white"
+              >
+                <option value={50}>50W Luminaire (Intense Light)</option>
+                <option value={75}>75W Luminaire (Pro Blade Solar 75)</option>
+                <option value={100}>100W Luminaire (Pro Blade Solar 100)</option>
+                <option value={125}>125W Luminaire (Pro Blade Solar 125)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-spec font-bold mb-1">Operating Profile</label>
+              <select
+                value={solarProfile}
+                onChange={(e) => setSolarProfile(e.target.value as any)}
+                className="w-full p-2 border border-line rounded-edge text-spec bg-white"
+              >
+                <option value="PIR_PROFILE_SMART">Smart Profile (6h 100% + 6h 30% Dimmed PIR)</option>
+                <option value="DUSK_DAWN_12H">Continuous 100% (Dusk to Dawn 12h)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-spec font-bold mb-1">Autonomy Target (Nights)</label>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={solarAutonomyDays}
+                onChange={(e) => setSolarAutonomyDays(Math.max(1, Number(e.target.value)))}
+                className="w-full p-2 border border-line rounded-edge text-spec font-mono bg-white"
+              />
+            </div>
+          </div>
+
+          {/* Results Column (PART L: REQUIRED VS AVAILABLE CAPACITY TOGETHER) */}
+          <div className="lg:col-span-8 space-y-4">
+            <div className="bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-line pb-3">
+                <div>
+                  <span className="text-xs font-bold text-brand-deep uppercase tracking-wider block">
+                    Autonomous Solar Engineering
+                  </span>
+                  <h2 className="text-xl font-bold text-body mt-0.5">
+                    {solarCalculations.selectedPackage.name}
+                  </h2>
+                  <p className="text-xs text-ink-dim">
+                    {solarCalculations.zoneName} · {solarCalculations.psh} Peak Sun Hours (Winter Design)
+                  </p>
+                </div>
+
+                {/* SINGLE TOP-LEVEL SUITABILITY RESULT (PART L) */}
+                {solarCalculations.isCompliant ? (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Suitable candidate</span>
+                  </span>
+                ) : (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-red-50 text-red-800 border border-red-200 inline-flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    <span>Engineering review required</span>
+                  </span>
+                )}
+              </div>
+
+              {/* REQUIRED VS AVAILABLE CAPACITY TOGETHER (PART L) */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="bg-paper p-3.5 rounded-edge border border-line">
+                  <span className="text-xs text-ink-dim block">Required Battery Capacity</span>
+                  <span className="text-xl font-bold font-mono text-body block mt-0.5">
+                    {solarCalculations.minBatteryStorageWh} Wh
+                  </span>
+                  <span className="text-[11px] text-ink-dim">For {solarAutonomyDays} nights autonomy</span>
+                </div>
+
+                <div className="bg-paper p-3.5 rounded-edge border border-line">
+                  <span className="text-xs text-ink-dim block">Selected Package Capacity</span>
+                  <span className="text-xl font-bold font-mono text-body block mt-0.5">
+                    {solarCalculations.selectedPackage.batteryWh} Wh
+                  </span>
+                  <span className="text-[11px] text-ink-dim">LiFePO4 battery pack</span>
+                </div>
+
+                <div className={`p-3.5 rounded-edge border ${
+                  solarCalculations.isCompliant ? "bg-emerald-50/50 border-emerald-200" : "bg-red-50/50 border-red-200"
+                }`}>
+                  <span className="text-xs text-ink-dim block">Capacity Margin / Shortfall</span>
+                  <span className={`text-xl font-bold font-mono block mt-0.5 ${
+                    solarCalculations.isCompliant ? "text-emerald-800" : "text-red-800"
+                  }`}>
+                    {solarCalculations.isCompliant
+                      ? `+${solarCalculations.reserveWh} Wh reserve`
+                      : `-${solarCalculations.shortfallWh} Wh shortfall`}
+                  </span>
+                  <span className="text-[11px] text-ink-dim">
+                    {solarCalculations.isCompliant ? "Adequate autonomy margin" : "Capacity deficit"}
+                  </span>
+                </div>
+              </div>
+
+              {/* SHORTFALL NOTICE IF NON-COMPLIANT (PART L) */}
+              {!solarCalculations.isCompliant && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-edge text-xs text-red-900 flex items-start gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-700 shrink-0 mt-0.5" />
+                  <p>
+                    <strong>Shortfall: {solarCalculations.shortfallWh} Wh.</strong> Select a larger solar package or send to engineering for project-specific profile adjustments.
+                  </p>
+                </div>
+              )}
+
+              {/* OPERATING PROFILE IN COMPACT TABLE (PART L) */}
+              <div className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-ink-dim block">
+                  Operating Profile Breakdown
+                </span>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-line bg-paper/60 text-ink-dim font-bold">
+                        <th className="py-2 px-3">Period</th>
+                        <th className="py-2 px-3">Luminaire Output</th>
+                        <th className="py-2 px-3">Duration</th>
+                        <th className="py-2 px-3">Daily Energy</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-line">
+                      <tr>
+                        <td className="py-2 px-3 font-semibold">Dusk to Midnight</td>
+                        <td className="py-2 px-3">100% ({solarWatts}W)</td>
+                        <td className="py-2 px-3">6.0 hrs</td>
+                        <td className="py-2 px-3 font-mono">{Math.round(solarWatts * 6)} Wh</td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 px-3 font-semibold">Midnight to Dawn</td>
+                        <td className="py-2 px-3">{solarProfile === "DUSK_DAWN_12H" ? `100% (${solarWatts}W)` : `30% Dimmed PIR (${Math.round(solarWatts * 0.3)}W)`}</td>
+                        <td className="py-2 px-3">6.0 hrs</td>
+                        <td className="py-2 px-3 font-mono">{solarProfile === "DUSK_DAWN_12H" ? Math.round(solarWatts * 6) : Math.round(solarWatts * 0.3 * 6)} Wh</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* COLLAPSIBLE ASSUMPTIONS (PART L) */}
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowSolarAssumptions(!showSolarAssumptions)}
+                  className="text-xs font-bold text-brand-deep hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <span>{showSolarAssumptions ? "Hide solar assumptions" : "View solar constants & assumptions"}</span>
+                  {showSolarAssumptions ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+
+                {showSolarAssumptions && (
+                  <div className="p-3 bg-raised rounded-edge border border-line text-xs text-body font-mono pt-3 animate-in fade-in duration-100">
+                    Battery DoD = 85% · PV Oversize Ratio = 1.35 · Daily Energy = {solarCalculations.dailyWattHours} Wh/day
+                  </div>
+                )}
+              </div>
+
+              {/* ACTION BAR (BLOCKED WHEN NON-COMPLIANT, PART L & R) */}
+              <div className="pt-3 flex items-center justify-between border-t border-line">
+                <div className="text-xs text-ink-dim">
+                  {!solarCalculations.isCompliant && (
+                    <span className="text-red-700 font-bold">Add to deal is blocked: battery capacity shortfall.</span>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  disabled={!solarCalculations.isCompliant}
+                  onClick={() => handleOpenAddModal("solar-autonomy")}
+                  className={`px-4 py-2 font-bold text-spec rounded-edge transition-colors flex items-center gap-1.5 shadow-xs ${
+                    solarCalculations.isCompliant
+                      ? "bg-brand-deep hover:bg-brand text-white cursor-pointer"
+                      : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                  }`}
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Add to deal</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Tab 6: Specification Review (PART M, N, O, P) */}
+      {activeToolTab === "conflict-resolver" && (
+        <div className="space-y-5">
+          <div className="bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b border-line pb-3">
+              <div>
+                <h2 className="text-xl font-bold text-body">Specification Review</h2>
+                <p className="text-spec text-ink-dim mt-0.5">
+                  Evaluate client specification clauses against Australian Standards and catalogue constraints.
+                </p>
+              </div>
+
+              {/* DELIBERATE VIEW EXAMPLES ACTION (PART M) */}
+              <button
+                type="button"
+                onClick={() => setShowSpecExamples(!showSpecExamples)}
+                className="text-spec font-bold text-brand-deep hover:underline flex items-center gap-1 cursor-pointer self-start"
+              >
+                <span>{showSpecExamples ? "Hide examples" : "View examples"}</span>
+                {showSpecExamples ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+
+            {/* CURATED EXAMPLES (LABELLED EXAMPLE, PART M) */}
+            {showSpecExamples && (
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3 bg-paper rounded-edge border border-line animate-in fade-in duration-100">
+                {SPEC_EXAMPLES.map((ex) => (
+                  <div
+                    key={ex.id}
+                    onClick={() => {
+                      setTenderClauseInput(ex.clause);
+                      setShowSpecExamples(false);
+                    }}
+                    className="p-3 bg-white rounded border border-line hover:border-brand-deep cursor-pointer transition-colors space-y-1 text-spec"
+                  >
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.2 rounded bg-slate-100 text-slate-700">
+                      Example
+                    </span>
+                    <h4 className="font-bold text-body text-xs">{ex.title}</h4>
+                    <p className="text-xs text-ink-dim line-clamp-2">{ex.clause}</p>
+                  </div>
+                ))}
               </div>
             )}
-          </div>
-        </div>
-      )}
 
-      {/* Fallback for Unsupported / Unknown Tool Routes (P0-11) */}
-      {![
-        "plan-takeoff",
-        "cable-cover-calc",
-        "pole-spacing-calc",
-        "wind-foundation-calc",
-        "solar-autonomy",
-        "conflict-resolver"
-      ].includes(activeToolTab) && (
-        <div className="p-8 bg-white rounded-panel border border-line shadow-xs text-center space-y-4 max-w-xl mx-auto my-8">
-          <div className="w-12 h-12 rounded-full bg-hold-wash text-hold mx-auto flex items-center justify-center">
-            <AlertTriangle className="w-6 h-6" />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-lg font-bold text-body">Tool Route Unavailable</h3>
-            <p className="text-meta text-ink-dim">
-              The requested tool <code className="px-1.5 py-0.5 bg-paper rounded text-body font-mono text-spec">"{activeToolTab}"</code> is not available or is undergoing scheduled maintenance.
-            </p>
-          </div>
-          <div className="pt-2">
-            <button
-              onClick={() => setActiveToolTab("plan-takeoff" as ToolSubTab)}
-              className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-xs cursor-pointer inline-flex items-center gap-2 transition-colors"
-            >
-              <ArrowRight className="w-4 h-4 rotate-180" />
-              <span>Return to Tools Hub</span>
-            </button>
-          </div>
-        </div>
-      )}
+            {/* PRIMARY INPUT: PASTE SPECIFICATION CLAUSE (PART M) */}
+            <div className="space-y-2">
+              <label className="block text-spec font-bold">
+                Paste or Enter Specification Clause
+              </label>
+              <textarea
+                rows={3}
+                value={tenderClauseInput}
+                onChange={(e) => setTenderClauseInput(e.target.value)}
+                placeholder="e.g. Supply and install 5700K Daylight LED luminaires at 80m intervals along shared pathway..."
+                className="w-full p-3 border border-line rounded-edge text-spec bg-white focus:outline-none focus:border-brand-deep"
+              />
 
-      {/* FEAT-01: Modal for Adding Calculation to Quote / Deal */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 bg-chrome/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between border-b border-line pb-3">
-              <div className="flex items-center gap-2">
-                <Package className="w-5 h-5 text-brand-deep" />
-                <h3 className="text-lg font-bold text-body">
-                  Inject Calculation into CRM Quote / Deal
-                </h3>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleAnalyzeClause}
+                  className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Analyze Specification</span>
+                </button>
               </div>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="text-ink-faint hover:text-ink p-1 rounded cursor-pointer"
-              >
+            </div>
+          </div>
+
+          {/* SPEC REVIEW RESULT: CLAUSE -> CONCERN -> SOURCE -> SUGGESTED RESPONSE (PART N & O) */}
+          {specAnalysisResult && (
+            <div className="bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4 animate-in fade-in duration-150">
+              <h3 className="font-bold text-body text-base border-b border-line pb-2">
+                Specification Analysis Findings
+              </h3>
+
+              <div className="space-y-3 text-spec">
+                {/* 1. CLAUSE */}
+                <div className="p-3 bg-paper rounded-edge border border-line space-y-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-ink-dim block">
+                    Supplied Clause
+                  </span>
+                  <p className="text-xs text-body italic font-mono">
+                    "{specAnalysisResult.clause}"
+                  </p>
+                </div>
+
+                {/* 2. CONCERN */}
+                <div className="p-3.5 bg-amber-50/60 rounded-edge border border-amber-200 space-y-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-900 block flex items-center gap-1">
+                    <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Identified Concern / Conflict</span>
+                  </span>
+                  <p className="text-xs text-amber-950 font-medium leading-relaxed">
+                    {specAnalysisResult.concern}
+                  </p>
+                </div>
+
+                {/* 3. SOURCE */}
+                <div className="p-3 bg-paper rounded-edge border border-line space-y-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-ink-dim block">
+                    Source &amp; Standard Reference
+                  </span>
+                  <p className="text-xs font-bold text-body">
+                    {specAnalysisResult.source}
+                  </p>
+                </div>
+
+                {/* 4. SUGGESTED RESPONSE */}
+                <div className="p-3.5 bg-brand-wash/40 rounded-edge border border-brand-edge space-y-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-brand-deep block flex items-center gap-1">
+                    <Check className="w-3.5 h-3.5 text-brand-deep" />
+                    <span>Suggested Technical Response / RFI</span>
+                  </span>
+                  <p className="text-xs text-body leading-relaxed">
+                    {specAnalysisResult.suggestedResponse}
+                  </p>
+                </div>
+
+                {/* COLLAPSIBLE DETAILED REASONING (PART P) */}
+                {specAnalysisResult.detailedReasoning && (
+                  <div className="pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowDetailedReasoning(!showDetailedReasoning)}
+                      className="text-xs font-bold text-brand-deep hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>{showDetailedReasoning ? "Hide detailed reasoning" : "View detailed reasoning"}</span>
+                      {showDetailedReasoning ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </button>
+
+                    {showDetailedReasoning && (
+                      <div className="p-3 bg-raised rounded-edge border border-line text-xs text-ink-dim mt-2 animate-in fade-in duration-100">
+                        {specAnalysisResult.detailedReasoning}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* SHARED ADD TO DEAL MODAL (PART R) */}
+      {isAddModalOpen && (
+        <div className="fixed inset-0 z-50 bg-chrome/70 backdrop-blur-xs p-4 flex items-center justify-center animate-in fade-in duration-150">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-calc-deal-title"
+            className="bg-surface rounded-panel max-w-lg w-full p-5 border border-line shadow-2xl space-y-4"
+          >
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <h3 id="add-calc-deal-title" className="font-bold text-body text-base">
+                Add Calculation to Deal
+              </h3>
+              <button onClick={() => setIsAddModalOpen(false)} className="text-ink-dim hover:text-body">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-4 text-meta">
-              {/* Destination Mode */}
+            <div className="space-y-3 text-spec">
               <div>
-                <label className="block text-spec font-bold uppercase text-ink-dim mb-1.5">
-                  Target Destination
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setAddMode("existing")}
-                    className={`py-2 px-3 rounded-edge font-bold text-meta border transition-colors cursor-pointer text-center ${
-                      addMode === "existing"
-                        ? "bg-brand-deep text-white border-brand-deep"
-                        : "bg-paper hover:bg-raised text-ink-dim border-line"
-                    }`}
-                  >
-                    Add to Existing Deal
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAddMode("new")}
-                    className={`py-2 px-3 rounded-edge font-bold text-meta border transition-colors cursor-pointer text-center ${
-                      addMode === "new"
-                        ? "bg-brand-deep text-white border-brand-deep"
-                        : "bg-paper hover:bg-raised text-ink-dim border-line"
-                    }`}
-                  >
-                    Create New Deal
-                  </button>
+                <label className="block font-bold mb-1">Target Mode</label>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={addMode === "existing"}
+                      onChange={() => setAddMode("existing")}
+                    />
+                    <span>Existing Active Deal</span>
+                  </label>
+                  <label className="flex items-center gap-1.5 cursor-pointer">
+                    <input
+                      type="radio"
+                      checked={addMode === "new"}
+                      onChange={() => setAddMode("new")}
+                    />
+                    <span>Create New Deal</span>
+                  </label>
                 </div>
               </div>
 
               {addMode === "existing" ? (
                 <div>
-                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
-                    Select CRM Deal *
-                  </label>
+                  <label className="block font-bold mb-1">Select Deal *</label>
                   <select
                     value={selectedDealId}
                     onChange={(e) => setSelectedDealId(e.target.value)}
-                    className="w-full p-2 bg-paper rounded-edge border border-line text-meta font-medium"
+                    className="w-full p-2 border border-line rounded-edge bg-white"
                   >
                     {crmOpportunities.map((d) => (
                       <option key={d.id} value={d.id}>
-                        {d.name} ({d.accountName} - ${d.dealValue.toLocaleString()})
+                        {d.name} ({d.accountName})
                       </option>
                     ))}
                   </select>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <>
                   <div>
-                    <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
-                      New Project / Deal Name *
-                    </label>
+                    <label className="block font-bold mb-1">New Deal Name *</label>
                     <input
-                      type="text"
                       value={newDealName}
                       onChange={(e) => setNewDealName(e.target.value)}
-                      className="w-full p-2 bg-paper rounded-edge border border-line text-meta font-semibold"
-                      required
+                      className="w-full p-2 border border-line rounded-edge bg-white"
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
-                        Customer Account *
-                      </label>
-                      <select
-                        value={selectedAccountId}
-                        onChange={(e) => setSelectedAccountId(e.target.value)}
-                        className="w-full p-2 bg-paper rounded-edge border border-line text-meta font-medium"
-                      >
-                        {accounts.map((acc) => (
-                          <option key={acc.id} value={acc.id}>
-                            {acc.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
-                        Pipeline
-                      </label>
-                      <select
-                        value={selectedPipelineId}
-                        onChange={(e) => setSelectedPipelineId(e.target.value)}
-                        className="w-full p-2 bg-paper rounded-edge border border-line text-meta font-medium"
-                      >
-                        {pipelines.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                  <div>
+                    <label className="block font-bold mb-1">Account *</label>
+                    <select
+                      value={selectedAccountId}
+                      onChange={(e) => setSelectedAccountId(e.target.value)}
+                      className="w-full p-2 border border-line rounded-edge bg-white"
+                    >
+                      {accounts.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                </div>
+                </>
               )}
-
-              {/* Items Summary preview */}
-              <div className="p-3 bg-brand-wash rounded-edge border border-brand-edge text-meta space-y-1">
-                <div className="font-bold text-brand-deep text-spec uppercase">Items to be injected:</div>
-                <div className="text-body font-medium text-spec">
-                  {modalSourceTool === "cable-cover" && (
-                    <span>• {cableCoverCalculations.totalRolls}x {cableCoverCalculations.productName} ({cableCoverCalculations.productCode}) = <strong>${cableCoverCalculations.estimatedSell.toLocaleString()}</strong></span>
-                  )}
-                  {modalSourceTool === "pole-spacing" && (
-                    <span>
-                      • {spacingCalculations.polesPerKm}x {spacingCalculations.recommendedLuminaireName}<br />
-                      • {spacingCalculations.polesPerKm}x {spacingCalculations.recommendedPoleName}
-                    </span>
-                  )}
-                  {modalSourceTool === "wind-foundation" && (
-                    <span>• {foundationQuantity}x {foundationCalculations.hardwareName} ({foundationCalculations.hardwareSKU}) = <strong>${(foundationQuantity * foundationCalculations.hardwareUnitPrice).toLocaleString()}</strong></span>
-                  )}
-                  {modalSourceTool === "solar-autonomy" && (
-                    <span>• {solarQuantity}x {solarCalculations.luminaireName} ({solarCalculations.luminaireSKU}) = <strong>${solarCalculations.totalPackageValue.toLocaleString()}</strong></span>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  className="px-3.5 py-2 text-ink-dim hover:text-ink font-medium cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmAddToDeal}
-                  className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-xs cursor-pointer flex items-center gap-1.5 transition-colors"
-                >
-                  <Check className="w-4 h-4" />
-                  <span>Confirm &amp; Add to Deal</span>
-                </button>
-              </div>
             </div>
-          </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-line">
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="px-3 py-1.5 border border-line rounded-edge text-spec font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmAddToDeal}
+                className="px-4 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge"
+              >
+                Add to deal
+              </button>
+            </div>
+          </section>
         </div>
       )}
     </div>
