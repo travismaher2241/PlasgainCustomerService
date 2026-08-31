@@ -1,5 +1,89 @@
 [
   {
+    "title": "New competitor pricing",
+    "message": "Orca Solar quoted Vertex 60W Solar Column at 2,100.00 (Per Unit) for Wyndham Civil Group",
+    "timestamp": "Just now",
+    "type": "info",
+    "linkTo": {
+      "view": "accounts",
+      "id": "acc-1"
+    },
+    "id": "notif-1788151261361-281",
+    "isRead": false,
+    "isArchived": false,
+    "createdAt": "2026-08-31T04:41:01.361Z"
+  },
+  {
+    "title": "New competitor pricing",
+    "message": "Leadsun quoted AE3 Series (Superseded Model) at 1,800.00 (Per Unit) for Legacy Observation",
+    "timestamp": "Just now",
+    "type": "info",
+    "linkTo": {
+      "view": "accounts",
+      "id": "acc-2"
+    },
+    "id": "notif-1788151261354-509",
+    "isRead": false,
+    "isArchived": false,
+    "createdAt": "2026-08-31T04:41:01.354Z"
+  },
+  {
+    "title": "New competitor pricing",
+    "message": "Orca Solar quoted Vertex 60W Solar Column at 2,100.00 (Per Unit) for Wyndham Civil Group",
+    "timestamp": "Just now",
+    "type": "info",
+    "linkTo": {
+      "view": "accounts",
+      "id": "acc-1"
+    },
+    "id": "notif-1788151232627-141",
+    "isRead": false,
+    "isArchived": false,
+    "createdAt": "2026-08-31T04:40:32.627Z"
+  },
+  {
+    "title": "New competitor pricing",
+    "message": "Leadsun quoted AE3 Series (Superseded Model) at 1,800.00 (Per Unit) for Legacy Observation",
+    "timestamp": "Just now",
+    "type": "info",
+    "linkTo": {
+      "view": "accounts",
+      "id": "acc-2"
+    },
+    "id": "notif-1788151232622-484",
+    "isRead": false,
+    "isArchived": false,
+    "createdAt": "2026-08-31T04:40:32.622Z"
+  },
+  {
+    "title": "New competitor pricing",
+    "message": "Leadsun quoted AE3 Series (Superseded Model) at 1,800.00 (Per Unit) for Legacy Observation",
+    "timestamp": "Just now",
+    "type": "info",
+    "linkTo": {
+      "view": "accounts",
+      "id": "acc-2"
+    },
+    "id": "notif-1788151190797-528",
+    "isRead": false,
+    "isArchived": false,
+    "createdAt": "2026-08-31T04:39:50.797Z"
+  },
+  {
+    "title": "New competitor pricing",
+    "message": "Orca Solar quoted Vertex 60W Solar Column at 2,100.00 (Per Unit) for Wyndham Civil Group",
+    "timestamp": "Just now",
+    "type": "info",
+    "linkTo": {
+      "view": "accounts",
+      "id": "acc-1"
+    },
+    "id": "notif-1788151190792-657",
+    "isRead": false,
+    "isArchived": false,
+    "createdAt": "2026-08-31T04:39:50.792Z"
+  },
+  {
     "id": "notif-001",
     "title": "Overdue Customer Follow-Up",
     "message": "Gold Coast Foreshore Quote Q-1042 sent 15 days ago with no response. Follow up with Rob Mitchell.",

@@ -193,22 +193,22 @@ export const ExplainTermModal: React.FC = () => {
 
               {/* Customer Phrasing Box (Copyable) */}
               {activeExplanation.howToExplainToCustomer && (
-                <div className="bg-gradient-to-r from-soon to-soon/40 border border-soon p-4 rounded-panel space-y-2">
+                <div className="bg-amber-50/80 border border-amber-200 p-4 rounded-panel space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-meta font-bold text-soon flex items-center gap-1.5">
-                      <Lightbulb className="w-4 h-4 text-soon" />
+                    <span className="text-spec font-bold text-amber-950 flex items-center gap-1.5">
+                      <Lightbulb className="w-4 h-4 text-amber-700" />
                       What to tell the client (Ready Script):
                     </span>
                     <button
                       onClick={() => handleCopy(activeExplanation.howToExplainToCustomer, "customer explanation script")}
-                      className="text-meta text-soon font-bold bg-soon-wash hover:bg-soon px-2.5 py-1 rounded-edge flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                      className="text-spec text-amber-950 font-bold bg-white hover:bg-amber-100 border border-amber-300 px-2.5 py-1 rounded-edge flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                     >
-                      <Copy className="w-3.5 h-3.5" />
+                      <Copy className="w-3.5 h-3.5 text-amber-800" />
                       Copy Script
                     </button>
                   </div>
-                  <p className="italic text-meta bg-white/70 p-3 rounded-edge border border-soon/60 leading-relaxed">
-                    "{activeExplanation.howToExplainToCustomer}"
+                  <p className="italic text-spec text-amber-950 bg-white p-3 rounded-edge border border-amber-200 leading-relaxed font-serif">
+                    &ldquo;{activeExplanation.howToExplainToCustomer}&rdquo;
                   </p>
                 </div>
               )}

@@ -88,8 +88,8 @@ export const REGISTERED_TOOL_ROUTES: ToolRouteDefinition[] = [
   },
   {
     id: "conflict-resolver",
-    aliases: ["spec-resolver", "conflict-resolver", "spec-conflict", "compliance-resolver"],
-    displayName: "Standards & Specification Conflict Resolver",
+    aliases: ["spec-resolver", "conflict-resolver", "spec-conflict", "compliance-resolver", "spec-review"],
+    displayName: "Specification Review",
     description: "Cross-examine customer tender specifications against AS/NZS 1158 and AS 4282 dark-sky mandates.",
     category: "Compliance",
     destinationType: "tools",

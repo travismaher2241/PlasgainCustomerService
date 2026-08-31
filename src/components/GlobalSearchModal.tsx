@@ -284,11 +284,11 @@ export const GlobalSearchModal: React.FC = () => {
           {!rawQ && (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-spec font-bold text-ink-faint uppercase tracking-wider block">
+                <span className="text-spec font-bold text-ink-dim uppercase tracking-wider block">
                   Action Shortcuts:
                 </span>
-                <span className="text-[11px] font-mono text-brand-deep bg-brand-wash px-2 py-0.5 rounded border border-brand-edge">
-                  Tip: Type &gt; for instant commands
+                <span className="text-[11px] font-mono text-ink-dim bg-paper px-2 py-0.5 rounded border border-line">
+                  Press Ctrl+K anytime · Type &gt; for commands
                 </span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

@@ -19,10 +19,6 @@ const TestApp: React.FC = () => {
 };
 
 describe('User Login & Identity Switching Suite', () => {
-  // PIN verification happens on the server, so the modal needs a stubbed
-  // endpoint rather than a PIN baked into the client bundle. The provider also
-  // polls notifications and competitor pricing on mount, so the stub routes by
-  // URL instead of by call order.
   const verifyProfileFetch = vi.fn();
   let pinAccepted = true;
 
@@ -72,8 +68,6 @@ describe('User Login & Identity Switching Suite', () => {
     const verifyBtn = screen.getByRole('button', { name: /Verify & Sign In/i });
     fireEvent.click(verifyBtn);
 
-    // PIN verification is a server round-trip now (PINs are no longer shipped to
-    // the browser), so the switch resolves asynchronously.
     await waitFor(() =>
       expect(screen.getByTestId('active-user-name')).toHaveTextContent('Sarah Reed')
     );
@@ -82,11 +76,9 @@ describe('User Login & Identity Switching Suite', () => {
       expect.objectContaining({ method: 'POST' })
     );
 
-    // Verify localStorage persistence
     const saved = JSON.parse(localStorage.getItem('plasgain_user_profile') || '{}');
     expect(saved.name).toBe('Sarah Reed');
     expect(saved.email).toBe('sarah.reed@plasgain.com.au');
-    // The PIN must never be persisted in the browser.
     expect(saved.pin).toBeUndefined();
   });
 
@@ -122,8 +114,6 @@ describe('User Login & Identity Switching Suite', () => {
       expect(screen.getByText(/Incorrect PIN code/i)).toBeInTheDocument()
     );
 
-    // A rejected PIN must be cleared. Leaving it in a masked, 6-char-capped
-    // field made every retry silently concatenate and truncate.
     expect(pinInput.value).toBe('');
   });
 
@@ -134,8 +124,8 @@ describe('User Login & Identity Switching Suite', () => {
       </AppProvider>
     );
 
-    // Open from Settings "Switch Account / Sign In" button
-    const settingsSwitchBtn = screen.getByRole('button', { name: /Switch Account \/ Sign In/i });
+    // Open from Settings "Switch user" button
+    const settingsSwitchBtn = screen.getByRole('button', { name: /Switch user/i });
     fireEvent.click(settingsSwitchBtn);
 
     // Verify Rob Mitchell is in the list
@@ -167,8 +157,8 @@ describe('User Login & Identity Switching Suite', () => {
       </AppProvider>
     );
 
-    // Open from Settings "Switch Account / Sign In" button
-    const settingsSwitchBtn = screen.getByRole('button', { name: /Switch Account \/ Sign In/i });
+    // Open from Settings "Switch user" button
+    const settingsSwitchBtn = screen.getByRole('button', { name: /Switch user/i });
     fireEvent.click(settingsSwitchBtn);
 
     // Switch to Custom Sign-In tab

@@ -21,7 +21,7 @@ describe('CRMContactModal Component', () => {
       </AppProvider>
     );
 
-    expect(screen.getByText(/Add Buying Committee Stakeholder/i)).toBeInTheDocument();
+    expect(screen.getByText(/Add contact/i)).toBeInTheDocument();
 
     const saveBtn = screen.getByRole('button', { name: /Create Contact/i });
     expect(saveBtn).toBeInTheDocument();

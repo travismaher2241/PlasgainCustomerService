@@ -128,19 +128,19 @@ export function QuoteReadinessModal({
                 {report.isReadyForQuoteType ? (
                   <>
                     <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                    <span>Ready for {selectedType.toUpperCase()} Quotation</span>
+                    <span>Ready for {selectedType.charAt(0).toUpperCase() + selectedType.slice(1)} Quote</span>
                   </>
                 ) : (
                   <>
                     <AlertOctagon className="w-5 h-5 text-red-600" />
-                    <span>Not Ready for Firm Quotation ({report.blockers.length} Blocker{report.blockers.length === 1 ? "" : "s"})</span>
+                    <span>Not Ready for {selectedType.charAt(0).toUpperCase() + selectedType.slice(1)} Quote ({report.blockers.length} Blocker{report.blockers.length === 1 ? "" : "s"})</span>
                   </>
                 )}
               </div>
               <p className="text-spec text-ink-dim">
                 {report.isReadyForQuoteType
                   ? "All required critical engineering and commercial fields are confirmed."
-                  : "Critical missing information prevents preparation of a firm commercial quote."}
+                  : `Critical missing information prevents preparation of a ${selectedType} quote.`}
               </p>
             </div>
             <div className="text-right">

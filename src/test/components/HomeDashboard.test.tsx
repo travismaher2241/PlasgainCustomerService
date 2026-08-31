@@ -20,30 +20,35 @@ const sampleDeals = [
   }
 ];
 
-describe('HomeDashboard Radically Simplified Suite', () => {
+describe('HomeDashboard Step 8 Suite', () => {
   beforeEach(() => {
     localStorage.clear();
   });
 
-  it('renders compact clear status and empty priorities state when clean', () => {
+  it('renders compact header and State A (No sales records) when empty', () => {
     render(
       <AppProvider>
         <HomeDashboard />
       </AppProvider>
     );
 
-    // 1. Status Section
-    expect(screen.getByRole('heading', { level: 1, name: /You're clear/i })).toBeInTheDocument();
+    // 1. Status Header
+    expect(screen.getByRole('heading', { level: 1, name: /Welcome/i })).toBeInTheDocument();
 
-    // 2. Priorities Section
-    expect(screen.getByRole('heading', { level: 2, name: /Your priorities/i })).toBeInTheDocument();
-    expect(screen.getByText(/No urgent priorities/i)).toBeInTheDocument();
+    // 2. State A empty message
+    expect(screen.getByText(/No sales records yet/i)).toBeInTheDocument();
+
+    // 3. Compact quick creation actions
+    expect(screen.getByRole('button', { name: /New enquiry/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Add account/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /New deal/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Quick Log/i })).toBeInTheDocument();
 
     // Verify "Why this matters" is NOT present on Home
     expect(screen.queryByText(/Why this matters/i)).not.toBeInTheDocument();
   });
 
-  it('renders top priority items with single Open action when deals exist', () => {
+  it('renders priority items with single Open action when active deals exist', () => {
     localStorage.setItem("plasgain_crm_deals", JSON.stringify(sampleDeals));
 
     render(
@@ -55,19 +60,5 @@ describe('HomeDashboard Radically Simplified Suite', () => {
     expect(screen.getByText(/Coastal Pathway Solar Lighting/i)).toBeInTheDocument();
     const openButtons = screen.getAllByRole('button', { name: /Open/i });
     expect(openButtons.length).toBe(1);
-  });
-
-  it('renders quick access navigation shortcuts', () => {
-    render(
-      <AppProvider>
-        <HomeDashboard />
-      </AppProvider>
-    );
-
-    expect(screen.getByRole('heading', { level: 2, name: /Quick Access/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /New Enquiry/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /CRM Workspace/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Product Finder/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Catalogues/i })).toBeInTheDocument();
   });
 });

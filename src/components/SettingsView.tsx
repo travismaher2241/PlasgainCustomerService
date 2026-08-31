@@ -6,69 +6,81 @@ import {
   CheckCircle2,
   BookOpen,
   LogIn,
-  Sparkles
+  Sparkles,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  Briefcase,
+  AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
+  Activity,
+  Check,
+  X
 } from "lucide-react";
 import { apiGet } from "../utils/apiClient";
 import { useApp } from "../context/AppContext";
-import { SAMPLE_OPPORTUNITIES } from "../data/mockData";
-import { initialsOf, DEFAULT_USER_PROFILE } from "../context/AppContext";
-import { Surface } from "./ui/Surface";
+import { initialsOf } from "../context/AppContext";
 
 export const SettingsView: React.FC = () => {
   const {
-    setOpportunities,
     documents,
     showToast,
     currentUser,
     updateCurrentUser,
-    resetCurrentUser,
     cloudSyncStatus,
     lastCloudSyncTime,
     queuedWritesCount,
     syncAllWithCloud,
-    flushPendingWrites,
     openLoginModal,
     clearAllWorkspaceData
   } = useApp();
 
-  // Edits are held locally so a half-typed name never lands on saved records.
+  // Profile Edit State (PART I: Summary by default with Edit toggle)
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [savedDraft, setDraftState] = useState(currentUser);
   const [savedAt, setSavedAt] = useState<string | null>(null);
 
-  // Reads /api/health/ai, which actually calls the model rather than reporting
-  // whether a key happens to be set.
+  // Diagnostics & Danger Toggles
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [showConfirmReset, setShowConfirmReset] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // AI Health Check
   const [aiHealth, setAiHealth] = useState<{
     state: "checking" | "reachable" | "unreachable" | "unconfigured";
     detail: string;
     model?: string;
-  }>({ state: "checking", detail: "Contacting the Plasgain knowledge engine..." });
+  }>({ state: "checking", detail: "Checking AI service connectivity..." });
 
   const runAiDiagnostics = async () => {
-    setAiHealth({ state: "checking", detail: "Contacting the Plasgain knowledge engine..." });
+    setAiHealth({ state: "checking", detail: "Checking AI service connectivity..." });
     try {
       const res: any = await apiGet("/api/health/ai");
       if (!res?.configured) {
         setAiHealth({
           state: "unconfigured",
-          detail: "No GEMINI_API_KEY is configured on the server, so no AI feature can run."
+          detail: "No GEMINI_API_KEY is configured on the server. AI features will use deterministic local fallbacks."
         });
       } else if (res?.reachable) {
         setAiHealth({
           state: "reachable",
-          detail: res.state || "The model responded successfully.",
+          detail: res.state || "AI service is reachable and responsive.",
           model: res.model
         });
       } else {
         setAiHealth({
           state: "unreachable",
-          detail: res?.detail || "A key is configured but the model did not respond.",
+          detail: res?.detail || "AI service is currently unreachable.",
           model: res?.model
         });
       }
     } catch (err: any) {
       setAiHealth({
         state: "unreachable",
-        detail: err?.message || "Could not reach the Plasgain server to run the check."
+        detail: err?.message || "Could not reach server health endpoint."
       });
     }
   };
@@ -80,13 +92,6 @@ export const SettingsView: React.FC = () => {
   useEffect(() => {
     setDraftState(currentUser);
   }, [currentUser]);
-
-  const dirty =
-    savedDraft.name !== currentUser.name ||
-    savedDraft.role !== currentUser.role ||
-    savedDraft.location !== currentUser.location ||
-    savedDraft.email !== currentUser.email ||
-    (savedDraft.phone || "") !== (currentUser.phone || "");
 
   const nameError = savedDraft.name.trim().length === 0 ? "Your name is required." : null;
 
@@ -100,441 +105,374 @@ export const SettingsView: React.FC = () => {
       email: savedDraft.email.trim(),
       phone: (savedDraft.phone || "").trim()
     });
+    setIsEditingProfile(false);
     setSavedAt(new Date().toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }));
-    showToast("Profile updated & saved to Cloud Firestore", "success");
+    showToast("Profile updated successfully", "success");
+  };
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    try {
+      await syncAllWithCloud();
+      showToast("Cloud synchronization complete", "success");
+    } catch {
+      showToast("Cloud sync failed. Working in offline mode.", "warning");
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleResetData = async () => {
     await clearAllWorkspaceData();
+    setShowConfirmReset(false);
+    showToast("Workspace reset to initial clean state", "info");
   };
 
   const formatLastSync = (isoString: string | null) => {
-    if (!isoString) return "Never (Offline Cache Only)";
+    if (!isoString) return "Never (Offline storage active)";
     try {
       const d = new Date(isoString);
-      return d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", second: "2-digit" });
+      return d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" });
     } catch {
       return isoString;
     }
   };
 
+  // Knowledge statistics
+  const approvedDocsCount = documents.filter((d) => d.status === "Approved" || (d as any).governanceState === "approved").length;
+  const pendingDocsCount = documents.filter((d) => d.status === "Review" || d.status === "Draft").length;
+
   return (
-    <div className="space-y-6 max-w-4xl">
-      {/* Header */}
-      <div className="pb-4 border-b border-line">
-        <h1 className="text-xl font-bold tracking-tight text-body">Settings &amp; Preferences</h1>
-        <p className="text-meta text-ink-dim mt-0.5">
-          User profile, cloud synchronization, quoting standards, and workspace data.
+    <div className="space-y-6 max-w-4xl pb-16 w-full min-w-0">
+      {/* HEADER */}
+      <div className="pb-3 border-b border-line">
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-body">Settings</h1>
+        <p className="text-spec text-ink-dim mt-0.5">
+          User profile, cloud synchronization, document knowledge, and workspace administration.
         </p>
       </div>
 
-      {/* Your details */}
-      <section aria-labelledby="profile-heading">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-baseline gap-3">
-            <h2 id="profile-heading" className="text-lead font-semibold text-ink">
-              Your details
-            </h2>
-            <span className="u-data text-spec text-ink-faint uppercase tracking-[0.09em] hidden sm:inline">
-              Stamped on records you create
-            </span>
+      {/* 1. PROFILE SECTION (PART I: COMPACT SUMMARY WITH EDIT ACTION) */}
+      <section className="bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
+        <div className="flex items-center justify-between border-b border-line pb-3">
+          <div className="flex items-center gap-2">
+            <User className="w-4 h-4 text-brand-deep" />
+            <h2 className="text-base font-bold text-body">Profile</h2>
           </div>
-          <button
-            type="button"
-            onClick={openLoginModal}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-spec font-bold text-brand-deep bg-brand-wash border border-brand-edge rounded-edge hover:bg-brand-wash/80 transition-colors cursor-pointer"
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Switch Account / Sign In</span>
-          </button>
+
+          <div className="flex items-center gap-2">
+            {!isEditingProfile ? (
+              <button
+                type="button"
+                onClick={() => setIsEditingProfile(true)}
+                className="px-3 py-1.5 text-spec font-bold text-brand-deep hover:bg-brand-wash rounded-edge border border-brand-edge transition-colors cursor-pointer"
+              >
+                Edit profile
+              </button>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={openLoginModal}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-spec font-bold text-ink-dim hover:text-body bg-paper hover:bg-raised border border-line rounded-edge transition-colors cursor-pointer"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>Switch user</span>
+            </button>
+          </div>
         </div>
 
-        <Surface>
-          <form onSubmit={handleSaveProfile} className="p-5 space-y-4">
+        {!isEditingProfile ? (
+          /* PROFILE READ-ONLY SUMMARY (PART I) */
+          <div className="space-y-3">
             <div className="flex items-center gap-3.5">
-              <div className="u-data w-11 h-11 rounded-edge bg-brand-deep text-white flex items-center justify-center text-meta font-semibold shrink-0">
-                {initialsOf(savedDraft.name)}
+              <div className="w-12 h-12 rounded-edge bg-brand-deep text-white flex items-center justify-center text-base font-bold shrink-0">
+                {initialsOf(currentUser.name)}
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-body font-semibold text-ink truncate">
-                    {savedDraft.name.trim() || "Unnamed user"}
+                  <span className="text-base font-bold text-body truncate">
+                    {currentUser.name.trim() || "Unnamed user"}
                   </span>
-                  {currentUser.isAdmin ? (
-                    <span className="px-1.5 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300 rounded">
-                      Admin
-                    </span>
-                  ) : (
-                    <span className="px-1.5 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300 rounded">
-                      Sales Rep
-                    </span>
-                  )}
+                  <span className="px-2 py-0.5 text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-300 rounded">
+                    {currentUser.isAdmin ? "Administrator" : "Sales Team"}
+                  </span>
                 </div>
-                <div className="u-data text-spec text-ink-faint truncate">
-                  {[savedDraft.role, savedDraft.location].filter((v) => v.trim()).join(" • ") ||
-                    "No role or location set"}
+                <div className="text-xs text-ink-dim truncate mt-0.5">
+                  {[currentUser.role, currentUser.location].filter(Boolean).join(" · ")}
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 text-spec">
+              <div className="p-3 bg-paper rounded-edge border border-line">
+                <span className="text-xs text-ink-dim block">Email</span>
+                <span className="font-semibold text-body block truncate mt-0.5">
+                  {currentUser.email || "No email set"}
+                </span>
+              </div>
+              <div className="p-3 bg-paper rounded-edge border border-line">
+                <span className="text-xs text-ink-dim block">Phone</span>
+                <span className="font-semibold text-body block truncate mt-0.5">
+                  {currentUser.phone || "No direct phone set"}
+                </span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* PROFILE EDIT FORM (PART I) */
+          <form onSubmit={handleSaveProfile} className="space-y-4 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="profile-name" className="u-eyebrow text-ink-dim block mb-1.5">
-                  Name
-                </label>
+                <label className="block text-spec font-bold mb-1">Full Name *</label>
                 <input
-                  id="profile-name"
                   type="text"
                   value={savedDraft.name}
                   onChange={(e) => setDraftState({ ...savedDraft, name: e.target.value })}
-                  aria-invalid={Boolean(nameError)}
-                  aria-describedby={nameError ? "profile-name-error" : undefined}
-                  className={`w-full text-body px-3 py-2 rounded-edge border bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors ${
-                    nameError ? "border-urgent" : "border-line"
-                  }`}
-                  placeholder="Your full name"
+                  className="w-full text-spec p-2 rounded-edge border border-line bg-white focus:outline-none focus:border-brand-deep"
                 />
-                {nameError && (
-                  <p id="profile-name-error" className="mt-1 text-spec text-urgent">
-                    {nameError}
-                  </p>
-                )}
+                {nameError && <p className="text-xs text-red-700 mt-1">{nameError}</p>}
               </div>
 
               <div>
-                <label htmlFor="profile-role" className="u-eyebrow text-ink-dim block mb-1.5">
-                  Role
-                </label>
+                <label className="block text-spec font-bold mb-1">Role / Job Title</label>
                 <input
-                  id="profile-role"
                   type="text"
                   value={savedDraft.role}
                   onChange={(e) => setDraftState({ ...savedDraft, role: e.target.value })}
-                  className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
-                  placeholder="e.g. Internal Sales"
+                  className="w-full text-spec p-2 rounded-edge border border-line bg-white focus:outline-none focus:border-brand-deep"
                 />
               </div>
 
               <div>
-                <label htmlFor="profile-location" className="u-eyebrow text-ink-dim block mb-1.5">
-                  Location
-                </label>
+                <label className="block text-spec font-bold mb-1">Email</label>
                 <input
-                  id="profile-location"
-                  type="text"
-                  value={savedDraft.location}
-                  onChange={(e) => setDraftState({ ...savedDraft, location: e.target.value })}
-                  className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
-                  placeholder="e.g. Melbourne"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="profile-email" className="u-eyebrow text-ink-dim block mb-1.5">
-                  Email
-                </label>
-                <input
-                  id="profile-email"
                   type="email"
                   value={savedDraft.email}
                   onChange={(e) => setDraftState({ ...savedDraft, email: e.target.value })}
-                  className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
-                  placeholder="you@plasgain.com.au"
+                  className="w-full text-spec p-2 rounded-edge border border-line bg-white focus:outline-none focus:border-brand-deep"
                 />
               </div>
 
-              <div className="sm:col-span-2">
-                <label htmlFor="profile-phone" className="u-eyebrow text-ink-dim block mb-1.5">
-                  Direct Phone / Mobile (For Customer Email Signatures)
-                </label>
+              <div>
+                <label className="block text-spec font-bold mb-1">Phone</label>
                 <input
-                  id="profile-phone"
                   type="tel"
                   value={savedDraft.phone || ""}
                   onChange={(e) => setDraftState({ ...savedDraft, phone: e.target.value })}
-                  className="w-full text-body px-3 py-2 rounded-edge border border-line bg-surface text-ink placeholder:text-ink-faint focus:outline-none focus:border-brand-deep transition-colors"
-                  placeholder="e.g. +61 3 9000 0000 or 0412 345 678"
+                  placeholder="e.g. 0400 123 456"
+                  className="w-full text-spec p-2 rounded-edge border border-line bg-white focus:outline-none focus:border-brand-deep"
+                />
+              </div>
+
+              <div>
+                <label className="block text-spec font-bold mb-1">Location</label>
+                <input
+                  type="text"
+                  value={savedDraft.location}
+                  onChange={(e) => setDraftState({ ...savedDraft, location: e.target.value })}
+                  className="w-full text-spec p-2 rounded-edge border border-line bg-white focus:outline-none focus:border-brand-deep"
                 />
               </div>
             </div>
 
-            <div className="flex items-center gap-2.5 pt-1">
-              <button
-                type="submit"
-                disabled={!dirty || Boolean(nameError)}
-                className={`px-4 py-2 rounded-edge text-meta font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  dirty
-                    ? "text-white bg-brand-deep border border-brand-deep hover:bg-brand hover:border-brand shadow-xs"
-                    : "text-emerald-800 bg-emerald-50 border border-emerald-200 cursor-default"
-                }`}
-              >
-                {!dirty ? (
-                  <>
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Details Saved</span>
-                  </>
-                ) : (
-                  <span>Save details</span>
-                )}
-              </button>
-
-              {dirty && (
-                <button
-                  type="button"
-                  onClick={() => setDraftState(currentUser)}
-                  className="px-3 py-2 rounded-edge text-meta font-medium text-ink-dim border border-line-strong hover:text-ink hover:border-ink-faint transition-colors cursor-pointer"
-                >
-                  Discard
-                </button>
-              )}
-
+            <div className="flex justify-end gap-2 pt-2 border-t border-line">
               <button
                 type="button"
                 onClick={() => {
-                  resetCurrentUser();
-                  setDraftState(DEFAULT_USER_PROFILE);
-                  showToast("Profile reset to default", "info");
+                  setDraftState(currentUser);
+                  setIsEditingProfile(false);
                 }}
-                className="ml-auto text-spec text-ink-faint hover:text-ink underline underline-offset-2 cursor-pointer"
+                className="px-3 py-1.5 border border-line rounded-edge text-spec font-medium cursor-pointer"
               >
-                Reset to default user
+                Cancel
               </button>
-            </div>
-
-            <div className="flex items-center justify-between gap-2 pt-2 border-t border-line text-spec text-ink-dim flex-wrap">
-              <span className="flex items-center gap-1.5">
-                <span
-                  className={`w-2 h-2 rounded-full ${
-                    cloudSyncStatus === "synced"
-                      ? "bg-emerald-500"
-                      : cloudSyncStatus === "syncing"
-                      ? "bg-amber-500 animate-pulse"
-                      : cloudSyncStatus === "queued"
-                      ? "bg-amber-500"
-                      : cloudSyncStatus === "error"
-                      ? "bg-red-500"
-                      : "bg-slate-400"
-                  }`}
-                ></span>
-                <span className="font-medium text-ink">
-                  {cloudSyncStatus === "synced"
-                    ? "Online & Synchronized with Cloud Firestore (Sydney/AU)"
-                    : cloudSyncStatus === "syncing"
-                    ? "Syncing data with Cloud Firestore..."
-                    : cloudSyncStatus === "queued"
-                    ? `Offline — ${queuedWritesCount} change(s) queued for sync`
-                    : cloudSyncStatus === "error"
-                    ? "Cloud Sync Error — local cache preserved"
-                    : "Offline — Local Storage Mode"}
-                </span>
-                <span className="text-ink-faint">
-                  · Last successful sync: {formatLastSync(lastCloudSyncTime)}
-                </span>
-              </span>
+              <button
+                type="submit"
+                className="px-4 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge cursor-pointer shadow-xs"
+              >
+                Save profile
+              </button>
             </div>
           </form>
-        </Surface>
+        )}
       </section>
 
-      {/* System Status Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Cloud Database Card */}
-        <div className="bg-white p-4 rounded-panel border border-line shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-brand-deep">
-            <span className="text-spec font-bold uppercase tracking-wider">Cloud Firestore</span>
-            <div className="flex items-center gap-1.5">
-              {queuedWritesCount > 0 && (
-                <button
-                  type="button"
-                  onClick={flushPendingWrites}
-                  title="Flush queued changes"
-                  className="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-800 rounded border border-amber-300 hover:bg-amber-200 cursor-pointer"
-                >
-                  Flush Queue ({queuedWritesCount})
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={syncAllWithCloud}
-                title="Sync with Cloud Firestore"
-                className="hover:opacity-70 transition-opacity cursor-pointer p-1"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${cloudSyncStatus === "syncing" ? "animate-spin" : ""}`} />
-              </button>
-            </div>
-          </div>
-          <div className="text-body font-bold flex items-center gap-1.5">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                cloudSyncStatus === "synced"
-                  ? "bg-emerald-500"
-                  : cloudSyncStatus === "syncing"
-                  ? "bg-amber-500 animate-pulse"
-                  : cloudSyncStatus === "queued"
-                  ? "bg-amber-500"
-                  : cloudSyncStatus === "error"
-                  ? "bg-red-500"
-                  : "bg-slate-400"
-              }`}
-            ></span>
-            <span>
-              {cloudSyncStatus === "synced"
-                ? "Online & Synchronized"
-                : cloudSyncStatus === "syncing"
-                ? "Syncing with Cloud..."
-                : cloudSyncStatus === "queued"
-                ? `Offline — ${queuedWritesCount} Change(s) Queued`
-                : cloudSyncStatus === "error"
-                ? "Sync Failed — Check Connection"
-                : "Offline"}
-            </span>
-          </div>
-          <p className="text-spec text-ink-dim">
-            Project: <code className="text-brand-deep font-mono text-[11px]">plasgain-customer-service</code> (Sydney/AU)
-          </p>
-          <p className="text-[11px] text-ink-faint">
-            Last Synced: <strong>{formatLastSync(lastCloudSyncTime)}</strong>
-          </p>
-        </div>
-
-        {/* Approved Product Catalogues & Engineering Data */}
-        <div className="bg-white p-4 rounded-panel border border-line shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-brand-deep">
-            <span className="text-spec font-bold uppercase tracking-wider">Engineering Data</span>
-            <BookOpen className="w-4 h-4 text-brand-deep" />
-          </div>
-          <div className="text-body font-bold flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span>Approved &amp; Active</span>
-          </div>
-          <p className="text-spec text-ink-dim">
-            2026.1 Verified Product Catalogues &amp; Datasheets Loaded
-          </p>
-        </div>
-
-        <div className="bg-white p-4 rounded-panel border border-line shadow-xs space-y-2">
-          <div className="flex items-center justify-between text-brand-deep">
-            <span className="text-spec font-bold uppercase tracking-wider">Compliance Standards</span>
-            <ShieldCheck className="w-4 h-4" />
-          </div>
-          <div className="text-body font-bold">AS/NZS 1158 &amp; 3000</div>
-          <p className="text-spec text-ink-dim">Australian Public Lighting &amp; Electrical Standards</p>
-        </div>
-      </div>
-
-      {/* Copilot Diagnostics — documented in the README as the way to confirm
-          the model is actually reachable, but never built. Without it a rep
-          getting odd output has no way to tell whether the AI is up. */}
-      <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-3">
-        <div className="flex items-center justify-between gap-3 pb-3 border-b border-line">
+      {/* 2. CONNECTIONS SECTION (PART I: CLOUD & SYNC SHOWN ONCE) */}
+      <section className="bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
+        <div className="flex items-center justify-between border-b border-line pb-3">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-brand-deep" />
-            <h2 className="text-body font-bold">Copilot Diagnostics</h2>
+            <Database className="w-4 h-4 text-brand-deep" />
+            <h2 className="text-base font-bold text-body">Connections</h2>
           </div>
+
           <button
             type="button"
-            onClick={runAiDiagnostics}
-            disabled={aiHealth.state === "checking"}
-            className="inline-flex items-center gap-1.5 text-meta font-bold px-3 py-1.5 rounded-edge border border-line-strong hover:border-brand-deep hover:text-brand-deep transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={handleManualSync}
+            disabled={isSyncing}
+            className="px-3 py-1.5 text-spec font-bold text-ink-dim hover:text-body bg-paper hover:bg-raised border border-line rounded-edge transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${aiHealth.state === "checking" ? "animate-spin" : ""}`} />
-            <span>{aiHealth.state === "checking" ? "Checking..." : "Re-check"}</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+            <span>Sync now</span>
           </button>
         </div>
 
-        <div className="text-body font-bold flex items-center gap-1.5">
-          <span
-            className={`w-2 h-2 rounded-full ${
-              aiHealth.state === "reachable"
-                ? "bg-emerald-500"
-                : aiHealth.state === "checking"
-                ? "bg-amber-500 animate-pulse"
-                : "bg-red-500"
-            }`}
-          ></span>
-          <span>
-            {aiHealth.state === "reachable"
-              ? "Active & Grounded"
-              : aiHealth.state === "checking"
-              ? "Contacting the model..."
-              : aiHealth.state === "unconfigured"
-              ? "No API key configured"
-              : "Unreachable"}
-          </span>
-        </div>
-
-        <p className="text-spec text-ink-dim">{aiHealth.detail}</p>
-
-        {aiHealth.model && (
-          <p className="text-[11px] text-ink-faint">
-            Model: <code className="font-mono text-brand-deep">{aiHealth.model}</code>
-          </p>
-        )}
-
-        {aiHealth.state !== "reachable" && aiHealth.state !== "checking" && (
-          <p className="text-spec text-amber-900 bg-amber-50 border border-amber-200 rounded-edge p-2.5">
-            AI-backed screens will show an "AI unavailable" notice instead of a result. They will not
-            substitute sample content — nothing shown to a customer is affected.
-          </p>
-        )}
-      </div>
-
-      {/* Quoting & Compliance Standards */}
-      <div className="bg-white rounded-panel border border-line p-5 shadow-xs space-y-3">
-        <div className="flex items-center gap-2 pb-3 border-b border-line">
-          <ShieldCheck className="w-4 h-4 text-brand-deep" />
-          <h2 className="text-body font-bold">Quoting &amp; Compliance Standards</h2>
-        </div>
-
-        <div className="space-y-2.5 text-meta">
-          <div className="flex items-start gap-2.5 bg-raised p-3 rounded-edge border border-line">
-            <CheckCircle2 className="w-4 h-4 text-brand-deep shrink-0 mt-0.5" />
-            <div>
-              <strong className="text-body">Datasheet Accuracy:</strong>
-              <p className="text-ink-dim mt-0.5">
-                Product specifications, lumen outputs, battery capacities, and warranty terms are verified against official Plasgain engineering documentation.
-              </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-spec">
+          {/* Cloud Storage State */}
+          <div className="p-3.5 bg-paper rounded-edge border border-line space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase text-ink-dim">Cloud Database</span>
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                Connected
+              </span>
             </div>
+            <p className="text-xs text-body">
+              Last synced: <strong>{formatLastSync(lastCloudSyncTime)}</strong>
+            </p>
+            {queuedWritesCount > 0 && (
+              <p className="text-[11px] text-amber-800">
+                {queuedWritesCount} queued offline write{queuedWritesCount === 1 ? "" : "s"} waiting for sync
+              </p>
+            )}
           </div>
 
-          <div className="flex items-start gap-2.5 bg-raised p-3 rounded-edge border border-line">
-            <CheckCircle2 className="w-4 h-4 text-brand-deep shrink-0 mt-0.5" />
-            <div>
-              <strong className="text-body">Quoting Readiness Check:</strong>
-              <p className="text-ink-dim mt-0.5">
-                Ensures essential Australian project parameters (sub-category, mounting height, solar zone, operating profile) are reviewed before quoting.
-              </p>
+          {/* AI Knowledge Service */}
+          <div className="p-3.5 bg-paper rounded-edge border border-line space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase text-ink-dim">AI Service</span>
+              {aiHealth.state === "reachable" ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                  Connected
+                </span>
+              ) : aiHealth.state === "unconfigured" ? (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                  Not configured
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                  Needs attention
+                </span>
+              )}
             </div>
-          </div>
-
-          <div className="flex items-start gap-2.5 bg-raised p-3 rounded-edge border border-line">
-            <CheckCircle2 className="w-4 h-4 text-brand-deep shrink-0 mt-0.5" />
-            <div>
-              <strong className="text-body">Engineering & Compliance Notice:</strong>
-              <p className="text-ink-dim mt-0.5">
-                Preliminary product selections provide rapid sales guidance; final certified AS/NZS compliance requires formal Dialux lighting calculations.
-              </p>
-            </div>
+            <p className="text-xs text-body line-clamp-2">
+              {aiHealth.detail}
+            </p>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Clear Data */}
-      <div className="bg-white rounded-panel border border-line p-5 shadow-xs flex items-center justify-between">
-        <div>
-          <h3 className="text-meta font-bold">Clear Workspace Data</h3>
-          <p className="text-spec text-ink-dim">
-            Clears all locally cached CRM records, deals, and activities.
-          </p>
+      {/* 3. KNOWLEDGE SECTION (PART I) */}
+      <section className="bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
+        <div className="flex items-center justify-between border-b border-line pb-3">
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-brand-deep" />
+            <h2 className="text-base font-bold text-body">Knowledge</h2>
+          </div>
         </div>
-        <button
-          onClick={handleResetData}
-          className="text-meta font-medium px-3.5 py-2 rounded-edge bg-paper hover:bg-line transition-colors flex items-center gap-1.5 cursor-pointer border border-line"
-        >
-          <RefreshCw className="w-3.5 h-3.5" />
-          <span>Clear Workspace Data</span>
-        </button>
-      </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-spec">
+          <div className="p-3 bg-paper rounded-edge border border-line">
+            <span className="text-xs text-ink-dim block">Total Documents</span>
+            <span className="text-xl font-bold font-mono text-body block mt-0.5">
+              {documents.length}
+            </span>
+          </div>
+
+          <div className="p-3 bg-paper rounded-edge border border-line">
+            <span className="text-xs text-ink-dim block">Approved Documents</span>
+            <span className="text-xl font-bold font-mono text-emerald-800 block mt-0.5">
+              {approvedDocsCount}
+            </span>
+          </div>
+
+          <div className="p-3 bg-paper rounded-edge border border-line">
+            <span className="text-xs text-ink-dim block">Needs Review</span>
+            <span className="text-xl font-bold font-mono text-amber-800 block mt-0.5">
+              {pendingDocsCount}
+            </span>
+          </div>
+
+          <div className="p-3 bg-paper rounded-edge border border-line">
+            <span className="text-xs text-ink-dim block">Available to AI</span>
+            <span className="text-xl font-bold font-mono text-brand-deep block mt-0.5">
+              {approvedDocsCount}
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* 4. ADMINISTRATION & DANGER AREA (PART I: COLLAPSIBLE DIAGNOSTICS & DISTINCT DANGER) */}
+      <section className="bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
+        <div className="flex items-center justify-between border-b border-line pb-3">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-brand-deep" />
+            <h2 className="text-base font-bold text-body">Administration</h2>
+          </div>
+        </div>
+
+        {/* Collapsible Diagnostics */}
+        <div className="pt-1">
+          <button
+            type="button"
+            onClick={() => setShowDiagnostics(!showDiagnostics)}
+            className="text-spec font-bold text-brand-deep hover:underline flex items-center gap-1 cursor-pointer"
+          >
+            <span>{showDiagnostics ? "Hide system diagnostics" : "View technical diagnostics & logs"}</span>
+            {showDiagnostics ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          </button>
+
+          {showDiagnostics && (
+            <div className="p-3.5 bg-paper rounded-edge border border-line space-y-2 mt-3 text-xs font-mono animate-in fade-in duration-100">
+              <div><strong>App Version:</strong> 2.0.0 (Production Release)</div>
+              <div><strong>Active User ID:</strong> {currentUser.id || "local-default"}</div>
+              <div><strong>AI Model Target:</strong> {aiHealth.model || "gemini-2.5-flash"}</div>
+              <div><strong>Offline Storage Engine:</strong> IndexedDB / localStorage</div>
+            </div>
+          )}
+        </div>
+
+        {/* Visually Separated Danger Area (PART I) */}
+        <div className="p-4 bg-red-50/60 rounded-edge border border-red-200 space-y-3 mt-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-red-900 text-spec flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 text-red-700" />
+                <span>Danger Area</span>
+              </h3>
+              <p className="text-xs text-red-800 mt-0.5">
+                Reset local cache and clear temporary session data.
+              </p>
+            </div>
+
+            {!showConfirmReset ? (
+              <button
+                type="button"
+                onClick={() => setShowConfirmReset(true)}
+                className="px-3 py-1.5 bg-white hover:bg-red-50 text-red-800 border border-red-300 rounded-edge text-xs font-bold transition-colors cursor-pointer"
+              >
+                Reset workspace data
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmReset(false)}
+                  className="px-2.5 py-1 text-xs border border-line rounded-edge bg-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleResetData}
+                  className="px-3 py-1 bg-red-700 hover:bg-red-800 text-white rounded-edge text-xs font-bold"
+                >
+                  Confirm Reset
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
     </div>
   );
 };

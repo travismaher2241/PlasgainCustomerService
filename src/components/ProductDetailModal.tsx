@@ -192,7 +192,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
             <div className="p-4 bg-brand-wash/40 rounded-edge border border-brand-edge space-y-3 animate-in fade-in duration-150">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-body text-brand-deep flex items-center gap-1.5">
-                  <KanbanSquare className="w-4 h-4" /> Inject Product into Pipeline Deal
+                  <KanbanSquare className="w-4 h-4" /> Add to deal
                 </span>
                 <button
                   type="button"
@@ -251,7 +251,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = ({ product,
                   onClick={handleConfirmAddToDeal}
                   className="px-4 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded cursor-pointer transition-colors shadow-2xs"
                 >
-                  Confirm Injection
+                  Add to deal
                 </button>
               </div>
             </div>

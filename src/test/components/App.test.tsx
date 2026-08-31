@@ -9,7 +9,7 @@ describe('App Component Layout and Navigation', () => {
 
     expect(screen.getAllByText(/PLASGAIN/i)[0]).toBeInTheDocument();
     const heading = await screen.findByRole('heading', { level: 1 }, { timeout: 10000 });
-    expect(heading).toHaveTextContent(/clear|attention/i);
+    expect(heading).toHaveTextContent(/Welcome|Plasgain/i);
   }, 15000);
 
   it('switches tabs smoothly via sidebar navigation', async () => {

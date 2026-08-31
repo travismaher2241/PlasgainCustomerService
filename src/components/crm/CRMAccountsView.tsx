@@ -1224,7 +1224,7 @@ export const CRMAccountsView: React.FC = () => {
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-base font-bold text-body">Buying Committee &amp; Key Contacts</h3>
+                        <h3 className="text-base font-bold text-body">Contacts</h3>
                         <p className="text-spec text-ink-dim">Direct customer stakeholders, procurement leads, and engineers.</p>
                       </div>
                       <button
@@ -1608,7 +1608,7 @@ export const CRMAccountsView: React.FC = () => {
                           {showTechnicalIntel && (
                             <div className="mt-3 p-4 bg-raised rounded-panel border border-line text-spec space-y-3 animate-in fade-in duration-150">
                               <div>
-                                <span className="text-xs font-bold text-ink-dim uppercase">Buying Committee Analysis</span>
+                                <span className="text-xs font-bold text-ink-dim uppercase">Contact Role Analysis</span>
                                 <p className="text-xs text-body mt-0.5">
                                   {aiSummary.buyingCommitteeInsights || "Primary stakeholders actively engaged in technical compliance sign-off."}
                                 </p>

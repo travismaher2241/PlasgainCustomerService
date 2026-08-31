@@ -34,27 +34,26 @@ describe('initialsOf', () => {
   });
 });
 
-describe('Editing your details', () => {
-  it('shows the current profile in the form', () => {
+describe('Editing your details in Settings', () => {
+  it('shows the current profile summary by default and opens edit mode', () => {
     renderBoth();
-    expect((screen.getByLabelText(/^Name$/i) as HTMLInputElement).value).toBe('Travis Maher');
-    expect((screen.getByLabelText(/^Role$/i) as HTMLInputElement).value).toBe('Internal Sales & Technical Lead');
-  });
+    expect(screen.getAllByText('Travis Maher').length).toBeGreaterThan(0);
+    expect(screen.getByRole('button', { name: /Edit profile/i })).toBeInTheDocument();
 
-  it('keeps Save disabled until something actually changes', () => {
-    renderBoth();
-    const save = screen.getByRole('button', { name: /Details Saved|Save details/i });
-    expect(save).toBeDisabled();
-
-    fireEvent.change(screen.getByLabelText(/^Name$/i), { target: { value: 'Alex Morgan' } });
-    expect(screen.getByRole('button', { name: /Save details/i })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: /Edit profile/i }));
+    expect((screen.getByDisplayValue('Travis Maher') as HTMLInputElement)).toBeInTheDocument();
   });
 
   it('propagates a saved name to the sidebar and its avatar', () => {
     const { container } = renderBoth();
-    fireEvent.change(screen.getByLabelText(/^Name$/i), { target: { value: 'Alex Morgan' } });
-    fireEvent.change(screen.getByLabelText(/^Role$/i), { target: { value: 'Managing Director' } });
-    fireEvent.click(screen.getByRole('button', { name: /Save details/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Edit profile/i }));
+
+    const nameInput = screen.getByDisplayValue('Travis Maher');
+    const roleInput = screen.getByDisplayValue('Internal Sales & Technical Lead');
+
+    fireEvent.change(nameInput, { target: { value: 'Alex Morgan' } });
+    fireEvent.change(roleInput, { target: { value: 'Managing Director' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save profile/i }));
 
     const rail = container.querySelector('aside') as HTMLElement;
     expect(within(rail).getByText('Alex Morgan')).toBeInTheDocument();
@@ -64,8 +63,11 @@ describe('Editing your details', () => {
 
   it('persists the profile so it survives a reload', () => {
     renderBoth();
-    fireEvent.change(screen.getByLabelText(/^Name$/i), { target: { value: 'Alex Morgan' } });
-    fireEvent.click(screen.getByRole('button', { name: /Save details/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Edit profile/i }));
+
+    const nameInput = screen.getByDisplayValue('Travis Maher');
+    fireEvent.change(nameInput, { target: { value: 'Alex Morgan' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save profile/i }));
 
     const stored = JSON.parse(localStorage.getItem('plasgain_user_profile') || '{}');
     expect(stored.name).toBe('Alex Morgan');
@@ -73,17 +75,24 @@ describe('Editing your details', () => {
 
   it('refuses to save an empty name', () => {
     renderBoth();
-    fireEvent.change(screen.getByLabelText(/^Name$/i), { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: /Edit profile/i }));
+
+    const nameInput = screen.getByDisplayValue('Travis Maher');
+    fireEvent.change(nameInput, { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: /Save profile/i }));
 
     expect(screen.getByText(/Your name is required/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Save details/i })).toBeDisabled();
   });
 
-  it('discards unsaved edits', () => {
+  it('discards unsaved edits when cancelled', () => {
     renderBoth();
-    const name = screen.getByLabelText(/^Name$/i) as HTMLInputElement;
-    fireEvent.change(name, { target: { value: 'Someone Else' } });
-    fireEvent.click(screen.getByRole('button', { name: /^Discard$/i }));
-    expect(name.value).toBe('Travis Maher');
+    fireEvent.click(screen.getByRole('button', { name: /Edit profile/i }));
+
+    const nameInput = screen.getByDisplayValue('Travis Maher') as HTMLInputElement;
+    fireEvent.change(nameInput, { target: { value: 'Someone Else' } });
+    fireEvent.click(screen.getByRole('button', { name: /^Cancel$/i }));
+
+    expect(screen.getAllByText('Travis Maher').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Someone Else')).not.toBeInTheDocument();
   });
 });

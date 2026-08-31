@@ -208,7 +208,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-body">
-                {isEditMode ? `Edit Contact: ${contactToEdit.firstName} ${contactToEdit.lastName}` : "Add Buying Committee Stakeholder"}
+                {isEditMode ? `Edit Contact: ${contactToEdit.firstName} ${contactToEdit.lastName}` : "Add contact"}
               </h2>
               <p className="text-meta text-ink-dim">
                 Account: <span className="font-semibold text-body">{accountName}</span>
@@ -372,7 +372,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
           <div className="space-y-3 pt-3 border-t border-line">
             <div className="text-spec font-bold uppercase tracking-wider text-ink-dim flex items-center gap-1.5">
               <Award className="w-3.5 h-3.5 text-ink-faint" />
-              Buying Committee & Stakeholder Mapping
+              Buying role &amp; influence
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

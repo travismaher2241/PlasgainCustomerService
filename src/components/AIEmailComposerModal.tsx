@@ -420,9 +420,6 @@ export const AIEmailComposerModal: React.FC<AIEmailComposerModalProps> = () => {
                 <h2 id="ai-email-composer-title" className="text-body font-bold text-ink">
                   AI Sales Email Composer
                 </h2>
-                <span className="px-2 py-0.5 text-spec font-bold rounded-full bg-brand-wash text-brand-deep border border-brand-edge">
-                  Live Grounded AI
-                </span>
               </div>
               <p className="text-spec text-ink-dim">
                 Research organisations &amp; tenders, determine sales angles, and draft consultative Australian English emails
