@@ -265,8 +265,19 @@ export async function apiStreamPost<T = any>(
 export async function apiGet<T = any>(url: string): Promise<T> {
   const res = await fetch(url, { headers: authHeaders() });
   const data = await res.json().catch(() => null);
-  if (!data) throw new ApiError(res.status, `Request failed (${res.status}).`);
+  if (!res.ok || !data) throw new ApiError(res.status, data?.error || `Request failed (${res.status}).`);
   return data as T;
+}
+
+export async function uploadKnowledgePdf(file: File, metadata: Record<string, unknown>) {
+  const encoded = encodeURIComponent(JSON.stringify({ ...metadata, fileName: file.name }));
+  if (encoded.length > 6000) throw new ApiError(400, "Document details are too long. Shorten the title or source.");
+  const res = await fetch("/api/knowledge/documents/upload", {
+    method: "POST", headers: authHeaders({ "Content-Type": "application/pdf", "X-Document-Metadata": encoded }), body: file,
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok || !data) throw new ApiError(res.status, data?.error || "Upload failed. No successful save was confirmed.");
+  return data as { document: import("../types/knowledge").KnowledgeDocument; duplicate: boolean };
 }
 
 /** Turns any thrown error into a message safe to show a rep. */

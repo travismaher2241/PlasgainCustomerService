@@ -12,7 +12,7 @@ import {
   ExternalLink
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { apiStreamPost } from "../utils/apiClient";
+import { apiStreamPost, apiGet } from "../utils/apiClient";
 import { PDFViewerModal } from "./PDFViewerModal";
 import { ControlledDocument } from "../server/documentGovernanceStore";
 
@@ -24,6 +24,8 @@ export interface CopilotCitation {
   page?: number;
   clause?: string;
   documentId?: string;
+  excerpt?: string;
+  fileUrl?: string;
 }
 
 export interface CopilotMessage {
@@ -158,6 +160,7 @@ export const GlobalCopilot: React.FC = () => {
   }, [messages, isLoading]);
   const [copilotState, setCopilotState] = useState<"ready" | "working" | "offline" | "failed">("ready");
   const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
+  const [citationPage, setCitationPage] = useState(1);
   const [viewingDoc, setViewingDoc] = useState<ControlledDocument | null>(null);
 
   // Active abort controller for stream cancellation (P2-01)
@@ -332,26 +335,17 @@ export const GlobalCopilot: React.FC = () => {
     }
   };
 
-  const handleOpenCitation = (citation: CopilotCitation) => {
-    if (citation.sourceType === "document") {
-      setViewingDoc({
-        id: citation.sourceId,
-        title: citation.title,
-        productFamily: "Plasgain System",
-        documentType: "Datasheet",
-        version: citation.version || "Rev 4.0",
-        effectiveDate: "2026-01-01",
-        reviewExpiryDate: "2027-01-01",
-        source: "Plasgain Engineering Dept",
-        uploader: "Technical Director",
-        approvalStatus: "Approved",
-        fileUrl: `/docs/${citation.sourceId}.pdf`,
-        pageCount: 4,
-        uploadedAt: "2026-01-01T00:00:00Z"
-      });
+  const handleOpenCitation = async (citation: CopilotCitation) => {
+    if (citation.sourceType === "document" && citation.documentId) {
+      try {
+        const record = await apiGet<import("../types/knowledge").KnowledgeRecord>(`/api/knowledge/documents/${citation.documentId}`);
+        setCitationPage(citation.page || 1);
+        setViewingDoc(record.document);
+      } catch (error: any) { showToast(error.message || "Could not open source PDF", "error"); }
     } else if (citation.sourceType === "standard") {
       navigateToWorkflow("tools", "conflict-resolver");
-      showToast(`Navigated to ${citation.title}`, "info");
+    } else {
+      showToast("This citation has no stored PDF. Check the named source directly.", "info");
     }
   };
 
@@ -499,7 +493,7 @@ export const GlobalCopilot: React.FC = () => {
                   <div className="mt-2.5 pt-2 border-t border-slate-100 space-y-1">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1">
                       <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                      <span>Verified Sources</span>
+                      <span>Checked page excerpts</span>
                     </p>
                     <div className="flex flex-wrap gap-1">
                       {m.citations.map((cit, cIdx) => (
@@ -508,14 +502,16 @@ export const GlobalCopilot: React.FC = () => {
                           type="button"
                           onClick={() => handleOpenCitation(cit)}
                           className="inline-flex items-center gap-1 text-[11px] font-medium bg-slate-50 hover:bg-brand/10 text-brand-deep border border-slate-200 hover:border-brand/30 px-2 py-0.5 rounded cursor-pointer transition-colors shadow-2xs"
-                          title={cit.clause || `Open ${cit.title}`}
+                          title={cit.excerpt || cit.clause || `Open ${cit.title}`}
                         >
                           <FileText className="w-2.5 h-2.5" />
                           <span className="truncate max-w-[170px]">{cit.title}</span>
+                          {cit.page && <span>p. {cit.page}</span>}
                           <ExternalLink className="w-2 h-2 opacity-60" />
                         </button>
                       ))}
                     </div>
+                    {m.citations.some(citation => citation.excerpt) && <details className="text-[11px] text-ink-dim"><summary className="cursor-pointer">Show supporting quotations</summary>{m.citations.filter(citation => citation.excerpt).map((citation,index) => <blockquote key={index} className="border-l-2 border-brand-edge pl-2 my-2 whitespace-pre-wrap">{citation.excerpt}<footer className="font-semibold">{citation.title} · PDF page {citation.page}</footer></blockquote>)}</details>}
                   </div>
                 )}
               </div>
@@ -648,6 +644,7 @@ export const GlobalCopilot: React.FC = () => {
           isOpen={Boolean(viewingDoc)}
           onClose={() => setViewingDoc(null)}
           document={viewingDoc}
+          initialPage={citationPage}
         />
       )}
     </>

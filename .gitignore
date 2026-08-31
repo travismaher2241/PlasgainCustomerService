@@ -11,3 +11,5 @@ playwright-report/
 server_data_*.json
 controlled-documents-backup-*.json
 .claude/
+server_data/knowledge/
+tmp/

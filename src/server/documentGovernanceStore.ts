@@ -4,7 +4,7 @@ export interface ControlledDocument {
   id: string;
   title: string;
   productFamily: string;
-  documentType: "Datasheet" | "Catalogue" | "Compliance Certificate" | "Installation Manual" | "Warranty Doc";
+  documentType: "Datasheet" | "Catalogue" | "Compliance Certificate" | "Installation Manual" | "Warranty Doc" | "Specification" | "Standard / Guide";
   version: string;
   effectiveDate: string;
   reviewExpiryDate: string;

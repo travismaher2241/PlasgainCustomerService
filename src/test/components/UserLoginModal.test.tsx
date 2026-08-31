@@ -90,6 +90,18 @@ describe('User Login & Identity Switching Suite', () => {
     expect(saved.pin).toBeUndefined();
   });
 
+  it('lets the current profile renew its server session', async () => {
+    render(<AppProvider><TestApp /></AppProvider>);
+    fireEvent.click(screen.getByTitle(/Switch user account or update details/i));
+    fireEvent.click(screen.getByRole('button', { name: 'Verify session' }));
+    fireEvent.change(screen.getByLabelText(/4-Digit Security PIN/i), { target: { value: '1234' } });
+    fireEvent.click(screen.getByRole('button', { name: /Verify & Sign In/i }));
+    await waitFor(() => expect(verifyProfileFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/auth/verify-profile'),
+      expect.objectContaining({ body: expect.stringContaining('user-travis-maher') })
+    ));
+  });
+
   it('keeps the rejected PIN out of the next attempt', async () => {
     pinAccepted = false;
 

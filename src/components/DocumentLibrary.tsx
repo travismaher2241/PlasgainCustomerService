@@ -1,633 +1,174 @@
-import React, { useState, useEffect } from "react";
-import {
-  BookOpen,
-  Search,
-  UploadCloud,
-  Download,
-  Eye,
-  Tag,
-  CheckCircle2,
-  ExternalLink,
-  Layers,
-  Sparkles,
-  FileText,
-  ShieldCheck,
-  AlertTriangle,
-  Clock,
-  Check,
-  X
-} from "lucide-react";
+import React, { useCallback, useEffect, useState } from "react";
+import { BookOpen, UploadCloud, X, Eye, ShieldCheck } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { Surface, ListRow, Chip } from "./ui/Surface";
-import { ControlledDocument } from "../server/documentGovernanceStore";
+import type { ControlledDocument } from "../server/documentGovernanceStore";
+import type { KnowledgeDocument } from "../types/knowledge";
+import { apiGet, apiPost, uploadKnowledgePdf } from "../utils/apiClient";
 import { PDFViewerModal } from "./PDFViewerModal";
-import { apiGet, apiPost } from "../utils/apiClient";
+import { KnowledgeReviewModal } from "./KnowledgeReviewModal";
+import { inferDocumentMetadata, InferredDocumentMetadata } from "../utils/documentClassifier";
+
+const approverRoles = ["engineering lead", "lead engineer", "structural engineer", "compliance manager", "engineering director", "technical director", "sales director"];
+type LibraryDocument = ControlledDocument & { knowledge?: KnowledgeDocument["knowledge"] };
+const inputClass = "w-full mt-1 p-2.5 border border-line rounded-edge bg-surface text-meta";
 
 export const DocumentLibrary: React.FC = () => {
-  const { showToast, currentUser } = useApp();
-  const [documents, setDocuments] = useState<ControlledDocument[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  // Mirrors DOCUMENT_APPROVER_ROLES on the server. Kept in sync deliberately:
-  // the server is the gate, this only decides whether to offer the control.
-  const DOCUMENT_APPROVER_ROLES = [
-    "engineering lead",
-    "lead engineer",
-    "structural engineer",
-    "compliance manager",
-    "engineering director",
-    "technical director",
-    "sales director"
-  ];
-  const canApproveDocuments =
-    currentUser.isAdmin === true ||
-    DOCUMENT_APPROVER_ROLES.includes((currentUser.role || "").trim().toLowerCase());
-
-  const [governanceFilter, setGovernanceFilter] = useState<"all" | "authoritative" | "draft" | "superseded">("all");
-  const [previewDoc, setPreviewDoc] = useState<ControlledDocument | null>(null);
-  const [isUploadOpen, setIsUploadOpen] = useState(false);
-
-  // Upload modal form state
-  const [uploadMode, setUploadMode] = useState<"file" | "metadata">("file");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [fileChecksum, setFileChecksum] = useState<string | null>(null);
-  const [uploadTitle, setUploadTitle] = useState("");
-  const [uploadFamily, setUploadFamily] = useState("Pro Blade Solar");
-  const [uploadType, setUploadType] = useState<ControlledDocument["documentType"]>("Datasheet");
-  const [uploadVersion, setUploadVersion] = useState("Rev 1.0");
-  const [uploadVersionOwner, setUploadVersionOwner] = useState(currentUser.name || "Engineering Lead");
-  const [uploadApprovalStatus, setUploadApprovalStatus] = useState<ControlledDocument["approvalStatus"]>("Approved");
-  const [uploadEffectiveDate, setUploadEffectiveDate] = useState(() => new Date().toISOString().slice(0, 10));
-  const [uploadExpiryDate, setUploadExpiryDate] = useState(() => {
-    const d = new Date();
-    d.setFullYear(d.getFullYear() + 1);
-    return d.toISOString().slice(0, 10);
+  const { currentUser, showToast, openLoginModal, isLoginModalOpen } = useApp();
+  const [documents, setDocuments] = useState<LibraryDocument[]>([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [uploadError, setUploadError] = useState("");
+  const [preview, setPreview] = useState<LibraryDocument | null>(null);
+  const [reviewId, setReviewId] = useState<string | null>(null);
+  const [retiring, setRetiring] = useState<LibraryDocument | null>(null);
+  const [inferredInfo, setInferredInfo] = useState<InferredDocumentMetadata | null>(null);
+  const [metadata, setMetadata] = useState({
+    title: "", productFamily: "General / Public Lighting", documentType: "Specification", version: "",
+    versionOwner: currentUser.name || "", effectiveDate: new Date().toISOString().slice(0,10),
+    reviewExpiryDate: new Date(Date.now() + 365*86400000).toISOString().slice(0,10), source: "",
   });
-  const [uploadSource, setUploadSource] = useState("Plasgain Engineering Dept");
-
-  const computeFileSHA256 = async (file: File): Promise<string> => {
-    try {
-      const buffer = await file.arrayBuffer();
-      const hashBuffer = await crypto.subtle.digest("SHA-256", buffer);
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 16);
-    } catch {
-      return `sha-${Math.random().toString(36).substring(2, 10)}`;
-    }
-  };
-
-  const handleFileChange = async (file: File | null) => {
-    if (!file) {
-      setSelectedFile(null);
-      setFileChecksum(null);
-      return;
-    }
-    setSelectedFile(file);
-    if (!uploadTitle) {
-      setUploadTitle(file.name.replace(/\.[^/.]+$/, "").replace(/[_-]/g, " "));
-    }
-    const hash = await computeFileSHA256(file);
-    setFileChecksum(hash);
-  };
-
-  const loadDocuments = async () => {
-    try {
-      const docs = await apiGet<ControlledDocument[]>("/api/controlled-documents");
-      setDocuments(docs);
-    } catch {
-      // Fallback sample documents if backend route loading
-    }
-  };
-
-  useEffect(() => {
-    loadDocuments();
+  const canReview = currentUser.isAdmin === true || approverRoles.includes((currentUser.role || "").toLowerCase());
+  const load = useCallback(async () => {
+    setError("");
+    const results = await Promise.allSettled([apiGet<KnowledgeDocument[]>("/api/knowledge/documents"), apiGet<ControlledDocument[]>("/api/controlled-documents")]);
+    const uploaded = results[0].status === "fulfilled" ? results[0].value : [];
+    const legacy = results[1].status === "fulfilled" ? results[1].value : [];
+    if (results[0].status === "rejected") setError(results[0].reason.message || "Could not load saved knowledge.");
+    else if (results[1].status === "rejected") setError("Saved PDF knowledge loaded, but older reference records could not be loaded.");
+    setDocuments([...uploaded, ...legacy]); setLoading(false);
   }, []);
-
-  const now = new Date().toISOString().slice(0, 10);
-
-  const filteredDocs = documents.filter((doc) => {
-    const matchesSearch =
-      doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.productFamily.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.version.toLowerCase().includes(searchQuery.toLowerCase());
-
-    if (!matchesSearch) return false;
-
-    if (governanceFilter === "authoritative") {
-      return doc.approvalStatus === "Approved" && doc.reviewExpiryDate >= now;
+  useEffect(() => { if (!isLoginModalOpen) void load(); }, [load, isLoginModalOpen, currentUser.id]);
+  const selectFile = (next: File | null) => {
+    setUploadError("");
+    if (next && (!/\.pdf$/i.test(next.name) || next.size === 0 || next.size > 25*1024*1024)) {
+      setFile(null); setInferredInfo(null); setUploadError("Choose a non-empty PDF smaller than 25 MB."); return;
     }
-    if (governanceFilter === "draft") {
-      return doc.approvalStatus === "Draft" || doc.approvalStatus === "Pending Review";
+    setFile(next);
+    if (next) {
+      const inferred = inferDocumentMetadata(next.name);
+      setInferredInfo(inferred);
+      setMetadata(current => ({
+        ...current,
+        title: current.title || inferred.title,
+        productFamily: inferred.productFamily,
+        documentType: inferred.documentType,
+        version: current.version || inferred.version,
+        source: current.source || inferred.source
+      }));
+    } else {
+      setInferredInfo(null);
     }
-    if (governanceFilter === "superseded") {
-      return doc.approvalStatus === "Superseded" || doc.approvalStatus === "Expired";
-    }
+  };
+  const upload = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!file || busy) return;
+    setBusy(true); setUploadError("");
+    try {
+      const result = await uploadKnowledgePdf(file, metadata);
+      showToast(result.duplicate ? "This exact PDF is already saved. Opening its existing record." : `Saved ${result.document.pageCount} pages. Review is required before AI use.`, "success");
+      setUploadOpen(false); setFile(null); setInferredInfo(null); setMetadata(current => ({ ...current, title: "", version: "", source: "" }));
+      setReviewId(result.document.id); await load();
+    } catch (error: any) { setUploadError(error.message || "Upload failed. Please retry."); }
+    finally { setBusy(false); }
+  };
+  const today = new Date().toISOString().slice(0,10);
+  const status = (doc: LibraryDocument) => !doc.knowledge ? "Reference only — PDF not imported" : doc.approvalStatus === "Superseded" ? "Withdrawn from knowledge" : doc.approvalStatus === "Approved" ? doc.reviewExpiryDate < today ? "Expired — not used by AI" : doc.effectiveDate > today ? "Approved — not yet effective" : "Ready for AI knowledge" : "Pending page review";
+  const filtered = documents.filter(doc => {
+    if (!`${doc.title} ${doc.productFamily} ${doc.version}`.toLowerCase().includes(query.toLowerCase())) return false;
+    if (filter === "ready") return doc.knowledge && doc.approvalStatus === "Approved" && doc.effectiveDate <= today && doc.reviewExpiryDate >= today;
+    if (filter === "pending") return doc.knowledge && doc.approvalStatus === "Pending Review";
+    if (filter === "references") return !doc.knowledge;
     return true;
   });
-
-  const handleCreateDocument = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!uploadTitle.trim()) return;
-
-    try {
-      const calculatedChecksum = fileChecksum || (uploadMode === "file" && selectedFile ? await computeFileSHA256(selectedFile) : `meta-${Math.random().toString(36).substring(2, 8)}`);
-      
-      const newDoc: Partial<ControlledDocument> = {
-        title: uploadTitle.trim(),
-        productFamily: uploadFamily,
-        documentType: uploadType,
-        version: uploadVersion.trim(),
-        versionOwner: uploadVersionOwner.trim(),
-        checksum: calculatedChecksum,
-        fileSizeBytes: selectedFile?.size || 1024 * 350,
-        mimeType: selectedFile?.type || "application/pdf",
-        fileName: selectedFile?.name || `${uploadTitle.toLowerCase().replace(/\s+/g, "_")}.pdf`,
-        isExternalMetadataOnly: uploadMode === "metadata",
-        effectiveDate: uploadEffectiveDate,
-        reviewExpiryDate: uploadExpiryDate,
-        source: uploadSource.trim(),
-        uploader: currentUser.name || "Technical Sales Specialist",
-        approvalStatus: uploadApprovalStatus,
-        fileUrl: `/docs/${uploadTitle.toLowerCase().replace(/\s+/g, "_")}.pdf`,
-        pageCount: 4,
-        validationResult: {
-          isValid: true,
-          checkedAt: new Date().toISOString(),
-          notes: "Compliant with 2026.1 Controlled Engineering Document Standard."
-        }
-      };
-
-      await apiPost("/api/controlled-documents", newDoc);
-      showToast(
-        uploadMode === "file"
-          ? `Uploaded and registered "${uploadTitle}" (SHA: ${calculatedChecksum})`
-          : `Registered external document metadata for "${uploadTitle}"`,
-        "success"
-      );
-      setIsUploadOpen(false);
-      setUploadTitle("");
-      setSelectedFile(null);
-      setFileChecksum(null);
-      loadDocuments();
-    } catch (err: any) {
-      showToast(err?.message || "Failed to upload document", "error");
-    }
+  const retire = async () => {
+    if (!retiring?.knowledge) return;
+    setBusy(true); setError("");
+    try { await apiPost(`/api/knowledge/documents/${retiring.id}/retire`, { revision: retiring.knowledge.revision }); setRetiring(null); await load(); }
+    catch (error: any) { setError(error.message); setRetiring(null); }
+    finally { setBusy(false); }
   };
-
-  const handleApproveDocument = async (docId: string) => {
-    try {
-      // No identity in the body. The server reads it from the session token that
-      // apiPost attaches, so a caller cannot name someone else as the approver
-      // or claim an authority it does not hold.
-      const approved = await apiPost(`/api/controlled-documents/${docId}/approve`, {});
-      showToast(`Approved and marked Authoritative — recorded against ${approved?.approvedBy || currentUser.name}`, "success");
-      loadDocuments();
-    } catch (err: any) {
-      showToast(err?.message || "Failed to approve document", "error");
-    }
-  };
-
-  const renderStatusBadge = (doc: ControlledDocument) => {
-    const isExpired = doc.reviewExpiryDate < now;
-    if (isExpired && doc.approvalStatus === "Approved") {
-      return (
-        <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300">
-          <AlertTriangle className="w-3 h-3" />
-          <span>Expired</span>
-        </span>
-      );
-    }
-
-    switch (doc.approvalStatus) {
-      case "Approved":
-        return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-            <ShieldCheck className="w-3 h-3" />
-            <span>Approved &amp; Authoritative</span>
-          </span>
-        );
-      case "Superseded":
-        return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
-            <Clock className="w-3 h-3" />
-            <span>Superseded</span>
-          </span>
-        );
-      case "Draft":
-      case "Pending Review":
-      default:
-        return (
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-300">
-            <span>{doc.approvalStatus}</span>
-          </span>
-        );
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-line">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold tracking-tight text-body">Governed Document &amp; Catalogue Library</h1>
-            <span className="text-meta font-bold px-2 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge">
-              AS/NZS Compliant
-            </span>
-          </div>
-          <p className="text-meta text-ink-dim mt-0.5">
-            Controlled product datasheets, engineering certificates, and tender specification catalogues with lifecycle governance.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 self-start">
-          <button
-            onClick={() => setIsUploadOpen(true)}
-            className="inline-flex items-center gap-1.5 text-meta font-medium bg-brand-deep hover:bg-brand text-white px-3.5 py-2 rounded-edge transition-colors cursor-pointer shadow-xs"
-          >
-            <UploadCloud className="w-4 h-4" />
-            <span>Upload Document</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Filter and Search Controls */}
-      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-white p-3.5 rounded-panel border border-line shadow-2xs">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-ink-faint absolute left-3 top-2.5" />
-          <input
-            type="text"
-            placeholder="Search documents, product families, versions..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full text-meta bg-raised border border-line rounded-edge pl-9 pr-3 py-2 focus:outline-hidden focus:ring-1 focus:ring-brand focus:bg-white transition-all"
-          />
-        </div>
-
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
-          <button
-            onClick={() => setGovernanceFilter("all")}
-            className={`text-meta px-3 py-1.5 rounded-edge font-medium transition-colors cursor-pointer whitespace-nowrap ${
-              governanceFilter === "all"
-                ? "bg-chrome text-white shadow-2xs"
-                : "bg-raised text-ink-dim hover:bg-paper border border-line"
-            }`}
-          >
-            All Documents ({documents.length})
-          </button>
-          <button
-            onClick={() => setGovernanceFilter("authoritative")}
-            className={`text-meta px-3 py-1.5 rounded-edge font-medium transition-colors cursor-pointer whitespace-nowrap ${
-              governanceFilter === "authoritative"
-                ? "bg-chrome text-white shadow-2xs"
-                : "bg-raised text-ink-dim hover:bg-paper border border-line"
-            }`}
-          >
-            Authoritative Only
-          </button>
-          <button
-            onClick={() => setGovernanceFilter("draft")}
-            className={`text-meta px-3 py-1.5 rounded-edge font-medium transition-colors cursor-pointer whitespace-nowrap ${
-              governanceFilter === "draft"
-                ? "bg-chrome text-white shadow-2xs"
-                : "bg-raised text-ink-dim hover:bg-paper border border-line"
-            }`}
-          >
-            Drafts &amp; Pending
-          </button>
-          <button
-            onClick={() => setGovernanceFilter("superseded")}
-            className={`text-meta px-3 py-1.5 rounded-edge font-medium transition-colors cursor-pointer whitespace-nowrap ${
-              governanceFilter === "superseded"
-                ? "bg-chrome text-white shadow-2xs"
-                : "bg-raised text-ink-dim hover:bg-paper border border-line"
-            }`}
-          >
-            Superseded / Expired
-          </button>
-        </div>
-      </div>
-
-      {/* Governed Document List */}
-      {filteredDocs.length > 0 && (
-        <Surface>
-          {filteredDocs.map((doc) => (
-            <ListRow
-              key={doc.id}
-              tone="brand"
-              actions={
-                <div className="flex items-center gap-2">
-                  {doc.approvalStatus === "Draft" && canApproveDocuments && (
-                    <button
-                      onClick={() => handleApproveDocument(doc.id)}
-                      className="inline-flex items-center gap-1 text-spec font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 px-2.5 py-1.5 rounded-edge cursor-pointer"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                      <span>Approve</span>
-                    </button>
-                  )}
-                  {doc.approvalStatus === "Draft" && !canApproveDocuments && (
-                    <span
-                      className="text-spec text-ink-faint border border-line px-2.5 py-1.5 rounded-edge whitespace-nowrap"
-                      title="Controlled documents are approved by engineering, not sales."
-                    >
-                      Awaiting engineering approval
-                    </span>
-                  )}
-                  <button
-                    onClick={() => setPreviewDoc(doc)}
-                    className="inline-flex items-center gap-1.5 text-meta font-medium text-ink-dim border border-line-strong hover:text-ink hover:border-ink-faint px-2.5 py-1.5 rounded-edge transition-colors cursor-pointer whitespace-nowrap bg-surface"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                    <span>View PDF</span>
-                  </button>
-                </div>
-              }
-            >
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h3 className="text-body font-semibold text-ink">{doc.title}</h3>
-                <Chip tone="brand">{doc.productFamily}</Chip>
-                <span className="u-data text-spec font-mono text-ink-faint bg-paper px-1.5 py-0.5 rounded border border-line">
-                  {doc.version}
-                </span>
-                {doc.checksum && (
-                  <span className="text-[10px] font-mono text-brand-deep bg-brand-wash px-1.5 py-0.5 rounded border border-brand-edge">
-                    SHA: {doc.checksum.slice(0, 10)}
-                  </span>
-                )}
-                {renderStatusBadge(doc)}
-              </div>
-
-              <div className="mt-1.5 flex items-center gap-4 text-spec text-ink-dim flex-wrap">
-                <span>Type: <strong className="text-ink">{doc.documentType}</strong></span>
-                <span>Owner: <strong className="text-ink">{doc.versionOwner || doc.uploader}</strong></span>
-                <span>Effective: <strong className="text-ink">{doc.effectiveDate}</strong></span>
-                <span>Review / Expiry: <strong className="text-ink">{doc.reviewExpiryDate}</strong></span>
-                <span>Source: <strong className="text-ink">{doc.source}</strong></span>
-                {doc.fileSizeBytes && (
-                  <span className="text-ink-faint font-mono text-[11px]">
-                    ({(doc.fileSizeBytes / 1024).toFixed(0)} KB)
-                  </span>
-                )}
-              </div>
-            </ListRow>
-          ))}
-        </Surface>
-      )}
-
-      {filteredDocs.length === 0 && (
-        <div className="text-center py-12 bg-white rounded-panel border border-line p-8">
-          <BookOpen className="w-10 h-10 text-ink-faint mx-auto mb-3" />
-          <h3 className="text-body font-bold">No documents match filter</h3>
-          <p className="text-meta text-ink-dim mt-1 max-w-sm mx-auto">
-            Try adjusting your search terms or selecting "All Documents" to view the library.
-          </p>
-        </div>
-      )}
-
-      {/* Upload & Governance Registration Modal */}
-      {isUploadOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-chrome/60 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-surface w-full max-w-xl rounded-frame border border-line shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-            <div className="p-4 bg-raised border-b border-line flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <UploadCloud className="w-5 h-5 text-brand-deep" />
-                <h2 className="text-body font-bold text-ink">
-                  {uploadMode === "file" ? "Upload & Register Controlled Document" : "Register External Document Metadata"}
-                </h2>
-              </div>
-              <button
-                onClick={() => setIsUploadOpen(false)}
-                className="p-1 rounded-edge hover:bg-hover text-ink-dim cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Mode Switcher */}
-            <div className="flex border-b border-line bg-paper/60 px-5 pt-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setUploadMode("file")}
-                className={`pb-2.5 px-3 text-meta font-bold border-b-2 cursor-pointer transition-colors ${
-                  uploadMode === "file"
-                    ? "border-brand-deep text-brand-deep"
-                    : "border-transparent text-ink-dim hover:text-ink"
-                }`}
-              >
-                Upload Document File
-              </button>
-              <button
-                type="button"
-                onClick={() => setUploadMode("metadata")}
-                className={`pb-2.5 px-3 text-meta font-bold border-b-2 cursor-pointer transition-colors ${
-                  uploadMode === "metadata"
-                    ? "border-brand-deep text-brand-deep"
-                    : "border-transparent text-ink-dim hover:text-ink"
-                }`}
-              >
-                Register External Metadata
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateDocument} className="p-5 space-y-3.5 text-meta text-ink overflow-y-auto">
-              {/* File Selector Zone */}
-              {uploadMode === "file" && (
-                <div>
-                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
-                    Source Document File (.pdf, .docx, .ies, .csv) <span className="text-red-500">*</span>
-                  </label>
-                  <div
-                    className="p-4 border-2 border-dashed border-line hover:border-brand-deep rounded-edge bg-raised/50 text-center cursor-pointer transition-colors"
-                    onClick={() => document.getElementById("doc-file-input")?.click()}
-                  >
-                    <input
-                      id="doc-file-input"
-                      type="file"
-                      accept=".pdf,.docx,.ies,.csv,.xlsx"
-                      className="hidden"
-                      onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
-                    />
-                    {selectedFile ? (
-                      <div className="flex items-center justify-between text-left bg-white p-2.5 rounded border border-brand-edge">
-                        <div className="flex items-center gap-2 truncate">
-                          <FileText className="w-5 h-5 text-brand-deep shrink-0" />
-                          <div className="truncate">
-                            <div className="font-semibold text-ink text-meta truncate">{selectedFile.name}</div>
-                            <div className="text-[11px] text-ink-dim font-mono">
-                              {(selectedFile.size / 1024).toFixed(0)} KB · Checksum: {fileChecksum || "calculating..."}
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleFileChange(null);
-                          }}
-                          className="p-1 hover:bg-hover text-ink-dim rounded cursor-pointer"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-1 py-2">
-                        <UploadCloud className="w-8 h-8 text-brand-deep mx-auto opacity-80" />
-                        <p className="font-semibold text-ink">Click or drag file here to upload</p>
-                        <p className="text-spec text-ink-faint">Supports PDF, DOCX, IES Photometrics &amp; Excel sheets</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-spec font-bold uppercase text-ink-dim mb-1">Document Title <span className="text-red-500">*</span></label>
-                <input
-                  type="text"
-                  required
-                  value={uploadTitle}
-                  onChange={(e) => setUploadTitle(e.target.value)}
-                  placeholder="e.g. Plasgain Pro Blade Solar 125 Specification"
-                  className="w-full p-2 bg-surface rounded-edge border border-line text-body font-medium"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">Product Family</label>
-                  <select
-                    value={uploadFamily}
-                    onChange={(e) => setUploadFamily(e.target.value)}
-                    className="w-full p-2 bg-surface rounded-edge border border-line text-meta"
-                  >
-                    <option value="Pro Blade Solar">Pro Blade Solar</option>
-                    <option value="PathMaster Solar">PathMaster Solar</option>
-                    <option value="Roadway Pro">Roadway Pro</option>
-                    <option value="Composite Poles">Composite Poles</option>
-                    <option value="Sensors & Controls">Sensors &amp; Controls</option>
-                    <option value="Civil & Cable Covers">Civil &amp; Cable Covers</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">Document Type</label>
-                  <select
-                    value={uploadType}
-                    onChange={(e) => setUploadType(e.target.value as any)}
-                    className="w-full p-2 bg-surface rounded-edge border border-line text-meta"
-                  >
-                    <option value="Datasheet">Datasheet</option>
-                    <option value="Catalogue">Catalogue</option>
-                    <option value="Compliance Certificate">Compliance Certificate</option>
-                    <option value="Installation Manual">Installation Manual</option>
-                    <option value="Warranty Doc">Warranty Doc</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">Version</label>
-                  <input
-                    type="text"
-                    required
-                    value={uploadVersion}
-                    onChange={(e) => setUploadVersion(e.target.value)}
-                    className="w-full p-2 bg-surface rounded-edge border border-line font-mono text-spec"
-                  />
-                </div>
-                <div>
-                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">Version Owner</label>
-                  <input
-                    type="text"
-                    required
-                    value={uploadVersionOwner}
-                    onChange={(e) => setUploadVersionOwner(e.target.value)}
-                    className="w-full p-2 bg-surface rounded-edge border border-line text-spec"
-                  />
-                </div>
-                <div>
-                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">Approval State</label>
-                  <select
-                    value={uploadApprovalStatus}
-                    onChange={(e) => setUploadApprovalStatus(e.target.value as any)}
-                    className="w-full p-2 bg-surface rounded-edge border border-line text-spec font-semibold"
-                  >
-                    <option value="Approved">Approved (Authoritative)</option>
-                    <option value="Pending Review">Pending Review</option>
-                    <option value="Draft">Draft</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">Effective Date</label>
-                  <input
-                    type="date"
-                    required
-                    value={uploadEffectiveDate}
-                    onChange={(e) => setUploadEffectiveDate(e.target.value)}
-                    className="w-full p-1.5 bg-surface rounded-edge border border-line text-spec"
-                  />
-                </div>
-                <div>
-                  <label className="block text-spec font-bold uppercase text-ink-dim mb-1">Review Expiry</label>
-                  <input
-                    type="date"
-                    required
-                    value={uploadExpiryDate}
-                    onChange={(e) => setUploadExpiryDate(e.target.value)}
-                    className="w-full p-1.5 bg-surface rounded-edge border border-line text-spec"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-spec font-bold uppercase text-ink-dim mb-1">Author / Source Dept</label>
-                <input
-                  type="text"
-                  value={uploadSource}
-                  onChange={(e) => setUploadSource(e.target.value)}
-                  className="w-full p-2 bg-surface rounded-edge border border-line text-body"
-                />
-              </div>
-
-              <div className="p-3 bg-brand/5 border border-brand/20 rounded-edge text-spec text-brand-deep flex items-start gap-2">
-                <ShieldCheck className="w-4 h-4 text-brand-deep shrink-0 mt-0.5" />
-                <span>
-                  All registered documents undergo automatic governance checksum verification and are mapped to Plasgain Copilot and Quotation AI grounding datasets.
-                </span>
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsUploadOpen(false)}
-                  className="px-3 py-2 rounded-edge text-meta font-medium text-ink-dim border border-line cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-xs cursor-pointer transition-colors"
-                >
-                  {uploadMode === "file" ? "Upload & Register Document" : "Register Metadata"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Real Multi-Page PDF Viewer Modal (P2-10) */}
-      {previewDoc && (
-        <PDFViewerModal
-          isOpen={Boolean(previewDoc)}
-          onClose={() => setPreviewDoc(null)}
-          document={previewDoc}
-        />
-      )}
+  return <div className="space-y-5">
+    <header className="flex flex-wrap justify-between items-center gap-3 border-b border-line pb-4">
+      <div><h1 className="text-xl font-bold">Document &amp; Knowledge Library</h1><p className="text-meta text-ink-dim mt-1">Original PDFs, verified page text, and traceable sources for the sales copilot.</p></div>
+      <button onClick={() => setUploadOpen(true)} className="inline-flex items-center gap-2 bg-brand-deep text-white rounded-edge px-4 py-2.5 text-meta"><UploadCloud className="w-4 h-4" />Upload Document</button>
+    </header>
+    <div className="bg-brand-wash border border-brand-edge rounded-panel p-4 text-meta flex gap-3"><ShieldCheck className="w-5 h-5 shrink-0 text-brand-deep" /><p><strong>Upload → review each page → approve for AI use.</strong> Scans and diagrams require verified transcription. Blank cells and uncertain specifications must remain uncertain. Approval records review; it does not certify compliance.</p></div>
+    {error && <div role="alert" className="p-4 bg-red-50 text-red-800 border border-red-200 rounded">{error} <button onClick={() => void load()} className="underline ml-2">Retry</button>{error.includes("Sign in") && <button onClick={openLoginModal} className="underline ml-3">Verify profile session</button>}</div>}
+    <div className="flex flex-wrap gap-3">
+      <input aria-label="Search documents" placeholder="Search title, family or version…" value={query} onChange={event => setQuery(event.target.value)} className="border border-line rounded-edge p-2.5 text-meta flex-1 min-w-[200px]" />
+      <select aria-label="Filter documents" value={filter} onChange={event => setFilter(event.target.value)} className="border border-line rounded-edge p-2.5 text-meta"><option value="all">All documents ({documents.length})</option><option value="ready">Ready for AI</option><option value="pending">Pending review</option><option value="references">Older reference records</option></select>
     </div>
-  );
+    {loading ? <p role="status">Loading saved documents…</p> : filtered.length === 0 ? <div className="p-10 border border-line rounded-panel text-center"><BookOpen className="mx-auto mb-3 text-ink-faint" /><p>No documents match. Upload a PDF to begin.</p></div> : <div className="border border-line rounded-panel overflow-hidden bg-surface divide-y divide-line">{filtered.map(doc => <article key={doc.id} className="p-4 space-y-3">
+      <div className="flex flex-wrap justify-between gap-3"><div className="min-w-0"><h2 className="font-semibold break-words">{doc.title}</h2><p className="text-meta text-ink-dim">{doc.productFamily} · {doc.version} · {doc.documentType}</p></div><span className={`text-spec px-2 py-1 h-fit rounded border ${status(doc) === "Ready for AI knowledge" ? "bg-emerald-50 text-emerald-800 border-emerald-200" : "bg-amber-50 text-amber-900 border-amber-200"}`}>{status(doc)}</span></div>
+      <p className="text-spec text-ink-dim">Source: {doc.source} · Effective: {doc.effectiveDate} · Review by: {doc.reviewExpiryDate}</p>
+      {doc.knowledge && <p className="text-spec text-ink-dim">{doc.pageCount} pages · {doc.knowledge.reviewedPages} reviewed · {doc.knowledge.storage === "cloud" ? "Stored in cloud" : "Stored on app server disk — back up this directory"}{doc.knowledge.warningPages.length > 0 ? ` · Sparse/unreadable text on pages ${doc.knowledge.warningPages.join(", ")}` : ""}</p>}
+      <div className="flex flex-wrap items-center gap-2">
+        {doc.knowledge ? <><button onClick={() => setReviewId(doc.id)} className="text-meta border border-brand-edge text-brand-deep rounded-edge px-3 py-2">{doc.approvalStatus === "Pending Review" && canReview ? "Review pages" : "View extracted knowledge"}</button><button onClick={() => setPreview(doc)} className="text-meta border border-line rounded-edge px-3 py-2 inline-flex gap-2 items-center"><Eye className="w-4 h-4" />View original PDF</button>{canReview && doc.approvalStatus !== "Superseded" && <button onClick={() => setRetiring(doc)} className="text-meta text-red-700 px-3 py-2">Withdraw from AI</button>}</> : <p className="text-spec text-ink-faint">Upload the actual PDF to make this record usable as document knowledge.</p>}
+        {doc.checksum && doc.knowledge && <span className="text-[10px] font-mono text-ink-faint" title={doc.checksum}>SHA-256: {doc.checksum.slice(0,16)}…</span>}
+      </div>
+    </article>)}</div>}
+    {uploadOpen && <div className="fixed inset-0 z-50 bg-chrome/70 p-4 flex items-center justify-center"><section role="dialog" aria-modal="true" aria-labelledby="upload-heading" className="bg-surface rounded-panel max-w-2xl w-full max-h-[92vh] overflow-y-auto">
+      <header className="p-4 border-b border-line flex items-center justify-between"><h2 id="upload-heading" className="font-bold">Upload PDF knowledge</h2><button disabled={busy} onClick={() => setUploadOpen(false)} aria-label="Close upload"><X /></button></header>
+      <form onSubmit={upload} className="p-5 space-y-4">
+        <fieldset disabled={busy} className="space-y-4 disabled:opacity-60">
+          <div onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); if (!busy) selectFile(event.dataTransfer.files[0] || null); }} className="border-2 border-dashed border-brand-edge rounded-panel bg-brand-wash p-4">
+            <label htmlFor="knowledge-pdf" className="block font-semibold text-meta mb-2">Choose or drop a PDF</label><input id="knowledge-pdf" type="file" accept=".pdf,application/pdf" onChange={event => selectFile(event.target.files?.[0] || null)} className="w-full text-meta" />
+            <p className="text-spec text-ink-dim mt-2">PDF only · up to 25 MB / 200 pages. Scanned text is not automatically transcribed.</p>{file && <p className="text-meta mt-2 break-all">{file.name} · {(file.size/1024/1024).toFixed(2)} MB</p>}
+          </div>
+          <label className="block text-meta font-semibold">
+            Document title
+            <input required maxLength={250} value={metadata.title} onChange={event => setMetadata({ ...metadata, title: event.target.value })} className={inputClass} />
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-meta font-semibold flex items-center justify-between">
+                <span>Product family / subject</span>
+                {inferredInfo && (
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
+                    ✨ Auto-detected
+                  </span>
+                )}
+              </label>
+              <input required maxLength={250} value={metadata.productFamily} onChange={event => setMetadata({ ...metadata, productFamily: event.target.value })} className={inputClass} placeholder="Auto-detected from file" />
+              {inferredInfo && (
+                <p className="text-[11px] text-ink-dim mt-1">
+                  {inferredInfo.explanation}
+                </p>
+              )}
+            </div>
+            <div>
+              <label className="text-meta font-semibold flex items-center justify-between">
+                <span>Document type</span>
+                {inferredInfo && (
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.2 rounded">
+                    ✨ Auto-detected
+                  </span>
+                )}
+              </label>
+              <select value={metadata.documentType} onChange={event => setMetadata({ ...metadata, documentType: event.target.value })} className={inputClass}>
+                {["Specification", "Standard / Guide", "Datasheet", "Catalogue", "Compliance Certificate", "Installation Manual", "Warranty Doc"].map(type => <option key={type}>{type}</option>)}
+              </select>
+            </div>
+            <label className="text-meta font-semibold">Source revision / version<input required maxLength={250} placeholder="As printed, or 'Not stated'" value={metadata.version} onChange={event => setMetadata({ ...metadata, version: event.target.value })} className={inputClass} /></label>
+            <label className="text-meta font-semibold">Version owner<input required maxLength={250} value={metadata.versionOwner} onChange={event => setMetadata({ ...metadata, versionOwner: event.target.value })} className={inputClass} /></label>
+            <label className="text-meta font-semibold">Use from (internal)<input type="date" required value={metadata.effectiveDate} onChange={event => setMetadata({ ...metadata, effectiveDate: event.target.value })} className={inputClass} /></label>
+            <label className="text-meta font-semibold">Review by (internal)<input type="date" required min={metadata.effectiveDate} value={metadata.reviewExpiryDate} onChange={event => setMetadata({ ...metadata, reviewExpiryDate: event.target.value })} className={inputClass} /></label>
+          </div>
+          <label className="block text-meta font-semibold">Author / source organisation<input required maxLength={250} placeholder="Use the source named in the PDF" value={metadata.source} onChange={event => setMetadata({ ...metadata, source: event.target.value })} className={inputClass} /></label>
+        </fieldset>
+        <p className="text-spec text-ink-dim">The original PDF and page text are saved privately on the app server or configured cloud storage. Only reviewed, approved pages enter AI requests. Upload only documents you are authorised to use.</p>
+        {uploadError && <p role="alert" className="text-red-800 bg-red-50 p-3 rounded">{uploadError}</p>}
+        {busy && <p role="status" className="text-brand-deep text-meta">Uploading and extracting pages. Keep this window open…</p>}
+        <div className="flex justify-end gap-3"><button type="button" disabled={busy} onClick={() => setUploadOpen(false)} className="border border-line px-4 py-2 rounded-edge">Cancel</button><button type="submit" disabled={busy || !file} className="bg-brand-deep text-white px-4 py-2 rounded-edge disabled:opacity-40">{busy ? "Processing PDF…" : "Upload & extract PDF"}</button></div>
+      </form>
+    </section></div>}
+    {preview && <PDFViewerModal isOpen document={preview} onClose={() => setPreview(null)} />}
+    {reviewId && <KnowledgeReviewModal id={reviewId} canReview={canReview} onClose={() => setReviewId(null)} onChanged={() => void load()} />}
+    {retiring && <div className="fixed inset-0 z-50 bg-chrome/70 p-4 flex items-center justify-center"><section role="dialog" aria-modal="true" aria-label="Withdraw document" className="p-6 bg-surface rounded-panel max-w-lg space-y-4"><h2 className="font-bold">Withdraw this document from AI knowledge?</h2><p className="text-meta">{retiring.title} will remain available for reference, but will be excluded from new AI requests. Upload and approve a revised PDF separately.</p><div className="flex gap-3 justify-end"><button disabled={busy} onClick={() => setRetiring(null)}>Cancel</button><button disabled={busy} onClick={retire} className="bg-red-700 text-white px-4 py-2 rounded">Withdraw</button></div></section></div>}
+  </div>;
 };

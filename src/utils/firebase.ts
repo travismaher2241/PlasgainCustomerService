@@ -46,7 +46,7 @@ export function isCloudSyncEnabled(): boolean {
       if (process.env.VITEST || process.env.NODE_ENV === "test") return false;
       if (process.env.PLASGAIN_DISABLE_CLOUD === "1") return false;
     }
-    if (typeof import.meta !== "undefined" && (import.meta as any).env?.MODE === "test") return false;
+    if (typeof import.meta !== "undefined" && ((import.meta as any).env?.MODE === "test" || (import.meta as any).env?.VITE_PLASGAIN_DISABLE_CLOUD === "1")) return false;
   } catch {
     // Environment inspection failed; fall through to enabled.
   }

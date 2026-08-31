@@ -69,10 +69,8 @@ export const UserLoginModal: React.FC = () => {
   if (!isLoginModalOpen) return null;
 
   const handleSelectPreset = (member: UserProfile) => {
-    if (currentUser.id === member.id || currentUser.name.toLowerCase() === member.name.toLowerCase()) {
-      closeLoginModal();
-      return;
-    }
+    // A selected profile may have no valid server session (first visit, expiry,
+    // or server restart). Allow the current profile to authenticate again.
     setMemberToAuthenticate(member);
     setPinInput("");
     setPinError(null);
@@ -342,7 +340,7 @@ export const UserLoginModal: React.FC = () => {
 
                       <div className="shrink-0 flex items-center gap-2">
                         {isCurrent ? (
-                          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                          <button type="button" onClick={(event) => { event.stopPropagation(); handleSelectPreset(member); }} className="px-3 py-1.5 bg-brand-deep text-white text-spec font-bold rounded-edge">Verify session</button>
                         ) : (
                           <>
                             <button
