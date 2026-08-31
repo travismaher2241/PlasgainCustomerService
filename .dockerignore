@@ -1,0 +1,19 @@
+node_modules
+dist
+.git
+.github
+
+# Never bake secrets or private runtime data into an image.
+.env
+.env.*
+!.env.example
+server_data
+server_data_*.json
+controlled-documents-backup-*.json
+tmp
+
+test-results
+playwright-report
+coverage
+.claude
+*.log

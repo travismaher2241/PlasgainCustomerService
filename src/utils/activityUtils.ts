@@ -46,6 +46,19 @@ export function parseActivityTimestamp(activity: Partial<CRMActivity> | any): nu
   return isNaN(parsed) ? 0 : parsed;
 }
 
+export function formatActivityTimestamp(rawTimestamp?: string | number | any): string {
+  if (!rawTimestamp) return "Recent";
+  const ms = typeof rawTimestamp === "number" ? rawTimestamp : parseActivityTimestamp({ timestamp: rawTimestamp });
+  if (!ms) return "Recent";
+  const d = new Date(ms);
+  return d.toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+}
+
 /**
  * Hides repeated system-generated actions that occurred within the same
  * ten-minute window. The underlying audit records remain intact.
@@ -60,3 +73,4 @@ export function collapseDuplicateActivities(activities: CRMActivity[]): CRMActiv
     return previous === undefined || Math.abs(previous - timestamp) >= 10 * 60 * 1000;
   });
 }
+

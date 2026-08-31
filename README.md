@@ -133,6 +133,13 @@ and ignored by git. Back up **both the PDFs and JSON review records**. Server
 restarts preserve knowledge; restarting does expire the existing in-memory PIN
 sessions, so users may need to verify their session again.
 
+This app must be deployed as a **running server**, not as a static site. A
+static-only host publishes `dist/` and never executes `dist/server.js`, so every
+`/api` request returns that platform's own 404 page instead of JSON — the client
+then reports "Upload failed. No successful save was confirmed." for uploads, and
+every AI, CRM and document feature fails the same way. Use the `Dockerfile`, or
+a host that runs `npm run build` then `npm start`.
+
 For deployed production / Cloud Run, configure one durable backend:
 
 1. `PLASGAIN_KNOWLEDGE_BUCKET`: an existing private Google Cloud Storage bucket.
