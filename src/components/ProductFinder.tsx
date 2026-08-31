@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { apiPost, AIUnavailableError, toUserMessage } from "../utils/apiClient";
 import { AIUnavailableNotice } from "./AIUnavailableNotice";
 import {
@@ -34,7 +34,11 @@ import {
   ShieldAlert,
   ChevronDown,
   ChevronUp,
-  AlertCircle
+  AlertCircle,
+  Search,
+  Eye,
+  ExternalLink,
+  BookOpen
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import {
@@ -45,6 +49,8 @@ import {
 import { productComparisonCache, ProductComparisonRecord } from "../utils/productComparisonCache";
 import { resolveSingleProduct } from "../utils/productResolver";
 import { CommercialPricingRequestModal } from "./CommercialPricingRequestModal";
+import { SAMPLE_PRODUCTS } from "../data/mockData";
+import type { PlasgainProduct } from "../types";
 
 const isApprovedProduct = (candidate: any): boolean => {
   if (!candidate) return false;
@@ -66,10 +72,18 @@ export const ProductFinder: React.FC = () => {
     crmOpportunities,
     accounts,
     pipelines,
-    currentUser
+    currentUser,
+    products,
+    documents,
+    setInspectingProduct
   } = useApp();
 
-  // Essential inputs
+  // Mode Selection: Quick Search (default) vs Project Matcher
+  const [activeTab, setActiveTab] = useState<"quick_search" | "project_matcher">("quick_search");
+  const [quickQuery, setQuickQuery] = useState("");
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>("all");
+
+  // Essential inputs for Project Matcher
   const [application, setApplication] = useState("Shared path");
   const [location, setLocation] = useState("Regional Australia / Public Infrastructure");
   const [powerAvailability, setPowerAvailability] = useState("Off-grid Solar required");
@@ -131,6 +145,47 @@ export const ProductFinder: React.FC = () => {
     code: "50W-INTENSE",
     name: "Intense Light - 50W Solar"
   });
+
+  const allProducts = useMemo(() => {
+    const raw = Array.isArray(products) && products.length > 0 ? products : (SAMPLE_PRODUCTS || []);
+    const seen = new Set<string>();
+    const list: PlasgainProduct[] = [];
+    for (const p of raw) {
+      if (!p) continue;
+      const key = `${p.code || ""}_${p.name || ""}`.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push(p);
+      }
+    }
+    return list;
+  }, [products]);
+
+  const filteredProducts = useMemo(() => {
+    return allProducts.filter((p) => {
+      if (!p) return false;
+      const term = `${p.name || ""} ${p.code || ""} ${p.category || ""} ${(p.keyFeatures || []).join(" ")} ${(p.standardCompliance || []).join(" ")} ${(p.application || []).join(" ")} ${p.poleHeight || ""} ${p.lumens || ""} ${p.battery || ""}`.toLowerCase();
+      const matchesQuery = !quickQuery.trim() || term.includes(quickQuery.toLowerCase());
+
+      const catLower = (p.category || "").toLowerCase();
+      const matchesCategory =
+        selectedCategoryFilter === "all" ||
+        (selectedCategoryFilter === "solar" && (catLower.includes("solar") || catLower.includes("luminaire"))) ||
+        (selectedCategoryFilter === "poles" && (catLower.includes("pole") || catLower.includes("modular"))) ||
+        (selectedCategoryFilter === "covers" && catLower.includes("cover"));
+
+      return matchesQuery && matchesCategory;
+    });
+  }, [allProducts, quickQuery, selectedCategoryFilter]);
+
+  const matchingDocuments = useMemo(() => {
+    if (!quickQuery.trim()) return [];
+    return (Array.isArray(documents) ? documents : []).filter((doc) => {
+      if (!doc) return false;
+      const term = `${doc.title || ""} ${doc.productFamily || ""} ${doc.source || ""} ${doc.version || ""} ${doc.documentType || ""}`.toLowerCase();
+      return term.includes(quickQuery.toLowerCase());
+    });
+  }, [documents, quickQuery]);
 
   const handleOpenComparison = (prodA: string, prodB: string) => {
     setCompareProductA(prodA);
@@ -337,66 +392,293 @@ export const ProductFinder: React.FC = () => {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-16 w-full min-w-0">
-      {/* HEADER (PART A: PRODUCT FINDER ONLY, REMOVE DECORATIVE LABELS) */}
+      {/* HEADER & TAB SWITCHER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-line">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-body">Product Finder</h1>
           <p className="text-spec text-ink-dim mt-0.5">
-            Match project requirements against Australian Standards (AS/NZS 1158), solar sizing, and certified product catalogues.
+            Instant technical lookups, catalogue search, utility approvals, and Australian Standards (AS/NZS 1158) project matching.
           </p>
         </div>
 
-        {finderResult && (
+        {/* TAB TOGGLE */}
+        <div className="flex items-center bg-raised p-1 rounded-edge border border-line shrink-0">
           <button
             type="button"
-            onClick={() => setFinderResult(null)}
-            className="text-spec font-medium px-3 py-1.5 rounded-edge border border-line bg-white hover:bg-paper transition-colors flex items-center gap-1.5 cursor-pointer self-start shadow-2xs"
+            onClick={() => setActiveTab("quick_search")}
+            className={`px-3.5 py-1.5 rounded-edge text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeTab === "quick_search"
+                ? "bg-white text-brand-deep shadow-xs border border-line"
+                : "text-ink-dim hover:text-body"
+            }`}
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset Search</span>
+            <Search className="w-3.5 h-3.5" />
+            <span>Quick Product Search</span>
           </button>
-        )}
+          <button
+            type="button"
+            onClick={() => setActiveTab("project_matcher")}
+            className={`px-3.5 py-1.5 rounded-edge text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeTab === "project_matcher"
+                ? "bg-white text-brand-deep shadow-xs border border-line"
+                : "text-ink-dim hover:text-body"
+            }`}
+          >
+            <Sliders className="w-3.5 h-3.5" />
+            <span>Project Matcher (AS/NZS 1158)</span>
+          </button>
+        </div>
       </div>
 
-      {/* 1. COMPACT APPLICATION SELECTOR (PART B) */}
-      <div className="bg-white rounded-panel border border-line p-4 sm:p-5 shadow-2xs space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="text-body font-bold text-base flex items-center gap-2">
-            <span className="w-5 h-5 rounded-full bg-brand-deep text-white text-xs flex items-center justify-center font-bold">
-              1
-            </span>
-            <span>Application Type</span>
-          </h2>
-          <span className="text-xs text-ink-dim font-medium">Select primary project application</span>
-        </div>
+      {/* 1. QUICK PRODUCT & KNOWLEDGE SEARCH VIEW (ZERO-FORM DIRECT LOOKUP) */}
+      {activeTab === "quick_search" && (
+        <div className="space-y-5">
+          {/* SEARCH & FILTERS BAR */}
+          <div className="bg-white rounded-panel border border-line p-4 sm:p-5 shadow-2xs space-y-3">
+            <div className="relative">
+              <Search className="w-5 h-5 text-brand-deep absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={quickQuery}
+                onChange={(e) => setQuickQuery(e.target.value)}
+                placeholder="Search any product name, code (e.g. PBS-75, 50W-INTENSE, PR5.5, PathMaster), utility (Powercor, Ausnet, Jemena), or spec..."
+                className="w-full pl-11 pr-10 py-3 bg-surface border border-line rounded-edge text-sm font-medium text-body placeholder:text-ink-dim/60 focus:outline-none focus:border-brand-deep focus:ring-1 focus:ring-brand-deep shadow-2xs"
+              />
+              {quickQuery && (
+                <button
+                  type="button"
+                  onClick={() => setQuickQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-dim hover:text-body p-1"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {applicationOptions.map((opt) => {
-            const isSelected = application === opt.id;
-            const Icon = opt.icon;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setApplication(opt.id)}
-                className={`p-2.5 rounded-edge border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
-                  isSelected
-                    ? "bg-brand-wash border-brand-deep text-brand-deep font-bold ring-1 ring-brand-deep shadow-2xs"
-                    : "bg-white border-line hover:border-line-strong hover:bg-paper text-body font-medium"
-                }`}
-              >
-                <Icon className={`w-4 h-4 shrink-0 ${isSelected ? "text-brand-deep" : "text-ink-dim"}`} />
-                <span className="text-xs truncate">{opt.label}</span>
-              </button>
-            );
-          })}
-        </div>
+            {/* CATEGORY FILTER CHIPS */}
+            <div className="flex items-center gap-2 flex-wrap pt-1">
+              <span className="text-xs font-bold text-ink-dim">Filter:</span>
+              {[
+                { id: "all", label: "All Products" },
+                { id: "solar", label: "Solar Luminaires & Systems" },
+                { id: "poles", label: "Modular & Composite Poles" },
+                { id: "covers", label: "Cable & Civil Covers" }
+              ].map((chip) => (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => setSelectedCategoryFilter(chip.id)}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer border ${
+                    selectedCategoryFilter === chip.id
+                      ? "bg-brand-wash text-brand-deep border-brand-edge font-bold shadow-2xs"
+                      : "bg-white text-ink-dim border-line hover:border-line-strong hover:bg-raised"
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-        {/* Selected Application Description Hint */}
-        <p className="text-xs text-ink-dim pt-1 border-t border-line/60">
-          <strong>Selected:</strong> {applicationOptions.find((a) => a.id === application)?.desc}
-        </p>
-      </div>
+          {/* MATCHING KNOWLEDGE BASE DOCUMENTS BANNER IF SEARCH MATCHES */}
+          {matchingDocuments.length > 0 && (
+            <div className="bg-brand-wash/40 border border-brand-edge/60 rounded-panel p-4 space-y-2">
+              <div className="flex items-center gap-2 text-brand-deep font-bold text-xs">
+                <BookOpen className="w-4 h-4" />
+                <span>Matching Knowledge Base Specifications & Standards ({matchingDocuments.length})</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {matchingDocuments.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="p-2.5 bg-white rounded-lg border border-brand-edge/50 flex items-center justify-between gap-2 hover:border-brand-deep transition-colors shadow-2xs"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-body truncate">{doc.title}</p>
+                      <p className="text-[11px] text-ink-dim truncate">
+                        {doc.productFamily} · {doc.version}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigateToWorkflow("documents")}
+                      className="text-xs text-brand-deep hover:underline font-semibold shrink-0"
+                    >
+                      View in Library
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* PRODUCTS RESULTS GRID */}
+          <div>
+            <div className="flex items-center justify-between pb-2">
+              <h2 className="text-sm font-bold text-body">
+                Available Products ({filteredProducts.length})
+              </h2>
+              {quickQuery && (
+                <span className="text-xs text-ink-dim">
+                  Showing results for &ldquo;{quickQuery}&rdquo;
+                </span>
+              )}
+            </div>
+
+            {filteredProducts.length === 0 ? (
+              <div className="p-12 text-center space-y-3 bg-white rounded-panel border border-line">
+                <Package className="w-10 h-10 text-ink-faint mx-auto" />
+                <h3 className="font-bold text-body text-base">No matching products found</h3>
+                <p className="text-xs text-ink-dim max-w-md mx-auto">
+                  No products matched &ldquo;{quickQuery}&rdquo;. Try searching for &ldquo;Pro Blade&rdquo;, &ldquo;50W&rdquo;, &ldquo;Composite&rdquo;, or clear the search filter.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setQuickQuery(""); setSelectedCategoryFilter("all"); }}
+                  className="px-4 py-1.5 rounded-edge bg-brand-wash text-brand-deep font-bold text-xs border border-brand-edge hover:bg-brand-deep hover:text-white transition-colors"
+                >
+                  Clear Search
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredProducts.map((product) => (
+                  <div
+                    key={product.id || product.code}
+                    className="bg-white rounded-panel border border-line p-5 shadow-2xs hover:shadow-md hover:border-brand-edge transition-all flex flex-col justify-between space-y-4"
+                  >
+                    <div className="space-y-2.5">
+                      {/* Product Header */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge uppercase tracking-wider">
+                            {product.code}
+                          </span>
+                          <h3 className="font-bold text-body text-base mt-1 line-clamp-1">
+                            {product.name}
+                          </h3>
+                          <p className="text-xs text-ink-dim">{product.category}</p>
+                        </div>
+                      </div>
+
+                      {/* Specs Grid */}
+                      <div className="grid grid-cols-2 gap-2 text-xs bg-raised/50 p-2.5 rounded-lg border border-line/60">
+                        <div>
+                          <span className="text-ink-dim block text-[10px]">Luminaire Output</span>
+                          <span className="font-semibold text-body truncate block">{product.lumens || "Modular LED"}</span>
+                        </div>
+                        <div>
+                          <span className="text-ink-dim block text-[10px]">Mounting Height</span>
+                          <span className="font-semibold text-body truncate block">{product.poleHeight || "4m - 12m"}</span>
+                        </div>
+                        <div>
+                          <span className="text-ink-dim block text-[10px]">Battery / PV</span>
+                          <span className="font-semibold text-body truncate block">{product.battery || product.solarPanel || "Integrated Solar"}</span>
+                        </div>
+                        <div>
+                          <span className="text-ink-dim block text-[10px]">Ingress / Impact</span>
+                          <span className="font-semibold text-body truncate block">{product.ingressImpact || "IP65 / IK09"}</span>
+                        </div>
+                      </div>
+
+                      {/* Approvals & Standards Badges */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {product.standardCompliance?.map((std) => (
+                          <span
+                            key={std}
+                            className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200"
+                          >
+                            {std}
+                          </span>
+                        ))}
+                        {product.warranty && (
+                          <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                            {product.warranty}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="pt-3 border-t border-line flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setInspectingProduct(product)}
+                        className="px-3 py-1.5 rounded-edge bg-raised hover:bg-line text-body font-semibold text-xs border border-line transition-colors flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-ink-dim" />
+                        <span>View Specs</span>
+                      </button>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => openCopilotWithContext(`Tell me about the technical specifications and utility approvals for ${product.name} (${product.code}).`)}
+                          title="Ask Sales Copilot"
+                          className="p-1.5 rounded-edge text-brand-deep hover:bg-brand-wash border border-transparent hover:border-brand-edge transition-colors cursor-pointer"
+                        >
+                          <Sparkles className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenAddToDeal(product.name, product.code)}
+                          className="px-3 py-1.5 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-xs transition-colors flex items-center gap-1 cursor-pointer shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add to Deal</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 2. PROJECT MATCHER & SIZING VIEW */}
+      {activeTab === "project_matcher" && (
+        <div className="space-y-6">
+          {/* 1. COMPACT APPLICATION SELECTOR (PART B) */}
+          <div className="bg-white rounded-panel border border-line p-4 sm:p-5 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-body font-bold text-base flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-brand-deep text-white text-xs flex items-center justify-center font-bold">
+                  1
+                </span>
+                <span>Application Type</span>
+              </h2>
+              <span className="text-xs text-ink-dim font-medium">Select primary project application</span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {applicationOptions.map((opt) => {
+                const isSelected = application === opt.id;
+                const Icon = opt.icon;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setApplication(opt.id)}
+                    className={`p-2.5 rounded-edge border text-left transition-all cursor-pointer flex items-center gap-2.5 ${
+                      isSelected
+                        ? "bg-brand-wash border-brand-deep text-brand-deep font-bold ring-1 ring-brand-deep shadow-2xs"
+                        : "bg-white border-line hover:border-line-strong hover:bg-paper text-body font-medium"
+                    }`}
+                  >
+                    <Icon className={`w-4 h-4 shrink-0 ${isSelected ? "text-brand-deep" : "text-ink-dim"}`} />
+                    <span className="text-xs truncate">{opt.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Selected Application Description Hint */}
+            <p className="text-xs text-ink-dim pt-1 border-t border-line/60">
+              <strong>Selected:</strong> {applicationOptions.find((a) => a.id === application)?.desc}
+            </p>
+          </div>
 
       {/* 2. INPUT HIERARCHY: ESSENTIAL VS ADVANCED (PART C & D) */}
       <div className="bg-white rounded-panel border border-line p-4 sm:p-5 shadow-2xs space-y-4">
@@ -743,6 +1025,8 @@ export const ProductFinder: React.FC = () => {
           )}
         </div>
       )}
+    </div>
+  )}
 
       {/* ADD TO DEAL MODAL (PART R) */}
       {isDealModalOpen && (

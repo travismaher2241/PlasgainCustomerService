@@ -53,14 +53,9 @@ export class KnowledgeStore {
       throw error;
     }
   }
-  private memoryCache = new Map<string, KnowledgeRecord>();
   async get(id: string): Promise<KnowledgeRecord | null> {
-    if (this.memoryCache.has(id)) return this.memoryCache.get(id)!;
     const data = await this.read(id, "json");
-    if (!data) return null;
-    const record = JSON.parse(data.toString("utf8"));
-    this.memoryCache.set(id, record);
-    return record;
+    return data ? JSON.parse(data.toString("utf8")) : null;
   }
   async list(): Promise<KnowledgeDocument[]> {
     let ids: string[];
@@ -70,10 +65,7 @@ export class KnowledgeStore {
       ids = files.map(file => path.basename(file.name, ".json")).filter(validId);
     } else {
       try { ids = (await readdir(directory)).filter(name => name.endsWith(".json")).map(name => name.slice(0, -5)).filter(validId); }
-      catch (error: any) { ids = []; }
-    }
-    for (const cachedId of this.memoryCache.keys()) {
-      if (!ids.includes(cachedId)) ids.push(cachedId);
+      catch (error: any) { if (error.code === "ENOENT") return []; throw error; }
     }
     const documents: KnowledgeDocument[] = [];
     // Bound I/O concurrency instead of issuing one request per page/document at once.
@@ -128,10 +120,11 @@ export class KnowledgeStore {
     catch (error: any) { if (error.code === "EEXIST") throw new KnowledgeError(409, "Document is being saved. Retry shortly. If this persists after a server crash, ask your administrator to clear the stale lock."); throw error; }
     const temp = path.join(directory, `${id}.${randomUUID()}.tmp`);
     try {
-      check(await this.get(id));
+      const diskData = await this.read(id, "json");
+      const current = diskData ? JSON.parse(diskData.toString("utf8")) : null;
+      check(current);
       await writeFile(temp, JSON.stringify(record), { flag: "wx" });
       await rename(temp, path.join(directory, `${id}.json`));
-      this.memoryCache.set(id, record);
     } finally {
       await lock.close();
       await unlink(lockPath);

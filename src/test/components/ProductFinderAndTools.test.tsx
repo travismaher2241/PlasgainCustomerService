@@ -59,6 +59,13 @@ describe('Product Finder & Technical Calculators Suite (Step 7)', () => {
     expect(screen.queryByText("Intelligent Product Finder")).not.toBeInTheDocument();
     expect(screen.queryByText("Application Matcher")).not.toBeInTheDocument();
 
+    // Quick Search is present
+    expect(screen.getByPlaceholderText(/Search any product name, code/i)).toBeInTheDocument();
+
+    // Switch to Project Matcher tab
+    const matcherTab = screen.getByRole('button', { name: /Project Matcher/i });
+    fireEvent.click(matcherTab);
+
     // Compact application options
     expect(screen.getByText("Shared path / pedestrian")).toBeInTheDocument();
     expect(screen.getByText("Road / subdivision street")).toBeInTheDocument();
@@ -82,6 +89,10 @@ describe('Product Finder & Technical Calculators Suite (Step 7)', () => {
         <ProductFinder />
       </AppProvider>
     );
+
+    // Switch to Project Matcher tab
+    const matcherTab = screen.getByRole('button', { name: /Project Matcher/i });
+    fireEvent.click(matcherTab);
 
     const findBtn = screen.getByRole('button', { name: /Find Matching Products/i });
     fireEvent.click(findBtn);
