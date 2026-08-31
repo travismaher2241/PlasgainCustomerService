@@ -13,7 +13,7 @@ type LibraryDocument = ControlledDocument & { knowledge?: KnowledgeDocument["kno
 const inputClass = "w-full mt-1 p-2.5 border border-line rounded-edge bg-surface text-meta";
 
 export const DocumentLibrary: React.FC = () => {
-  const { currentUser, showToast, openLoginModal, isLoginModalOpen } = useApp();
+  const { currentUser, showToast, openLoginModal, isLoginModalOpen, documents: contextDocs } = useApp();
   const [documents, setDocuments] = useState<LibraryDocument[]>([]);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -41,25 +41,28 @@ export const DocumentLibrary: React.FC = () => {
     ]);
     const uploaded = results[0].status === "fulfilled" && Array.isArray(results[0].value) ? results[0].value : [];
     const legacy = results[1].status === "fulfilled" && Array.isArray(results[1].value) ? results[1].value : [];
-
-    // Only surface error if neither endpoint returned data
-    if (results[0].status === "rejected" && results[1].status === "rejected") {
-      const msg = results[0].reason?.message || results[1].reason?.message || "Could not load saved documents.";
-      setError(msg);
-    }
+    const fallback = (uploaded.length === 0 && legacy.length === 0 && Array.isArray(contextDocs)) ? contextDocs : [];
 
     // Merge and deduplicate by document id
     const seenIds = new Set<string>();
     const merged: LibraryDocument[] = [];
-    for (const doc of [...uploaded, ...legacy]) {
+    for (const doc of [...uploaded, ...legacy, ...fallback]) {
       if (doc && doc.id && !seenIds.has(doc.id)) {
         seenIds.add(doc.id);
-        merged.push(doc);
+        merged.push(doc as LibraryDocument);
       }
     }
+
+    if (merged.length === 0 && results[0].status === "rejected" && results[1].status === "rejected") {
+      const msg = results[0].reason?.message || results[1].reason?.message || "Could not load saved documents.";
+      setError(msg);
+    } else {
+      setError("");
+    }
+
     setDocuments(merged);
     setLoading(false);
-  }, []);
+  }, [contextDocs]);
   useEffect(() => { if (!isLoginModalOpen) void load(); }, [load, isLoginModalOpen, currentUser.id]);
   const selectFile = (next: File | null) => {
     setUploadError("");
