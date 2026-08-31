@@ -11,7 +11,7 @@ import { CompetitorPricingRecord, CompetitorPricingAlert } from "../types/crm";
  * database (e.g. PostgreSQL / Prisma, Supabase, Cloud Firestore, or Redis).
  */
 
-const DATA_DIR = path.resolve(process.cwd(), "server_data");
+const DATA_DIR = process.env.VERCEL ? path.join("/tmp", "server_data") : path.resolve(process.cwd(), "server_data");
 const PRICING_FILE = path.join(DATA_DIR, "competitor_pricing.json");
 const ALERTS_FILE = path.join(DATA_DIR, "competitor_alerts.json");
 

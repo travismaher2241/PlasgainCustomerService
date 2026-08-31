@@ -11,7 +11,7 @@ import { ServerNotification } from "../types/crm";
  * database (e.g. PostgreSQL, Redis, or Cloud Firestore).
  */
 
-const DATA_DIR = path.resolve(process.cwd(), "server_data");
+const DATA_DIR = process.env.VERCEL ? path.join("/tmp", "server_data") : path.resolve(process.cwd(), "server_data");
 const NOTIFICATIONS_FILE = path.join(DATA_DIR, "notifications.json");
 
 const SEED_NOTIFICATIONS: ServerNotification[] = [

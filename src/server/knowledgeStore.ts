@@ -18,7 +18,7 @@ export const sha256 = (data: Buffer) => createHash("sha256").update(data).digest
 export class KnowledgeStore {
   constructor(private configuration?: { directory: string }) {}
   isConfigured(): boolean {
-    return Boolean(this.configuration || process.env.NODE_ENV === "test" || process.env.VITEST || process.env.PLASGAIN_KNOWLEDGE_BUCKET || process.env.PLASGAIN_KNOWLEDGE_DIR || (!process.env.K_SERVICE && process.env.NODE_ENV !== "production"));
+    return Boolean(this.configuration || process.env.NODE_ENV === "test" || process.env.VITEST || process.env.VERCEL || process.env.PLASGAIN_KNOWLEDGE_BUCKET || process.env.PLASGAIN_KNOWLEDGE_DIR || (!process.env.K_SERVICE && process.env.NODE_ENV !== "production"));
   }
   private backend() {
     if (this.configuration) return { directory: this.configuration.directory, bucket: "" };
@@ -27,12 +27,12 @@ export class KnowledgeStore {
       return { directory: process.env.PLASGAIN_KNOWLEDGE_DIR, bucket: "" };
     }
     const bucket = process.env.PLASGAIN_KNOWLEDGE_BUCKET || "";
-    const directory = process.env.PLASGAIN_KNOWLEDGE_DIR || path.join(process.cwd(), "server_data", "knowledge");
+    const directory = process.env.PLASGAIN_KNOWLEDGE_DIR || (process.env.VERCEL ? path.join("/tmp", "server_data", "knowledge") : path.join(process.cwd(), "server_data", "knowledge"));
     for (const publicDirectory of ["public", "dist"]) {
       const relative = path.relative(path.resolve(publicDirectory), path.resolve(directory));
       if (relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative))) throw new KnowledgeError(503, "Knowledge storage cannot be inside a publicly served directory. Configure a private persistent directory.");
     }
-    if ((process.env.K_SERVICE || process.env.NODE_ENV === "production") && !bucket && !process.env.PLASGAIN_KNOWLEDGE_DIR) {
+    if ((process.env.K_SERVICE || (process.env.NODE_ENV === "production" && !process.env.VERCEL)) && !bucket && !process.env.PLASGAIN_KNOWLEDGE_DIR) {
       throw new KnowledgeError(503, "Persistent knowledge storage is not configured. Set PLASGAIN_KNOWLEDGE_BUCKET for cloud storage, or PLASGAIN_KNOWLEDGE_DIR to a persistent disk. Uploads are disabled to prevent document loss.");
     }
     return { bucket, directory };
