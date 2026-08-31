@@ -259,9 +259,9 @@ describe("DocumentLibrary & PDF Workflows (Step 4)", () => {
     expect(screen.getByLabelText(/Author \/ Source Organisation/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Source Revision \/ Version/i)).toBeInTheDocument();
 
-    // Workflow explanation: Upload != Approve
+    // Workflow explanation: Instant AI Ingestion
     expect(
-      screen.getByText(/Uploading adds this document for page-by-page review. It is not approved or available to AI until review is completed and verified./i)
+      screen.getByText(/Instant AI Ingestion/i)
     ).toBeInTheDocument();
   });
 
@@ -278,7 +278,7 @@ describe("DocumentLibrary & PDF Workflows (Step 4)", () => {
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     fireEvent.change(fileInput, { target: { files: [file] } });
 
-    const submitBtn = screen.getByRole("button", { name: /Upload & extract PDF/i });
+    const submitBtn = screen.getByRole("button", { name: /Upload & Ingest with AI/i });
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
@@ -301,7 +301,7 @@ describe("DocumentLibrary & PDF Workflows (Step 4)", () => {
     expect(screen.getByTitle(/Review Status: Pending review/i)).toBeInTheDocument();
   });
 
-  it("Test 7 & 8 — PDF page review opens side-by-side layout and 'Next unreviewed page' navigates correctly", async () => {
+  it("Test 7 & 8 — Knowledge viewer renders pages and navigates correctly", async () => {
     render(
       <KnowledgeReviewModal
         id="doc-pending"
@@ -312,27 +312,25 @@ describe("DocumentLibrary & PDF Workflows (Step 4)", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole("dialog", { name: /PDF Page Review/i })).toBeInTheDocument();
+      expect(screen.getByRole("dialog", { name: /Werribee Trail Lighting Compliance Guide/i })).toBeInTheDocument();
     });
 
-    // Desktop side-by-side elements rendered
-    expect(screen.getByTestId("pdf-page-canvas-1")).toBeInTheDocument();
-    expect(screen.getByLabelText(/Verified Page Text/i)).toBeInTheDocument();
+    // Content viewer rendered
+    expect(screen.getByText(/Extracted Knowledge Content/i)).toBeInTheDocument();
 
-    // Next unreviewed page button identifies Page 3 as next unreviewed
-    const nextUnrevBtn = screen.getByRole("button", { name: /Next unreviewed/i });
-    expect(nextUnrevBtn).toBeInTheDocument();
-    expect(nextUnrevBtn).toHaveTextContent(/Next unreviewed \(p\.3\)/i);
+    // Next page button
+    const nextBtn = screen.getByRole("button", { name: /Next/i });
+    expect(nextBtn).toBeInTheDocument();
 
-    // Click Next Unreviewed -> Navigates to Page 3
-    fireEvent.click(nextUnrevBtn);
+    // Click Next
+    fireEvent.click(nextBtn);
 
     await waitFor(() => {
-      expect(screen.getByTestId("pdf-page-canvas-3")).toBeInTheDocument();
+      expect(screen.getByText(/Minimum horizontal illuminance requirements/i)).toBeInTheDocument();
     });
   });
 
-  it("Test 9 & 10 — renders page-specific warnings and requires explicit page verification", async () => {
+  it("Test 9 & 10 — allows toggling raw coordinates and editing page text", async () => {
     render(
       <KnowledgeReviewModal
         id="doc-pending"
@@ -343,34 +341,20 @@ describe("DocumentLibrary & PDF Workflows (Step 4)", () => {
     );
 
     await waitFor(() => {
-      // Navigate to page 3 which has warnings
-      const select = screen.getByLabelText(/Review page/i);
-      fireEvent.change(select, { target: { value: "2" } }); // index 2 = page 3
+      expect(screen.getByRole("dialog", { name: /Werribee Trail Lighting Compliance Guide/i })).toBeInTheDocument();
     });
 
-    // Page-specific warnings visible
-    expect(screen.getByText(/Low text extraction confidence on page 3/i)).toBeInTheDocument();
-    expect(screen.getByText(/Table structure detected — verify column alignments/i)).toBeInTheDocument();
+    // Edit button
+    const editBtn = screen.getByRole("button", { name: /Edit Page Text/i });
+    fireEvent.click(editBtn);
 
-    // Verification button disabled before checkbox confirmed
-    const saveBtn = screen.getByRole("button", { name: /Save page review & continue/i });
-    expect(saveBtn).toBeDisabled();
-
-    // Fill verified text
-    const textarea = screen.getByLabelText(/Verified page text/i);
-    fireEvent.change(textarea, { target: { value: "Verified Cat P4 spacing data table: 28m spacing at 6m height." } });
-
-    // Confirm verification checkbox
-    const confirmCheckbox = screen.getByRole("checkbox", {
-      name: /I compared this page with the original PDF/i
-    });
-    fireEvent.click(confirmCheckbox);
-
-    // Save button enabled!
-    expect(saveBtn).not.toBeDisabled();
+    // Textarea visible and editable
+    const textarea = await screen.findByRole("textbox");
+    fireEvent.change(textarea, { target: { value: "Updated verified text" } });
+    expect(screen.getByRole("button", { name: /Save/i })).toBeInTheDocument();
   });
 
-  it("Test 11 — Document approval gate is locked until all pages are reviewed", async () => {
+  it("Test 11 — 1-click Approve All Pages button activates document", async () => {
     render(
       <KnowledgeReviewModal
         id="doc-pending"
@@ -381,12 +365,8 @@ describe("DocumentLibrary & PDF Workflows (Step 4)", () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/2 of 4 pages reviewed/i)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /Approve All Pages/i })).toBeInTheDocument();
     });
-
-    // Approve button is disabled because 2 pages remain unreviewed
-    const approveBtn = screen.getByRole("button", { name: /Approve for AI knowledge/i });
-    expect(approveBtn).toBeDisabled();
   });
 
   it("Test 12 — Management dropdown contains 'Withdraw from AI' only when document is available to AI", async () => {

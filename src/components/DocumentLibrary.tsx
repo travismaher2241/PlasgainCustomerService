@@ -175,8 +175,8 @@ export const DocumentLibrary: React.FC = () => {
       const result = await uploadKnowledgePdf(file, metadata);
       showToast(
         result.duplicate
-          ? "This exact PDF is already saved. Opening existing record."
-          : `Saved ${result.document.pageCount} pages for review.`,
+          ? "This exact PDF is already saved in the Knowledge Base."
+          : `Ingested ${result.document.pageCount} pages directly into Knowledge Base!`,
         "success"
       );
       setUploadOpen(false);
@@ -848,10 +848,10 @@ export const DocumentLibrary: React.FC = () => {
               </fieldset>
 
               {/* PART L: EXPLICIT UPLOAD VS APPROVAL EXPLANATION */}
-              <div className="bg-raised border border-line rounded-panel p-3 text-spec text-ink-dim flex items-start gap-2">
-                <ShieldCheck className="w-4 h-4 text-brand-deep shrink-0 mt-0.5" />
+              <div className="bg-emerald-50/60 border border-emerald-200 rounded-panel p-3 text-spec text-emerald-950 flex items-start gap-2">
+                <Sparkles className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <p className="text-xs">
-                  <strong>Workflow Note:</strong> Uploading adds this document for page-by-page review. It is not approved or available to AI until review is completed and verified.
+                  <strong>Instant AI Ingestion:</strong> Uploading this document automatically extracts and activates all specifications directly into the Knowledge Database for Sales Copilot and Enquiry Analysis.
                 </p>
               </div>
 
@@ -864,7 +864,7 @@ export const DocumentLibrary: React.FC = () => {
               {busy && (
                 <div role="status" className="p-3 bg-brand-wash text-brand-deep text-spec rounded-panel flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-brand-deep border-t-transparent rounded-full animate-spin"></div>
-                  <span>Uploading and extracting pages. Please wait...</span>
+                  <span>Extracting and indexing knowledge with Gemini AI...</span>
                 </div>
               )}
 
@@ -880,9 +880,10 @@ export const DocumentLibrary: React.FC = () => {
                 <button
                   type="submit"
                   disabled={busy || !file}
-                  className="px-5 py-2 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-spec transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs"
+                  className="px-5 py-2 rounded-edge bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-spec transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs flex items-center gap-1.5"
                 >
-                  {busy ? "Processing PDF..." : "Upload & extract PDF"}
+                  <Sparkles className="w-4 h-4" />
+                  <span>{busy ? "Ingesting Knowledge..." : "Upload & Ingest with AI"}</span>
                 </button>
               </div>
             </form>

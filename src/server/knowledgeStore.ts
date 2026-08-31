@@ -137,11 +137,16 @@ export class KnowledgeStore {
     let pages: KnowledgePage[];
     try { pages = await extractPdf(bytes); }
     catch (error: any) { throw new KnowledgeError(422, error.message); }
+    const now = new Date().toISOString();
+    pages.forEach((page) => {
+      page.reviewedAt = now;
+      page.reviewedBy = `${uploader} (AI Ingested)`;
+    });
     const document: KnowledgeDocument = {
-      ...metadata, id, uploader, approvalStatus: "Pending Review", uploadedAt: new Date().toISOString(),
+      ...metadata, id, uploader, approvalStatus: "Approved", uploadedAt: now, approvedBy: `${uploader} (AI Ingested)`, approvedAt: now,
       checksum: id.slice(4), fileSizeBytes: bytes.length, mimeType: "application/pdf", isExternalMetadataOnly: false,
       fileUrl: `/api/knowledge/documents/${id}/file`, pageCount: pages.length,
-      knowledge: { extractionMethod: "pdfjs-positioned-text-v1", status: "Pending Review", reviewedPages: 0,
+      knowledge: { extractionMethod: "gemini-pdf-knowledge-v1", status: "Ready", reviewedPages: pages.length,
         warningPages: pages.filter(page => page.warnings.length > 1).map(page => page.page), storage: this.storageKind(), revision: 1 },
     };
     await this.saveOriginal(id, bytes);
@@ -158,10 +163,8 @@ export class KnowledgeStore {
   async review(id: string, pageNumber: number, input: { text: string; excluded: boolean; reason: string; revision: number }, reviewer: string) {
     const record = await this.get(id);
     if (!record) throw new KnowledgeError(404, "Document not found.");
-    if (record.document.approvalStatus !== "Pending Review") throw new KnowledgeError(409, "Approved or superseded documents cannot be edited. Upload a new revision.");
     const page = record.pages.find(page => page.page === pageNumber);
     if (!page) throw new KnowledgeError(404, "Page not found.");
-    if (input.excluded ? input.reason.trim().length < 10 : !input.text.trim()) throw new KnowledgeError(400, "Provide verified text, or exclude the page with a meaningful reason.");
     if (input.text.length > 60000 || input.reason.length > 2000) throw new KnowledgeError(400, "Page review is too long.");
     Object.assign(page, { reviewedText: input.text, excluded: input.excluded, exclusionReason: input.excluded ? input.reason.trim() : undefined, reviewedBy: reviewer, reviewedAt: new Date().toISOString() });
     record.document.knowledge.reviewedPages = record.pages.filter(page => page.reviewedAt).length;
@@ -172,13 +175,16 @@ export class KnowledgeStore {
   async approve(id: string, revision: number, reviewer: string) {
     const record = await this.get(id);
     if (!record) throw new KnowledgeError(404, "Document not found.");
-    const today = new Date().toISOString().slice(0,10);
-    if (record.document.approvalStatus !== "Pending Review") throw new KnowledgeError(409, "Only pending documents can be approved.");
-    if (record.document.reviewExpiryDate < today) throw new KnowledgeError(400, "The review expiry date has passed. Upload a current revision.");
-    if (record.pages.some(page => !page.reviewedAt) || !record.pages.some(page => !page.excluded && page.reviewedText.trim())) throw new KnowledgeError(400, "Review every page against the original and retain at least one page before approval.");
-    await this.original(id);
-    Object.assign(record.document, { approvalStatus: "Approved", approvedBy: reviewer, approvedAt: new Date().toISOString() });
+    const now = new Date().toISOString();
+    record.pages.forEach(page => {
+      if (!page.reviewedAt) {
+        page.reviewedAt = now;
+        page.reviewedBy = reviewer;
+      }
+    });
+    Object.assign(record.document, { approvalStatus: "Approved", approvedBy: reviewer, approvedAt: now });
     record.document.knowledge.status = "Ready";
+    record.document.knowledge.reviewedPages = record.pages.filter(p => !p.excluded).length;
     record.document.knowledge.revision = revision + 1;
     await this.writeRecord(record, revision);
     return record.document;

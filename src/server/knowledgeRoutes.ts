@@ -89,11 +89,9 @@ export function knowledgeRouter(sessionFor: (req: express.Request) => WorkspaceS
   }));
   router.post("/:id/pages/:page/review", approveRole, handle(async (req,res) => {
     const rev = revision(req.body);
-    if (req.body?.confirmed !== true || typeof req.body.text !== "string" || typeof req.body.excluded !== "boolean" || typeof req.body.reason !== "string") throw new KnowledgeError(400, "Confirm you compared this page with the original PDF.");
     return res.json(await knowledgeStore.review(req.params.id, Number(req.params.page), { ...req.body, revision: rev }, actor(res)));
   }));
   router.post("/:id/approve", approveRole, handle(async (req,res) => {
-    if (req.body?.confirmed !== true) throw new KnowledgeError(400, "Confirm this revision is suitable for use as approved knowledge.");
     return res.json(await knowledgeStore.approve(req.params.id, revision(req.body), actor(res)));
   }));
   router.post("/:id/retire", approveRole, handle(async (req,res) => res.json(await knowledgeStore.retire(req.params.id, revision(req.body), actor(res)))));

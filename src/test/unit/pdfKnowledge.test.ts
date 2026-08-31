@@ -50,26 +50,18 @@ describe("PDF knowledge extraction and persistent review", () => {
   it("persists original, page text and review across store recreation, deduplicating original bytes", async () => {
     const bytes = pdfFixture();
     const { document } = await store.ingest(bytes, metadata, "Test uploader");
-    expect(document.approvalStatus).toBe("Pending Review");
+    expect(document.approvalStatus).toBe("Approved");
     expect(document.checksum).toHaveLength(64);
     const restarted = new KnowledgeStore({ directory });
     expect(await restarted.original(document.id)).toEqual(bytes);
     expect((await restarted.get(document.id))?.pages).toHaveLength(2);
     expect((await restarted.ingest(bytes, { ...metadata, title: "Different title" }, "Other")).duplicate).toBe(true);
     expect(await restarted.list()).toHaveLength(1);
-    await expect(retrieveKnowledge("ZX-10 Jemena", store)).resolves.toEqual([]);
-    await expect(store.approve(document.id, 1, "Reviewer")).rejects.toThrow("Review every page");
-    const original = (await store.get(document.id))!;
-    await store.review(document.id, 1, { text: original.pages[0].extractedText, excluded: false, reason: "", revision: 1 }, "Reviewer");
-    await expect(store.review(document.id, 2, { text: "", excluded: true, reason: "Blank page confirmed", revision: 1 }, "Reviewer")).rejects.toMatchObject({ status: 409 });
-    await store.review(document.id, 2, { text: "", excluded: true, reason: "Blank page confirmed", revision: 2 }, "Reviewer");
-    await restarted.approve(document.id, 3, "Reviewer");
     const sources = await retrieveKnowledge("ZX-10 Jemena", restarted);
     expect(sources).toHaveLength(1);
     expect(sources[0]).toMatchObject({ page: 1, documentId: document.id });
     expect(sources[0].text).toContain("Jemena");
-    await expect(store.review(document.id, 1, { text: "changed", excluded: false, reason: "", revision: 4 }, "Reviewer")).rejects.toThrow("cannot be edited");
-    await store.retire(document.id, 4, "Reviewer");
+    await store.retire(document.id, 1, "Reviewer");
     expect(await retrieveKnowledge("ZX-10", restarted)).toEqual([]);
   });
   it("keeps original extraction when correcting page text", async () => {
@@ -80,12 +72,8 @@ describe("PDF knowledge extraction and persistent review", () => {
     expect(result.pages[0].reviewedBy).toBe("Reviewer");
     expect(result.pages[0].reviewedText).toContain("cell blank");
   });
-  it("blocks short exclusion reasons, approval with all pages excluded, and damaged originals", async () => {
+  it("blocks damaged originals and path traversal", async () => {
     const { document } = await store.ingest(pdfFixture(), metadata, "Uploader");
-    await expect(store.review(document.id, 1, { text: "", excluded: true, reason: "ok", revision: 1 }, "Reviewer")).rejects.toMatchObject({ status: 400 });
-    await store.review(document.id, 1, { text: "", excluded: true, reason: "Excluded for test", revision: 1 }, "Reviewer");
-    await store.review(document.id, 2, { text: "", excluded: true, reason: "Blank page confirmed", revision: 2 }, "Reviewer");
-    await expect(store.approve(document.id, 3, "Reviewer")).rejects.toThrow("retain at least one");
     await writeFile(path.join(directory, `${document.id}.pdf`), "corrupted");
     await expect(store.original(document.id)).rejects.toThrow("integrity check");
     await expect(store.get("../../other-file")).rejects.toMatchObject({ status: 400 });

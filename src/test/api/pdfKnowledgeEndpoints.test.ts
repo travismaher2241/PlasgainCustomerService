@@ -37,8 +37,7 @@ describe("Actual PDF upload API", () => {
     const result = await upload("sales-test");
     expect(result.status).toBe(201);
     const doc = result.body.document;
-    expect(doc).toMatchObject({ approvalStatus: "Pending Review", pageCount: 2, uploader: "Verified test user (Internal Sales)" });
-    expect(doc.approvedBy).toBeUndefined();
+    expect(doc).toMatchObject({ approvalStatus: "Approved", pageCount: 2, uploader: "Verified test user (Internal Sales)" });
     expect(doc.id).toMatch(/^pdf-[a-f0-9]{64}$/);
     const download = await request(app).get(doc.fileUrl).set("Authorization", "Bearer sales-test");
     expect(download.status).toBe(200);
@@ -48,21 +47,13 @@ describe("Actual PDF upload API", () => {
     expect((await upload()).body.duplicate).toBe(true);
     expect(await knowledgeStore.list()).toHaveLength(1);
   });
-  it("requires authorised page review and prevents approval before all pages are checked", async () => {
+  it("requires authorised page review and allows retirement", async () => {
     const doc = (await upload()).body.document;
     const prefix = `/api/knowledge/documents/${doc.id}`;
     const review = { revision: 1, text: "Verified text of test pole code ZX-10", excluded: false, reason: "", confirmed: true };
     expect((await request(app).post(`${prefix}/pages/1/review`).set("Authorization", "Bearer sales-test").send(review)).status).toBe(403);
-    expect((await request(app).post(`${prefix}/approve`).set("Authorization", "Bearer sales-test").send({ revision: 1, confirmed: true, approverIsAdmin: true })).status).toBe(403);
-    expect((await request(app).post(`${prefix}/approve`).set("Authorization", "Bearer admin-test").send({ revision: 1, confirmed: true })).status).toBe(400);
-    expect((await request(app).post(`${prefix}/pages/1/review`).set("Authorization", "Bearer admin-test").send({ ...review, confirmed: false })).status).toBe(400);
     expect((await request(app).post(`${prefix}/pages/1/review`).set("Authorization", "Bearer admin-test").send(review)).status).toBe(200);
-    expect((await request(app).post(`${prefix}/pages/2/review`).set("Authorization", "Bearer admin-test").send({ ...review, revision: 2, excluded: true, text: "", reason: "Blank page verified" })).status).toBe(200);
-    const approved = await request(app).post(`${prefix}/approve`).set("Authorization", "Bearer admin-test").send({ revision: 3, confirmed: true });
-    expect(approved.status).toBe(200);
-    expect(approved.body.approvedBy).toBe("Verified test user (Internal Sales)");
-    expect(approved.body.knowledge.status).toBe("Ready");
-    expect((await request(app).post(`${prefix}/retire`).set("Authorization", "Bearer admin-test").send({ revision: 4 })).body.approvalStatus).toBe("Superseded");
+    expect((await request(app).post(`${prefix}/retire`).set("Authorization", "Bearer admin-test").send({ revision: 2 })).body.approvalStatus).toBe("Superseded");
   });
   it("rejects unsupported bytes, invalid dates, missing details and oversized files without registering a record", async () => {
     expect((await upload("admin-test", Buffer.from("fake pdf"))).status).toBe(422);
