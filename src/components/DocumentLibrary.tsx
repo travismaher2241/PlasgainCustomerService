@@ -6,7 +6,7 @@ import type { KnowledgeDocument } from "../types/knowledge";
 import { apiGet, apiPost, uploadKnowledgePdf } from "../utils/apiClient";
 import { PDFViewerModal } from "./PDFViewerModal";
 import { KnowledgeReviewModal } from "./KnowledgeReviewModal";
-import { inferDocumentMetadata, InferredDocumentMetadata } from "../utils/documentClassifier";
+import { inferDocumentMetadata, InferredDocumentMetadata, DOCUMENT_TYPES } from "../utils/documentClassifier";
 
 const approverRoles = ["engineering lead", "lead engineer", "structural engineer", "compliance manager", "engineering director", "technical director", "sales director"];
 type LibraryDocument = ControlledDocument & { knowledge?: KnowledgeDocument["knowledge"] };
@@ -186,7 +186,7 @@ export const DocumentLibrary: React.FC = () => {
                 )}
               </label>
               <select value={metadata.documentType} onChange={event => setMetadata({ ...metadata, documentType: event.target.value })} className={inputClass}>
-                {["Specification", "Standard / Guide", "Datasheet", "Catalogue", "Compliance Certificate", "Installation Manual", "Warranty Doc"].map(type => <option key={type}>{type}</option>)}
+                {DOCUMENT_TYPES.map(type => <option key={type}>{type}</option>)}
               </select>
             </div>
             <label className="text-meta font-semibold">Source revision / version<input required maxLength={250} placeholder="As printed, or 'Not stated'" value={metadata.version} onChange={event => setMetadata({ ...metadata, version: event.target.value })} className={inputClass} /></label>

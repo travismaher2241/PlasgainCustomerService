@@ -2,7 +2,7 @@ import express from "express";
 import { knowledgeStore, KnowledgeError } from "./knowledgeStore";
 import type { WorkspaceSession } from "../../server";
 import type { KnowledgeDocument } from "../types/knowledge";
-import { inferDocumentMetadata } from "../utils/documentClassifier";
+import { inferDocumentMetadata, DOCUMENT_TYPES } from "../utils/documentClassifier";
 
 const APPROVERS = new Set(["engineering lead", "lead engineer", "structural engineer", "compliance manager", "engineering director", "technical director", "sales director"]);
 export function knowledgeRouter(sessionFor: (req: express.Request) => WorkspaceSession | null) {
@@ -68,8 +68,7 @@ export function knowledgeRouter(sessionFor: (req: express.Request) => WorkspaceS
       if (!/^\d{4}-\d{2}-\d{2}$/.test(safe[field]) || !Number.isFinite(Date.parse(safe[field])) || new Date(safe[field]).toISOString().slice(0,10) !== safe[field]) throw new KnowledgeError(400, "Valid effective and review dates are required.");
     }
     if (safe.reviewExpiryDate < safe.effectiveDate) throw new KnowledgeError(400, "Review expiry must be on or after the effective date.");
-    const types = ["Datasheet", "Catalogue", "Compliance Certificate", "Installation Manual", "Warranty Doc", "Specification", "Standard / Guide"];
-    if (!types.includes(metadata.documentType)) throw new KnowledgeError(400, "Select a valid document type.");
+    if (!DOCUMENT_TYPES.includes(metadata.documentType)) throw new KnowledgeError(400, "Select a valid document type.");
     if (!/\.pdf$/i.test(safe.fileName)) throw new KnowledgeError(400, "Only PDF files can be imported.");
     const result = await knowledgeStore.ingest(req.body, { ...safe, documentType: metadata.documentType } as KnowledgeDocument, actor(res));
     return res.status(result.duplicate ? 200 : 201).json(result);

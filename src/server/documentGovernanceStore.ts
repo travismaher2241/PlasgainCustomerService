@@ -1,10 +1,11 @@
 import { saveDocToCloud, loadDocFromCloud, loadCollectionFromCloud } from "../utils/firebase";
+import type { DocumentType } from "../utils/documentClassifier";
 
 export interface ControlledDocument {
   id: string;
   title: string;
   productFamily: string;
-  documentType: "Datasheet" | "Catalogue" | "Compliance Certificate" | "Installation Manual" | "Warranty Doc" | "Specification" | "Standard / Guide";
+  documentType: DocumentType;
   version: string;
   effectiveDate: string;
   reviewExpiryDate: string;

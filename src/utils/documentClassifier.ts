@@ -6,9 +6,31 @@
  * manual user entry.
  */
 
+/**
+ * The one list of document types the whole app agrees on.
+ *
+ * The upload form's dropdown, the server's accepted values, and whatever this
+ * classifier can infer must never drift apart: when they did, a file the
+ * classifier read as an "Engineering Drawing" was rejected on submit as an
+ * invalid type, while the dropdown showed nothing wrong because the value had
+ * no matching option. Add new types here and nowhere else.
+ */
+export const DOCUMENT_TYPES = [
+  "Specification",
+  "Standard / Guide",
+  "Datasheet",
+  "Catalogue",
+  "Engineering Drawing",
+  "Compliance Certificate",
+  "Installation Manual",
+  "Warranty Doc"
+] as const;
+
+export type DocumentType = (typeof DOCUMENT_TYPES)[number];
+
 export interface InferredDocumentMetadata {
   productFamily: string;
-  documentType: string;
+  documentType: DocumentType;
   title: string;
   version: string;
   source: string;
@@ -81,12 +103,13 @@ export function inferDocumentMetadata(
   }
 
   // 2. Infer Document Type
-  let documentType = "Specification";
+  let documentType: DocumentType = "Specification";
   if (/datasheet|data\s*sheet|cut\s*sheet|product\s*sheet/i.test(combinedText)) {
     documentType = "Datasheet";
   } else if (/specification|specifications|\bspec\b|\bspecs\b|designers|technical\s*req/i.test(combinedText)) {
     documentType = "Specification";
-  } else if (/drawing|cad|\bga\b|schematic|dimensional|elevation|cross\s*section/i.test(combinedText)) {
+    // "cad" needs its boundaries: unanchored it also matched cascade, decade and cadastral.
+  } else if (/drawing|\bcad\b|\bga\b|schematic|dimensional|elevation|cross\s*section/i.test(combinedText)) {
     documentType = "Engineering Drawing";
   } else if (/installation|install\s*guide|mounting\s*guide|assembly\s*manual/i.test(combinedText)) {
     documentType = "Installation Manual";
