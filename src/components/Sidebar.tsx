@@ -119,7 +119,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
     { id: "crm", label: "CRM Command Centre", icon: KanbanSquare },
     { id: "new-enquiry", label: "New Enquiry", icon: FilePlus2 },
     { id: "product-finder", label: "Product Finder", icon: SearchCode },
-    { id: "documents", label: "Product Catalogues", icon: BookOpen },
+    { id: "documents", label: "Documents", icon: BookOpen },
     { id: "tools", label: "Tools", icon: Wrench },
     { id: "settings", label: "Settings", icon: SlidersHorizontal }
   ];

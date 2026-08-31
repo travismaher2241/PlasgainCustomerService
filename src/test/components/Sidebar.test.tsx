@@ -26,7 +26,8 @@ describe('Sidebar Component', () => {
     expect(screen.getByText('CRM Command Centre')).toBeInTheDocument();
     expect(screen.getByText('New Enquiry')).toBeInTheDocument();
     expect(screen.getByText('Product Finder')).toBeInTheDocument();
-    expect(screen.getByText('Product Catalogues')).toBeInTheDocument();
+    expect(screen.getByText('Documents')).toBeInTheDocument();
+    expect(screen.queryByText('Product Catalogues')).not.toBeInTheDocument();
     expect(screen.getByText('Tools')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
     expect(screen.queryByText('Opportunities')).not.toBeInTheDocument();
