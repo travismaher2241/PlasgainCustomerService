@@ -1,4 +1,4 @@
-import { app } from "../server";
+import { app } from "../dist/server.js";
 
 export default function handler(req: any, res: any) {
   if (req.url && !req.url.startsWith("/api")) {
