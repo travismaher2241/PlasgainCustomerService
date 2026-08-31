@@ -35,12 +35,30 @@ export const DocumentLibrary: React.FC = () => {
   const canReview = currentUser.isAdmin === true || approverRoles.includes((currentUser.role || "").toLowerCase());
   const load = useCallback(async () => {
     setError("");
-    const results = await Promise.allSettled([apiGet<KnowledgeDocument[]>("/api/knowledge/documents"), apiGet<ControlledDocument[]>("/api/controlled-documents")]);
-    const uploaded = results[0].status === "fulfilled" ? results[0].value : [];
-    const legacy = results[1].status === "fulfilled" ? results[1].value : [];
-    if (results[0].status === "rejected") setError(results[0].reason.message || "Could not load saved knowledge.");
-    else if (results[1].status === "rejected") setError("Saved PDF knowledge loaded, but older reference records could not be loaded.");
-    setDocuments([...uploaded, ...legacy]); setLoading(false);
+    const results = await Promise.allSettled([
+      apiGet<KnowledgeDocument[]>("/api/knowledge/documents"),
+      apiGet<ControlledDocument[]>("/api/controlled-documents")
+    ]);
+    const uploaded = results[0].status === "fulfilled" && Array.isArray(results[0].value) ? results[0].value : [];
+    const legacy = results[1].status === "fulfilled" && Array.isArray(results[1].value) ? results[1].value : [];
+
+    // Only surface error if neither endpoint returned data
+    if (results[0].status === "rejected" && results[1].status === "rejected") {
+      const msg = results[0].reason?.message || results[1].reason?.message || "Could not load saved documents.";
+      setError(msg);
+    }
+
+    // Merge and deduplicate by document id
+    const seenIds = new Set<string>();
+    const merged: LibraryDocument[] = [];
+    for (const doc of [...uploaded, ...legacy]) {
+      if (doc && doc.id && !seenIds.has(doc.id)) {
+        seenIds.add(doc.id);
+        merged.push(doc);
+      }
+    }
+    setDocuments(merged);
+    setLoading(false);
   }, []);
   useEffect(() => { if (!isLoginModalOpen) void load(); }, [load, isLoginModalOpen, currentUser.id]);
   const selectFile = (next: File | null) => {
@@ -77,11 +95,25 @@ export const DocumentLibrary: React.FC = () => {
     finally { setBusy(false); }
   };
   const today = new Date().toISOString().slice(0,10);
-  const status = (doc: LibraryDocument) => !doc.knowledge ? "Reference only — PDF not imported" : doc.approvalStatus === "Superseded" ? "Withdrawn from knowledge" : doc.approvalStatus === "Approved" ? doc.reviewExpiryDate < today ? "Expired — not used by AI" : doc.effectiveDate > today ? "Approved — not yet effective" : "Ready for AI knowledge" : "Pending page review";
+  const status = (doc: LibraryDocument) => {
+    if (!doc.knowledge) {
+      if (doc.approvalStatus === "Approved") return "Authoritative (Controlled)";
+      if (doc.approvalStatus === "Superseded") return "Superseded";
+      return "Draft";
+    }
+    if (doc.approvalStatus === "Superseded") return "Withdrawn from knowledge";
+    if (doc.approvalStatus === "Approved") {
+      if (doc.reviewExpiryDate && doc.reviewExpiryDate < today) return "Expired — not used by AI";
+      if (doc.effectiveDate && doc.effectiveDate > today) return "Approved — not yet effective";
+      return "Ready for AI knowledge";
+    }
+    return "Pending page review";
+  };
   const filtered = documents.filter(doc => {
-    if (!`${doc.title} ${doc.productFamily} ${doc.version}`.toLowerCase().includes(query.toLowerCase())) return false;
-    if (filter === "ready") return doc.knowledge && doc.approvalStatus === "Approved" && doc.effectiveDate <= today && doc.reviewExpiryDate >= today;
-    if (filter === "pending") return doc.knowledge && doc.approvalStatus === "Pending Review";
+    const term = `${doc.title || ""} ${doc.productFamily || ""} ${doc.version || ""}`.toLowerCase();
+    if (!term.includes(query.toLowerCase())) return false;
+    if (filter === "ready") return doc.approvalStatus === "Approved" && (!doc.reviewExpiryDate || doc.reviewExpiryDate >= today);
+    if (filter === "pending") return doc.approvalStatus === "Pending Review" || doc.approvalStatus === "Draft";
     if (filter === "references") return !doc.knowledge;
     return true;
   });
