@@ -192,7 +192,6 @@ export const DocumentLibrary: React.FC = () => {
         effectiveDate: new Date().toISOString().slice(0, 10),
         reviewExpiryDate: new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10)
       });
-      setReviewId(result.document.id);
       await load();
     } catch (err: any) {
       setUploadError(err.message || "Upload failed. Please retry.");
