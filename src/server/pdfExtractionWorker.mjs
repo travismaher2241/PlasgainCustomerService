@@ -1,5 +1,6 @@
 import { parentPort, workerData } from "node:worker_threads";
 import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import "pdfjs-dist/legacy/build/pdf.worker.mjs";
 
 // No PDF scripts, external resources, or generative transcription are executed.
 // Keep physical x positions: empty table cells must not shift later approvals.
