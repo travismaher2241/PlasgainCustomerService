@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { ControlledDocument } from '../../server/documentGovernanceStore';
+import { ControlledDocument } from '../../types/knowledge';
 
 describe('Priority 1: Document Upload & Governance Metadata (SHA Checksum, Version Owner, Approval)', () => {
   it('creates a governed document with checksum, version owner, and validation result', () => {

@@ -13,37 +13,15 @@ describe('Tool Registry & Route Resolution (P0-06 to P0-11)', () => {
     expect(route2.targetNavTab).toBe('new-enquiry');
   });
 
-  it('resolves Solar Sizing shortcut to the solar-autonomy tool tab (P0-07)', () => {
-    const route = resolveToolRoute('solar-autonomy');
+  it('resolves Plan Take-off shortcut to the plan-takeoff tool tab', () => {
+    const route = resolveToolRoute('takeoff');
     expect(route.isSupported).toBe(true);
     expect(route.targetNavTab).toBe('tools');
-    expect(route.targetToolSubTab).toBe('solar-autonomy');
+    expect(route.targetToolSubTab).toBe('plan-takeoff');
 
-    const aliasRoute = resolveToolRoute('solar-sizing');
+    const aliasRoute = resolveToolRoute('take-off');
     expect(aliasRoute.isSupported).toBe(true);
-    expect(aliasRoute.targetToolSubTab).toBe('solar-autonomy');
-  });
-
-  it('resolves Wind Region and Pole Sizing shortcut to the wind-foundation-calc tool tab (P0-08)', () => {
-    const route = resolveToolRoute('wind-pole-sizing');
-    expect(route.isSupported).toBe(true);
-    expect(route.targetNavTab).toBe('tools');
-    expect(route.targetToolSubTab).toBe('wind-foundation-calc');
-
-    const aliasRoute = resolveToolRoute('wind-region');
-    expect(aliasRoute.isSupported).toBe(true);
-    expect(aliasRoute.targetToolSubTab).toBe('wind-foundation-calc');
-  });
-
-  it('resolves Conflict and Spec Resolver shortcut to the conflict-resolver tool tab (P0-09)', () => {
-    const route = resolveToolRoute('conflict-resolver');
-    expect(route.isSupported).toBe(true);
-    expect(route.targetNavTab).toBe('tools');
-    expect(route.targetToolSubTab).toBe('conflict-resolver');
-
-    const aliasRoute = resolveToolRoute('spec-resolver');
-    expect(aliasRoute.isSupported).toBe(true);
-    expect(aliasRoute.targetToolSubTab).toBe('conflict-resolver');
+    expect(aliasRoute.targetToolSubTab).toBe('plan-takeoff');
   });
 
   it('resolves Quote Review shortcut to the CRM pipeline review workflow (P0-10)', () => {

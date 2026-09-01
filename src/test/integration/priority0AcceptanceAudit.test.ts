@@ -72,25 +72,11 @@ describe('FINAL PRIORITY 0 ACCEPTANCE AUDIT', () => {
       expect(route.definition?.description).toContain('tender documents');
     });
 
-    it('verifies Solar Autonomy calculation route (P0-07)', () => {
-      const route = resolveToolRoute('solar-autonomy');
+    it('verifies Plan Take-off route (P0-07)', () => {
+      const route = resolveToolRoute('takeoff');
       expect(route.isSupported).toBe(true);
       expect(route.targetNavTab).toBe('tools');
-      expect(route.targetToolSubTab).toBe('solar-autonomy');
-    });
-
-    it('verifies Wind Region AS 1170.2 route (P0-08)', () => {
-      const route = resolveToolRoute('wind-pole-sizing');
-      expect(route.isSupported).toBe(true);
-      expect(route.targetNavTab).toBe('tools');
-      expect(route.targetToolSubTab).toBe('wind-foundation-calc');
-    });
-
-    it('verifies Conflict Resolver route (P0-09)', () => {
-      const route = resolveToolRoute('conflict-resolver');
-      expect(route.isSupported).toBe(true);
-      expect(route.targetNavTab).toBe('tools');
-      expect(route.targetToolSubTab).toBe('conflict-resolver');
+      expect(route.targetToolSubTab).toBe('plan-takeoff');
     });
 
     it('verifies Quote Review routes to CRM deal review (P0-10)', () => {

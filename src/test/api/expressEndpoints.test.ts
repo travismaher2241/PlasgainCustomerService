@@ -172,12 +172,9 @@ describe('Non-AI endpoints still serve normally', () => {
     expect(res.body.reachable).toBe(false);
   });
 
-  it('GET /api/knowledge/tests returns validation tests and conflicts', async () => {
+  it('GET /api/knowledge/tests no longer exists (its fabricated fixture content was removed)', async () => {
     const res = await request(app).get('/api/knowledge/tests');
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body.tests)).toBe(true);
-    expect(Array.isArray(res.body.conflicts)).toBe(true);
-    expect(res.body.tests.length).toBeGreaterThan(0);
+    expect(res.status).toBe(404);
   });
 
   it('responds with JSON 404 on non-existent API routes', async () => {

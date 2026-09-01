@@ -644,7 +644,7 @@ export const AIEmailComposerModal: React.FC<AIEmailComposerModalProps> = () => {
                     setSelectedSubject("Sustainable Public Lighting & Civil Cable Protection Solutions — Plasgain");
                     setSubjectOptions([
                       "Sustainable Public Lighting & Civil Cable Protection Solutions — Plasgain",
-                      "Plasgain Lighting Engineering Schedules & Civil Protection",
+                      "Plasgain Product Range & Civil Protection",
                       "Introductory Call: Sustainable Infrastructure Solutions"
                     ]);
                     setEmailBody(
@@ -652,9 +652,9 @@ export const AIEmailComposerModal: React.FC<AIEmailComposerModalProps> = () => {
 
 I noticed ${recipientCompany || researchSubject || "your team"}'s recent work across infrastructure and wanted to connect briefly regarding your upcoming public lighting and civil asset requirements.
 
-Plasgain manufactures Australian-designed solar LED luminaires (AS/NZS 1158 Category P compliant), recycled composite light poles (non-conductive and rust-proof in C5 marine environments), and AS 4702 polymeric cable cover slabs that reduce manual handling weight by up to 98% compared to heavy precast concrete.
+Plasgain supplies Australian-designed solar LED luminaires, recycled composite light poles, and polymeric cable cover slabs designed to reduce manual handling weight compared to heavy precast concrete.
 
-Are you open to a brief 10-minute introductory call next week to see how our engineering schedules could support your upcoming tenders?
+Are you open to a brief 10-minute introductory call next week to see how our product range could support your upcoming tenders?
 
 Kind regards,
 ${currentUser?.name || "Plasgain Customer Service Team"}
@@ -670,23 +670,23 @@ Plasgain Australia`
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedSubject(`Technical Clarification & AS/NZS 1158 Compliance — ${researchSubject || "Tender"}`);
+                    setSelectedSubject(`Technical Clarification — ${researchSubject || "Tender"}`);
                     setSubjectOptions([
-                      `Technical Clarification & AS/NZS 1158 Compliance — ${researchSubject || "Tender"}`,
-                      `Engineering Take-Off & Lighting Schedule — ${researchSubject || "Project"}`,
-                      `Alternative Compliant Specification: ${researchSubject || "Tender"}`
+                      `Technical Clarification — ${researchSubject || "Tender"}`,
+                      `Product Schedule — ${researchSubject || "Project"}`,
+                      `Alternative Specification: ${researchSubject || "Tender"}`
                     ]);
                     setEmailBody(
 `Hi ${recipientName || "there"},
 
-Regarding the public lighting and civil trenching schedule for ${researchSubject || "the project"}, we have conducted a preliminary engineering take-off against AS/NZS 1158.3.1 and AS 4702 standards.
+Regarding the public lighting and civil trenching schedule for ${researchSubject || "the project"}, we've put together a preliminary product match against the specification.
 
-We can provide certified DIALux photometric calculations and AS 1170.2 cyclonic wind foundation engineering packages for this submission.
+We'd be glad to provide full product datasheets to support your submission.
 
-Could you confirm the tender closing date and whether alternative Australian-engineered composite poles and solar fittings can be submitted as compliant options?
+Could you confirm the tender closing date and whether alternative Australian-made composite poles and solar fittings can be submitted as an option?
 
 Kind regards,
-${currentUser?.name || "Plasgain Technical Sales Team"}
+${currentUser?.name || "Plasgain Sales Team"}
 Plasgain Australia`
                     );
                     showToast("Loaded Tender RFI Template", "info");
@@ -699,10 +699,10 @@ Plasgain Australia`
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedSubject(`Follow-Up: Quotation & Engineering Schedule — ${researchSubject || "Project"}`);
+                    setSelectedSubject(`Follow-Up: Quotation & Product Schedule — ${researchSubject || "Project"}`);
                     setSubjectOptions([
-                      `Follow-Up: Quotation & Engineering Schedule — ${researchSubject || "Project"}`,
-                      `Commercial Pricing & Technical Schedule Review`,
+                      `Follow-Up: Quotation & Product Schedule — ${researchSubject || "Project"}`,
+                      `Commercial Pricing & Product Schedule Review`,
                       `Quotation Follow-Up — Plasgain Australia`
                     ]);
                     setEmailBody(
@@ -710,7 +710,7 @@ Plasgain Australia`
 
 I'm following up on the formal pricing and product schedule we provided for ${researchSubject || "your project"}.
 
-Please let us know if you or the engineering superintendent require any further technical documentation, IES photometric files, or AS 4702 compliance certificates to finalise the procurement review.
+Please let us know if you or your team require any further technical documentation or product datasheets to finalise the procurement review.
 
 We look forward to partnering with your team on this rollout.
 

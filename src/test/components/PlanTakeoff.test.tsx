@@ -52,7 +52,7 @@ describe('PlanTakeoffWorkspace Component', () => {
     expect(screen.getByText(/Plasgain Pro Blade 75 Solar Luminaire/i)).toBeInTheDocument();
     expect(screen.getByText(/Plaspole 6.0m Recycled Composite Light Pole/i)).toBeInTheDocument();
     expect(screen.getByText(/Plasgain Polymeric Cable Cover Slabs/i)).toBeInTheDocument();
-    expect(screen.getByText(/Tree Canopy Shading Alert/i)).toBeInTheDocument();
+    expect(screen.getByText(/eucalyptus canopy/i)).toBeInTheDocument();
 
     // Verification summary counters instead of blanket "verified"
     expect(screen.getByText(/4 items/i)).toBeInTheDocument();

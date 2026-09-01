@@ -43,7 +43,7 @@ describe("End-to-End Commercial Sales Workflow Acceptance Test", () => {
   // STAGE 2: Technical Qualification & Product Grounding
   // ==========================================
   describe("Stage 2: Technical Qualification & Quote Readiness Gate", () => {
-    it("evaluates quote readiness and verifies compliance criteria", () => {
+    it("evaluates quote readiness for a budget estimate", () => {
       const quoteContext: QuoteContext = {
         quoteType: "budget",
         customerCompany: "City of Ballarat",
@@ -52,8 +52,6 @@ describe("End-to-End Commercial Sales Workflow Acceptance Test", () => {
         productCode: "50W-INTENSE",
         quantity: 24,
         mountingHeightM: 6,
-        windRegion: "Region A",
-        lightingCategory: "P4",
         isSolar: true,
         solarAutonomyDays: 5,
         operatingProfileConfirmed: true

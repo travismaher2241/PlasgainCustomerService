@@ -12,7 +12,7 @@ export interface ToolRouteDefinition {
   aliases: string[];
   displayName: string;
   description: string;
-  category: "Engineering Calculator" | "AI Workflow" | "CRM Review" | "Compliance";
+  category: "AI Workflow" | "CRM Review";
   destinationType: "tools" | "workflow" | "crm";
   navTab: NavTab;
   toolSubTab?: ToolSubTab;
@@ -32,70 +32,15 @@ export const REGISTERED_TOOL_ROUTES: ToolRouteDefinition[] = [
     iconName: "FileText"
   },
   {
-    id: "solar-autonomy",
-    aliases: ["solar-sizing", "solar-autonomy", "solar-calc", "battery-sizing", "autonomy-calc"],
-    displayName: "Solar Sizing & Battery Autonomy Calculator",
-    description: "Calculate daily watt-hour draw, geographic peak sun hours, and 5-day LiFePO4 battery autonomy.",
-    category: "Engineering Calculator",
-    destinationType: "tools",
-    navTab: "tools",
-    toolSubTab: "solar-autonomy",
-    iconName: "Sun"
-  },
-  {
-    id: "wind-foundation-calc",
-    aliases: ["wind-region", "wind-pole-sizing", "wind-calc", "pole-sizing", "foundation-calc", "footing-calc"],
-    displayName: "Wind Region (AS 1170.2) & Foundation Hardware Estimator",
-    description: "Determine cyclonic vs inland wind pressure (Regions A-D), embedment depth, and foundation concrete surcharge.",
-    category: "Engineering Calculator",
-    destinationType: "tools",
-    navTab: "tools",
-    toolSubTab: "wind-foundation-calc",
-    iconName: "Wind"
-  },
-  {
-    id: "pole-spacing-calc",
-    aliases: ["spacing-calc", "pole-spacing", "pathway-spacing", "as1158-calc", "cat-p-calc"],
-    displayName: "Pathway Pole Spacing & Lux Estimator (AS/NZS 1158)",
-    description: "Compute pole spacing and required fittings per km across Category P1-P5 and PR1-PR4 standards.",
-    category: "Engineering Calculator",
-    destinationType: "tools",
-    navTab: "tools",
-    toolSubTab: "pole-spacing-calc",
-    iconName: "Zap"
-  },
-  {
-    id: "cable-cover-calc",
-    aliases: ["cable-cover", "polymeric-calc", "as4702-calc", "trench-calc", "trench-cover"],
-    displayName: "Trench Polymeric Cable Cover & Concrete Offset Calculator (AS 4702)",
-    description: "Calculate polymeric roll quantities, freight weight savings, and carbon reduction vs precast concrete slabs.",
-    category: "Engineering Calculator",
-    destinationType: "tools",
-    navTab: "tools",
-    toolSubTab: "cable-cover-calc",
-    iconName: "ShieldCheck"
-  },
-  {
     id: "plan-takeoff",
     aliases: ["takeoff", "drawing-takeoff", "plan-takeoff", "pdf-takeoff", "take-off"],
-    displayName: "Engineering Plan Take-off Workspace",
-    description: "Decipher civil PDF drawings, extract luminaire BOM counts, and detect compliance risks.",
+    displayName: "Plan Take-off Workspace",
+    description: "Decipher civil PDF drawings and match the poles and luminaires called out on them to Plasgain products.",
     category: "AI Workflow",
     destinationType: "tools",
     navTab: "tools",
     toolSubTab: "plan-takeoff",
     iconName: "Layers"
-  },
-  {
-    id: "conflict-resolver",
-    aliases: ["spec-resolver", "conflict-resolver", "spec-conflict", "compliance-resolver", "spec-review"],
-    displayName: "Specification Review",
-    description: "Cross-examine customer tender specifications against AS/NZS 1158 and AS 4282 dark-sky mandates.",
-    category: "Compliance",
-    destinationType: "tools",
-    navTab: "tools",
-    toolSubTab: "conflict-resolver",
-    iconName: "AlertTriangle"
   },
   {
     id: "quote-review",

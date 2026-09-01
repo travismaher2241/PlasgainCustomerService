@@ -47,12 +47,15 @@ describe("Actual PDF upload API", () => {
     expect((await upload()).body.duplicate).toBe(true);
     expect(await knowledgeStore.list()).toHaveLength(1);
   });
-  it("requires authorised page review and allows retirement", async () => {
+  it("lets any signed-in user correct page text, but only an admin can retire a document", async () => {
     const doc = (await upload()).body.document;
     const prefix = `/api/knowledge/documents/${doc.id}`;
     const review = { revision: 1, text: "Verified text of test pole code ZX-10", excluded: false, reason: "", confirmed: true };
-    expect((await request(app).post(`${prefix}/pages/1/review`).set("Authorization", "Bearer sales-test").send(review)).status).toBe(403);
-    expect((await request(app).post(`${prefix}/pages/1/review`).set("Authorization", "Bearer admin-test").send(review)).status).toBe(200);
+    // Correcting extracted text isn't gated by role — this is a small sales team with
+    // no dedicated engineering/compliance titles to check against.
+    expect((await request(app).post(`${prefix}/pages/1/review`).set("Authorization", "Bearer sales-test").send(review)).status).toBe(200);
+    // Withdrawing a document from AI use is the one consequential action, so that stays admin-gated.
+    expect((await request(app).post(`${prefix}/retire`).set("Authorization", "Bearer sales-test").send({ revision: 2 })).status).toBe(403);
     expect((await request(app).post(`${prefix}/retire`).set("Authorization", "Bearer admin-test").send({ revision: 2 })).body.approvalStatus).toBe("Superseded");
   });
   it("rejects unsupported bytes, invalid dates, missing details and oversized files without registering a record", async () => {

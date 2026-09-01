@@ -16,7 +16,6 @@ import {
   Trash2,
   Save,
   Check,
-  Info,
   ShieldCheck,
   Layers,
   ArrowRight,
@@ -92,8 +91,7 @@ const SAMPLE_PLANS: SamplePlan[] = [
         sheetTitle: "Public Lighting & Trenching Layout - Sheet E-02",
         drawingNumber: "BCC-2025-E02-REV-B",
         scale: "1:500 @ A1",
-        revision: "Rev B",
-        standardsIdentified: ["AS/NZS 1158.3.1 (Cat P4)", "AS 4702", "AS/NZS 3000"]
+        revision: "Rev B"
       },
       legendAndSchedules: [
         { symbol: "Type S1", description: "Solar LED Pathway Luminaire (3000K Warm White)", scheduleRef: "Luminaire Schedule Type S1" },
@@ -146,24 +144,10 @@ const SAMPLE_PLANS: SamplePlan[] = [
           notes: "Continuous orange warning tape 'DANGER ELECTRICAL CABLE BELOW'"
         }
       ],
-      engineeringAndSiteNotes: [
-        {
-          type: "warning",
-          title: "Tree Canopy Shading Alert",
-          description: "Dense mature eucalyptus canopy noted between chainage Ch 450m and Ch 620m (Poles P9–P12). Recommend verifying winter solar clearance or using extended outreach bracket."
-        },
-        {
-          type: "compliance",
-          title: "AS/NZS 1158.3.1 Category P4 Spacing",
-          description: "Pole spacing averages 48m on 6m mounting height. Requires Dialux photometric confirmation to ensure 0.85 lux average (0.17 lux point minimum) horizontal illuminance."
-        },
-        {
-          type: "info",
-          title: "Alluvial Soil Direct Burial Depth",
-          description: "Drawing detail indicates soft riverbank soil. Direct burial depth specified at 1.2m embedment (H/5) with stabilized aggregate collar."
-        }
+      notes: [
+        "Dense mature eucalyptus canopy noted between chainage Ch 450m and Ch 620m (Poles P9–P12) — may affect solar clearance, worth flagging to the customer."
       ],
-      summary: "Deciphered 24x 6m Solar Pathway Poles, 1,200m underground civil trenching protection, and flagged canopy shading near river bend."
+      summary: "Deciphered 24x 6m Solar Pathway Poles and 1,200m underground civil trenching protection."
     }
   },
   {
@@ -180,8 +164,7 @@ const SAMPLE_PLANS: SamplePlan[] = [
         sheetTitle: "Site Electrical & External Car Park Lighting - Plan E-101",
         drawingNumber: "GBP-2025-E101",
         scale: "1:250 @ A1",
-        revision: "Rev C",
-        standardsIdentified: ["AS/NZS 1158.3.1 (Cat P11b)", "AS 4702", "AS 1170.2 Region B"]
+        revision: "Rev C"
       },
       legendAndSchedules: [
         { symbol: "CP-SL", description: "High-Output Solar Area Luminaire (896Wh LiFePO4)", scheduleRef: "Type CP-1" },
@@ -222,17 +205,8 @@ const SAMPLE_PLANS: SamplePlan[] = [
           notes: "300mm wide for 3-phase multi-circuit conduit bank"
         }
       ],
-      engineeringAndSiteNotes: [
-        {
-          type: "compliance",
-          title: "Wind Region B Footing Design",
-          description: "Minimum concrete footing volume 0.85 m³ per pole with 4x M24 Grade 8.8 J-bolts."
-        },
-        {
-          type: "info",
-          title: "Smart PIR Motion Profile",
-          description: "Car park schedule specifies 100% output from dusk to 11:00 PM, then 30% dim with PIR motion activation."
-        }
+      notes: [
+        "Car park schedule specifies 100% output from dusk to 11:00 PM, then 30% dim with PIR motion activation."
       ],
       summary: "Deciphered 16x 8m Intense 50W Solar Luminaires on Baseplate Steel Poles with 800m Polymeric Cable Protection."
     }
@@ -631,12 +605,11 @@ export const PlanTakeoffWorkspace: React.FC = () => {
         unit: bom.unit || "ea",
         notes: `Drawing Ref: ${bom.drawingReference || "N/A"} | ${bom.notes || ""}`
       })),
-      projectApplication: `Plan Take-off: ${takeoffResult.drawingMetadata?.sheetTitle || "Engineering Plan"}`,
+      projectApplication: `Plan Take-off: ${takeoffResult.drawingMetadata?.sheetTitle || "Plan"}`,
       location: "Australia",
-      customerNeed: takeoffResult.summary || "Product schedule deciphered from engineering plan.",
+      customerNeed: takeoffResult.summary || "Product schedule deciphered from plan.",
       keyRequirements: [
-        `Drawing: ${takeoffResult.drawingMetadata?.drawingNumber || "N/A"}`,
-        `Standards: ${(takeoffResult.drawingMetadata?.standardsIdentified || []).join(", ") || "AS/NZS 1158"}`
+        `Drawing: ${takeoffResult.drawingMetadata?.drawingNumber || "N/A"}`
       ],
       source: "AI Plan & Drawing Deciphering",
       ostendoQuoteRef: ostendoQuoteRef || undefined,
@@ -1439,33 +1412,18 @@ export const PlanTakeoffWorkspace: React.FC = () => {
             </div>
           )}
 
-          {/* Engineering & Site Notes (Only rendered if notes exist) */}
-          {takeoffResult?.engineeringAndSiteNotes && takeoffResult.engineeringAndSiteNotes.length > 0 && (
+          {/* Notes (only rendered if there are any) */}
+          {takeoffResult?.notes && takeoffResult.notes.length > 0 && (
             <div className="bg-white p-4 rounded-panel border border-line shadow-2xs space-y-2">
               <div className="flex items-center gap-2 text-meta font-bold text-body border-b border-line pb-2">
                 <AlertTriangle className="w-4 h-4 text-brand-deep" />
-                <span>Engineering &amp; Environmental Intelligence</span>
+                <span>Notes</span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {takeoffResult.engineeringAndSiteNotes.map((note, idx) => (
-                  <div
-                    key={idx}
-                    className={`p-2.5 rounded-edge border text-meta space-y-1 ${
-                      note.type === "warning"
-                        ? "bg-urgent-wash border-urgent/20 text-urgent"
-                        : note.type === "compliance"
-                        ? "bg-brand-wash border-brand-edge text-brand-deep"
-                        : "bg-paper border-line text-ink"
-                    }`}
-                  >
-                    <div className="font-bold flex items-center gap-1.5 text-spec">
-                      {note.type === "warning" && <AlertTriangle className="w-3.5 h-3.5" />}
-                      {note.type === "compliance" && <ShieldCheck className="w-3.5 h-3.5" />}
-                      {note.type === "info" && <Info className="w-3.5 h-3.5" />}
-                      <span>{note.title}</span>
-                    </div>
-                    <p className="text-spec leading-relaxed text-body">{note.description}</p>
+              <div className="space-y-2">
+                {takeoffResult.notes.map((note, idx) => (
+                  <div key={idx} className="p-2.5 rounded-edge border border-line bg-paper text-meta text-body">
+                    {note}
                   </div>
                 ))}
               </div>
@@ -1700,12 +1658,8 @@ export const PlanTakeoffWorkspace: React.FC = () => {
             isPolePackage: takeoffResult.billOfMaterials.some((b) => b.category.toLowerCase().includes("pole")),
             isCivilCableCover: takeoffResult.billOfMaterials.some((b) => b.category.toLowerCase().includes("cable") || b.category.toLowerCase().includes("cover")),
             solarAutonomyDays: undefined,
-            windRegion: takeoffResult.drawingMetadata.standardsIdentified?.find((s) => /wind|region\s+[a-d]/i.test(s)),
             mountingHeight: takeoffResult.billOfMaterials
               .map((b) => b.itemDescription.match(/\b(\d+(?:\.\d+)?)m\b/i)?.[1])
-              .find(Boolean),
-            lightingCategory: takeoffResult.drawingMetadata.standardsIdentified
-              ?.map((s) => s.match(/\b(?:Cat(?:egory)?\s*)?(P\d+[a-z]?|V\d+[a-z]?)\b/i)?.[1])
               .find(Boolean),
             commercialPricingApproved: false,
             deliveryLocation: customerName || undefined

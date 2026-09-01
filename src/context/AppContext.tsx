@@ -74,11 +74,6 @@ export type CRMSubTab =
 
 export type ToolSubTab =
   | "plan-takeoff"
-  | "cable-cover-calc"
-  | "pole-spacing-calc"
-  | "wind-foundation-calc"
-  | "solar-autonomy"
-  | "conflict-resolver"
   | "quote-review"
   | "unknown";
 

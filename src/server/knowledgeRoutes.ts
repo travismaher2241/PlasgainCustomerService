@@ -4,7 +4,6 @@ import type { WorkspaceSession } from "../../server";
 import type { KnowledgeDocument } from "../types/knowledge";
 import { inferDocumentMetadata, DOCUMENT_TYPES } from "../utils/documentClassifier";
 
-const APPROVERS = new Set(["engineering lead", "lead engineer", "structural engineer", "compliance manager", "engineering director", "technical director", "sales director"]);
 export function knowledgeRouter(sessionFor: (req: express.Request) => WorkspaceSession | null) {
   const router = express.Router();
   let activeUploads = 0;
@@ -15,9 +14,13 @@ export function knowledgeRouter(sessionFor: (req: express.Request) => WorkspaceS
     res.setHeader("Cache-Control", "private, no-store");
     next();
   });
-  const approveRole: express.RequestHandler = (_req, res, next) => {
+  // Approving or withdrawing a document changes what the AI can draw on, so it stays
+  // gated to admins. There's no dedicated engineering/compliance department here to
+  // check a role against — gating against titles that don't exist on this team just
+  // meant nobody could ever use the action.
+  const requireAdmin: express.RequestHandler = (_req, res, next) => {
     const session: WorkspaceSession = res.locals.session;
-    if (!session.isAdmin && !APPROVERS.has(session.role.toLowerCase())) return res.status(403).json({ error: "An engineering approver or workspace administrator must review and approve knowledge." });
+    if (!session.isAdmin) return res.status(403).json({ error: "A workspace administrator must approve or withdraw knowledge." });
     next();
   };
   const handle = (fn: (req: express.Request, res: express.Response) => Promise<unknown>): express.RequestHandler => (req,res,next) => { void fn(req,res).catch(next); };
@@ -87,14 +90,14 @@ export function knowledgeRouter(sessionFor: (req: express.Request) => WorkspaceS
     res.setHeader("Content-Disposition", `inline; filename="document.pdf"; filename*=UTF-8''${encodeURIComponent(record.document.fileName || "document.pdf")}`);
     return res.send(bytes);
   }));
-  router.post("/:id/pages/:page/review", approveRole, handle(async (req,res) => {
+  router.post("/:id/pages/:page/review", handle(async (req,res) => {
     const rev = revision(req.body);
     return res.json(await knowledgeStore.review(req.params.id, Number(req.params.page), { ...req.body, revision: rev }, actor(res)));
   }));
-  router.post("/:id/approve", approveRole, handle(async (req,res) => {
+  router.post("/:id/approve", requireAdmin, handle(async (req,res) => {
     return res.json(await knowledgeStore.approve(req.params.id, revision(req.body), actor(res)));
   }));
-  router.post("/:id/retire", approveRole, handle(async (req,res) => res.json(await knowledgeStore.retire(req.params.id, revision(req.body), actor(res)))));
+  router.post("/:id/retire", requireAdmin, handle(async (req,res) => res.json(await knowledgeStore.retire(req.params.id, revision(req.body), actor(res)))));
   router.use((error: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
     const status = error.type === "entity.too.large" ? 413 : error instanceof KnowledgeError ? error.status : 503;
     // Never report a saved upload when the storage provider failed.

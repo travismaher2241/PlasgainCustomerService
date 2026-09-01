@@ -1,4 +1,39 @@
-import type { ControlledDocument } from "../server/documentGovernanceStore";
+import type { DocumentType } from "../utils/documentClassifier";
+
+// Moved here from the deleted src/server/documentGovernanceStore.ts — that file
+// was a parallel, unused-from-the-UI governance CRUD layer ("controlled
+// documents publish AS/NZS compliance evidence that goes to councils"), but
+// KnowledgeDocument, the type the live upload pipeline actually uses, extends
+// this shape, so the interface itself stays.
+export interface ControlledDocument {
+  id: string;
+  title: string;
+  productFamily: string;
+  documentType: DocumentType;
+  version: string;
+  effectiveDate: string;
+  reviewExpiryDate: string;
+  source: string;
+  uploader: string;
+  versionOwner?: string;
+  checksum?: string;
+  fileSizeBytes?: number;
+  mimeType?: string;
+  fileName?: string;
+  isExternalMetadataOnly?: boolean;
+  validationResult?: {
+    isValid: boolean;
+    checkedAt: string;
+    notes: string;
+  };
+  approvalStatus: "Draft" | "Pending Review" | "Approved" | "Superseded" | "Expired" | "Rejected";
+  supersededById?: string;
+  fileUrl: string;
+  pageCount?: number;
+  uploadedAt: string;
+  approvedBy?: string;
+  approvedAt?: string;
+}
 
 export interface KnowledgePage {
   page: number;

@@ -24,22 +24,11 @@ import {
   RefreshCw
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import type { ControlledDocument } from "../server/documentGovernanceStore";
-import type { KnowledgeDocument } from "../types/knowledge";
+import type { ControlledDocument, KnowledgeDocument } from "../types/knowledge";
 import { apiGet, apiPost, uploadKnowledgePdf } from "../utils/apiClient";
 import { PDFViewerModal } from "./PDFViewerModal";
 import { KnowledgeReviewModal } from "./KnowledgeReviewModal";
 import { inferDocumentMetadata, InferredDocumentMetadata, DOCUMENT_TYPES } from "../utils/documentClassifier";
-
-const APPROVER_ROLES = [
-  "engineering lead",
-  "lead engineer",
-  "structural engineer",
-  "compliance manager",
-  "engineering director",
-  "technical director",
-  "sales director"
-];
 
 type LibraryDocument = ControlledDocument & {
   knowledge?: KnowledgeDocument["knowledge"];
@@ -89,9 +78,11 @@ export const DocumentLibrary: React.FC = () => {
     reviewExpiryDate: new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10)
   });
 
-  const canReview =
-    currentUser.isAdmin === true ||
-    APPROVER_ROLES.includes((currentUser.role || "").toLowerCase());
+  // Correcting extracted text or reading a document isn't gated by role — this is a
+  // small sales team with no dedicated engineering/compliance titles to check against.
+  // Withdrawing a document from AI use is the one consequential action, so that
+  // stays admin-gated.
+  const canWithdraw = currentUser.isAdmin === true;
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -108,32 +99,15 @@ export const DocumentLibrary: React.FC = () => {
 
   const load = useCallback(async () => {
     setError("");
-    const results = await Promise.allSettled([
-      apiGet<KnowledgeDocument[]>("/api/knowledge/documents"),
-      apiGet<ControlledDocument[]>("/api/controlled-documents")
-    ]);
-    const uploaded = results[0].status === "fulfilled" && Array.isArray(results[0].value) ? results[0].value : [];
-    const legacy = results[1].status === "fulfilled" && Array.isArray(results[1].value) ? results[1].value : [];
-    const isOffline = results[0].status === "rejected" && results[1].status === "rejected";
-    const fallback = isOffline && Array.isArray(contextDocs) ? contextDocs : [];
-
-    const seenIds = new Set<string>();
-    const merged: LibraryDocument[] = [];
-    for (const doc of [...uploaded, ...legacy, ...fallback]) {
-      if (doc && doc.id && !seenIds.has(doc.id)) {
-        seenIds.add(doc.id);
-        merged.push(doc as LibraryDocument);
-      }
-    }
-
-    if (merged.length === 0 && isOffline) {
-      const msg = results[0].reason?.message || results[1].reason?.message || "Could not load saved documents.";
-      setError(msg);
-    } else {
+    try {
+      const uploaded = await apiGet<KnowledgeDocument[]>("/api/knowledge/documents");
+      setDocuments(Array.isArray(uploaded) ? (uploaded as LibraryDocument[]) : []);
       setError("");
+    } catch (err: any) {
+      const fallback = Array.isArray(contextDocs) ? (contextDocs as unknown as LibraryDocument[]) : [];
+      setDocuments(fallback);
+      if (fallback.length === 0) setError(err?.message || "Could not load saved documents.");
     }
-
-    setDocuments(merged);
     setLoading(false);
   }, [contextDocs]);
 
@@ -481,14 +455,14 @@ export const DocumentLibrary: React.FC = () => {
                           type="button"
                           onClick={() => setReviewId(doc.id)}
                           className={`text-spec font-bold px-3 py-1.5 rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer ${
-                            doc.approvalStatus === "Pending Review" && canReview
+                            doc.approvalStatus === "Pending Review"
                               ? "bg-brand-deep hover:bg-brand text-white shadow-xs"
                               : "bg-white hover:bg-raised text-brand-deep border border-brand-edge"
                           }`}
                         >
                           <FileCheck className="w-3.5 h-3.5" />
                           <span>
-                            {doc.approvalStatus === "Pending Review" && canReview
+                            {doc.approvalStatus === "Pending Review"
                               ? "Review pages"
                               : "View knowledge"}
                           </span>
@@ -583,7 +557,7 @@ export const DocumentLibrary: React.FC = () => {
                             )}
 
                             {/* WITHDRAW FROM AI (ONLY VISIBLE WHEN RELEVANT) (PART H) */}
-                            {canReview && doc.approvalStatus === "Approved" && aiStatus.isAvailable && (
+                            {canWithdraw && doc.approvalStatus === "Approved" && aiStatus.isAvailable && (
                               <button
                                 type="button"
                                 onClick={() => {
@@ -903,7 +877,6 @@ export const DocumentLibrary: React.FC = () => {
       {reviewId && (
         <KnowledgeReviewModal
           id={reviewId}
-          canReview={canReview}
           onClose={() => setReviewId(null)}
           onChanged={() => void load()}
         />

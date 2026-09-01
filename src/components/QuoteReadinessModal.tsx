@@ -68,7 +68,7 @@ export function QuoteReadinessModal({
                 Pre-Quote Readiness Gate
               </h2>
               <p className="text-spec text-ink-dim">
-                Verify engineering constraints and commercial readiness before quoting
+                Verify commercial readiness before quoting
               </p>
             </div>
           </div>
@@ -94,7 +94,7 @@ export function QuoteReadinessModal({
                 const labels: Record<QuoteType, { title: string; desc: string }> = {
                   budget: { title: "Budget Estimate", desc: "Early project discovery stage" },
                   indicative: { title: "Indicative Quote", desc: "Tender planning & initial BOQ" },
-                  firm: { title: "Firm Commercial Quote", desc: "Binding pricing & AS/NZS compliance" }
+                  firm: { title: "Firm Commercial Quote", desc: "Binding pricing" }
                 };
                 return (
                   <button
@@ -139,7 +139,7 @@ export function QuoteReadinessModal({
               </div>
               <p className="text-spec text-ink-dim">
                 {report.isReadyForQuoteType
-                  ? "All required critical engineering and commercial fields are confirmed."
+                  ? "All required fields are confirmed."
                   : `Critical missing information prevents preparation of a ${selectedType} quote.`}
               </p>
             </div>

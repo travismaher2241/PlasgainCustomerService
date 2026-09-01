@@ -6,12 +6,10 @@ import { cleanExtractedText } from "../utils/textFormatter";
 
 export function KnowledgeReviewModal({
   id,
-  canReview: _canReview,
   onClose,
   onChanged
 }: {
   id: string;
-  canReview: boolean;
   onClose: () => void;
   onChanged: () => void;
 }) {

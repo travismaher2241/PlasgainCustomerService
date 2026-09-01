@@ -13,7 +13,6 @@ import {
 } from "../../utils/duplicateDetector";
 import { analysisStore } from "../../server/analysisStore";
 import { commercialPricingStore } from "../../server/commercialPricingStore";
-import { documentGovernanceStore } from "../../server/documentGovernanceStore";
 import { addBusinessDaysLocal, getLocalDateInputValue } from "../../utils/dateUtils";
 
 describe("Priority 2: Speed & Usability Improvements Acceptance Suite", () => {
@@ -26,11 +25,11 @@ describe("Priority 2: Speed & Usability Improvements Acceptance Suite", () => {
   // P2-01 & P2-02: Progressive Streaming & Discrete Stages
   // ==========================================
   describe("P2-01 & P2-02: Streaming & Discrete Workflow Stages", () => {
-    it("verifies discrete engineering pipeline stages are ordered and resilient", () => {
-      const stages = ["reading", "extracting", "standards_check", "product_matching", "finalizing"];
+    it("verifies discrete analysis pipeline stages are ordered and resilient", () => {
+      const stages = ["reading", "extracting", "cross_checking", "product_matching", "finalizing"];
       expect(stages).toHaveLength(5);
       expect(stages[0]).toBe("reading");
-      expect(stages[2]).toBe("standards_check");
+      expect(stages[2]).toBe("cross_checking");
       expect(stages[4]).toBe("finalizing");
     });
   });
@@ -182,14 +181,14 @@ describe("Priority 2: Speed & Usability Improvements Acceptance Suite", () => {
   // P2-08: Pre-Quote Readiness Gate
   // ==========================================
   describe("P2-08: Pre-Quote Readiness Gate & Conditional Rules", () => {
-    it("blocks Firm Quotation when critical engineering fields or approved pricing are missing", () => {
+    it("blocks Firm Quotation when critical fields or approved pricing are missing", () => {
       const incompleteContext: QuoteContext = {
         quoteType: "firm",
         isSolar: true,
         productFamily: "Pro Blade Solar",
         customerCompany: "City of Greater Geelong",
         projectName: "Waterfront Promenade Stage 2",
-        // Missing: mountingHeight, windRegion, commercialPricingApproved
+        // Missing: mountingHeight, commercialPricingApproved
         commercialPricingApproved: false
       };
 
@@ -217,7 +216,7 @@ describe("Priority 2: Speed & Usability Improvements Acceptance Suite", () => {
       expect(report.blockers).toHaveLength(0);
     });
 
-    it("passes Firm Quotation when all critical engineering & commercial fields are confirmed", () => {
+    it("passes Firm Quotation when all critical commercial fields are confirmed", () => {
       const completeFirmContext: QuoteContext = {
         quoteType: "firm",
         isSolar: true,
@@ -226,12 +225,10 @@ describe("Priority 2: Speed & Usability Improvements Acceptance Suite", () => {
         projectName: "Waterfront Promenade Stage 2",
         productCode: "PRO-BLADE-75",
         quantity: 16,
-        lightingCategory: "P4",
         mountingHeightM: 6.0,
-        windRegion: "Region A (Normal Inland)",
         solarAutonomyDays: 5,
         commercialPricingApproved: true,
-        soilFoundationConfirmed: true
+        deliveryLocation: "Waterfront Promenade, Geelong"
       };
 
       const report = evaluateQuoteReadiness(completeFirmContext);
@@ -272,62 +269,6 @@ describe("Priority 2: Speed & Usability Improvements Acceptance Suite", () => {
       expect(approved?.status).toBe("Pricing Supplied");
       expect(approved?.approvedUnitPrice).toBe(1850);
       expect(approved?.reviewedBy).toBe("Commercial Ops Director");
-    });
-  });
-
-  // ==========================================
-  // P2-11: Controlled Document Lifecycle Governance
-  // ==========================================
-  describe("P2-11: Controlled Document Lifecycle & Authoritative Filtering", () => {
-    it("filters only Approved and unexpired documents as authoritative", async () => {
-      const docA = await documentGovernanceStore.createDocument({
-        title: "Pro Blade Solar Datasheet Rev 4.0",
-        productFamily: "Pro Blade Solar",
-        documentType: "Datasheet",
-        version: "Rev 4.0",
-        effectiveDate: "2026-01-01",
-        reviewExpiryDate: "2027-01-01", // Valid
-        source: "Engineering Dept",
-        uploader: "Lead Engineer",
-        approvalStatus: "Approved",
-        fileUrl: "/docs/pro_blade_rev4.pdf",
-        pageCount: 4
-      });
-
-      const docB = await documentGovernanceStore.createDocument({
-        title: "Old Pathway Solar Manual",
-        productFamily: "PathMaster Solar",
-        documentType: "Installation Manual",
-        version: "Rev 1.0",
-        effectiveDate: "2023-01-01",
-        reviewExpiryDate: "2024-01-01", // Expired
-        source: "Engineering Dept",
-        uploader: "Lead Engineer",
-        approvalStatus: "Approved",
-        fileUrl: "/docs/old_manual.pdf",
-        pageCount: 6
-      });
-
-      const docC = await documentGovernanceStore.createDocument({
-        title: "Draft Cyclonic Wind Study",
-        productFamily: "Composite Poles",
-        documentType: "Compliance Certificate",
-        version: "Draft 0.1",
-        effectiveDate: "2026-08-01",
-        reviewExpiryDate: "2027-08-01",
-        source: "Engineering Dept",
-        uploader: "Lead Engineer",
-        approvalStatus: "Draft",
-        fileUrl: "/docs/draft_study.pdf",
-        pageCount: 2
-      });
-
-      const authoritativeDocs = await documentGovernanceStore.getAuthoritativeDocuments();
-      const authoritativeIds = authoritativeDocs.map((d) => d.id);
-
-      expect(authoritativeIds).toContain(docA.id);
-      expect(authoritativeIds).not.toContain(docB.id); // Expired -> excluded
-      expect(authoritativeIds).not.toContain(docC.id); // Draft -> excluded
     });
   });
 

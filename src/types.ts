@@ -200,6 +200,10 @@ export interface PlasgainProduct {
     actionRequired: string;
   };
   standardCompliance?: string[];
+  utilityApprovals?: string[];
+  outreach?: string;
+  overallLength?: string;
+  installationType?: string;
 }
 
 export type DocumentAuthorityLevel =
@@ -313,7 +317,6 @@ export interface DrawingTakeoffResult {
     drawingNumber: string;
     scale?: string;
     revision?: string;
-    standardsIdentified?: string[];
   };
   legendAndSchedules: Array<{
     symbol: string;
@@ -321,10 +324,6 @@ export interface DrawingTakeoffResult {
     scheduleRef?: string;
   }>;
   billOfMaterials: BOMItem[];
-  engineeringAndSiteNotes: Array<{
-    type: "warning" | "compliance" | "info" | string;
-    title: string;
-    description: string;
-  }>;
+  notes: string[];
   summary: string;
 }

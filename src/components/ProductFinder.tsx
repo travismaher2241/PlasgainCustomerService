@@ -807,24 +807,24 @@ export const ProductFinder: React.FC = () => {
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="text-spec font-bold text-brand-deep hover:underline flex items-center gap-1.5 cursor-pointer py-1"
           >
-            <span>{showAdvanced ? "Hide advanced conditions" : "Show advanced conditions (Wind, CCT, Autonomy, Schedule)"}</span>
+            <span>{showAdvanced ? "Hide advanced conditions" : "Show advanced conditions (Site, CCT, Autonomy, Schedule)"}</span>
             {showAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
 
           {showAdvanced && (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 pt-3 animate-in fade-in duration-100">
-              {/* Wind Region */}
+              {/* Site Conditions */}
               <div>
-                <label className="block text-spec font-bold mb-1">Wind Region (AS 1170.2)</label>
+                <label className="block text-spec font-bold mb-1">Site Conditions</label>
                 <select
                   value={environmentalConditions}
                   onChange={(e) => setEnvironmentalConditions(e.target.value)}
                   className="w-full text-spec p-2 rounded-edge border border-line bg-white"
                 >
-                  <option value="Region A (Normal Inland)">Region A (Normal Inland)</option>
-                  <option value="Region B (Coastal Non-Cyclonic)">Region B (Coastal Non-Cyclonic)</option>
-                  <option value="Region C (Cyclonic - QLD/NT/WA)">Region C (Cyclonic - QLD/NT/WA)</option>
-                  <option value="Region D (Severe Cyclonic)">Region D (Severe Cyclonic)</option>
+                  <option value="Standard inland">Standard inland</option>
+                  <option value="Coastal / marine exposure">Coastal / marine exposure</option>
+                  <option value="Tropical / high UV">Tropical / high UV</option>
+                  <option value="Exposed / high wind area">Exposed / high wind area</option>
                 </select>
               </div>
 

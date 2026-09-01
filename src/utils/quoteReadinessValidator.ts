@@ -27,12 +27,9 @@ export interface QuoteContext {
   quantity?: number;
   mountingHeightM?: number | string;
   mountingHeight?: number | string;
-  windRegion?: string;
-  lightingCategory?: string;
   solarAutonomyDays?: number;
   autonomyDays?: number;
   supplyVoltage?: string;
-  soilFoundationConfirmed?: boolean;
   deliveryLocation?: string;
   commercialPricingApproved?: boolean;
   operatingProfileConfirmed?: boolean;
@@ -121,20 +118,6 @@ export const READINESS_RULES: ReadinessRule[] = [
     })
   },
 
-  // 3. Technical & Standard Compliance
-  {
-    id: "rule-lighting-cat",
-    field: "lightingCategory",
-    label: "AS/NZS 1158 Lighting Subcategory",
-    severity: "blocking",
-    quoteTypes: ["firm"],
-    appliesWhen: (ctx) => Boolean(!ctx.isCivilCableCover && (ctx.lightingCategory !== undefined || ctx.quoteType === "firm")),
-    evaluate: (ctx) => ({
-      pass: Boolean(ctx.lightingCategory && ctx.lightingCategory.trim().length > 0),
-      reason: ctx.lightingCategory ? `Lighting category: ${ctx.lightingCategory}` : "AS/NZS 1158 lighting category (e.g. P4, V3) not confirmed"
-    })
-  },
-
   // 4. Solar-specific rules
   {
     id: "rule-solar-autonomy",
@@ -169,19 +152,7 @@ export const READINESS_RULES: ReadinessRule[] = [
     })
   },
 
-  // 6. Pole & Wind Region rules
-  {
-    id: "rule-wind-region",
-    field: "windRegion",
-    label: "AS/NZS 1170.2 Wind Region & Topography",
-    severity: "blocking",
-    quoteTypes: ["firm"],
-    appliesWhen: (ctx) => Boolean(ctx.isPolePackage || ctx.productFamily?.toLowerCase().includes("pole") || ctx.mountingHeightM),
-    evaluate: (ctx) => ({
-      pass: Boolean(ctx.windRegion && ctx.windRegion.trim().length > 0),
-      reason: ctx.windRegion ? `Wind region: ${ctx.windRegion}` : "AS/NZS 1170.2 Wind Region (A/B/C/D) not confirmed for pole structural design"
-    })
-  },
+  // 6. Pole rules
   {
     id: "rule-mounting-height",
     field: "mountingHeightM",
@@ -197,20 +168,6 @@ export const READINESS_RULES: ReadinessRule[] = [
         reason: heightVal ? `Mounting height: ${heightVal}` : "Mounting height not specified"
       };
     }
-  },
-
-  // 7. Foundation & Soil Confirmation
-  {
-    id: "rule-soil-foundation",
-    field: "soilFoundationConfirmed",
-    label: "Foundation Type & Geotechnical Soil Class",
-    severity: "warning",
-    quoteTypes: ["firm"],
-    appliesWhen: (ctx) => Boolean(ctx.isPolePackage || ctx.productFamily?.toLowerCase().includes("pole")),
-    evaluate: (ctx) => ({
-      pass: Boolean(ctx.soilFoundationConfirmed),
-      reason: ctx.soilFoundationConfirmed ? "Direct bury / baseplate footing spec confirmed" : "Geotechnical soil class unconfirmed (default standard soil assumed)"
-    })
   },
 
   // 8. Commercial Pricing Approval

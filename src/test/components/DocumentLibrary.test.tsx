@@ -5,8 +5,7 @@ import { DocumentLibrary } from "../../components/DocumentLibrary";
 import { PDFViewerModal } from "../../components/PDFViewerModal";
 import { KnowledgeReviewModal } from "../../components/KnowledgeReviewModal";
 import { AppProvider } from "../../context/AppContext";
-import type { KnowledgeDocument, KnowledgeRecord } from "../../types/knowledge";
-import type { ControlledDocument } from "../../server/documentGovernanceStore";
+import type { KnowledgeDocument, KnowledgeRecord, ControlledDocument } from "../../types/knowledge";
 
 const mockControlledDocs: ControlledDocument[] = [
   {
@@ -177,7 +176,6 @@ describe("DocumentLibrary & PDF Workflows (Step 4)", () => {
     vi.clearAllMocks();
     vi.mocked(apiGet).mockImplementation(async (url: string) => {
       if (url === "/api/knowledge/documents") return mockKnowledgeDocs;
-      if (url === "/api/controlled-documents") return mockControlledDocs;
       if (url.startsWith("/api/knowledge/documents/")) return mockKnowledgeRecord;
       return [];
     });
@@ -227,18 +225,6 @@ describe("DocumentLibrary & PDF Workflows (Step 4)", () => {
     // 4. Source organisation visible
     expect(screen.getAllByText(/Plasgain Engineering/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Standards Australia/i).length).toBeGreaterThanOrEqual(1);
-  });
-
-  it("Test 3 — displays concise 'PDF not uploaded' state for metadata record without binary file", async () => {
-    renderLibrary();
-
-    await waitFor(() => {
-      expect(screen.getByText("AS/NZS 1158.3.1 Category P Reference Note")).toBeInTheDocument();
-    });
-
-    // Clear tag and upload action
-    expect(screen.getByText(/PDF not uploaded/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Upload PDF/i })).toBeInTheDocument();
   });
 
   it("Test 4 — PDF upload dialog prioritises file, title, source, revision and explains review workflow", async () => {
@@ -305,7 +291,6 @@ describe("DocumentLibrary & PDF Workflows (Step 4)", () => {
     render(
       <KnowledgeReviewModal
         id="doc-pending"
-        canReview={true}
         onClose={vi.fn()}
         onChanged={vi.fn()}
       />
@@ -334,7 +319,6 @@ describe("DocumentLibrary & PDF Workflows (Step 4)", () => {
     render(
       <KnowledgeReviewModal
         id="doc-pending"
-        canReview={true}
         onClose={vi.fn()}
         onChanged={vi.fn()}
       />
@@ -358,7 +342,6 @@ describe("DocumentLibrary & PDF Workflows (Step 4)", () => {
     render(
       <KnowledgeReviewModal
         id="doc-pending"
-        canReview={true}
         onClose={vi.fn()}
         onChanged={vi.fn()}
       />

@@ -13,7 +13,6 @@ import {
   ArrowRight,
   Copy,
   ExternalLink,
-  ShieldCheck,
   Check,
   RotateCcw,
   BookOpen,
@@ -125,7 +124,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
   const [progressStages, setProgressStages] = useState<Array<{ id: string; label: string; status: "pending" | "active" | "complete" | "failed" }>>([
     { id: "reading", label: "Reading enquiry text & attachments", status: "pending" },
     { id: "extracting", label: "Extracting project scope & lighting requirements", status: "pending" },
-    { id: "standards_check", label: "Evaluating AS/NZS 1158 & Cat V/P compliance", status: "pending" },
+    { id: "cross_checking", label: "Cross-checking extracted requirements", status: "pending" },
     { id: "product_matching", label: "Matching Plasgain luminaires & poles (exact SKUs)", status: "pending" },
     { id: "finalizing", label: "Compiling requirements matrix & readiness report", status: "pending" }
   ]);
@@ -154,7 +153,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
       const startingPointName = rec?.productName || "Plasgain Solar Public Lighting System";
 
       setReplyBody(
-        `Hi ${contact},\n\nThank you for reaching out regarding the ${project} lighting requirements.\n\nBased on your preliminary scope, our engineering team recommends the ${startingPointName}${startingPointCode} as the primary candidate for this installation.\n\nTo ensure full compliance with Australian Standards (AS/NZS 1158.3.1) and issue a firm, formal quotation, could you please confirm the following details?\n\n${qList || "1. Target lighting subcategory (e.g. Cat P4/P5)\n2. Mounting height and pole preference (Direct burial composite vs Rag-bolt)\n3. Shading or solar aspect details"}\n\nOnce confirmed, we will generate the formal point-by-point Dialux simulation and full Ostendo quotation schedule for your review.\n\nBest regards,\n${currentUser?.name || "Plasgain Sales Engineering Team"}\nPlasgain Pty Ltd`
+        `Hi ${contact},\n\nThank you for reaching out regarding the ${project} lighting requirements.\n\nBased on your preliminary scope, ${startingPointName}${startingPointCode} looks like a strong starting point for this installation.\n\nTo put together a firm quotation, could you please confirm the following details?\n\n${qList || "1. Target lighting subcategory (e.g. Cat P4/P5)\n2. Mounting height and pole preference (Direct burial composite vs Rag-bolt)\n3. Shading or solar aspect details"}\n\nOnce confirmed, we'll put together a full quotation schedule for your review.\n\nBest regards,\n${currentUser?.name || "Plasgain Sales Team"}\nPlasgain Pty Ltd`
       );
     }
   }, [currentEnquiryAnalysis]);
@@ -242,7 +241,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
     setProgressStages([
       { id: "reading", label: "Reading enquiry text & attachments", status: "active" },
       { id: "extracting", label: "Extracting project scope & lighting requirements", status: "pending" },
-      { id: "standards_check", label: "Evaluating AS/NZS 1158 & Cat V/P compliance", status: "pending" },
+      { id: "cross_checking", label: "Cross-checking extracted requirements", status: "pending" },
       { id: "product_matching", label: "Matching Plasgain luminaires & poles (exact SKUs)", status: "pending" },
       { id: "finalizing", label: "Compiling requirements matrix & readiness report", status: "pending" }
     ]);
@@ -272,7 +271,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
         {
           onStage: (stage) => {
             setProgressStages((prev) => {
-              const stageOrder = ["reading", "extracting", "standards_check", "product_matching", "finalizing"];
+              const stageOrder = ["reading", "extracting", "cross_checking", "product_matching", "finalizing"];
               const currentIdx = stageOrder.indexOf(stage.stage);
               return prev.map((s, idx) => {
                 if (idx < currentIdx) return { ...s, status: "complete" };
@@ -986,9 +985,9 @@ export const NewEnquiryWorkspace: React.FC = () => {
               <div className="flex items-center justify-between">
                 <span className="text-spec font-bold uppercase tracking-wider text-ink-dim flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-brand animate-pulse" />
-                  <span>Engineering Analysis In Progress</span>
+                  <span>Analysis In Progress</span>
                 </span>
-                <span className="text-spec font-mono text-ink-muted">AS/NZS 1158 & 1170.2 Evaluator</span>
+                <span className="text-spec font-mono text-ink-muted">Enquiry Analyser</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-5 gap-2">
@@ -1532,18 +1531,6 @@ export const NewEnquiryWorkspace: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Engineering Distinction Notice */}
-                  <div className="bg-surface border border-line p-3 rounded-edge text-spec text-ink-dim flex items-start gap-2">
-                    <ShieldCheck className="w-4 h-4 text-brand-deep shrink-0 mt-0.5" />
-                    <div>
-                      <strong className="font-bold text-body">Engineering Distinction Notice: </strong>
-                      <span>
-                        {currentEnquiryAnalysis.productRecommendations.recommendedStartingPoint.distinctionNotes ||
-                          "This selection represents an initial product match. Formal council approval and AS/NZS 1158 certification requires an engineering point-by-point Dialux photometric simulation."}
-                      </span>
-                    </div>
-                  </div>
-
                   {/* Expandable Specifications Grid */}
                   <div>
                     <button
@@ -1749,7 +1736,6 @@ export const NewEnquiryWorkspace: React.FC = () => {
             productFamily: currentEnquiryAnalysis?.productRecommendations?.recommendedStartingPoint?.productName || "Solar Public Luminaire",
             productCode: currentEnquiryAnalysis?.productRecommendations?.recommendedStartingPoint?.productCode || "PLASGAIN-SOLAR",
             mountingHeight: currentEnquiryAnalysis?.opportunitySummary?.mountingHeight?.value,
-            windRegion: currentEnquiryAnalysis?.opportunitySummary?.windRegion?.value,
             autonomyDays: 5,
             commercialPricingApproved: false,
             operatingProfileConfirmed: true

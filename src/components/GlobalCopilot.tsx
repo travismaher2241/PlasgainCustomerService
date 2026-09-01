@@ -14,7 +14,7 @@ import {
 import { useApp } from "../context/AppContext";
 import { apiStreamPost, apiGet } from "../utils/apiClient";
 import { PDFViewerModal } from "./PDFViewerModal";
-import { ControlledDocument } from "../server/documentGovernanceStore";
+import type { ControlledDocument } from "../types/knowledge";
 
 export interface CopilotCitation {
   sourceId: string;
@@ -380,16 +380,16 @@ export const GlobalCopilot: React.FC = () => {
           } else if (activeTab === "new-enquiry") {
             chips = [
               {
-                label: "Extract Pole & Wind Spec",
-                prompt: "Extract the required luminaire mounting height, outreach arm length, and AS 1170.2 wind region from this enquiry."
+                label: "Extract Pole & Mounting Spec",
+                prompt: "Extract the required luminaire mounting height, pole type, and outreach arm length as stated in this enquiry."
               },
               {
                 label: "Missing Tender Info",
                 prompt: "What critical technical or site specifications are missing from this enquiry before we can issue a formal quote?"
               },
               {
-                label: "AS 1158 Sub-Category",
-                prompt: "Which AS/NZS 1158 category (P1 to P4 / PR1 to PR4) applies to this pathway or roadway installation?"
+                label: "Stated Lighting Category",
+                prompt: "What lighting category (e.g. P1-P4, PR1-PR4) is stated in this enquiry, if any?"
               }
             ];
           } else {
@@ -399,8 +399,8 @@ export const GlobalCopilot: React.FC = () => {
                 prompt: "What is the active quote reference, contact person, and deal value for our most urgent deals?"
               },
               {
-                label: "AS/NZS 1158 Lighting Class",
-                prompt: "Explain the difference between Category P1, P2, P3, and P4 public lighting categories."
+                label: "Common Pole Terms",
+                prompt: "Explain common pole terms that show up on plans, like URD standard pole, impact absorbent pole, and outreach bracket."
               },
               {
                 label: "Standard Lead Times",
