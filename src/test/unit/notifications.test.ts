@@ -2,10 +2,9 @@ import { describe, it, expect } from "vitest";
 import { notificationStore } from "../../server/notificationStore";
 
 describe("Notification Store Unit Tests", () => {
-  it("fetches seeded notifications and creates a new notification", () => {
+  it("initializes empty and creates a new notification", () => {
     const all = notificationStore.getAll();
     expect(Array.isArray(all)).toBe(true);
-    expect(all.length).toBeGreaterThan(0);
 
     const created = notificationStore.create({
       title: "Test Alert",

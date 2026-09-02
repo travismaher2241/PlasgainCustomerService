@@ -8,11 +8,11 @@ import { AppProvider, useApp } from '../../context/AppContext';
 
 const testCompetitorRecords = [
   {
-    id: "comp-1",
-    accountId: "acc-1",
+    id: "cp-fixture-1",
+    accountId: "acc-fixture-1",
     accountName: "Wyndham Civil Group",
-    competitorName: "Orca Solar",
-    competitorProduct: "Vertex 60W Solar Column",
+    competitorName: "Alpha Lighting",
+    competitorProduct: "Alpha 60W Solar Column",
     price: 2100,
     currency: "AUD",
     priceBasis: "Per Unit",
@@ -24,11 +24,11 @@ const testCompetitorRecords = [
     createdBy: "Travis Maher"
   },
   {
-    id: "comp-2",
-    accountId: "acc-2",
-    accountName: "Legacy Observation",
-    competitorName: "Leadsun",
-    competitorProduct: "AE3 Series (Superseded Model)",
+    id: "cp-fixture-2",
+    accountId: "acc-fixture-2",
+    accountName: "Historical Observation",
+    competitorName: "Beta Solar",
+    competitorProduct: "Beta Series (Superseded Model)",
     price: 1800,
     currency: "AUD",
     priceBasis: "Per Unit",
@@ -191,20 +191,20 @@ describe("CRM Leads, Tasks, Activity & Competitor Pricing Suite (Step 6)", () =>
     expect(screen.getByRole('button', { name: /Add competitor price/i })).toBeInTheDocument();
 
     // Active record visible
-    expect(screen.getAllByText("Orca Solar").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("Vertex 60W Solar Column")).toBeInTheDocument();
+    expect(screen.getAllByText("Alpha Lighting").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Alpha 60W Solar Column")).toBeInTheDocument();
     expect(screen.getByText(/\$2,100/i)).toBeInTheDocument();
     expect(screen.getByText("Per Unit")).toBeInTheDocument();
     expect(screen.getByText("Ex GST")).toBeInTheDocument();
 
     // Superseded record filtered out by default
-    expect(screen.queryByText("AE3 Series (Superseded Model)")).not.toBeInTheDocument();
+    expect(screen.queryByText("Beta Series (Superseded Model)")).not.toBeInTheDocument();
 
     // Switch to Superseded filter
     const supersededFilterBtn = screen.getByRole('button', { name: "Superseded" });
     fireEvent.click(supersededFilterBtn);
 
-    expect(screen.getAllByText("Leadsun").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("AE3 Series (Superseded Model)")).toBeInTheDocument();
+    expect(screen.getAllByText("Beta Solar").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Beta Series (Superseded Model)")).toBeInTheDocument();
   });
 });

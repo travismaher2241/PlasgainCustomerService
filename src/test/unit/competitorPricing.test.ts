@@ -3,25 +3,42 @@ import { competitorPricingStore } from '../../server/competitorPricingStore';
 
 describe('Competitor Pricing Store & Intelligence Repository', () => {
   beforeEach(() => {
-    competitorPricingStore.resetData(true);
+    competitorPricingStore.resetData(false);
   });
 
   it('retrieves all competitor pricing records and supports account filtering', () => {
+    competitorPricingStore.createPricingRecord({
+      accountId: 'acc-test-1',
+      accountName: 'Test Regional Council',
+      competitorName: 'Test Competitor',
+      competitorProduct: 'Model X',
+      price: 2000,
+      currency: 'AUD',
+      priceBasis: 'Per Unit',
+      gstStatus: 'Ex GST',
+      quantity: 10,
+      sourceType: 'Competitor Quote',
+      observedDate: '2026-08-27',
+      createdBy: 'Sales Rep',
+      status: 'Active',
+      notes: 'Test note'
+    });
+
     const allRecords = competitorPricingStore.getAllPricingRecords();
-    expect(allRecords.length).toBeGreaterThan(0);
+    expect(allRecords.length).toBe(1);
 
     const firstAccountId = allRecords[0].accountId;
     const filtered = competitorPricingStore.getAllPricingRecords({ accountId: firstAccountId });
-    expect(filtered.length).toBeGreaterThan(0);
+    expect(filtered.length).toBe(1);
     expect(filtered.every((r) => r.accountId === firstAccountId)).toBe(true);
   });
 
   it('creates a new competitor pricing record and automatically generates a team alert', () => {
     const { record, alert } = competitorPricingStore.createPricingRecord({
-      accountId: 'acc-ballarat',
-      accountName: 'City of Ballarat',
-      competitorName: 'Leadsun Australia',
-      competitorProduct: 'AE3 30W Solar',
+      accountId: 'acc-test-2',
+      accountName: 'City of Greater Bendigo',
+      competitorName: 'SunTech Lighting',
+      competitorProduct: 'Solar 50W',
       price: 1750,
       currency: 'AUD',
       priceBasis: 'Per Unit',
@@ -29,7 +46,7 @@ describe('Competitor Pricing Store & Intelligence Repository', () => {
       quantity: 20,
       sourceType: 'Competitor Quote',
       observedDate: '2026-08-27',
-      createdBy: 'Sarah Jenkins',
+      createdBy: 'Sales Rep',
       status: 'Active',
       notes: 'Quoted on regional shared pathway tender'
     });
@@ -42,7 +59,7 @@ describe('Competitor Pricing Store & Intelligence Repository', () => {
     expect(alert).toBeDefined();
     expect(alert.recordId).toBe(record.id);
     expect(alert.title).toBe('New competitor pricing');
-    expect(alert.message).toContain('Leadsun Australia quoted AE3 30W Solar at $1,750.00 (Per Unit) for City of Ballarat');
+    expect(alert.message).toContain('SunTech Lighting quoted Solar 50W at $1,750.00 (Per Unit) for City of Greater Bendigo');
     expect(alert.isRead).toBe(false);
 
     // Verify alert is in all alerts
@@ -52,10 +69,24 @@ describe('Competitor Pricing Store & Intelligence Repository', () => {
   });
 
   it('updates competitor pricing status to Superseded', () => {
-    const all = competitorPricingStore.getAllPricingRecords();
-    const target = all[0];
+    const { record } = competitorPricingStore.createPricingRecord({
+      accountId: 'acc-test-3',
+      accountName: 'Test Shire',
+      competitorName: 'Other Vendor',
+      competitorProduct: 'Fitting A',
+      price: 1500,
+      currency: 'AUD',
+      priceBasis: 'Per Unit',
+      gstStatus: 'Ex GST',
+      quantity: 5,
+      sourceType: 'Customer Verbal',
+      observedDate: '2026-08-27',
+      createdBy: 'Sales Rep',
+      status: 'Active',
+      notes: 'Initial verbal quote'
+    });
 
-    const updated = competitorPricingStore.updatePricingRecord(target.id, {
+    const updated = competitorPricingStore.updatePricingRecord(record.id, {
       status: 'Superseded',
       notes: 'Superseded by newer 2026 rate card'
     });
@@ -66,12 +97,25 @@ describe('Competitor Pricing Store & Intelligence Repository', () => {
   });
 
   it('marks competitor alerts as read', () => {
-    const alerts = competitorPricingStore.getAllAlerts();
-    const unreadAlert = alerts.find((a) => !a.isRead);
+    const { alert } = competitorPricingStore.createPricingRecord({
+      accountId: 'acc-test-4',
+      accountName: 'Test Council',
+      competitorName: 'Vendor B',
+      competitorProduct: 'Fitting B',
+      price: 2200,
+      currency: 'AUD',
+      priceBasis: 'Supply Only',
+      gstStatus: 'Ex GST',
+      quantity: 8,
+      sourceType: 'Tender Schedule',
+      observedDate: '2026-08-27',
+      createdBy: 'Sales Rep',
+      status: 'Active',
+      notes: 'Tender rate'
+    });
 
-    if (unreadAlert) {
-      const updated = competitorPricingStore.markAlertRead(unreadAlert.id);
-      expect(updated?.isRead).toBe(true);
-    }
+    expect(alert.isRead).toBe(false);
+    const updated = competitorPricingStore.markAlertRead(alert.id);
+    expect(updated?.isRead).toBe(true);
   });
 });

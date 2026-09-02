@@ -14,41 +14,7 @@ import { ServerNotification } from "../types/crm";
 const DATA_DIR = process.env.VERCEL ? path.join("/tmp", "server_data") : path.resolve(process.cwd(), "server_data");
 const NOTIFICATIONS_FILE = path.join(DATA_DIR, "notifications.json");
 
-const SEED_NOTIFICATIONS: ServerNotification[] = [
-  {
-    id: "notif-001",
-    title: "Overdue Customer Follow-Up",
-    message: "Gold Coast Foreshore Quote Q-1042 sent 15 days ago with no response. Follow up with Rob Mitchell.",
-    timestamp: "Today",
-    type: "warning",
-    isRead: false,
-    isArchived: false,
-    linkTo: { view: "pipeline", id: "opp-003" },
-    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    id: "notif-002",
-    title: "New Inbound Enquiry Ingested",
-    message: "Sunshine Coast Council requested 18x Intense 50W lights for Ewen Maddock Dam Trail.",
-    timestamp: "Today",
-    type: "action_required",
-    isRead: false,
-    isArchived: false,
-    linkTo: { view: "leads", id: "lead-001" },
-    createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    id: "notif-003",
-    title: "New competitor pricing",
-    message: "Leadsun Australia quoted AE3 30W Solar at $1,850.00 (Per Unit) for City of Ballarat",
-    timestamp: "Yesterday",
-    type: "info",
-    isRead: true,
-    isArchived: false,
-    linkTo: { view: "accounts", id: "acc-ballarat" },
-    createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-  }
-];
+const SEED_NOTIFICATIONS: ServerNotification[] = [];
 
 class NotificationStore {
   private notifications: ServerNotification[] = [];

@@ -582,7 +582,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Known sample prefixes and exact legacy seed IDs/names to permanently purge from legacy caches and Firestore
   const KNOWN_SAMPLE_PREFIXES = [
     "acc-00", "opp-00", "lead-00", "con-00", "task-00", "act-00", "comp-00", "notif-",
-    "sample-", "seed-", "test-", "acc-offline", "opp-offline", "offline-", "mock-"
+    "sample-", "seed-", "test-", "acc-offline", "opp-offline", "offline-", "mock-",
+    "cp-00", "cpa-00", "comp-"
   ];
   const KNOWN_SAMPLE_IDS = new Set([
     "acc-1", "acc-2", "acc-3", "acc-4", "acc-5", "acc-6", "acc-7", "acc-8",
@@ -591,7 +592,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     "lead-1", "lead-2", "lead-3", "lead-4", "lead-5",
     "task-1", "task-2", "task-3", "task-4", "task-5",
     "act-1", "act-2", "act-3", "act-4", "act-5",
-    "comp-1", "comp-2", "comp-3", "acc-offline-1", "acc-offline-2"
+    "comp-1", "comp-2", "comp-3", "acc-offline-1", "acc-offline-2",
+    "cp-001", "cp-002", "cp-003", "cpa-001", "cpa-002"
   ]);
   const KNOWN_SAMPLE_NAMES = [
     "city of moreton bay",
@@ -626,7 +628,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     "townsville",
     "flinders street",
     "sunshine coast council",
-    "sunshine coast"
+    "sunshine coast",
+    "orca solar",
+    "orca",
+    "leadsun",
+    "greenfrog",
+    "vertex 60w",
+    "ae3",
+    "aerolux"
   ];
 
   const isSampleRecord = (item: any): boolean => {
@@ -637,7 +646,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const dealId = String(item.dealId || item.opportunityId || "").toLowerCase();
     const title = String(item.title || item.name || "").toLowerCase();
     const accountName = String(item.accountName || item.companyName || item.company || "").toLowerCase();
-    const description = String(item.description || item.notes || item.summary || "").toLowerCase();
+    const description = String(item.description || item.notes || item.summary || item.message || "").toLowerCase();
+    const competitorName = String(item.competitorName || "").toLowerCase();
+    const competitorProduct = String(item.competitorProduct || "").toLowerCase();
 
     if (KNOWN_SAMPLE_PREFIXES.some((p) => id.startsWith(p) || accountId.startsWith(p) || dealId.startsWith(p))) {
       return true;
@@ -647,7 +658,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return true;
     }
 
-    if (KNOWN_SAMPLE_NAMES.some((name) => title.includes(name) || accountName.includes(name) || description.includes(name))) {
+    if (KNOWN_SAMPLE_NAMES.some((name) => (
+      title.includes(name) ||
+      accountName.includes(name) ||
+      description.includes(name) ||
+      competitorName.includes(name) ||
+      competitorProduct.includes(name)
+    ))) {
       return true;
     }
 
@@ -815,7 +832,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const res = await fetch(getApiUrl("/api/notifications"));
       if (res.ok) {
         const data = await res.json();
-        if (data.notifications) setServerNotifications(data.notifications.map(normalizeNotification));
+        if (data.notifications) {
+          setServerNotifications(
+            data.notifications
+              .map(normalizeNotification)
+              .filter((n: any) => !isSampleRecord(n))
+          );
+        }
       }
     } catch (err) {
       // Ignored in offline / test mode
@@ -913,11 +936,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ]);
       if (pricingRes.ok) {
         const data = await pricingRes.json();
-        if (data.records) setCompetitorPricingRecords(data.records);
+        if (data.records) setCompetitorPricingRecords(data.records.filter((r: any) => !isSampleRecord(r)));
       }
       if (alertsRes.ok) {
         const data = await alertsRes.json();
-        if (data.alerts) setCompetitorAlerts(data.alerts);
+        if (data.alerts) setCompetitorAlerts(data.alerts.filter((a: any) => !isSampleRecord(a)));
       }
     } catch (err) {
       // Ignored during testing/offline
