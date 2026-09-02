@@ -14,6 +14,7 @@ export function makeAccount(overrides: Partial<Account> = {}): Account {
   return {
     id: "acc-test",
     name: "Test Council",
+    accountType: "Council",
     status: "Customer",
     industry: "Government & Public Infrastructure",
     customerSegment: "Local Government / Council",

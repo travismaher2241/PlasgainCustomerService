@@ -44,6 +44,7 @@ import {
 import { useApp } from "../../context/AppContext";
 import {
   Account,
+  AccountType,
   CRMContact,
   CRMOpportunity,
   RelationshipHealth,
@@ -90,6 +91,7 @@ export const CRMAccountsView: React.FC = () => {
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [accountTypeFilter, setAccountTypeFilter] = useState<"all" | AccountType>("all");
   const [segmentFilter, setSegmentFilter] = useState("all");
   const [healthFilter, setHealthFilter] = useState("all");
   const [archiveFilter, setArchiveFilter] = useState<"active" | "archived" | "all">("active");
@@ -134,10 +136,11 @@ export const CRMAccountsView: React.FC = () => {
   const [editAccountForm, setEditAccountForm] = useState({
     name: "",
     tradingName: "",
+    accountType: "Prospect" as AccountType,
     status: "Customer" as const,
     industry: "Government & Public Infrastructure",
     customerSegment: "Local Government / Council" as const,
-    territory: "QLD/NT" as const,
+    territory: "VIC/TAS" as const,
     accountOwner: currentUser.name,
     mainPhone: "",
     generalEmail: "",
@@ -172,10 +175,11 @@ export const CRMAccountsView: React.FC = () => {
   const [newAccountForm, setNewAccountForm] = useState({
     name: "",
     tradingName: "",
+    accountType: "Prospect" as AccountType,
     status: "Customer" as const,
     industry: "Government & Public Infrastructure",
     customerSegment: "Local Government / Council" as const,
-    territory: "QLD/NT" as const,
+    territory: "VIC/TAS" as const,
     accountOwner: currentUser.name,
     mainPhone: "",
     generalEmail: "",
@@ -216,6 +220,35 @@ export const CRMAccountsView: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleOutside);
   }, []);
 
+  // Visual badge for Account Type (Prospect, Account, Council)
+  const getAccountTypeBadge = (type?: AccountType, size: "sm" | "md" = "md") => {
+    const normalized: AccountType = type || "Prospect";
+    const sizeClasses = size === "sm" ? "px-1.5 py-0.5 text-[10px]" : "px-2.5 py-0.5 text-xs";
+
+    if (normalized === "Council") {
+      return (
+        <span className={`font-bold rounded-full border border-blue-300 bg-blue-50 text-blue-800 inline-flex items-center gap-1 shadow-2xs ${sizeClasses}`}>
+          <span>🏛️</span>
+          <span>Council</span>
+        </span>
+      );
+    }
+    if (normalized === "Account") {
+      return (
+        <span className={`font-bold rounded-full border border-emerald-300 bg-emerald-50 text-emerald-800 inline-flex items-center gap-1 shadow-2xs ${sizeClasses}`}>
+          <span>🏢</span>
+          <span>Account</span>
+        </span>
+      );
+    }
+    return (
+      <span className={`font-bold rounded-full border border-amber-300 bg-amber-50 text-amber-900 inline-flex items-center gap-1 shadow-2xs ${sizeClasses}`}>
+        <span>🎯</span>
+        <span>Prospect</span>
+      </span>
+    );
+  };
+
   // Filter accounts
   const filteredAccounts = accounts.filter((acc) => {
     const isArchived = Boolean(acc.isArchived || acc.status === "Archived");
@@ -227,9 +260,12 @@ export const CRMAccountsView: React.FC = () => {
       (acc.tradingName && acc.tradingName.toLowerCase().includes(searchQuery.toLowerCase())) ||
       acc.industry.toLowerCase().includes(searchQuery.toLowerCase()) ||
       acc.territory.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesType =
+      accountTypeFilter === "all" ||
+      (acc.accountType || (acc.customerSegment === "Local Government / Council" ? "Council" : "Account")) === accountTypeFilter;
     const matchesSegment = segmentFilter === "all" || acc.customerSegment === segmentFilter;
     const matchesHealth = healthFilter === "all" || acc.relationshipHealth === healthFilter;
-    return matchesArchive && matchesSearch && matchesSegment && matchesHealth;
+    return matchesArchive && matchesSearch && matchesType && matchesSegment && matchesHealth;
   });
 
   const selectedAccount =
@@ -370,8 +406,9 @@ export const CRMAccountsView: React.FC = () => {
 
     const newAcc: Account = {
       id: `acc-${Date.now()}`,
-      name: newAccountForm.name,
-      tradingName: newAccountForm.tradingName,
+      name: newAccountForm.name.trim(),
+      tradingName: newAccountForm.tradingName.trim(),
+      accountType: newAccountForm.accountType,
       status: newAccountForm.status,
       industry: newAccountForm.industry,
       customerSegment: newAccountForm.customerSegment,
@@ -385,7 +422,7 @@ export const CRMAccountsView: React.FC = () => {
       website: newAccountForm.website,
       notes: newAccountForm.notes,
       relationshipHealth: "Healthy",
-      tags: [newAccountForm.customerSegment],
+      tags: [newAccountForm.customerSegment, newAccountForm.accountType],
       metrics: {
         openPipelineValue: 0,
         totalDealsWon: 0,
@@ -397,6 +434,53 @@ export const CRMAccountsView: React.FC = () => {
     addAccount(newAcc);
     setSelectedAccountId(newAcc.id);
     setIsNewAccountModalOpen(false);
+    showToast(`Account "${newAcc.name}" (${newAcc.accountType}) created.`, "success");
+  };
+
+  // Open Edit Account Modal
+  const openEditAccountModal = () => {
+    if (!selectedAccount) return;
+    setEditAccountForm({
+      name: selectedAccount.name,
+      tradingName: selectedAccount.tradingName || "",
+      accountType: selectedAccount.accountType || (selectedAccount.customerSegment === "Local Government / Council" ? "Council" : "Account"),
+      status: selectedAccount.status || "Customer",
+      industry: selectedAccount.industry || "Government & Public Infrastructure",
+      customerSegment: selectedAccount.customerSegment || "Local Government / Council",
+      territory: selectedAccount.territory || "VIC/TAS",
+      accountOwner: selectedAccount.accountOwner || currentUser.name,
+      mainPhone: selectedAccount.mainPhone || selectedAccount.phone || "",
+      generalEmail: selectedAccount.generalEmail || "",
+      website: selectedAccount.website || "",
+      notes: selectedAccount.notes || "",
+      relationshipHealth: selectedAccount.relationshipHealth || "Healthy"
+    });
+    setIsEditAccountModalOpen(true);
+  };
+
+  // Handle Account Update
+  const handleUpdateAccount = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedAccount || !editAccountForm.name.trim()) return;
+
+    updateAccount(selectedAccount.id, {
+      name: editAccountForm.name.trim(),
+      tradingName: editAccountForm.tradingName.trim(),
+      accountType: editAccountForm.accountType,
+      status: editAccountForm.status,
+      industry: editAccountForm.industry,
+      customerSegment: editAccountForm.customerSegment,
+      territory: editAccountForm.territory,
+      accountOwner: editAccountForm.accountOwner,
+      mainPhone: editAccountForm.mainPhone,
+      generalEmail: editAccountForm.generalEmail,
+      website: editAccountForm.website,
+      notes: editAccountForm.notes,
+      relationshipHealth: editAccountForm.relationshipHealth
+    });
+
+    setIsEditAccountModalOpen(false);
+    showToast(`Account "${editAccountForm.name}" updated successfully.`, "success");
   };
 
   // Handle New Deal Creation (Context preselected!)
@@ -558,7 +642,21 @@ export const CRMAccountsView: React.FC = () => {
                     placeholder="e.g. City of Melton Council"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-spec font-bold mb-1">Account Type *</label>
+                    <select
+                      required
+                      aria-label="Account Type"
+                      value={newAccountForm.accountType}
+                      onChange={(e) => setNewAccountForm({ ...newAccountForm, accountType: e.target.value as AccountType })}
+                      className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
+                    >
+                      <option value="Prospect">Prospect</option>
+                      <option value="Account">Account</option>
+                      <option value="Council">Council</option>
+                    </select>
+                  </div>
                   <div>
                     <label className="block text-spec font-bold mb-1">Segment</label>
                     <select
@@ -678,7 +776,19 @@ export const CRMAccountsView: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-1.5">
+              <select
+                aria-label="Filter by account type"
+                value={accountTypeFilter}
+                onChange={(e) => setAccountTypeFilter(e.target.value as any)}
+                className="p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-semibold"
+              >
+                <option value="all">All Types</option>
+                <option value="Prospect">Prospect</option>
+                <option value="Account">Account</option>
+                <option value="Council">Council</option>
+              </select>
+
               <select
                 aria-label="Filter by segment"
                 value={segmentFilter}
@@ -736,12 +846,17 @@ export const CRMAccountsView: React.FC = () => {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <h3 className="font-bold text-body text-spec truncate" title={acc.name}>
-                          {acc.name}
-                        </h3>
-                        <p className="text-xs text-ink-dim truncate mt-0.5">
-                          {acc.customerSegment || acc.industry} · {acc.territory}
-                        </p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h3 className="font-bold text-body text-spec truncate" title={acc.name}>
+                            {acc.name}
+                          </h3>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                          {getAccountTypeBadge(acc.accountType, "sm")}
+                          <span className="text-xs text-ink-dim truncate">
+                            {acc.customerSegment || acc.industry} · {acc.territory}
+                          </span>
+                        </div>
                         <p className="text-[11px] text-brand-deep font-medium truncate mt-1">
                           Next: {acc.nextAction || "Log follow-up activity"}
                         </p>
@@ -810,6 +925,7 @@ export const CRMAccountsView: React.FC = () => {
                       <h2 className="text-lg sm:text-xl font-bold text-body tracking-tight break-words">
                         {selectedAccount.name}
                       </h2>
+                      {getAccountTypeBadge(selectedAccount.accountType, "md")}
                       {getHealthBadge(selectedAccount.relationshipHealth)}
                       {selectedAccount.isArchived && (
                         <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-800">
@@ -818,6 +934,8 @@ export const CRMAccountsView: React.FC = () => {
                       )}
                     </div>
                     <p className="text-spec text-ink-dim flex items-center gap-2 flex-wrap">
+                      <span>Account Type: <strong className="text-body font-semibold">{selectedAccount.accountType || "Prospect"}</strong></span>
+                      <span>•</span>
                       <span>Owner: <strong className="text-body font-semibold">{selectedAccount.accountOwner || currentUser.name}</strong></span>
                       <span>•</span>
                       <span>{selectedAccount.customerSegment || selectedAccount.industry}</span>
@@ -826,8 +944,18 @@ export const CRMAccountsView: React.FC = () => {
                     </p>
                   </div>
 
-                  {/* PRIMARY ACTIONS: Log activity & New deal (PART E) */}
+                  {/* PRIMARY ACTIONS: Log activity, Edit, & New deal */}
                   <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+                    <button
+                      type="button"
+                      onClick={openEditAccountModal}
+                      className="px-3 py-1.5 rounded-edge bg-white hover:bg-raised text-body border border-line font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      title="Edit account details and type"
+                    >
+                      <Edit3 className="w-3.5 h-3.5 text-ink-dim" />
+                      <span>Edit</span>
+                    </button>
+
                     <button
                       type="button"
                       onClick={() =>
@@ -878,6 +1006,18 @@ export const CRMAccountsView: React.FC = () => {
 
                       {isHeaderMenuOpen && (
                         <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-line rounded-panel shadow-lg py-1 z-30 text-spec animate-in fade-in zoom-in-95 duration-100">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsHeaderMenuOpen(false);
+                              openEditAccountModal();
+                            }}
+                            className="w-full text-left px-3 py-2 hover:bg-raised flex items-center gap-2 text-body cursor-pointer"
+                          >
+                            <Edit3 className="w-4 h-4 text-ink-dim" />
+                            <span>Edit Account</span>
+                          </button>
+
                           <button
                             type="button"
                             onClick={() => {
@@ -1893,7 +2033,21 @@ export const CRMAccountsView: React.FC = () => {
                   placeholder="e.g. City of Melton Council"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-spec font-bold mb-1">Account Type *</label>
+                  <select
+                    required
+                    aria-label="Account Type"
+                    value={newAccountForm.accountType}
+                    onChange={(e) => setNewAccountForm({ ...newAccountForm, accountType: e.target.value as AccountType })}
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
+                  >
+                    <option value="Prospect">Prospect</option>
+                    <option value="Account">Account</option>
+                    <option value="Council">Council</option>
+                  </select>
+                </div>
                 <div>
                   <label className="block text-spec font-bold mb-1">Segment</label>
                   <select
@@ -1937,6 +2091,163 @@ export const CRMAccountsView: React.FC = () => {
                   className="px-4 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge"
                 >
                   Create Account
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {/* EDIT ACCOUNT MODAL */}
+      {isEditAccountModalOpen && selectedAccount && (
+        <div className="fixed inset-0 z-50 bg-chrome/70 backdrop-blur-xs p-4 flex items-center justify-center animate-in fade-in duration-150">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-acc-title"
+            className="bg-surface rounded-panel max-w-lg w-full p-5 border border-line shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div className="flex items-center gap-2">
+                <Edit3 className="w-5 h-5 text-brand-deep" />
+                <h3 id="edit-acc-title" className="font-bold text-body text-base">Edit Account</h3>
+              </div>
+              <button onClick={() => setIsEditAccountModalOpen(false)} className="text-ink-dim hover:text-body">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateAccount} className="space-y-3">
+              <div>
+                <label className="block text-spec font-bold mb-1">Account / Company Name *</label>
+                <input
+                  required
+                  value={editAccountForm.name}
+                  onChange={(e) => setEditAccountForm({ ...editAccountForm, name: e.target.value })}
+                  className="w-full p-2 border border-line rounded-edge bg-white text-spec"
+                  placeholder="e.g. City of Melton Council"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-spec font-bold mb-1">Account Type *</label>
+                  <select
+                    required
+                    aria-label="Edit Account Type"
+                    value={editAccountForm.accountType}
+                    onChange={(e) => setEditAccountForm({ ...editAccountForm, accountType: e.target.value as AccountType })}
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
+                  >
+                    <option value="Prospect">Prospect</option>
+                    <option value="Account">Account</option>
+                    <option value="Council">Council</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-spec font-bold mb-1">Relationship Health</label>
+                  <select
+                    value={editAccountForm.relationshipHealth}
+                    onChange={(e) => setEditAccountForm({ ...editAccountForm, relationshipHealth: e.target.value as RelationshipHealth })}
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
+                  >
+                    <option value="Strong">Strong</option>
+                    <option value="Healthy">Healthy</option>
+                    <option value="Needs Attention">Needs Attention</option>
+                    <option value="At Risk">At Risk</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-spec font-bold mb-1">Segment</label>
+                  <select
+                    value={editAccountForm.customerSegment}
+                    onChange={(e) => setEditAccountForm({ ...editAccountForm, customerSegment: e.target.value as any })}
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
+                  >
+                    <option>Local Government / Council</option>
+                    <option>Civil Contractor</option>
+                    <option>Electrical Wholesaler / Distributor</option>
+                    <option>Infrastructure Consultant / Engineer</option>
+                    <option>Direct Commercial / Developer</option>
+                    <option>Asset Owner / Facility Manager</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-spec font-bold mb-1">Territory</label>
+                  <select
+                    value={editAccountForm.territory}
+                    onChange={(e) => setEditAccountForm({ ...editAccountForm, territory: e.target.value as any })}
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
+                  >
+                    <option>VIC/TAS</option>
+                    <option>NSW/ACT</option>
+                    <option>QLD/NT</option>
+                    <option>WA/SA</option>
+                    <option>National / Key Accounts</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-spec font-bold mb-1">Main Phone</label>
+                  <input
+                    type="text"
+                    value={editAccountForm.mainPhone}
+                    onChange={(e) => setEditAccountForm({ ...editAccountForm, mainPhone: e.target.value })}
+                    placeholder="e.g. 03 9747 7200"
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
+                  />
+                </div>
+                <div>
+                  <label className="block text-spec font-bold mb-1">General Email</label>
+                  <input
+                    type="email"
+                    value={editAccountForm.generalEmail}
+                    onChange={(e) => setEditAccountForm({ ...editAccountForm, generalEmail: e.target.value })}
+                    placeholder="e.g. enquiries@melton.vic.gov.au"
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-spec font-bold mb-1">Website</label>
+                <input
+                  type="text"
+                  value={editAccountForm.website}
+                  onChange={(e) => setEditAccountForm({ ...editAccountForm, website: e.target.value })}
+                  placeholder="e.g. https://www.melton.vic.gov.au"
+                  className="w-full p-2 border border-line rounded-edge bg-white text-spec"
+                />
+              </div>
+
+              <div>
+                <label className="block text-spec font-bold mb-1">Account Notes</label>
+                <textarea
+                  rows={3}
+                  value={editAccountForm.notes}
+                  onChange={(e) => setEditAccountForm({ ...editAccountForm, notes: e.target.value })}
+                  placeholder="Key relationships, compliance requirements, internal notes..."
+                  className="w-full p-2 border border-line rounded-edge bg-white text-spec text-xs"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-line">
+                <button
+                  type="button"
+                  onClick={() => setIsEditAccountModalOpen(false)}
+                  className="px-3 py-1.5 border border-line rounded-edge text-spec font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge"
+                >
+                  Save Changes
                 </button>
               </div>
             </form>

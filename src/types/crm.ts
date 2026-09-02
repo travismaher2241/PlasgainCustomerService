@@ -1,6 +1,7 @@
 import { EnquiryAnalysisResult } from "../types";
 
 export type AccountStatus = "Customer" | "Prospect" | "Former Customer" | "Partner" | "Distributor" | "Archived";
+export type AccountType = "Prospect" | "Account" | "Council";
 export type RelationshipHealth = "Strong" | "Healthy" | "Needs Attention" | "At Risk";
 export type LeadStatus = "New" | "Attempting Contact" | "Contacted" | "Qualifying" | "Qualified" | "Unqualified" | "Converted";
 export type LeadScoreRating = "Hot" | "Warm" | "Developing" | "Low Priority";
@@ -51,6 +52,7 @@ export interface Account {
   id: string;
   name: string;
   tradingName?: string;
+  accountType: AccountType;
   status: AccountStatus;
   industry: string;
   customerSegment: "Local Government / Council" | "Civil Contractor" | "Electrical Contractor" | "Consulting Engineer" | "Mining & Resources" | "Commercial Developer" | "Other";

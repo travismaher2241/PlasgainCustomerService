@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CRMAccountsView } from "../../components/crm/CRMAccountsView";
 import { AppProvider, useApp } from "../../context/AppContext";
@@ -14,6 +14,7 @@ const AccountsTestWrapper: React.FC<{ initialAccounts?: any[] }> = ({ initialAcc
       addAccount({
         id: "acc-test-1",
         name: "Townsville City Council",
+        accountType: "Council",
         status: "Customer",
         industry: "Government & Public Infrastructure",
         customerSegment: "Local Government / Council",
@@ -283,5 +284,133 @@ describe("CRMAccountsView Component (Step 5)", () => {
     fireEvent.click(restoreBtn);
 
     expect(screen.getByRole("button", { name: /Active \(1\)/i })).toBeInTheDocument();
+  });
+
+  it("Test 11 — Displays Account Type badge prominently in header and account list row", () => {
+    render(
+      <AppProvider>
+        <AccountsTestWrapper />
+      </AppProvider>
+    );
+
+    // List row badge and header badge for Council
+    const councilBadges = screen.getAllByText(/Council/i);
+    expect(councilBadges.length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText(/Account Type:/i)).toBeInTheDocument();
+  });
+
+  it("Test 12 — Filters account list by Account Type picklist", () => {
+    const multiAccounts = [
+      {
+        id: "acc-council",
+        name: "Brisbane City Council",
+        accountType: "Council",
+        status: "Customer",
+        industry: "Government",
+        customerSegment: "Local Government / Council",
+        territory: "QLD/NT",
+        accountOwner: "Travis Maher",
+        relationshipHealth: "Healthy",
+        tags: []
+      },
+      {
+        id: "acc-prospect",
+        name: "Apex Civil Contracting",
+        accountType: "Prospect",
+        status: "Prospect",
+        industry: "Civil Infrastructure",
+        customerSegment: "Civil Contractor",
+        territory: "NSW/ACT",
+        accountOwner: "Travis Maher",
+        relationshipHealth: "Healthy",
+        tags: []
+      },
+      {
+        id: "acc-account",
+        name: "Rexel Electrical Supplies",
+        accountType: "Account",
+        status: "Customer",
+        industry: "Wholesale",
+        customerSegment: "Electrical Wholesaler / Distributor",
+        territory: "VIC/TAS",
+        accountOwner: "Travis Maher",
+        relationshipHealth: "Healthy",
+        tags: []
+      }
+    ];
+
+    render(
+      <AppProvider>
+        <AccountsTestWrapper initialAccounts={multiAccounts} />
+      </AppProvider>
+    );
+
+    // All 3 initially rendered in list or summary
+    expect(screen.getAllByText("Brisbane City Council").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Apex Civil Contracting").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Rexel Electrical Supplies").length).toBeGreaterThanOrEqual(1);
+
+    // Filter by Prospect
+    const typeFilter = screen.getByLabelText(/Filter by account type/i);
+    fireEvent.change(typeFilter, { target: { value: "Prospect" } });
+
+    expect(screen.queryByText("Brisbane City Council")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Apex Civil Contracting").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText("Rexel Electrical Supplies")).not.toBeInTheDocument();
+
+    // Filter by Council
+    fireEvent.change(typeFilter, { target: { value: "Council" } });
+    expect(screen.getAllByText("Brisbane City Council").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText("Apex Civil Contracting")).not.toBeInTheDocument();
+
+    // Filter by Account
+    fireEvent.change(typeFilter, { target: { value: "Account" } });
+    expect(screen.getAllByText("Rexel Electrical Supplies").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("Test 13 — Creating a new account requires and sets the Account Type picklist", () => {
+    render(
+      <AppProvider>
+        <AccountsTestWrapper />
+      </AppProvider>
+    );
+
+    const addBtn = screen.getAllByRole("button", { name: /\+? ?Add account/i })[0];
+    fireEvent.click(addBtn);
+
+    const dialog = screen.getByRole("dialog", { name: /Add New Account/i });
+    expect(dialog).toBeInTheDocument();
+    const typeSelect = within(dialog).getByLabelText(/Account Type/i);
+    expect(typeSelect).toBeInTheDocument();
+
+    // Change Account Type to Council
+    fireEvent.change(typeSelect, { target: { value: "Council" } });
+    fireEvent.change(within(dialog).getByPlaceholderText(/e\.g\. City of Melton Council/i), {
+      target: { value: "Geelong City Council" }
+    });
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /Create Account/i }));
+
+    expect(screen.getAllByText("Geelong City Council").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("Test 14 — Editing an account updates the Account Type and persists changes", () => {
+    render(
+      <AppProvider>
+        <AccountsTestWrapper />
+      </AppProvider>
+    );
+
+    const editBtn = screen.getAllByRole("button", { name: /^Edit$/i })[0];
+    fireEvent.click(editBtn);
+
+    expect(screen.getByRole("dialog", { name: /Edit Account/i })).toBeInTheDocument();
+    const editTypeSelect = screen.getByLabelText(/Edit Account Type/i);
+    fireEvent.change(editTypeSelect, { target: { value: "Account" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    // Now Account Type shows Account
+    expect(screen.getByText(/Account Type:/i)).toBeInTheDocument();
   });
 });

@@ -1446,6 +1446,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const newAcc: Account = {
           id: accountId,
           name: lead.company,
+          accountType: lead.company.toLowerCase().includes("council") ? "Council" : "Prospect",
           status: "Prospect",
           industry: "Government & Public Infrastructure",
           customerSegment: lead.company.toLowerCase().includes("council") ? "Local Government / Council" : "Civil Contractor",
