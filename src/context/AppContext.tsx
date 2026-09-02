@@ -580,7 +580,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Known sample prefixes and exact legacy seed IDs/names to permanently purge from legacy caches and Firestore
-  const KNOWN_SAMPLE_PREFIXES = ["acc-00", "opp-00", "lead-00", "con-00", "task-00", "act-00", "comp-00", "notif-", "sample-"];
+  const KNOWN_SAMPLE_PREFIXES = ["acc-00", "opp-00", "lead-00", "con-00", "task-00", "act-00", "comp-00", "notif-", "sample-", "seed-", "test-"];
   const KNOWN_SAMPLE_IDS = new Set([
     "acc-1", "acc-2", "acc-3", "acc-4", "acc-5", "acc-6", "acc-7", "acc-8",
     "opp-1", "opp-2", "opp-3", "opp-4", "opp-5", "opp-6", "opp-7", "opp-8",
@@ -603,7 +603,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     "city of gold coast",
     "call with client",
     "follow-up: call with client",
-    "account note: client"
+    "account note: client",
+    "baw baw",
+    "latrobe",
+    "traralgon",
+    "okafor",
+    "sarah reed",
+    "ballarat",
+    "technical requirements discovery",
+    "drouin rail trail",
+    "solar pathway lighting",
+    "recreation reserve car park"
   ];
 
   const isSampleRecord = (item: any): boolean => {
@@ -614,6 +624,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const dealId = String(item.dealId || item.opportunityId || "").toLowerCase();
     const title = String(item.title || item.name || "").toLowerCase();
     const accountName = String(item.accountName || item.companyName || item.company || "").toLowerCase();
+    const description = String(item.description || item.notes || item.summary || "").toLowerCase();
 
     if (KNOWN_SAMPLE_PREFIXES.some((p) => id.startsWith(p) || accountId.startsWith(p) || dealId.startsWith(p))) {
       return true;
@@ -623,7 +634,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return true;
     }
 
-    if (KNOWN_SAMPLE_NAMES.some((name) => title.includes(name) || accountName.includes(name))) {
+    if (KNOWN_SAMPLE_NAMES.some((name) => title.includes(name) || accountName.includes(name) || description.includes(name))) {
       return true;
     }
 
