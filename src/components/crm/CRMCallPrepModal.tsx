@@ -122,9 +122,9 @@ export const CRMCallPrepModal: React.FC = () => {
               <Building2 className="w-4 h-4 text-brand-deep shrink-0" />
               {targetAccount?.name || "General Touchpoint"}
             </span>
-            {targetAccount?.customerSegment && (
+            {(targetAccount?.accountType || targetAccount?.customerSegment) && (
               <span className="text-spec font-semibold px-2 py-0.5 rounded bg-white border border-brand-edge text-brand-deep">
-                {targetAccount.customerSegment} · {targetAccount.territory || "AU"}
+                {targetAccount.accountType || targetAccount.customerSegment} · {targetAccount.territory || "AU"}
               </span>
             )}
           </div>

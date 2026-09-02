@@ -55,7 +55,7 @@ export interface Account {
   accountType: AccountType;
   status: AccountStatus;
   industry: string;
-  customerSegment: "Local Government / Council" | "Civil Contractor" | "Electrical Contractor" | "Consulting Engineer" | "Mining & Resources" | "Commercial Developer" | "Other";
+  customerSegment?: string;
   companySize?: string;
   abn?: string;
   website?: string;

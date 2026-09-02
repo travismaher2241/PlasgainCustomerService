@@ -1,7 +1,7 @@
 [
   {
-    "id": "cpa-1788326590527-114",
-    "recordId": "cp-1788326590526-67",
+    "id": "cpa-1788327079976-879",
+    "recordId": "cp-1788327079975-554",
     "accountId": "acc-test-4",
     "accountName": "Test Council",
     "competitorName": "Vendor B",
@@ -11,7 +11,7 @@
     "priceBasis": "Supply Only",
     "title": "New competitor pricing",
     "message": "Vendor B quoted Fitting B at $2,200.00 (Supply Only) for Test Council",
-    "createdAt": "2026-09-02T05:23:10.526Z",
+    "createdAt": "2026-09-02T05:31:19.975Z",
     "isRead": true
   }
 ]

@@ -128,12 +128,12 @@ describe("CRMAccountsView Component (Step 5)", () => {
     );
 
     expect(screen.getByPlaceholderText(/Search accounts by name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Filter by segment/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Filter by account type/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Filter by health/i)).toBeInTheDocument();
 
     // Compact row rendered
     expect(screen.getAllByText(/Townsville City Council/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/Local Government \/ Council · QLD\/NT/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/QLD\/NT/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Next: Issue preliminary design verification/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Healthy/i).length).toBeGreaterThanOrEqual(1);
   });

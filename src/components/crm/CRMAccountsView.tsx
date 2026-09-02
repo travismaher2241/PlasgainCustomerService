@@ -92,7 +92,6 @@ export const CRMAccountsView: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [accountTypeFilter, setAccountTypeFilter] = useState<"all" | AccountType>("all");
-  const [segmentFilter, setSegmentFilter] = useState("all");
   const [healthFilter, setHealthFilter] = useState("all");
   const [archiveFilter, setArchiveFilter] = useState<"active" | "archived" | "all">("active");
   const [activeAccountTab, setActiveAccountTab] = useState<
@@ -139,7 +138,6 @@ export const CRMAccountsView: React.FC = () => {
     accountType: "Prospect" as AccountType,
     status: "Customer" as const,
     industry: "Government & Public Infrastructure",
-    customerSegment: "Local Government / Council" as const,
     territory: "VIC/TAS" as const,
     accountOwner: currentUser.name,
     mainPhone: "",
@@ -178,7 +176,6 @@ export const CRMAccountsView: React.FC = () => {
     accountType: "Prospect" as AccountType,
     status: "Customer" as const,
     industry: "Government & Public Infrastructure",
-    customerSegment: "Local Government / Council" as const,
     territory: "VIC/TAS" as const,
     accountOwner: currentUser.name,
     mainPhone: "",
@@ -262,10 +259,9 @@ export const CRMAccountsView: React.FC = () => {
       acc.territory.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType =
       accountTypeFilter === "all" ||
-      (acc.accountType || (acc.customerSegment === "Local Government / Council" ? "Council" : "Account")) === accountTypeFilter;
-    const matchesSegment = segmentFilter === "all" || acc.customerSegment === segmentFilter;
+      (acc.accountType || "Prospect") === accountTypeFilter;
     const matchesHealth = healthFilter === "all" || acc.relationshipHealth === healthFilter;
-    return matchesArchive && matchesSearch && matchesType && matchesSegment && matchesHealth;
+    return matchesArchive && matchesSearch && matchesType && matchesHealth;
   });
 
   const selectedAccount =
@@ -411,7 +407,6 @@ export const CRMAccountsView: React.FC = () => {
       accountType: newAccountForm.accountType,
       status: newAccountForm.status,
       industry: newAccountForm.industry,
-      customerSegment: newAccountForm.customerSegment,
       territory: newAccountForm.territory,
       accountOwner: newAccountForm.accountOwner,
       leadSource: "Direct Contact",
@@ -422,7 +417,7 @@ export const CRMAccountsView: React.FC = () => {
       website: newAccountForm.website,
       notes: newAccountForm.notes,
       relationshipHealth: "Healthy",
-      tags: [newAccountForm.customerSegment, newAccountForm.accountType],
+      tags: [newAccountForm.accountType],
       metrics: {
         openPipelineValue: 0,
         totalDealsWon: 0,
@@ -443,10 +438,9 @@ export const CRMAccountsView: React.FC = () => {
     setEditAccountForm({
       name: selectedAccount.name,
       tradingName: selectedAccount.tradingName || "",
-      accountType: selectedAccount.accountType || (selectedAccount.customerSegment === "Local Government / Council" ? "Council" : "Account"),
+      accountType: selectedAccount.accountType || "Prospect",
       status: selectedAccount.status || "Customer",
       industry: selectedAccount.industry || "Government & Public Infrastructure",
-      customerSegment: selectedAccount.customerSegment || "Local Government / Council",
       territory: selectedAccount.territory || "VIC/TAS",
       accountOwner: selectedAccount.accountOwner || currentUser.name,
       mainPhone: selectedAccount.mainPhone || selectedAccount.phone || "",
@@ -469,7 +463,6 @@ export const CRMAccountsView: React.FC = () => {
       accountType: editAccountForm.accountType,
       status: editAccountForm.status,
       industry: editAccountForm.industry,
-      customerSegment: editAccountForm.customerSegment,
       territory: editAccountForm.territory,
       accountOwner: editAccountForm.accountOwner,
       mainPhone: editAccountForm.mainPhone,
@@ -642,7 +635,7 @@ export const CRMAccountsView: React.FC = () => {
                     placeholder="e.g. City of Melton Council"
                   />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-spec font-bold mb-1">Account Type *</label>
                     <select
@@ -655,21 +648,6 @@ export const CRMAccountsView: React.FC = () => {
                       <option value="Prospect">Prospect</option>
                       <option value="Account">Account</option>
                       <option value="Council">Council</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-spec font-bold mb-1">Segment</label>
-                    <select
-                      value={newAccountForm.customerSegment}
-                      onChange={(e) => setNewAccountForm({ ...newAccountForm, customerSegment: e.target.value as any })}
-                      className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                    >
-                      <option>Local Government / Council</option>
-                      <option>Civil Contractor</option>
-                      <option>Electrical Wholesaler / Distributor</option>
-                      <option>Infrastructure Consultant / Engineer</option>
-                      <option>Direct Commercial / Developer</option>
-                      <option>Asset Owner / Facility Manager</option>
                     </select>
                   </div>
                   <div>
@@ -776,7 +754,7 @@ export const CRMAccountsView: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-3 gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               <select
                 aria-label="Filter by account type"
                 value={accountTypeFilter}
@@ -787,21 +765,6 @@ export const CRMAccountsView: React.FC = () => {
                 <option value="Prospect">Prospect</option>
                 <option value="Account">Account</option>
                 <option value="Council">Council</option>
-              </select>
-
-              <select
-                aria-label="Filter by segment"
-                value={segmentFilter}
-                onChange={(e) => setSegmentFilter(e.target.value)}
-                className="p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-medium"
-              >
-                <option value="all">All Segments</option>
-                <option value="Local Government / Council">Council</option>
-                <option value="Civil Contractor">Civil Contractor</option>
-                <option value="Electrical Wholesaler / Distributor">Wholesaler</option>
-                <option value="Infrastructure Consultant / Engineer">Consultant</option>
-                <option value="Direct Commercial / Developer">Developer</option>
-                <option value="Asset Owner / Facility Manager">Asset Owner</option>
               </select>
 
               <select
@@ -854,7 +817,7 @@ export const CRMAccountsView: React.FC = () => {
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           {getAccountTypeBadge(acc.accountType, "sm")}
                           <span className="text-xs text-ink-dim truncate">
-                            {acc.customerSegment || acc.industry} · {acc.territory}
+                            {acc.territory}
                           </span>
                         </div>
                         <p className="text-[11px] text-brand-deep font-medium truncate mt-1">
@@ -937,8 +900,6 @@ export const CRMAccountsView: React.FC = () => {
                       <span>Account Type: <strong className="text-body font-semibold">{selectedAccount.accountType || "Prospect"}</strong></span>
                       <span>•</span>
                       <span>Owner: <strong className="text-body font-semibold">{selectedAccount.accountOwner || currentUser.name}</strong></span>
-                      <span>•</span>
-                      <span>{selectedAccount.customerSegment || selectedAccount.industry}</span>
                       <span>•</span>
                       <span>{selectedAccount.territory}</span>
                     </p>
@@ -1686,7 +1647,7 @@ export const CRMAccountsView: React.FC = () => {
                           </h4>
                           <p className="text-body text-spec leading-relaxed">
                             {aiSummary.accountOverview ||
-                              `${selectedAccount.name} is an active ${selectedAccount.customerSegment} with ${accountDeals.length} active opportunities and regular technical engagement across AS/NZS 1158 solar lighting standards.`}
+                              `${selectedAccount.name} is an active ${selectedAccount.accountType || "Account"} with ${accountDeals.length} active opportunities and regular technical engagement across AS/NZS 1158 solar lighting standards.`}
                           </p>
                         </div>
 
@@ -2033,7 +1994,7 @@ export const CRMAccountsView: React.FC = () => {
                   placeholder="e.g. City of Melton Council"
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-spec font-bold mb-1">Account Type *</label>
                   <select
@@ -2046,21 +2007,6 @@ export const CRMAccountsView: React.FC = () => {
                     <option value="Prospect">Prospect</option>
                     <option value="Account">Account</option>
                     <option value="Council">Council</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-spec font-bold mb-1">Segment</label>
-                  <select
-                    value={newAccountForm.customerSegment}
-                    onChange={(e) => setNewAccountForm({ ...newAccountForm, customerSegment: e.target.value as any })}
-                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  >
-                    <option>Local Government / Council</option>
-                    <option>Civil Contractor</option>
-                    <option>Electrical Wholesaler / Distributor</option>
-                    <option>Infrastructure Consultant / Engineer</option>
-                    <option>Direct Commercial / Developer</option>
-                    <option>Asset Owner / Facility Manager</option>
                   </select>
                 </div>
                 <div>
@@ -2128,7 +2074,7 @@ export const CRMAccountsView: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-spec font-bold mb-1">Account Type *</label>
                   <select
@@ -2144,37 +2090,6 @@ export const CRMAccountsView: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-spec font-bold mb-1">Relationship Health</label>
-                  <select
-                    value={editAccountForm.relationshipHealth}
-                    onChange={(e) => setEditAccountForm({ ...editAccountForm, relationshipHealth: e.target.value as RelationshipHealth })}
-                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  >
-                    <option value="Strong">Strong</option>
-                    <option value="Healthy">Healthy</option>
-                    <option value="Needs Attention">Needs Attention</option>
-                    <option value="At Risk">At Risk</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-spec font-bold mb-1">Segment</label>
-                  <select
-                    value={editAccountForm.customerSegment}
-                    onChange={(e) => setEditAccountForm({ ...editAccountForm, customerSegment: e.target.value as any })}
-                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  >
-                    <option>Local Government / Council</option>
-                    <option>Civil Contractor</option>
-                    <option>Electrical Wholesaler / Distributor</option>
-                    <option>Infrastructure Consultant / Engineer</option>
-                    <option>Direct Commercial / Developer</option>
-                    <option>Asset Owner / Facility Manager</option>
-                  </select>
-                </div>
-                <div>
                   <label className="block text-spec font-bold mb-1">Territory</label>
                   <select
                     value={editAccountForm.territory}
@@ -2186,6 +2101,19 @@ export const CRMAccountsView: React.FC = () => {
                     <option>QLD/NT</option>
                     <option>WA/SA</option>
                     <option>National / Key Accounts</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-spec font-bold mb-1">Relationship Health</label>
+                  <select
+                    value={editAccountForm.relationshipHealth}
+                    onChange={(e) => setEditAccountForm({ ...editAccountForm, relationshipHealth: e.target.value as RelationshipHealth })}
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
+                  >
+                    <option value="Strong">Strong</option>
+                    <option value="Healthy">Healthy</option>
+                    <option value="Needs Attention">Needs Attention</option>
+                    <option value="At Risk">At Risk</option>
                   </select>
                 </div>
               </div>

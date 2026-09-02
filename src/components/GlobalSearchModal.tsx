@@ -165,7 +165,7 @@ export const GlobalSearchModal: React.FC = () => {
         (a) =>
           a.name.toLowerCase().includes(q) ||
           (a.tradingName && a.tradingName.toLowerCase().includes(q)) ||
-          (a.customerSegment && a.customerSegment.toLowerCase().includes(q)) ||
+          (a.accountType && a.accountType.toLowerCase().includes(q)) ||
           (a.billingAddress?.city && a.billingAddress.city.toLowerCase().includes(q))
       )
     : [];
@@ -412,7 +412,7 @@ export const GlobalSearchModal: React.FC = () => {
                   >
                     <div>
                       <span className="font-bold text-body">{acc.name}</span>
-                      <span className="text-ink-dim ml-2 text-spec">({acc.customerSegment} · {acc.territory})</span>
+                      <span className="text-ink-dim ml-2 text-spec">({acc.accountType || "Account"} · {acc.territory})</span>
                     </div>
                     <ArrowRight className="w-3.5 h-3.5 text-ink-faint" />
                   </button>
