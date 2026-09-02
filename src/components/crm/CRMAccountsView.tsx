@@ -1349,53 +1349,85 @@ export const CRMAccountsView: React.FC = () => {
                       </div>
                     ) : (
                       <div className="divide-y divide-line border border-line rounded-panel overflow-hidden">
-                        {accountContacts.map((contact) => (
-                          <div
-                            key={contact.id}
-                            onClick={() => setDrawerContact(contact)}
-                            className="p-3.5 hover:bg-raised/60 transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                          >
-                            <div className="space-y-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h4 className="font-bold text-body text-spec">{contact.name}</h4>
-                                {contact.isPrimaryDecisionMaker && (
-                                  <span className="text-[11px] font-bold px-2 py-0.2 rounded bg-amber-100 text-amber-900 border border-amber-300">
-                                    Decision Maker
-                                  </span>
-                                )}
-                                {contact.buyingRole && !contact.isPrimaryDecisionMaker && (
-                                  <span className="text-[11px] font-medium px-2 py-0.2 rounded bg-line text-ink-dim">
-                                    {contact.buyingRole}
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-xs text-ink-dim">
-                                {contact.role || "Project Stakeholder"} {contact.department ? `· ${contact.department}` : ""}
-                              </p>
-                              <div className="flex items-center gap-3 text-xs text-ink-dim flex-wrap pt-0.5">
-                                {contact.email && (
-                                  <span className="text-body">{contact.email}</span>
-                                )}
-                                {contact.phone && (
-                                  <span>{contact.phone}</span>
-                                )}
-                              </div>
-                            </div>
+                        {accountContacts.map((contact) => {
+                          const fullName = `${contact.firstName || ""} ${contact.lastName || ""}`.trim() || contact.name || "Unnamed Contact";
+                          const displayName = contact.preferredName ? `${fullName} (${contact.preferredName})` : fullName;
+                          const hasPersonal = Boolean(contact.hobbies || contact.hasPartner || contact.partnerName || contact.hasChildren || contact.birthday);
 
-                            <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setContactToEdit(contact);
-                                  setIsContactModalOpen(true);
-                                }}
-                                className="px-2.5 py-1 text-xs border border-line rounded hover:bg-white text-body font-medium"
-                              >
-                                Edit
-                              </button>
+                          return (
+                            <div
+                              key={contact.id}
+                              onClick={() => setDrawerContact(contact)}
+                              className="p-3.5 hover:bg-raised/60 transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-start justify-between gap-3"
+                            >
+                              <div className="space-y-1.5 min-w-0 flex-1">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <h4 className="font-bold text-body text-spec">{displayName}</h4>
+                                  {contact.role && (
+                                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge">
+                                      {contact.role}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-ink-dim font-medium">
+                                  {contact.jobTitle} {contact.department ? `· ${contact.department}` : ""}
+                                </p>
+                                <div className="flex items-center gap-3 text-xs text-ink-dim flex-wrap pt-0.5">
+                                  {contact.email && (
+                                    <span className="text-body font-mono">{contact.email}</span>
+                                  )}
+                                  {(contact.mobile || contact.phone) && (
+                                    <span>{contact.mobile || contact.phone}</span>
+                                  )}
+                                </div>
+
+                                {hasPersonal && (
+                                  <div className="flex items-center gap-2 text-[11px] text-ink-dim flex-wrap pt-1">
+                                    {contact.hobbies && (
+                                      <span className="bg-paper px-2 py-0.5 rounded border border-line">
+                                        🎯 {contact.hobbies}
+                                      </span>
+                                    )}
+                                    {contact.partnerName && (
+                                      <span className="bg-paper px-2 py-0.5 rounded border border-line">
+                                        Partner: {contact.partnerName}
+                                      </span>
+                                    )}
+                                    {contact.childrenNames && contact.childrenNames.length > 0 && (
+                                      <span className="bg-paper px-2 py-0.5 rounded border border-line">
+                                        Kids: {contact.childrenNames.join(", ")}
+                                      </span>
+                                    )}
+                                    {contact.birthday && (
+                                      <span className="bg-paper px-2 py-0.5 rounded border border-line">
+                                        🎂 {contact.birthday}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+
+                                {(contact.thingsToRemember || contact.notes) && (
+                                  <p className="text-xs text-brand-deep bg-brand-wash/50 p-1.5 rounded border border-brand-edge/30 line-clamp-2 mt-1">
+                                    <strong>Remember:</strong> {contact.thingsToRemember || contact.notes}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0 self-start sm:self-center" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setContactToEdit(contact);
+                                    setIsContactModalOpen(true);
+                                  }}
+                                  className="px-2.5 py-1 text-xs border border-line rounded hover:bg-white text-body font-medium cursor-pointer shadow-2xs"
+                                >
+                                  Edit
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -1794,50 +1826,167 @@ export const CRMAccountsView: React.FC = () => {
             role="dialog"
             aria-modal="true"
             aria-label="Contact Details"
-            className="bg-surface rounded-panel max-w-md w-full p-5 border border-line shadow-2xl space-y-4"
+            className="bg-surface rounded-panel max-w-lg w-full p-5 border border-line shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between border-b border-line pb-3">
               <div>
-                <h3 className="font-bold text-body text-base">{drawerContact.name}</h3>
-                <p className="text-spec text-ink-dim">{drawerContact.role || "Stakeholder"}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-bold text-body text-lg">
+                    {`${drawerContact.firstName || ""} ${drawerContact.lastName || ""}`.trim() || drawerContact.name || "Contact Details"}
+                  </h3>
+                  {drawerContact.preferredName && (
+                    <span className="text-spec text-ink-dim font-normal">
+                      ("{drawerContact.preferredName}")
+                    </span>
+                  )}
+                </div>
+                <p className="text-spec text-ink-dim font-medium">
+                  {drawerContact.jobTitle || "Contact"}
+                  {drawerContact.role ? ` · ${drawerContact.role}` : ""}
+                  {drawerContact.department ? ` (${drawerContact.department})` : ""}
+                </p>
               </div>
               <button
                 onClick={() => setDrawerContact(null)}
-                className="p-1 text-ink-dim hover:text-body rounded hover:bg-line"
+                className="p-1 text-ink-dim hover:text-body rounded hover:bg-line cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="space-y-3 text-spec">
-              <div>
-                <span className="text-xs font-bold text-ink-dim uppercase block">Contact Information</span>
-                {drawerContact.email && <p className="text-body mt-0.5">Email: {drawerContact.email}</p>}
-                {drawerContact.phone && <p className="text-body mt-0.5">Phone: {drawerContact.phone}</p>}
+            <div className="space-y-4 text-spec">
+              {/* Direct Communication */}
+              <div className="p-3 bg-paper border border-line rounded-edge space-y-1.5">
+                <span className="text-xs font-bold text-ink-dim uppercase block">Direct Communication</span>
+                <div className="space-y-1 text-body">
+                  {drawerContact.email && (
+                    <p className="flex items-center gap-2">
+                      <span className="text-ink-dim font-medium">Email:</span>
+                      <a href={`mailto:${drawerContact.email}`} className="text-brand-deep hover:underline">
+                        {drawerContact.email}
+                      </a>
+                    </p>
+                  )}
+                  {drawerContact.mobile && (
+                    <p className="flex items-center gap-2">
+                      <span className="text-ink-dim font-medium">Mobile:</span>
+                      <a href={`tel:${drawerContact.mobile}`} className="text-body hover:underline">
+                        {drawerContact.mobile}
+                      </a>
+                    </p>
+                  )}
+                  {drawerContact.phone && (
+                    <p className="flex items-center gap-2">
+                      <span className="text-ink-dim font-medium">Direct Phone:</span>
+                      <span>{drawerContact.phone}</span>
+                    </p>
+                  )}
+                  {drawerContact.preferredContactMethod && (
+                    <p className="flex items-center gap-2 text-xs text-ink-dim pt-0.5">
+                      <span>Prefers:</span>
+                      <strong className="text-body font-semibold">{drawerContact.preferredContactMethod}</strong>
+                    </p>
+                  )}
+                  {drawerContact.linkedinUrl && (
+                    <p className="pt-0.5">
+                      <a
+                        href={drawerContact.linkedinUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs text-brand-deep hover:underline font-medium"
+                      >
+                        LinkedIn Profile ↗
+                      </a>
+                    </p>
+                  )}
+                </div>
               </div>
 
-              <div>
-                <span className="text-xs font-bold text-ink-dim uppercase block">Buying Role &amp; Influence</span>
-                <p className="text-body mt-0.5">
-                  Role: {drawerContact.buyingRole || (drawerContact.isPrimaryDecisionMaker ? "Decision Maker" : "Stakeholder")}
-                </p>
-                {drawerContact.influenceLevel && (
-                  <p className="text-body mt-0.5">Influence: {drawerContact.influenceLevel}</p>
-                )}
-              </div>
+              {/* Personal Details (Only if populated) */}
+              {(drawerContact.hobbies || drawerContact.hasPartner || drawerContact.partnerName || drawerContact.hasChildren || drawerContact.birthday) && (
+                <div className="p-3 bg-paper border border-line rounded-edge space-y-2">
+                  <span className="text-xs font-bold text-ink-dim uppercase block">Personal</span>
+                  <div className="space-y-1.5 text-body text-spec">
+                    {drawerContact.hobbies && (
+                      <div>
+                        <span className="text-ink-dim text-xs block">Hobbies &amp; Interests</span>
+                        <p className="font-medium text-body">{drawerContact.hobbies}</p>
+                      </div>
+                    )}
+                    {drawerContact.partnerName && (
+                      <div>
+                        <span className="text-ink-dim text-xs block">Partner</span>
+                        <p className="font-medium text-body">{drawerContact.partnerName}</p>
+                      </div>
+                    )}
+                    {drawerContact.childrenNames && drawerContact.childrenNames.length > 0 && (
+                      <div>
+                        <span className="text-ink-dim text-xs block">Children</span>
+                        <p className="font-medium text-body">{drawerContact.childrenNames.join(" · ")}</p>
+                      </div>
+                    )}
+                    {drawerContact.birthday && (
+                      <div>
+                        <span className="text-ink-dim text-xs block">Birthday</span>
+                        <p className="font-medium text-body">
+                          {drawerContact.birthday}
+                          {drawerContact.birthdayReminder && " (Reminder active)"}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
-              {drawerContact.notes && (
-                <div>
-                  <span className="text-xs font-bold text-ink-dim uppercase block">Notes</span>
-                  <p className="text-body mt-0.5 text-xs whitespace-pre-wrap">{drawerContact.notes}</p>
+              {/* Things to Remember */}
+              {(drawerContact.thingsToRemember || drawerContact.notes) && (
+                <div className="p-3 bg-brand-wash/40 border border-brand-edge/60 rounded-edge space-y-1">
+                  <span className="text-xs font-bold text-brand-deep uppercase block">Things to Remember</span>
+                  <p className="text-body whitespace-pre-wrap leading-relaxed text-spec">
+                    {drawerContact.thingsToRemember || drawerContact.notes}
+                  </p>
+                </div>
+              )}
+
+              {/* Notable Events */}
+              {drawerContact.notableEvents && drawerContact.notableEvents.length > 0 && (
+                <div className="p-3 bg-paper border border-line rounded-edge space-y-2">
+                  <span className="text-xs font-bold text-ink-dim uppercase block">Upcoming / Recent Notable Events</span>
+                  <div className="space-y-2 divide-y divide-line">
+                    {drawerContact.notableEvents.map((ev) => (
+                      <div key={ev.id} className="pt-1.5 first:pt-0 space-y-0.5">
+                        <p className="font-semibold text-body text-spec">{ev.title}</p>
+                        <div className="flex items-center gap-3 text-xs text-ink-dim flex-wrap">
+                          {ev.eventDate && <span>Event: {ev.eventDate}</span>}
+                          {ev.followUpDate && (
+                            <span className="text-brand-deep font-bold bg-brand-wash px-1.5 py-0.5 rounded border border-brand-edge/40">
+                              Follow up: {ev.followUpDate}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
 
-            <div className="flex justify-end pt-3 border-t border-line">
+            <div className="flex items-center justify-between pt-3 border-t border-line">
               <button
+                type="button"
+                onClick={() => {
+                  setContactToEdit(drawerContact);
+                  setDrawerContact(null);
+                  setIsContactModalOpen(true);
+                }}
+                className="px-3.5 py-1.5 bg-white hover:bg-raised text-body border border-line font-bold text-spec rounded-edge cursor-pointer"
+              >
+                Edit Contact
+              </button>
+              <button
+                type="button"
                 onClick={() => setDrawerContact(null)}
-                className="px-4 py-1.5 bg-brand-deep text-white font-bold text-spec rounded-edge"
+                className="px-4 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge cursor-pointer"
               >
                 Close
               </button>

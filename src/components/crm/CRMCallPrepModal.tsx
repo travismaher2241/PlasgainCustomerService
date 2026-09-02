@@ -163,12 +163,19 @@ export const CRMCallPrepModal: React.FC = () => {
 
         {/* Primary Contact Details */}
         {targetContact ? (
-          <div className="p-3 bg-paper border border-line rounded-edge space-y-1.5">
-            <div className="text-spec font-bold uppercase text-ink-dim">Primary Contact</div>
+          <div className="p-3 bg-paper border border-line rounded-edge space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-spec font-bold uppercase text-ink-dim">Primary Contact</div>
+              {targetContact.preferredName && (
+                <span className="text-xs font-semibold text-brand-deep bg-brand-wash px-2 py-0.5 rounded border border-brand-edge/40">
+                  Goes by "{targetContact.preferredName}"
+                </span>
+              )}
+            </div>
             <div className="flex items-center justify-between">
               <span className="font-bold text-body text-meta">
                 {targetContact.firstName} {targetContact.lastName}
-                {targetContact.jobTitle ? ` (${targetContact.jobTitle})` : ""}
+                {targetContact.role ? ` · ${targetContact.role}` : targetContact.jobTitle ? ` (${targetContact.jobTitle})` : ""}
               </span>
             </div>
             <div className="flex items-center gap-4 text-spec text-ink-dim flex-wrap pt-0.5">
@@ -191,6 +198,63 @@ export const CRMCallPrepModal: React.FC = () => {
                 </a>
               )}
             </div>
+
+            {/* Personal Context */}
+            {(targetContact.hobbies || targetContact.partnerName || (targetContact.childrenNames && targetContact.childrenNames.length > 0) || targetContact.birthday) && (
+              <div className="pt-2 border-t border-line/60 space-y-1 text-xs">
+                <span className="font-bold text-ink-dim uppercase block">Personal Context</span>
+                <div className="flex flex-wrap gap-2 text-body">
+                  {targetContact.hobbies && (
+                    <span className="bg-white px-2 py-0.5 rounded border border-line">
+                      🎯 {targetContact.hobbies}
+                    </span>
+                  )}
+                  {targetContact.partnerName && (
+                    <span className="bg-white px-2 py-0.5 rounded border border-line">
+                      Partner: {targetContact.partnerName}
+                    </span>
+                  )}
+                  {targetContact.childrenNames && targetContact.childrenNames.length > 0 && (
+                    <span className="bg-white px-2 py-0.5 rounded border border-line">
+                      Children: {targetContact.childrenNames.join(", ")}
+                    </span>
+                  )}
+                  {targetContact.birthday && (
+                    <span className="bg-white px-2 py-0.5 rounded border border-line">
+                      🎂 Birthday: {targetContact.birthday}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Things to Remember */}
+            {(targetContact.thingsToRemember || targetContact.notes) && (
+              <div className="pt-2 border-t border-line/60 space-y-0.5">
+                <span className="text-xs font-bold text-brand-deep uppercase block">Things to Remember</span>
+                <p className="text-xs text-body bg-brand-wash/40 p-2 rounded border border-brand-edge/30 leading-relaxed whitespace-pre-wrap">
+                  {targetContact.thingsToRemember || targetContact.notes}
+                </p>
+              </div>
+            )}
+
+            {/* Notable Events / Conversation Opportunity */}
+            {targetContact.notableEvents && targetContact.notableEvents.length > 0 && (
+              <div className="pt-2 border-t border-line/60 space-y-1.5">
+                <span className="text-xs font-bold text-amber-900 uppercase block">Conversation Opportunity / Notable Events</span>
+                <div className="space-y-1">
+                  {targetContact.notableEvents.map((ev) => (
+                    <div key={ev.id} className="p-2 bg-amber-50/80 border border-amber-200/80 rounded text-xs space-y-0.5">
+                      <p className="font-bold text-amber-950">{ev.title}</p>
+                      <div className="flex items-center gap-3 text-amber-800 text-[11px]">
+                        {ev.eventDate && <span>Event: {ev.eventDate}</span>}
+                        {ev.followUpDate && <span className="font-semibold">Follow-up: {ev.followUpDate}</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ) : null}
 

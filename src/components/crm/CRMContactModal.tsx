@@ -3,18 +3,17 @@ import {
   X,
   User,
   Mail,
-  Phone,
-  Smartphone,
   Briefcase,
-  Building2,
-  UserCheck,
-  Award,
-  Sparkles,
   Trash2,
-  Globe,
-  Tag
+  Heart,
+  Calendar,
+  Sparkles,
+  Plus,
+  CheckCircle2,
+  Cake,
+  Users
 } from "lucide-react";
-import { CRMContact, ContactRole } from "../../types/crm";
+import { CRMContact, ContactNotableEvent } from "../../types/crm";
 import { useApp } from "../../context/AppContext";
 import { detectDuplicateContact, DuplicateMatchResult } from "../../utils/duplicateDetector";
 import { CRMDuplicateWarningModal } from "./CRMDuplicateWarningModal";
@@ -30,6 +29,22 @@ interface CRMContactModalProps {
   accountWebsite?: string;
   accountOwner?: string;
 }
+
+const COMMON_ROLES = [
+  "Lighting Engineer",
+  "Electrical Engineer",
+  "Project Manager",
+  "Asset Manager",
+  "Procurement",
+  "Estimator",
+  "Maintenance Manager",
+  "Operations",
+  "Designer",
+  "Accounts",
+  "Owner",
+  "Director",
+  "Other"
+];
 
 export const CRMContactModal: React.FC<CRMContactModalProps> = ({
   isOpen,
@@ -53,106 +68,188 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
     ? accountWebsite.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0]
     : `${accountName.toLowerCase().replace(/[^a-z0-9]/g, "")}.com.au`;
 
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    jobTitle: "",
-    department: "",
-    email: "",
-    mobile: "",
-    phone: "",
-    preferredContactMethod: "Email" as "Email" | "Mobile" | "Phone" | "Teams/Zoom",
-    roleInBuyingProcess: "Influencer" as ContactRole,
-    isDecisionMaker: false,
-    influenceLevel: "Medium" as "High" | "Medium" | "Low",
-    relationshipStatus: "Warm" as "Strong" | "Warm" | "Neutral" | "Cold",
-    linkedinUrl: "",
-    notes: "",
-    tagInput: "",
-    tags: [] as string[]
-  });
+  // Form State
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [preferredName, setPreferredName] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [department, setDepartment] = useState("");
+  const [role, setRole] = useState("");
+
+  // Direct Communication
+  const [email, setEmail] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [phone, setPhone] = useState("");
+  const [preferredContactMethod, setPreferredContactMethod] = useState<"Email" | "Mobile" | "Phone" | "Teams/Zoom">("Email");
+  const [linkedinUrl, setLinkedinUrl] = useState("");
+
+  // Personal Details
+  const [hobbies, setHobbies] = useState("");
+  const [hasPartner, setHasPartner] = useState(false);
+  const [partnerName, setPartnerName] = useState("");
+  const [hasChildren, setHasChildren] = useState(false);
+  const [numberOfChildren, setNumberOfChildren] = useState<number>(2);
+  const [childrenNames, setChildrenNames] = useState<string[]>(["", ""]);
+  const [birthday, setBirthday] = useState("");
+  const [birthdayReminder, setBirthdayReminder] = useState(false);
+
+  // Things to Remember
+  const [thingsToRemember, setThingsToRemember] = useState("");
+
+  // Notable Events
+  const [notableEvents, setNotableEvents] = useState<ContactNotableEvent[]>([]);
 
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     if (contactToEdit) {
-      setFormData({
-        firstName: contactToEdit.firstName || "",
-        lastName: contactToEdit.lastName || "",
-        jobTitle: contactToEdit.jobTitle || "",
-        department: contactToEdit.department || "",
-        email: contactToEdit.email || "",
-        mobile: contactToEdit.mobile || "",
-        phone: contactToEdit.phone || "",
-        preferredContactMethod: contactToEdit.preferredContactMethod || "Email",
-        roleInBuyingProcess: contactToEdit.roleInBuyingProcess || "Influencer",
-        isDecisionMaker: contactToEdit.isDecisionMaker || false,
-        influenceLevel: contactToEdit.influenceLevel || "Medium",
-        relationshipStatus: contactToEdit.relationshipStatus || "Warm",
-        linkedinUrl: contactToEdit.linkedinUrl || "",
-        notes: contactToEdit.notes || "",
-        tagInput: "",
-        tags: contactToEdit.tags || []
-      });
+      setFirstName(contactToEdit.firstName || "");
+      setLastName(contactToEdit.lastName || "");
+      setPreferredName(contactToEdit.preferredName || "");
+      setJobTitle(contactToEdit.jobTitle || "");
+      setDepartment(contactToEdit.department || "");
+      setRole(contactToEdit.role || "");
+      setEmail(contactToEdit.email || "");
+      setMobile(contactToEdit.mobile || "");
+      setPhone(contactToEdit.phone || "");
+      setPreferredContactMethod(contactToEdit.preferredContactMethod || "Email");
+      setLinkedinUrl(contactToEdit.linkedinUrl || "");
+      setHobbies(contactToEdit.hobbies || "");
+      setHasPartner(Boolean(contactToEdit.hasPartner || contactToEdit.partnerName));
+      setPartnerName(contactToEdit.partnerName || "");
+      setHasChildren(Boolean(contactToEdit.hasChildren || (contactToEdit.childrenNames && contactToEdit.childrenNames.length > 0)));
+      const count = contactToEdit.numberOfChildren || (contactToEdit.childrenNames ? contactToEdit.childrenNames.length : 2);
+      setNumberOfChildren(count);
+      setChildrenNames(contactToEdit.childrenNames && contactToEdit.childrenNames.length > 0 ? contactToEdit.childrenNames : Array(count).fill(""));
+      setBirthday(contactToEdit.birthday || "");
+      setBirthdayReminder(Boolean(contactToEdit.birthdayReminder));
+      setThingsToRemember(contactToEdit.thingsToRemember || contactToEdit.notes || "");
+      setNotableEvents(contactToEdit.notableEvents ? [...contactToEdit.notableEvents] : []);
     } else {
-      // Reset to defaults for a new contact
-      setFormData({
-        firstName: "",
-        lastName: "",
-        jobTitle: "",
-        department: "",
-        email: "",
-        mobile: "",
-        phone: "",
-        preferredContactMethod: "Email",
-        roleInBuyingProcess: "Influencer",
-        isDecisionMaker: false,
-        influenceLevel: "Medium",
-        relationshipStatus: "Warm",
-        linkedinUrl: "",
-        notes: "",
-        tagInput: "",
-        tags: ["Key Stakeholder"]
-      });
+      // Reset for clean new contact
+      setFirstName("");
+      setLastName("");
+      setPreferredName("");
+      setJobTitle("");
+      setDepartment("");
+      setRole("");
+      setEmail("");
+      setMobile("");
+      setPhone("");
+      setPreferredContactMethod("Email");
+      setLinkedinUrl("");
+      setHobbies("");
+      setHasPartner(false);
+      setPartnerName("");
+      setHasChildren(false);
+      setNumberOfChildren(2);
+      setChildrenNames(["", ""]);
+      setBirthday("");
+      setBirthdayReminder(false);
+      setThingsToRemember("");
+      setNotableEvents([]);
     }
     setConfirmDelete(false);
-  }, [contactToEdit, isOpen, defaultDomain]);
+  }, [contactToEdit, isOpen]);
 
   if (!isOpen) return null;
 
+  // Handle number of children change
+  const handleNumChildrenChange = (newCount: number) => {
+    const validCount = Math.max(1, Math.min(10, newCount || 1));
+    setNumberOfChildren(validCount);
+    setChildrenNames((prev) => {
+      const updated = [...prev];
+      if (validCount > prev.length) {
+        while (updated.length < validCount) updated.push("");
+      } else {
+        updated.splice(validCount);
+      }
+      return updated;
+    });
+  };
+
+  const handleChildNameChange = (index: number, name: string) => {
+    setChildrenNames((prev) => {
+      const updated = [...prev];
+      updated[index] = name;
+      return updated;
+    });
+  };
+
+  // Notable event helpers
+  const handleAddNotableEvent = () => {
+    const newEvent: ContactNotableEvent = {
+      id: `ev-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      title: "",
+      eventDate: "",
+      followUpDate: ""
+    };
+    setNotableEvents([...notableEvents, newEvent]);
+  };
+
+  const handleUpdateNotableEvent = (id: string, field: keyof ContactNotableEvent, value: string) => {
+    setNotableEvents(
+      notableEvents.map((ev) => (ev.id === id ? { ...ev, [field]: value } : ev))
+    );
+  };
+
+  const handleRemoveNotableEvent = (id: string) => {
+    setNotableEvents(notableEvents.filter((ev) => ev.id !== id));
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.firstName.trim() || !formData.lastName.trim() || !formData.email.trim()) {
+    if (!firstName.trim() || !lastName.trim() || !email.trim()) {
       return;
     }
 
     const payload: Omit<CRMContact, "id"> = {
       accountId,
       accountName,
-      firstName: formData.firstName.trim(),
-      lastName: formData.lastName.trim(),
-      jobTitle: formData.jobTitle.trim() || "Lighting Contact",
-      department: formData.department.trim() || undefined,
-      email: formData.email.trim(),
-      mobile: formData.mobile.trim() || undefined,
-      phone: formData.phone.trim() || undefined,
-      preferredContactMethod: formData.preferredContactMethod,
-      roleInBuyingProcess: formData.roleInBuyingProcess,
-      isDecisionMaker: formData.isDecisionMaker,
-      influenceLevel: formData.influenceLevel,
-      relationshipStatus: formData.relationshipStatus,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      preferredName: preferredName.trim() || undefined,
+      jobTitle: jobTitle.trim() || "Contact",
+      department: department.trim() || undefined,
+      role: role.trim() || undefined,
+      email: email.trim(),
+      mobile: mobile.trim() || undefined,
+      phone: phone.trim() || undefined,
+      preferredContactMethod,
+      linkedinUrl: linkedinUrl.trim() || undefined,
       contactOwner: accountOwner || currentUser.name,
-      linkedinUrl: formData.linkedinUrl.trim() || undefined,
-      notes: formData.notes.trim() || undefined,
-      tags: formData.tags
+
+      // Personal Details (only if provided)
+      hobbies: hobbies.trim() || undefined,
+      hasPartner,
+      partnerName: hasPartner && partnerName.trim() ? partnerName.trim() : undefined,
+      hasChildren,
+      numberOfChildren: hasChildren ? numberOfChildren : undefined,
+      childrenNames: hasChildren ? childrenNames.filter((n) => n.trim() !== "") : undefined,
+      birthday: birthday.trim() || undefined,
+      birthdayReminder: birthday.trim() ? birthdayReminder : undefined,
+
+      // Things to Remember
+      thingsToRemember: thingsToRemember.trim() || undefined,
+
+      // Notable Events
+      notableEvents: notableEvents
+        .filter((ev) => ev.title.trim() !== "")
+        .map((ev) => ({
+          id: ev.id,
+          title: ev.title.trim(),
+          eventDate: ev.eventDate || undefined,
+          followUpDate: ev.followUpDate || undefined
+        }))
     };
 
     if (!isEditMode) {
       const duplicate = detectDuplicateContact(
         {
-          name: `${formData.firstName} ${formData.lastName}`.trim(),
-          email: formData.email.trim(),
-          phone: formData.phone || formData.mobile,
+          name: `${firstName} ${lastName}`.trim(),
+          email: email.trim(),
+          phone: phone || mobile,
           accountId
         },
         contacts
@@ -170,23 +267,6 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
     onClose();
   };
 
-  const handleAddTag = () => {
-    if (formData.tagInput.trim() && !formData.tags.includes(formData.tagInput.trim())) {
-      setFormData({
-        ...formData,
-        tags: [...formData.tags, formData.tagInput.trim()],
-        tagInput: ""
-      });
-    }
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    setFormData({
-      ...formData,
-      tags: formData.tags.filter((t) => t !== tagToRemove)
-    });
-  };
-
   const handleDelete = () => {
     if (contactToEdit && onDelete) {
       onDelete(contactToEdit.id);
@@ -195,20 +275,20 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-chrome/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div className="fixed inset-0 bg-chrome/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
       <div
-        className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-line overflow-hidden my-8"
+        className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-line overflow-hidden my-6 max-h-[92vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 bg-raised border-b border-line flex items-center justify-between">
+        <div className="px-5 sm:px-6 py-4 bg-raised border-b border-line flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-brand-wash text-brand-deep rounded-panel">
               <User className="w-5 h-5" />
             </div>
             <div>
               <h2 className="text-base font-bold text-body">
-                {isEditMode ? `Edit Contact: ${contactToEdit.firstName} ${contactToEdit.lastName}` : "Add contact"}
+                {isEditMode ? `Edit Contact: ${firstName} ${lastName}` : "Add Contact"}
               </h2>
               <p className="text-meta text-ink-dim">
                 Account: <span className="font-semibold text-body">{accountName}</span>
@@ -218,20 +298,22 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-ink-faint hover:text-ink hover:bg-line rounded-edge transition-colors"
+            aria-label="Close dialog"
+            className="p-1.5 text-ink-faint hover:text-ink hover:bg-line rounded-edge transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5 text-meta">
-          {/* Section 1: Name & Role */}
-          <div className="space-y-3">
+        {/* Form Body - Scrollable */}
+        <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-6 overflow-y-auto text-meta flex-1">
+          {/* 1. GENERAL DETAILS & POSITION */}
+          <section className="space-y-3">
             <div className="text-spec font-bold uppercase tracking-wider text-ink-dim flex items-center gap-1.5">
-              <Briefcase className="w-3.5 h-3.5 text-ink-faint" />
-              General Details & Position
+              <Briefcase className="w-3.5 h-3.5 text-brand-deep" />
+              General Details &amp; Position
             </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="block font-semibold text-body mb-1">
@@ -240,9 +322,9 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Sarah"
-                  value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  placeholder="e.g. Matthew"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
                   className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
                 />
               </div>
@@ -254,12 +336,25 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Jenkins"
-                  value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  placeholder="e.g. Richardson"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
                   className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-body mb-1">
+                Preferred Name <span className="text-xs font-normal text-ink-dim">(optional)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Richo"
+                value={preferredName}
+                onChange={(e) => setPreferredName(e.target.value)}
+                className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -270,9 +365,9 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Senior Lighting Asset Manager"
-                  value={formData.jobTitle}
-                  onChange={(e) => setFormData({ ...formData, jobTitle: e.target.value })}
+                  placeholder="e.g. Senior Lighting Engineer"
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
                   className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
                 />
               </div>
@@ -281,33 +376,52 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                 <label className="block font-semibold text-body mb-1">Department</label>
                 <input
                   type="text"
-                  placeholder="e.g. Infrastructure & Open Spaces"
-                  value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  placeholder="e.g. Infrastructure & Works"
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
                   className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
                 />
               </div>
             </div>
-          </div>
 
-          {/* Section 2: Contact Channels */}
-          <div className="space-y-3 pt-3 border-t border-line">
+            <div>
+              <label className="block font-semibold text-body mb-1">
+                Role <span className="text-xs font-normal text-ink-dim">(organisation role/function)</span>
+              </label>
+              <input
+                type="text"
+                list="contact-role-suggestions"
+                placeholder="Select or type role (e.g. Lighting Engineer, Project Manager, Asset Manager, Procurement)"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
+              />
+              <datalist id="contact-role-suggestions">
+                {COMMON_ROLES.map((r) => (
+                  <option key={r} value={r} />
+                ))}
+              </datalist>
+            </div>
+          </section>
+
+          {/* 2. DIRECT COMMUNICATION */}
+          <section className="space-y-3 pt-4 border-t border-line">
             <div className="text-spec font-bold uppercase tracking-wider text-ink-dim flex items-center gap-1.5">
-              <Mail className="w-3.5 h-3.5 text-ink-faint" />
-              Direct Communication Channels
+              <Mail className="w-3.5 h-3.5 text-brand-deep" />
+              Direct Communication
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="sm:col-span-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
                 <label className="block font-semibold text-body mb-1">
                   Work Email <span className="text-urgent">*</span>
                 </label>
                 <input
                   type="email"
                   required
-                  placeholder={`name@${defaultDomain}`}
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder={`e.g. name@${defaultDomain}`}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
                 />
               </div>
@@ -317,19 +431,8 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                 <input
                   type="tel"
                   placeholder="e.g. 0412 345 678"
-                  value={formData.mobile}
-                  onChange={(e) => setFormData({ ...formData, mobile: e.target.value })}
-                  className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-body mb-1">Direct Office Phone</label>
-                <input
-                  type="tel"
-                  placeholder="e.g. (07) 5555 1234"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  value={mobile}
+                  onChange={(e) => setMobile(e.target.value)}
                   className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
                 />
               </div>
@@ -337,203 +440,285 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
+                <label className="block font-semibold text-body mb-1">Direct Office Phone</label>
+                <input
+                  type="tel"
+                  placeholder="e.g. (03) 9747 7200"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
+                />
+              </div>
+
+              <div>
                 <label className="block font-semibold text-body mb-1">Preferred Contact Method</label>
                 <select
-                  value={formData.preferredContactMethod}
+                  value={preferredContactMethod}
                   onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      preferredContactMethod: e.target.value as any
-                    })
+                    setPreferredContactMethod(e.target.value as any)
                   }
                   className="w-full px-3 py-2 border border-line-strong rounded-edge bg-white text-body"
                 >
                   <option value="Email">Email</option>
-                  <option value="Mobile">Mobile Call</option>
-                  <option value="Phone">Office Direct</option>
+                  <option value="Mobile">Mobile Phone</option>
+                  <option value="Phone">Office Phone</option>
                   <option value="Teams/Zoom">Teams / Video Call</option>
                 </select>
               </div>
-
-              <div>
-                <label className="block font-semibold text-body mb-1">LinkedIn Profile</label>
-                <input
-                  type="url"
-                  placeholder="https://linkedin.com/in/..."
-                  value={formData.linkedinUrl}
-                  onChange={(e) => setFormData({ ...formData, linkedinUrl: e.target.value })}
-                  className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Section 3: Buying Committee & Influence Intelligence */}
-          <div className="space-y-3 pt-3 border-t border-line">
-            <div className="text-spec font-bold uppercase tracking-wider text-ink-dim flex items-center gap-1.5">
-              <Award className="w-3.5 h-3.5 text-ink-faint" />
-              Buying role &amp; influence
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block font-semibold text-body mb-1">Role in Buying Process</label>
-                <select
-                  value={formData.roleInBuyingProcess}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      roleInBuyingProcess: e.target.value as ContactRole
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-line-strong rounded-edge bg-white text-body"
-                >
-                  <option value="Decision Maker">Decision Maker</option>
-                  <option value="Champion">Champion (Internal Advocate)</option>
-                  <option value="Influencer">Influencer</option>
-                  <option value="Technical Contact">Technical Contact / Engineer</option>
-                  <option value="Procurement">Procurement Gatekeeper</option>
-                  <option value="Finance">Finance / Budget Holder</option>
-                  <option value="End User">End User / Maintenance</option>
-                  <option value="Consultant">Consultant / External Specifier</option>
-                  <option value="Gatekeeper">Executive Assistant / Gatekeeper</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-body mb-1">Influence Level</label>
-                <select
-                  value={formData.influenceLevel}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      influenceLevel: e.target.value as any
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-line-strong rounded-edge bg-white text-body"
-                >
-                  <option value="High">High (Veto / Direct Approval)</option>
-                  <option value="Medium">Medium (Evaluation Committee)</option>
-                  <option value="Low">Low (Advisory)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-body mb-1">Relationship Status</label>
-                <select
-                  value={formData.relationshipStatus}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      relationshipStatus: e.target.value as any
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-line-strong rounded-edge bg-white text-body"
-                >
-                  <option value="Strong">Strong (Trusted Partner)</option>
-                  <option value="Warm">Warm (Engaged & Responsive)</option>
-                  <option value="Neutral">Neutral (Standard Contact)</option>
-                  <option value="Cold">Cold (Unresponsive / Competitor Bias)</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Decision maker toggle */}
-            <div className="p-3 bg-hold-wash border border-hold rounded-panel flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-hold" />
-                <div>
-                  <div className="font-bold text-hold">Primary Final Decision Maker</div>
-                  <div className="text-spec text-hold">
-                    Has formal budgetary authority to sign off on luminaire supply contracts.
-                  </div>
-                </div>
-              </div>
-              <label className="relative inline-flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={formData.isDecisionMaker}
-                  onChange={(e) => setFormData({ ...formData, isDecisionMaker: e.target.checked })}
-                  className="sr-only peer"
-                />
-                <div className="w-11 h-6 bg-line peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-line-strong after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-hold"></div>
-              </label>
-            </div>
-          </div>
-
-          {/* Section 4: Notes & Tags */}
-          <div className="space-y-3 pt-3 border-t border-line">
-            <div className="text-spec font-bold uppercase tracking-wider text-ink-dim flex items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-ink-faint" />
-              Stakeholder Notes & Tags
             </div>
 
             <div>
-              <label className="block font-semibold text-body mb-1">
-                Engineering Preferences / Stakeholder Insights
-              </label>
+              <label className="block font-semibold text-body mb-1">LinkedIn Profile</label>
+              <input
+                type="url"
+                placeholder="https://linkedin.com/in/..."
+                value={linkedinUrl}
+                onChange={(e) => setLinkedinUrl(e.target.value)}
+                className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
+              />
+            </div>
+          </section>
+
+          {/* 3. PERSONAL DETAILS (Optional progressive disclosure) */}
+          <section className="space-y-3 pt-4 border-t border-line">
+            <div className="flex items-center justify-between flex-wrap gap-1">
+              <div className="text-spec font-bold uppercase tracking-wider text-ink-dim flex items-center gap-1.5">
+                <Heart className="w-3.5 h-3.5 text-brand-deep" />
+                Personal Details <span className="text-xs font-normal text-ink-dim lowercase">(optional context)</span>
+              </div>
+            </div>
+
+            <div>
+              <label className="block font-semibold text-body mb-1">Hobbies &amp; Interests</label>
               <textarea
                 rows={2}
-                placeholder="e.g. Always requests 3000K wildlife-sensitive luminaires; prefers Dialux .ies files emailed directly."
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="e.g. Golf, Carlton supporter, camping, coaches junior soccer"
+                value={hobbies}
+                onChange={(e) => setHobbies(e.target.value)}
                 className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
               />
             </div>
 
-            <div>
-              <label className="block font-semibold text-body mb-1">Tags</label>
-              <div className="flex gap-2 mb-2">
-                <input
-                  type="text"
-                  placeholder="Type tag and press Add (e.g. Dialux Reviewer, AS1158 Auditor)"
-                  value={formData.tagInput}
-                  onChange={(e) => setFormData({ ...formData, tagInput: e.target.value })}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddTag();
-                    }
-                  }}
-                  className="flex-1 px-3 py-1.5 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand bg-white"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddTag}
-                  className="px-3 py-1.5 bg-paper hover:bg-line text-body font-semibold rounded-edge border border-line-strong"
-                >
-                  Add Tag
-                </button>
+            <div className="space-y-3 pt-1">
+              {/* Partner Toggle */}
+              <div className="p-3 bg-paper border border-line rounded-edge space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={hasPartner}
+                    onChange={(e) => {
+                      setHasPartner(e.target.checked);
+                      if (!e.target.checked) setPartnerName("");
+                    }}
+                    className="w-4 h-4 rounded text-brand-deep focus:ring-brand"
+                  />
+                  <span className="font-semibold text-body">Has Partner</span>
+                </label>
+
+                {hasPartner && (
+                  <div className="pl-6 pt-1">
+                    <label className="block text-xs font-medium text-ink-dim mb-1">Partner's Name</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Sarah"
+                      value={partnerName}
+                      onChange={(e) => setPartnerName(e.target.value)}
+                      className="w-full sm:w-72 px-3 py-1.5 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
+                    />
+                  </div>
+                )}
               </div>
-              <div className="flex flex-wrap gap-1.5">
-                {(formData.tags || []).map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-meta font-semibold bg-brand-wash text-brand-deep border border-brand-edge"
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(tag)}
-                      className="text-brand-deep hover:text-brand-deep font-bold ml-1"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
+
+              {/* Children Toggle */}
+              <div className="p-3 bg-paper border border-line rounded-edge space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={hasChildren}
+                    onChange={(e) => {
+                      setHasChildren(e.target.checked);
+                      if (!e.target.checked) {
+                        setChildrenNames(["", ""]);
+                      }
+                    }}
+                    className="w-4 h-4 rounded text-brand-deep focus:ring-brand"
+                  />
+                  <span className="font-semibold text-body">Has Children</span>
+                </label>
+
+                {hasChildren && (
+                  <div className="pl-6 pt-1 space-y-2.5">
+                    <div className="flex items-center gap-3">
+                      <label className="text-xs font-medium text-ink-dim">Number of Children:</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={10}
+                        value={numberOfChildren}
+                        onChange={(e) => handleNumChildrenChange(parseInt(e.target.value, 10))}
+                        className="w-20 px-2 py-1 border border-line-strong rounded-edge text-body bg-white text-center font-bold"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      {childrenNames.slice(0, numberOfChildren).map((name, idx) => (
+                        <div key={idx}>
+                          <label className="block text-xs font-medium text-ink-dim mb-1">
+                            Child {idx + 1} Name
+                          </label>
+                          <input
+                            type="text"
+                            placeholder={`e.g. ${idx === 0 ? "Emily" : idx === 1 ? "Jack" : `Child ${idx + 1}`}`}
+                            value={name}
+                            onChange={(e) => handleChildNameChange(idx, e.target.value)}
+                            className="w-full px-3 py-1.5 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Birthday */}
+              <div className="p-3 bg-paper border border-line rounded-edge space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                  <div>
+                    <label className="block font-semibold text-body mb-1 flex items-center gap-1.5">
+                      <Cake className="w-3.5 h-3.5 text-brand-deep" />
+                      Birthday <span className="text-xs font-normal text-ink-dim">(year optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 14 March or 14/03/1985"
+                      value={birthday}
+                      onChange={(e) => setBirthday(e.target.value)}
+                      className="w-full px-3 py-1.5 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
+                    />
+                  </div>
+
+                  {birthday.trim() && (
+                    <label className="flex items-center gap-2 cursor-pointer pb-2">
+                      <input
+                        type="checkbox"
+                        checked={birthdayReminder}
+                        onChange={(e) => setBirthdayReminder(e.target.checked)}
+                        className="w-4 h-4 rounded text-brand-deep focus:ring-brand"
+                      />
+                      <span className="text-spec font-medium text-body">Birthday Reminder</span>
+                    </label>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          </section>
+
+          {/* 4. THINGS TO REMEMBER */}
+          <section className="space-y-2 pt-4 border-t border-line">
+            <div className="text-spec font-bold uppercase tracking-wider text-ink-dim flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-brand-deep" />
+              Things to Remember
+            </div>
+            <p className="text-xs text-ink-dim">
+              Useful things to remember for future conversations.
+            </p>
+            <textarea
+              rows={3}
+              placeholder="e.g. Usually wants pricing first, then technical information. Very particular about lead times — confirm availability before quoting. Likes a bit of a chat about golf."
+              value={thingsToRemember}
+              onChange={(e) => setThingsToRemember(e.target.value)}
+              className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
+            />
+          </section>
+
+          {/* 5. NOTABLE EVENTS */}
+          <section className="space-y-3 pt-4 border-t border-line">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-spec font-bold uppercase tracking-wider text-ink-dim flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-brand-deep" />
+                  Notable Events
+                </div>
+                <p className="text-xs text-ink-dim">
+                  Events or milestones mentioned by the customer to follow up on.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddNotableEvent}
+                className="px-3 py-1.5 text-xs font-bold text-brand-deep bg-brand-wash hover:bg-brand-wash/80 border border-brand-edge rounded-edge flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Notable Event
+              </button>
+            </div>
+
+            {notableEvents.length > 0 && (
+              <div className="space-y-2.5 pt-1">
+                {notableEvents.map((ev, idx) => (
+                  <div
+                    key={ev.id}
+                    className="p-3 bg-paper border border-line rounded-edge space-y-2 relative group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-ink-dim">Event #{idx + 1}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveNotableEvent(ev.id)}
+                        className="text-urgent hover:text-urgent/80 text-xs font-semibold flex items-center gap-1 p-1 cursor-pointer"
+                        title="Remove event"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Remove</span>
+                      </button>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-ink-dim mb-1">Event / Note</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Emily's soccer tournament, Going to Bali for two weeks"
+                        value={ev.title}
+                        onChange={(e) => handleUpdateNotableEvent(ev.id, "title", e.target.value)}
+                        className="w-full px-3 py-1.5 border border-line-strong rounded-edge bg-white text-body text-spec"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                      <div>
+                        <label className="block text-xs font-medium text-ink-dim mb-1">Event Date</label>
+                        <input
+                          type="date"
+                          value={ev.eventDate || ""}
+                          onChange={(e) => handleUpdateNotableEvent(ev.id, "eventDate", e.target.value)}
+                          className="w-full px-3 py-1 border border-line-strong rounded-edge bg-white text-body text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-ink-dim mb-1">Follow-Up Date</label>
+                        <input
+                          type="date"
+                          value={ev.followUpDate || ""}
+                          onChange={(e) => handleUpdateNotableEvent(ev.id, "followUpDate", e.target.value)}
+                          className="w-full px-3 py-1 border border-line-strong rounded-edge bg-white text-body text-xs font-semibold text-brand-deep"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
 
           {/* Action Buttons & Delete */}
-          <div className="pt-4 border-t border-line flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="pt-4 border-t border-line flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
             {isEditMode && onDelete ? (
               <div>
                 {!confirmDelete ? (
                   <button
                     type="button"
                     onClick={() => setConfirmDelete(true)}
-                    className="text-urgent hover:text-urgent hover:bg-urgent-wash px-3 py-1.5 rounded-edge font-semibold flex items-center gap-1.5 transition-colors text-meta"
+                    className="text-urgent hover:text-urgent hover:bg-urgent-wash px-3 py-1.5 rounded-edge font-semibold flex items-center gap-1.5 transition-colors text-meta cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5" /> Delete Contact
                   </button>
@@ -543,14 +728,14 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                     <button
                       type="button"
                       onClick={handleDelete}
-                      className="px-2 py-1 bg-urgent hover:bg-urgent text-white rounded font-bold"
+                      className="px-2 py-1 bg-urgent hover:bg-urgent text-white rounded font-bold cursor-pointer"
                     >
                       Yes, Delete
                     </button>
                     <button
                       type="button"
                       onClick={() => setConfirmDelete(false)}
-                      className="px-2 py-1 bg-white hover:bg-paper text-body rounded border border-line-strong"
+                      className="px-2 py-1 bg-white hover:bg-paper text-body rounded border border-line-strong cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -565,23 +750,23 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-ink-dim hover:text-ink font-semibold"
+                className="px-4 py-2 text-ink-dim hover:text-ink font-semibold cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 font-bold text-white bg-brand-deep hover:bg-brand-deep rounded-edge shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
+                className="px-5 py-2 font-bold text-white bg-brand-deep hover:bg-brand rounded-edge shadow-sm transition-all flex items-center gap-1.5 cursor-pointer"
               >
-                <UserCheck className="w-4 h-4" />
-                {isEditMode ? "Save Changes" : "Create Contact"}
+                <CheckCircle2 className="w-4 h-4" />
+                {isEditMode ? "Save Changes" : "Add Contact"}
               </button>
             </div>
           </div>
         </form>
       </div>
 
-      {/* P2-13: CRM Duplicate Contact Warning Modal */}
+      {/* Duplicate Contact Warning Modal */}
       {isDuplicateModalOpen && duplicateMatch && pendingContactPayload && (
         <CRMDuplicateWarningModal<CRMContact>
           isOpen={isDuplicateModalOpen}

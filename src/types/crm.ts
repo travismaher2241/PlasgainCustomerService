@@ -111,28 +111,55 @@ export interface Account {
   };
 }
 
+export interface ContactNotableEvent {
+  id: string;
+  title: string;
+  eventDate?: string;
+  followUpDate?: string;
+}
+
 export interface CRMContact {
   id: string;
   accountId: string;
   accountName: string;
   firstName: string;
   lastName: string;
+  preferredName?: string;
   jobTitle: string;
   department?: string;
+  role?: string;
   email: string;
   mobile?: string;
   phone?: string;
   preferredContactMethod: "Email" | "Mobile" | "Phone" | "Teams/Zoom";
-  roleInBuyingProcess: ContactRole;
-  isDecisionMaker: boolean;
-  influenceLevel: "High" | "Medium" | "Low";
-  relationshipStatus: "Strong" | "Warm" | "Neutral" | "Cold";
-  contactOwner: string;
   linkedinUrl?: string;
+
+  // Personal Details
+  hobbies?: string;
+  hasPartner?: boolean;
+  partnerName?: string;
+  hasChildren?: boolean;
+  numberOfChildren?: number;
+  childrenNames?: string[];
+  birthday?: string;
+  birthdayReminder?: boolean;
+
+  // Things to Remember
+  thingsToRemember?: string;
+
+  // Notable Events
+  notableEvents?: ContactNotableEvent[];
+
+  // Legacy / optional CRM fields
+  roleInBuyingProcess?: ContactRole;
+  isDecisionMaker?: boolean;
+  influenceLevel?: "High" | "Medium" | "Low";
+  relationshipStatus?: "Strong" | "Warm" | "Neutral" | "Cold";
+  contactOwner: string;
   notes?: string;
   lastContacted?: string;
   nextFollowUp?: string;
-  tags: string[];
+  tags?: string[];
   customFields?: Record<string, any>;
 }
 

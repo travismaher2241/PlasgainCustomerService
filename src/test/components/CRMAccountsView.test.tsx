@@ -189,13 +189,13 @@ describe("CRMAccountsView Component (Step 5)", () => {
 
     expect(screen.getByText("Sarah Jenkins")).toBeInTheDocument();
     expect(screen.getByText(/Senior Infrastructure Engineer/i)).toBeInTheDocument();
-    expect(screen.getByText("Decision Maker")).toBeInTheDocument();
 
     // Click contact row to open detail drawer
     fireEvent.click(screen.getByText("Sarah Jenkins"));
-    expect(screen.getByRole("dialog", { name: /Contact Details/i })).toBeInTheDocument();
-    expect(screen.getByText(/Technical Evaluator/i)).toBeInTheDocument();
-    expect(screen.getByText(/Influence: High/i)).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: /Contact Details/i });
+    expect(dialog).toBeInTheDocument();
+    expect(within(dialog).getByText(/Direct Communication/i)).toBeInTheDocument();
+    expect(within(dialog).getByText(/sarah\.jenkins@townsville\.qld\.gov\.au/i)).toBeInTheDocument();
   });
 
   it("Test 6 — New deal creation from account automatically preselects current account", () => {
