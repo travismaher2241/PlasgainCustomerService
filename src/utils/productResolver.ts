@@ -75,7 +75,10 @@ const APPROVED_PRODUCT_ALIASES: Array<{
 /**
  * Resolves a single raw input string or object into a ProductResolutionItem.
  */
-export function resolveSingleProduct(rawInput: string | any): ProductResolutionItem {
+export function resolveSingleProduct(
+  rawInput: string | any,
+  catalogue: PlasgainProduct[] = SAMPLE_PRODUCTS
+): ProductResolutionItem {
   let searchStr = "";
   if (typeof rawInput === "string") {
     searchStr = rawInput.trim();
@@ -84,25 +87,26 @@ export function resolveSingleProduct(rawInput: string | any): ProductResolutionI
   }
 
   const id = `item-${Math.random().toString(36).substring(2, 9)}`;
+  const productList = Array.isArray(catalogue) ? catalogue : [];
 
-  if (!searchStr) {
+  if (!searchStr || productList.length === 0) {
     return {
       id,
-      rawInput: "",
+      rawInput: searchStr || "",
       status: "UNMATCHED",
       confidence: 0,
-      suggestedMatches: SAMPLE_PRODUCTS.slice(0, 3)
+      suggestedMatches: productList.slice(0, 3)
     };
   }
 
   const cleanLower = searchStr.toLowerCase();
 
   // Tier 1: Exact code or exact name match
-  const exact = SAMPLE_PRODUCTS.find(
+  const exact = productList.find(
     (p) =>
-      p.code.toLowerCase() === cleanLower ||
-      p.name.toLowerCase() === cleanLower ||
-      p.id.toLowerCase() === cleanLower
+      p.code?.toLowerCase() === cleanLower ||
+      p.name?.toLowerCase() === cleanLower ||
+      p.id?.toLowerCase() === cleanLower
   );
   if (exact) {
     return {
@@ -116,22 +120,17 @@ export function resolveSingleProduct(rawInput: string | any): ProductResolutionI
   }
 
   // Tier 2: Full canonical product name or full product code contained in longer drawing text.
-  //
-  // Catalogue codes are often a family of SKUs in one string
-  // ("SS-2020 / SS-2030 / SS-2060", "ZAL15S / ZAL40S / ..."), so a quote naming a
-  // single variant never matched the whole string. Split on the separators and
-  // compare each SKU individually.
   const codeVariants = (code: string): string[] =>
-    code
+    (code || "")
       .toLowerCase()
       .split(/[/,]| or /)
       .map((c) => c.replace(/\(.*?\)/g, "").trim())
       .filter((c) => c.length >= 4);
 
-  const partial = SAMPLE_PRODUCTS.find(
+  const partial = productList.find(
     (p) =>
       codeVariants(p.code).some((variant) => cleanLower.includes(variant)) ||
-      (p.name.length >= 6 && cleanLower.includes(p.name.toLowerCase()))
+      (p.name && p.name.length >= 6 && cleanLower.includes(p.name.toLowerCase()))
   );
   if (partial) {
     return {
@@ -144,46 +143,48 @@ export function resolveSingleProduct(rawInput: string | any): ProductResolutionI
     };
   }
 
-  // Tier 3: Approved alias matching
-  for (const alias of APPROVED_PRODUCT_ALIASES) {
-    if (alias.pattern.test(searchStr)) {
-      const prod = SAMPLE_PRODUCTS.find((p) => p.id === alias.productId);
-      if (prod) {
-        return {
-          id,
-          rawInput: searchStr,
-          status: "ALIAS_MATCH",
-          confidence: alias.confidence,
-          product: prod,
-          suggestedMatches: []
-        };
-      }
+  // Tier 3: Alias / Regex match
+  const aliasMatch = APPROVED_PRODUCT_ALIASES.find((a) => a.pattern.test(searchStr));
+  if (aliasMatch) {
+    const matchedProduct = productList.find((p) => p.id === aliasMatch.productId);
+    if (matchedProduct) {
+      return {
+        id,
+        rawInput: searchStr,
+        status: "ALIAS_MATCH",
+        confidence: aliasMatch.confidence,
+        product: matchedProduct,
+        suggestedMatches: []
+      };
     }
   }
 
-  // Tier 4: Unmatched - provide smart suggestions based on tokens
-  const tokens = cleanLower.split(/[\s-_,]+/);
-  const suggestions = SAMPLE_PRODUCTS.filter((p) => {
-    const pStr = `${p.name} ${p.code} ${p.category}`.toLowerCase();
-    return tokens.some((t) => t.length > 2 && pStr.includes(t));
-  }).slice(0, 3);
+  // Tier 4: Fuzzy / Substring fallback suggestion
+  const suggestions = productList.filter((p) => {
+    const pTerms = `${p.name || ""} ${p.code || ""} ${p.category || ""}`.toLowerCase();
+    const queryParts = cleanLower.split(/\s+/).filter((part) => part.length >= 3);
+    return queryParts.some((part) => pTerms.includes(part));
+  });
 
   return {
     id,
     rawInput: searchStr,
     status: "UNMATCHED",
     confidence: 0,
-    suggestedMatches: suggestions.length > 0 ? suggestions : SAMPLE_PRODUCTS.slice(0, 3)
+    suggestedMatches: suggestions.slice(0, 3)
   };
 }
 
 /**
- * Runs a preflight check on a collection of product lines/strings.
+ * Preflights an entire package of products (e.g., from CRM or Take-off).
  */
 export function preflightProductPackage(
-  inputs: (string | any)[],
+  inputs: Array<string | any>,
+  catalogue: PlasgainProduct[] = SAMPLE_PRODUCTS,
   manualMappings: Record<string, string> = {}
 ): PackagePreflightResult {
+  const productList = Array.isArray(catalogue) ? catalogue : [];
+
   if (!inputs || inputs.length === 0) {
     return {
       totalItems: 0,
@@ -199,12 +200,12 @@ export function preflightProductPackage(
   const resolvedProductsMap = new Map<string, PlasgainProduct>();
 
   for (const raw of inputs) {
-    const item = resolveSingleProduct(raw);
+    const item = resolveSingleProduct(raw, productList);
 
     // Apply manual override if rep mapped it
     if (manualMappings[item.rawInput]) {
       const mappedId = manualMappings[item.rawInput];
-      const mappedProduct = SAMPLE_PRODUCTS.find((p) => p.id === mappedId || p.code === mappedId);
+      const mappedProduct = productList.find((p) => p.id === mappedId || p.code === mappedId);
       if (mappedProduct) {
         item.status = "MANUALLY_MAPPED";
         item.confidence = 1.0;
@@ -226,7 +227,7 @@ export function preflightProductPackage(
     totalItems: items.length,
     matchedCount,
     unmatchedCount,
-    allResolved: unmatchedCount === 0,
+    allResolved: unmatchedCount === 0 && items.length > 0,
     items,
     resolvedProducts: Array.from(resolvedProductsMap.values())
   };

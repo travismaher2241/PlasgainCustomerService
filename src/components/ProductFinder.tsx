@@ -525,17 +525,33 @@ export const ProductFinder: React.FC = () => {
               )}
             </div>
 
-            {filteredProducts.length === 0 ? (
-              <div className="p-12 text-center space-y-3 bg-white rounded-panel border border-line">
+            {allProducts.length === 0 ? (
+              <div className="p-12 text-center space-y-3 bg-white rounded-panel border border-line shadow-2xs">
+                <Package className="w-10 h-10 text-ink-faint mx-auto" />
+                <h3 className="font-bold text-body text-base">Product Catalogue is Empty (Clean Slate)</h3>
+                <p className="text-xs text-ink-dim max-w-md mx-auto">
+                  No products are currently loaded. Upload technical drawings, catalogues, or specification sheets in Knowledge Documents to build your verified product library.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigateToWorkflow("documents")}
+                  className="px-4 py-2 rounded-edge bg-brand-deep text-white font-bold text-xs hover:bg-brand transition-colors cursor-pointer inline-flex items-center gap-1.5"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>Go to Knowledge Documents</span>
+                </button>
+              </div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="p-12 text-center space-y-3 bg-white rounded-panel border border-line shadow-2xs">
                 <Package className="w-10 h-10 text-ink-faint mx-auto" />
                 <h3 className="font-bold text-body text-base">No matching products found</h3>
                 <p className="text-xs text-ink-dim max-w-md mx-auto">
-                  No products matched &ldquo;{quickQuery}&rdquo;. Try searching for &ldquo;Pro Blade&rdquo;, &ldquo;50W&rdquo;, &ldquo;Composite&rdquo;, or clear the search filter.
+                  No products matched &ldquo;{quickQuery}&rdquo;. Try clearing the search query or changing category filters.
                 </p>
                 <button
                   type="button"
                   onClick={() => { setQuickQuery(""); setSelectedCategoryFilter("all"); }}
-                  className="px-4 py-1.5 rounded-edge bg-brand-wash text-brand-deep font-bold text-xs border border-brand-edge hover:bg-brand-deep hover:text-white transition-colors"
+                  className="px-4 py-1.5 rounded-edge bg-brand-wash text-brand-deep font-bold text-xs border border-brand-edge hover:bg-brand-deep hover:text-white transition-colors cursor-pointer"
                 >
                   Clear Search
                 </button>

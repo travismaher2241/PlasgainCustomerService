@@ -42,16 +42,12 @@ describe('FINAL PRIORITY 0 ACCEPTANCE AUDIT', () => {
       expect(pr2?.category).not.toBe('P3');
     });
 
-    it('confirms Lighting Encyclopedia Category P descriptions match canonical dataset (P0-03)', () => {
-      const as1158SubEntry = COMPREHENSIVE_LIGHTING_ENCYCLOPEDIA['as/nzs 1158.3.1'];
-      expect(as1158SubEntry?.whyItMattersInSales).toContain('P1 (7.0 lx avg)');
-      expect(as1158SubEntry?.whyItMattersInSales).toContain('P2 (3.5 lx avg)');
-      expect(as1158SubEntry?.whyItMattersInSales).toContain('P3 (1.75 lx avg)');
-      expect(as1158SubEntry?.whyItMattersInSales).toContain('P4 (0.85 lx avg)');
-      expect(as1158SubEntry?.whyItMattersInSales).toContain('P5 (0.45 lx avg)');
-
-      const as1158Entry = COMPREHENSIVE_LIGHTING_ENCYCLOPEDIA['as/nzs 1158'];
-      expect(as1158Entry?.practicalExample).toContain('0.85 lux average, 0.17 lux point minimum');
+    it('confirms lighting standards dataset Category P definitions match canonical dataset (P0-03)', () => {
+      expect(getLightingCategory('P1')?.maintainedIlluminanceLux).toBe(7.0);
+      expect(getLightingCategory('P2')?.maintainedIlluminanceLux).toBe(3.5);
+      expect(getLightingCategory('P3')?.maintainedIlluminanceLux).toBe(1.75);
+      expect(getLightingCategory('P4')?.maintainedIlluminanceLux).toBe(0.85);
+      expect(getLightingCategory('P5')?.maintainedIlluminanceLux).toBe(0.45);
     });
 
     it('generates provenance string for customer audit compliance', () => {
@@ -96,24 +92,30 @@ describe('FINAL PRIORITY 0 ACCEPTANCE AUDIT', () => {
 
   // --- SECTION 3: PRODUCT RESOLUTION SAFETY & PREFLIGHT (P0-12 - P0-14) ---
   describe('3. Product Resolution Safety & Tender Preflight (P0-12 to P0-14)', () => {
+    const TEST_CATALOGUE = [
+      { id: 'prod-intense-50w', code: '50W-INTENSE', name: 'Intense Light - 50W Solar' },
+      { id: 'prod-pro-blade', code: 'PBS-75 / PBS-125', name: 'Pro Blade Solar 75/125' },
+      { id: 'prod-other-poles', code: 'POLE-GENERIC', name: 'Standard Light Pole' }
+    ] as any;
+
     it('strictly separates canonical exact match from ambiguous queries (P0-12)', () => {
-      const exactMatch = resolveSingleProduct('50W-INTENSE');
+      const exactMatch = resolveSingleProduct('50W-INTENSE', TEST_CATALOGUE);
       expect(exactMatch.status).toBe('EXACT_MATCH');
       expect(exactMatch.confidence).toBe(1.0);
       expect(exactMatch.product?.id).toBe('prod-intense-50w');
 
-      const aliasMatch = resolveSingleProduct('Pro Blade Solar 75W Area Luminaire');
+      const aliasMatch = resolveSingleProduct('Pro Blade Solar 75W Area Luminaire', TEST_CATALOGUE);
       expect(['EXACT_MATCH', 'ALIAS_MATCH']).toContain(aliasMatch.status);
       expect(aliasMatch.product?.id).toBe('prod-pro-blade');
     });
 
     it('does NOT silently auto-match ambiguous/generic text fragments (P0-14)', () => {
-      const ambiguous1 = resolveSingleProduct('Pole');
+      const ambiguous1 = resolveSingleProduct('Pole', TEST_CATALOGUE);
       expect(ambiguous1.status).toBe('UNMATCHED');
       expect(ambiguous1.product).toBeUndefined();
       expect(ambiguous1.suggestedMatches.length).toBeGreaterThan(0);
 
-      const ambiguous2 = resolveSingleProduct('Custom Solar Light Fitting 24V');
+      const ambiguous2 = resolveSingleProduct('Custom Solar Light Fitting 24V', TEST_CATALOGUE);
       expect(ambiguous2.status).toBe('UNMATCHED');
       expect(ambiguous2.product).toBeUndefined();
     });
@@ -124,13 +126,13 @@ describe('FINAL PRIORITY 0 ACCEPTANCE AUDIT', () => {
         'Custom 24V Solar Post Top'
       ];
 
-      const preflight = preflightProductPackage(unverifiedItems);
+      const preflight = preflightProductPackage(unverifiedItems, TEST_CATALOGUE);
       expect(preflight.matchedCount).toBe(1);
       expect(preflight.unmatchedCount).toBe(1);
       expect(preflight.allResolved).toBe(false);
 
       // Rep maps the ambiguous line item manually
-      const preflightResolved = preflightProductPackage(unverifiedItems, {
+      const preflightResolved = preflightProductPackage(unverifiedItems, TEST_CATALOGUE, {
         'Custom 24V Solar Post Top': 'prod-intense-50w'
       });
 

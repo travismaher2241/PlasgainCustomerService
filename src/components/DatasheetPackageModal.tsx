@@ -236,7 +236,7 @@ COMPLIANCE DECLARATION: AS/NZS 1158.3.1:2020 (Category P), AS 4702:2000, AS 1170
                       </div>
                       <div className="flex items-center gap-2">
                         <select
-                          value={selectedMappingSkus[item.rawInput] || item.suggestedMatches[0]?.id || SAMPLE_PRODUCTS[0].id}
+                          value={selectedMappingSkus[item.rawInput] || item.suggestedMatches[0]?.id || SAMPLE_PRODUCTS[0]?.id || ""}
                           onChange={(e) =>
                             setSelectedMappingSkus({
                               ...selectedMappingSkus,
@@ -245,11 +245,15 @@ COMPLIANCE DECLARATION: AS/NZS 1158.3.1:2020 (Category P), AS 4702:2000, AS 1170
                           }
                           className="p-2 border border-line rounded text-meta bg-white font-medium focus:outline-none focus:border-brand-deep"
                         >
-                          {SAMPLE_PRODUCTS.map((sp) => (
-                            <option key={sp.id} value={sp.id}>
-                              {sp.name} ({sp.code})
-                            </option>
-                          ))}
+                          {SAMPLE_PRODUCTS.length === 0 ? (
+                            <option value="">No products available in catalogue</option>
+                          ) : (
+                            SAMPLE_PRODUCTS.map((sp) => (
+                              <option key={sp.id} value={sp.id}>
+                                {sp.name} ({sp.code})
+                              </option>
+                            ))
+                          )}
                         </select>
                         <button
                           type="button"

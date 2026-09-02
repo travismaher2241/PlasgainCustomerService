@@ -107,18 +107,26 @@ describe('Follow-up Generator & Ostendo Product-Only Exporter Utils', () => {
     expect(email.body).toContain('AS/NZS 1158 Category P/V compliance declaration');
   });
 
-  it('resolves product names against SAMPLE_PRODUCTS correctly', () => {
-    const resolved = resolveProductsForDeal(['Intense 50W', 'Plaspole']);
+  it('resolves product names against catalogue correctly', () => {
+    const testCat = [
+      { id: 'prod-intense', code: '50W-INTENSE', name: 'Intense 50W Solar Light', category: 'Solar Luminaire' } as any,
+      { id: 'prod-plaspole', code: 'PLASPOLE-6M', name: 'Plaspole Composite Pole', category: 'Poles' } as any
+    ];
+    const resolved = resolveProductsForDeal(['Intense 50W', 'Plaspole'], testCat);
     expect(resolved.length).toBeGreaterThanOrEqual(1);
     expect(resolved.some((p) => p.name.includes('Intense') || p.name.includes('Plaspole'))).toBe(true);
   });
 
   it('generates branded HTML Tender Spec Package with cover sheet and datasheets', () => {
+    const testProducts = [
+      { id: 'p1', code: '50W-INTENSE', name: 'Intense 50W Solar Light', category: 'Solar Luminaire' } as any,
+      { id: 'p2', code: 'PBS-125', name: 'Pro Blade Solar 125', category: 'Modular Solar Pole Platform' } as any
+    ];
     const html = generateTenderPackageHTML({
       projectName: 'Ballarat Shared Path Upgrade',
       customerName: 'Ballarat City Council',
       quoteRef: 'OST-8924',
-      products: [SAMPLE_PRODUCTS[0], SAMPLE_PRODUCTS[1]]
+      products: testProducts
     });
 
     expect(html).toContain('TECHNICAL TENDER SPECIFICATION BUNDLE');

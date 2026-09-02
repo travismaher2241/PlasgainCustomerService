@@ -80,11 +80,15 @@ function escapeCsvField(val: string | number | undefined | null): string {
  * Resolves a list of product names, codes, or strings into verified PlasgainProduct specifications.
  * Never invents or manufactures guessed item codes.
  */
-export function resolveProductsForDeal(productNamesOrCodes: string[]): PlasgainProduct[] {
+export function resolveProductsForDeal(
+  productNamesOrCodes: string[],
+  catalogue: PlasgainProduct[] = SAMPLE_PRODUCTS
+): PlasgainProduct[] {
   if (!productNamesOrCodes || productNamesOrCodes.length === 0) {
     return [];
   }
 
+  const productList = Array.isArray(catalogue) ? catalogue : [];
   const resolved: PlasgainProduct[] = [];
   const addedIds = new Set<string>();
 
@@ -92,13 +96,13 @@ export function resolveProductsForDeal(productNamesOrCodes: string[]): PlasgainP
     const rawLower = (raw || "").trim().toLowerCase();
     if (!rawLower) continue;
 
-    const matched = SAMPLE_PRODUCTS.find(
+    const matched = productList.find(
       (p) =>
-        p.code.toLowerCase() === rawLower ||
-        p.name.toLowerCase() === rawLower ||
-        p.name.toLowerCase().includes(rawLower) ||
-        p.code.toLowerCase().includes(rawLower) ||
-        rawLower.includes(p.code.toLowerCase())
+        p.code?.toLowerCase() === rawLower ||
+        p.name?.toLowerCase() === rawLower ||
+        p.name?.toLowerCase().includes(rawLower) ||
+        p.code?.toLowerCase().includes(rawLower) ||
+        (p.code && rawLower.includes(p.code.toLowerCase()))
     );
 
     if (matched && !addedIds.has(matched.id)) {
@@ -110,21 +114,24 @@ export function resolveProductsForDeal(productNamesOrCodes: string[]): PlasgainP
   return resolved;
 }
 
-export function findUnmatchedProducts(productNamesOrCodes: string[]): string[] {
+export function findUnmatchedProducts(
+  productNamesOrCodes: string[],
+  catalogue: PlasgainProduct[] = SAMPLE_PRODUCTS
+): string[] {
   if (!productNamesOrCodes || productNamesOrCodes.length === 0) return [];
+  const productList = Array.isArray(catalogue) ? catalogue : [];
   const unmatched: string[] = [];
 
   for (const raw of productNamesOrCodes) {
     const rawLower = (raw || "").trim().toLowerCase();
     if (!rawLower) continue;
 
-    const matched = SAMPLE_PRODUCTS.find(
+    const matched = productList.some(
       (p) =>
-        p.code.toLowerCase() === rawLower ||
-        p.name.toLowerCase() === rawLower ||
-        p.name.toLowerCase().includes(rawLower) ||
-        p.code.toLowerCase().includes(rawLower) ||
-        rawLower.includes(p.code.toLowerCase())
+        p.code?.toLowerCase() === rawLower ||
+        p.name?.toLowerCase() === rawLower ||
+        p.name?.toLowerCase().includes(rawLower) ||
+        p.code?.toLowerCase().includes(rawLower)
     );
 
     if (!matched) {
@@ -317,6 +324,7 @@ export function generateTenderPackageHTML(options: {
   preparerName?: string;
 }): string {
   const dateStr = options.date || new Date().toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" });
+  const safeProducts = (options.products || []).filter((p): p is PlasgainProduct => Boolean(p && p.name));
   const standards = options.complianceStandards || [
     "AS/NZS 1158.3.1 (Pedestrian Pathway Lighting Category P)",
     "AS 4702 (Polymeric Cable Cover Mechanical Protection)",
@@ -391,9 +399,9 @@ export function generateTenderPackageHTML(options: {
 
     <div class="section-heading">Table of Contents &amp; Included Technical Sheets</div>
     <ol style="font-size: 14px; color: #334155; line-height: 1.8;">
-      ${options.products
+      ${safeProducts
         .map(
-          (p, i) => `<li><strong>${p.name}</strong> (${p.code}) — ${p.category} Specification Sheet</li>`
+          (p, i) => `<li><strong>${p.name}</strong> (${p.code || ""}) — ${p.category || "Product"} Specification Sheet</li>`
         )
         .join("")}
       <li><strong>Australian Standards Compliance Statement</strong> (AS/NZS 1158.3.1, AS 4702, AS 1170.2)</li>
@@ -412,7 +420,7 @@ export function generateTenderPackageHTML(options: {
 
   <div class="page page-break">
     <div class="section-heading">Product Technical Datasheets</div>
-    ${options.products
+    ${safeProducts
       .map(
         (p) => `
       <div class="product-card">

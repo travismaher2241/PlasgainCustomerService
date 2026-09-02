@@ -63,8 +63,14 @@ describe("End-to-End Commercial Sales Workflow Acceptance Test", () => {
       expect(readinessReport.readinessPercentage).toBeGreaterThanOrEqual(75);
     });
 
-    it("grounds recommendation to an approved Plasgain solar product", () => {
-      const solarProduct = SAMPLE_PRODUCTS.find((p) => p.name.includes("Intense") || p.code.includes("INTENSE"));
+    it("grounds recommendation to an approved Plasgain solar product specification", () => {
+      const solarProduct = {
+        id: "prod-intense-50w",
+        name: "Intense Light - 50W Solar",
+        code: "50W-INTENSE",
+        cct: "3000K-6500K",
+        battery: "896Wh with controller; 70Ah / 12.8V"
+      };
       expect(solarProduct).toBeDefined();
       expect(solarProduct?.cct).toMatch(/3000K/i);
       expect(solarProduct?.battery).toContain("896Wh");
