@@ -1363,14 +1363,9 @@ export const CRMAccountsView: React.FC = () => {
                               <div className="space-y-1.5 min-w-0 flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <h4 className="font-bold text-body text-spec">{displayName}</h4>
-                                  {contact.role && (
-                                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge">
-                                      {contact.role}
-                                    </span>
-                                  )}
                                 </div>
                                 <p className="text-xs text-ink-dim font-medium">
-                                  {contact.jobTitle} {contact.department ? `· ${contact.department}` : ""}
+                                  {contact.jobTitle || contact.role || "Contact"} {contact.department ? `· ${contact.department}` : ""}
                                 </p>
                                 <div className="flex items-center gap-3 text-xs text-ink-dim flex-wrap pt-0.5">
                                   {contact.email && (
@@ -1842,8 +1837,7 @@ export const CRMAccountsView: React.FC = () => {
                 </div>
                 <p className="text-spec text-ink-dim font-medium">
                   {drawerContact.jobTitle || "Contact"}
-                  {drawerContact.role ? ` · ${drawerContact.role}` : ""}
-                  {drawerContact.department ? ` (${drawerContact.department})` : ""}
+                  {drawerContact.department ? ` · ${drawerContact.department}` : ""}
                 </p>
               </div>
               <button

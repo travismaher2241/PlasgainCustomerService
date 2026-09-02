@@ -34,13 +34,14 @@ const AccountsTestWrapper: React.FC<{ initialAccounts?: any[] }> = ({ initialAcc
       addContact({
         id: "con-test-1",
         accountId: "acc-test-1",
+        firstName: "Sarah",
+        lastName: "Jenkins",
         name: "Sarah Jenkins",
-        role: "Senior Infrastructure Engineer",
+        jobTitle: "Senior Infrastructure Engineer",
         email: "sarah.jenkins@townsville.qld.gov.au",
         phone: "0412 345 678",
-        isPrimaryDecisionMaker: true,
-        buyingRole: "Technical Evaluator",
-        influenceLevel: "High"
+        preferredContactMethod: "Email",
+        contactOwner: "Travis Maher"
       });
 
       addCrmOpportunity({

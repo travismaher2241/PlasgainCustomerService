@@ -40,7 +40,7 @@ describe("CRMContactModal Component — Human-Centred Redesign", () => {
     expect(screen.getByPlaceholderText(/e\.g\. Richardson/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/e\.g\. Richo/i)).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/e\.g\. Senior Lighting Engineer/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/Select or type role/i)).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Select or type role/i)).not.toBeInTheDocument();
   });
 
   it("handles progressive disclosure for Partner, Children, and Birthday", () => {
@@ -127,7 +127,6 @@ describe("CRMContactModal Component — Human-Centred Redesign", () => {
     fireEvent.change(screen.getByPlaceholderText(/e\.g\. Richardson/i), { target: { value: "Richardson" } });
     fireEvent.change(screen.getByPlaceholderText(/e\.g\. Richo/i), { target: { value: "Richo" } });
     fireEvent.change(screen.getByPlaceholderText(/e\.g\. Senior Lighting Engineer/i), { target: { value: "Asset Manager" } });
-    fireEvent.change(screen.getByPlaceholderText(/Select or type role/i), { target: { value: "Asset Manager" } });
 
     // Direct communication
     fireEvent.change(screen.getByPlaceholderText(/e\.g\. name@/i), { target: { value: "matthew.r@geelong.vic.gov.au" } });
@@ -152,7 +151,6 @@ describe("CRMContactModal Component — Human-Centred Redesign", () => {
         lastName: "Richardson",
         preferredName: "Richo",
         jobTitle: "Asset Manager",
-        role: "Asset Manager",
         email: "matthew.r@geelong.vic.gov.au",
         mobile: "0412 345 678",
         hobbies: "Golf, Carlton supporter",

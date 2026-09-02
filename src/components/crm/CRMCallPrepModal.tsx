@@ -175,7 +175,7 @@ export const CRMCallPrepModal: React.FC = () => {
             <div className="flex items-center justify-between">
               <span className="font-bold text-body text-meta">
                 {targetContact.firstName} {targetContact.lastName}
-                {targetContact.role ? ` · ${targetContact.role}` : targetContact.jobTitle ? ` (${targetContact.jobTitle})` : ""}
+                {targetContact.jobTitle ? ` (${targetContact.jobTitle})` : ""}
               </span>
             </div>
             <div className="flex items-center gap-4 text-spec text-ink-dim flex-wrap pt-0.5">

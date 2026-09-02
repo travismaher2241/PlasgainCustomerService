@@ -30,22 +30,6 @@ interface CRMContactModalProps {
   accountOwner?: string;
 }
 
-const COMMON_ROLES = [
-  "Lighting Engineer",
-  "Electrical Engineer",
-  "Project Manager",
-  "Asset Manager",
-  "Procurement",
-  "Estimator",
-  "Maintenance Manager",
-  "Operations",
-  "Designer",
-  "Accounts",
-  "Owner",
-  "Director",
-  "Other"
-];
-
 export const CRMContactModal: React.FC<CRMContactModalProps> = ({
   isOpen,
   onClose,
@@ -74,7 +58,6 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
   const [preferredName, setPreferredName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [department, setDepartment] = useState("");
-  const [role, setRole] = useState("");
 
   // Direct Communication
   const [email, setEmail] = useState("");
@@ -108,7 +91,6 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
       setPreferredName(contactToEdit.preferredName || "");
       setJobTitle(contactToEdit.jobTitle || "");
       setDepartment(contactToEdit.department || "");
-      setRole(contactToEdit.role || "");
       setEmail(contactToEdit.email || "");
       setMobile(contactToEdit.mobile || "");
       setPhone(contactToEdit.phone || "");
@@ -132,7 +114,6 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
       setPreferredName("");
       setJobTitle("");
       setDepartment("");
-      setRole("");
       setEmail("");
       setMobile("");
       setPhone("");
@@ -212,7 +193,6 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
       preferredName: preferredName.trim() || undefined,
       jobTitle: jobTitle.trim() || "Contact",
       department: department.trim() || undefined,
-      role: role.trim() || undefined,
       email: email.trim(),
       mobile: mobile.trim() || undefined,
       phone: phone.trim() || undefined,
@@ -382,25 +362,6 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
                   className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
                 />
               </div>
-            </div>
-
-            <div>
-              <label className="block font-semibold text-body mb-1">
-                Role <span className="text-xs font-normal text-ink-dim">(organisation role/function)</span>
-              </label>
-              <input
-                type="text"
-                list="contact-role-suggestions"
-                placeholder="Select or type role (e.g. Lighting Engineer, Project Manager, Asset Manager, Procurement)"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full px-3 py-2 border border-line-strong rounded-edge focus:outline-none focus:ring-2 focus:ring-brand text-body bg-white"
-              />
-              <datalist id="contact-role-suggestions">
-                {COMMON_ROLES.map((r) => (
-                  <option key={r} value={r} />
-                ))}
-              </datalist>
             </div>
           </section>
 
