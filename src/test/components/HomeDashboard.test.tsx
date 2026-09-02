@@ -6,16 +6,16 @@ import { AppProvider } from '../../context/AppContext';
 
 const sampleDeals = [
   {
-    id: "opp-custom-1",
-    accountId: "acc-custom-1",
-    accountName: "Sunshine Coast Council",
-    name: "Coastal Pathway Solar Lighting",
+    id: "deal-live-101",
+    accountId: "acc-live-101",
+    accountName: "City of Greater Bendigo",
+    name: "Bendigo Heritage Park Upgrade",
     stageId: "stage-new",
     stageName: "New Opportunity",
     pipelineId: "pipe-major-projects",
     dealValue: 68400,
     expectedCloseDate: "2026-09-26",
-    nextAction: "Call Sarah about DIALux spacing",
+    nextAction: "Send technical spec sheet to project manager",
     priority: "High"
   }
 ];
@@ -57,7 +57,7 @@ describe('HomeDashboard Step 8 Suite', () => {
       </AppProvider>
     );
 
-    expect(screen.getByText(/Coastal Pathway Solar Lighting/i)).toBeInTheDocument();
+    expect(screen.getByText(/Bendigo Heritage Park Upgrade/i)).toBeInTheDocument();
     const openButtons = screen.getAllByRole('button', { name: /Open/i });
     expect(openButtons.length).toBe(1);
   });

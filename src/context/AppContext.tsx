@@ -580,7 +580,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Known sample prefixes and exact legacy seed IDs/names to permanently purge from legacy caches and Firestore
-  const KNOWN_SAMPLE_PREFIXES = ["acc-00", "opp-00", "lead-00", "con-00", "task-00", "act-00", "comp-00", "notif-", "sample-", "seed-", "test-"];
+  const KNOWN_SAMPLE_PREFIXES = [
+    "acc-00", "opp-00", "lead-00", "con-00", "task-00", "act-00", "comp-00", "notif-",
+    "sample-", "seed-", "test-", "acc-offline", "opp-offline", "offline-", "mock-"
+  ];
   const KNOWN_SAMPLE_IDS = new Set([
     "acc-1", "acc-2", "acc-3", "acc-4", "acc-5", "acc-6", "acc-7", "acc-8",
     "opp-1", "opp-2", "opp-3", "opp-4", "opp-5", "opp-6", "opp-7", "opp-8",
@@ -588,7 +591,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     "lead-1", "lead-2", "lead-3", "lead-4", "lead-5",
     "task-1", "task-2", "task-3", "task-4", "task-5",
     "act-1", "act-2", "act-3", "act-4", "act-5",
-    "comp-1", "comp-2", "comp-3"
+    "comp-1", "comp-2", "comp-3", "acc-offline-1", "acc-offline-2"
   ]);
   const KNOWN_SAMPLE_NAMES = [
     "city of moreton bay",
@@ -613,7 +616,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     "technical requirements discovery",
     "drouin rail trail",
     "solar pathway lighting",
-    "recreation reserve car park"
+    "recreation reserve car park",
+    "regional road authority",
+    "regional road",
+    "road authority",
+    "townsville city council",
+    "cardinia shire council",
+    "cardinia",
+    "townsville",
+    "flinders street",
+    "sunshine coast council",
+    "sunshine coast"
   ];
 
   const isSampleRecord = (item: any): boolean => {
