@@ -1075,6 +1075,7 @@ export const CRMAccountsView: React.FC = () => {
                       <button
                         type="button"
                         aria-label="Account actions"
+                        title="More account actions"
                         onClick={() => setIsHeaderMenuOpen(!isHeaderMenuOpen)}
                         className="p-1.5 rounded-edge border border-line hover:bg-raised text-ink-dim hover:text-body transition-colors cursor-pointer"
                       >
@@ -1082,7 +1083,7 @@ export const CRMAccountsView: React.FC = () => {
                       </button>
 
                       {isHeaderMenuOpen && (
-                        <div className="absolute right-0 top-full mt-1 w-48 bg-white border border-line rounded-panel shadow-lg py-1 z-30 text-spec animate-in fade-in zoom-in-95 duration-100">
+                        <div className="absolute left-0 sm:left-auto sm:right-0 top-full mt-1 w-48 bg-white border border-line rounded-panel shadow-lg py-1 z-30 text-spec animate-in fade-in zoom-in-95 duration-100">
                           <button
                             type="button"
                             onClick={() => {
