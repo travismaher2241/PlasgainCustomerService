@@ -84,6 +84,7 @@ export const CRMAccountsView: React.FC = () => {
     openCallPrep,
     navigateToCRM,
     currentUser,
+    teamMembers,
     competitorPricingRecords,
     addCompetitorPricing,
     updateCompetitorPricing,
@@ -116,6 +117,7 @@ export const CRMAccountsView: React.FC = () => {
 
   // Activity tab filter
   const [activityFilter, setActivityFilter] = useState<"all" | "call" | "email" | "meeting" | "note">("all");
+  const [activityUserFilter, setActivityUserFilter] = useState("all");
   const [expandedActivityIds, setExpandedActivityIds] = useState<Set<string>>(new Set());
 
   // New Deal Modal State (Pre-fills current account!)
@@ -1527,10 +1529,25 @@ export const CRMAccountsView: React.FC = () => {
                         <p className="text-spec text-ink-dim">Chronological record of calls, emails, meetings, and notes.</p>
                       </div>
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <select
+                          value={activityUserFilter}
+                          onChange={(e) => setActivityUserFilter(e.target.value)}
+                          aria-label="Filter by Team Member"
+                          className="p-1.5 text-xs border border-line rounded-edge bg-white text-body font-medium"
+                        >
+                          <option value="all">All Team Members</option>
+                          {teamMembers.map((m) => (
+                            <option key={m.id || m.name} value={m.name}>
+                              {m.name}
+                            </option>
+                          ))}
+                        </select>
+
                         <select
                           value={activityFilter}
                           onChange={(e) => setActivityFilter(e.target.value as any)}
+                          aria-label="Filter by Activity Type"
                           className="p-1.5 text-xs border border-line rounded-edge bg-white text-body font-medium"
                         >
                           <option value="all">All Activities</option>
@@ -1566,9 +1583,11 @@ export const CRMAccountsView: React.FC = () => {
                     ) : (
                       <div className="space-y-4">
                         {Object.entries(groupedActivities).map(([dayLabel, dayActivities]) => {
-                          const filteredDayActs = dayActivities.filter((act) =>
-                            activityFilter === "all" ? true : act.type.includes(activityFilter)
-                          );
+                          const filteredDayActs = dayActivities.filter((act) => {
+                            if (activityFilter !== "all" && !act.type.includes(activityFilter)) return false;
+                            if (activityUserFilter !== "all" && act.performedBy?.toLowerCase() !== activityUserFilter.toLowerCase()) return false;
+                            return true;
+                          });
                           if (filteredDayActs.length === 0) return null;
 
                           return (
@@ -1580,12 +1599,24 @@ export const CRMAccountsView: React.FC = () => {
                               <div className="divide-y divide-line border border-line rounded-panel overflow-hidden">
                                 {filteredDayActs.map((act) => {
                                   const isExpanded = expandedActivityIds.has(act.id);
+                                  const isCall = act.type === "call" || act.title.toLowerCase().includes("call");
 
                                   return (
                                     <div key={act.id} className="p-3.5 hover:bg-raised/40 transition-colors space-y-1.5 text-spec">
-                                      <div className="flex items-center justify-between text-xs text-ink-dim">
-                                        <span className="font-bold text-body capitalize">{act.type.replace("_", " ")}</span>
-                                        <span>{formatActivityTimestamp(act.timestamp)} by {act.performedBy}</span>
+                                      <div className="flex items-center justify-between text-xs text-ink-dim flex-wrap gap-2">
+                                        <div className="flex items-center gap-2">
+                                          <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                            isCall ? "bg-sky-50 text-sky-800 border border-sky-200" :
+                                            act.type === "email" ? "bg-amber-50 text-amber-800 border border-amber-200" :
+                                            "bg-paper text-ink-dim border border-line"
+                                          }`}>
+                                            {isCall ? "📞 Call" : act.type.replace("_", " ")}
+                                          </span>
+                                          <span className="font-medium text-body">
+                                            Logged by <strong className="text-brand-deep">{act.performedBy || "Sales Rep"}</strong>
+                                          </span>
+                                        </div>
+                                        <span className="font-mono text-ink-dim">{formatActivityTimestamp(act.timestamp)}</span>
                                       </div>
 
                                       <p className="font-bold text-body">{act.title}</p>
@@ -1604,7 +1635,7 @@ export const CRMAccountsView: React.FC = () => {
                                                 else next.add(act.id);
                                                 setExpandedActivityIds(next);
                                               }}
-                                              className="text-[11px] font-bold text-brand-deep hover:underline mt-0.5"
+                                              className="text-[11px] font-bold text-brand-deep hover:underline mt-0.5 cursor-pointer"
                                             >
                                               {isExpanded ? "Show less" : "Read full note..."}
                                             </button>

@@ -23,6 +23,7 @@ import {
 import { apiGet } from "../utils/apiClient";
 import { useApp } from "../context/AppContext";
 import { initialsOf } from "../context/AppContext";
+import { AdminAuditLogView } from "./AdminAuditLogView";
 
 export const SettingsView: React.FC = () => {
   const {
@@ -35,8 +36,11 @@ export const SettingsView: React.FC = () => {
     queuedWritesCount,
     syncAllWithCloud,
     openLoginModal,
-    clearAllWorkspaceData
+    clearAllWorkspaceData,
+    auditLogs
   } = useApp();
+
+  const [subTab, setSubTab] = useState<"general" | "audit">("general");
 
   // Profile Edit State (PART I: Summary by default with Edit toggle)
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -143,22 +147,58 @@ export const SettingsView: React.FC = () => {
   const pendingDocsCount = documents.filter((d) => d.status === "Review" || d.status === "Draft").length;
 
   return (
-    <div className="space-y-6 max-w-4xl pb-16 w-full min-w-0">
-      {/* HEADER */}
-      <div className="pb-3 border-b border-line">
-        <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-body">Settings</h1>
-        <p className="text-spec text-ink-dim mt-0.5">
-          User profile, cloud synchronization, document knowledge, and workspace administration.
-        </p>
+    <div className="space-y-6 max-w-5xl pb-16 w-full min-w-0">
+      {/* HEADER & SUBTABS */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-body">
+            {subTab === "general" ? "Settings" : "Admin Audit Trail"}
+          </h1>
+          <p className="text-spec text-ink-dim mt-0.5">
+            {subTab === "general"
+              ? "User profile, cloud synchronization, document knowledge, and workspace administration."
+              : "Track all customer calls, record changes, stage moves, and user actions across the shared database."}
+          </p>
+        </div>
+
+        <div className="flex items-center rounded-edge border border-line overflow-hidden text-spec font-bold bg-white self-start sm:self-auto shadow-2xs">
+          <button
+            type="button"
+            onClick={() => setSubTab("general")}
+            className={`px-3.5 py-1.5 cursor-pointer transition-colors ${
+              subTab === "general" ? "bg-brand-deep text-white" : "text-ink-dim hover:text-body"
+            }`}
+          >
+            General &amp; Profile
+          </button>
+          <button
+            type="button"
+            onClick={() => setSubTab("audit")}
+            className={`px-3.5 py-1.5 cursor-pointer transition-colors flex items-center gap-1.5 ${
+              subTab === "audit" ? "bg-brand-deep text-white" : "text-ink-dim hover:text-body"
+            }`}
+          >
+            <span>Audit Trail</span>
+            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              subTab === "audit" ? "bg-white text-brand-deep" : "bg-brand-wash text-brand-deep"
+            }`}>
+              {auditLogs.length}
+            </span>
+          </button>
+        </div>
       </div>
 
-      {/* 1. PROFILE SECTION (PART I: COMPACT SUMMARY WITH EDIT ACTION) */}
-      <section className="bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
-        <div className="flex items-center justify-between border-b border-line pb-3">
-          <div className="flex items-center gap-2">
-            <User className="w-4 h-4 text-brand-deep" />
-            <h2 className="text-base font-bold text-body">Profile</h2>
-          </div>
+      {subTab === "audit" ? (
+        <AdminAuditLogView />
+      ) : (
+        <>
+          {/* 1. PROFILE SECTION (PART I: COMPACT SUMMARY WITH EDIT ACTION) */}
+          <section className="bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-brand-deep" />
+                <h2 className="text-base font-bold text-body">Profile</h2>
+              </div>
 
           <div className="flex items-center gap-2">
             {!isEditingProfile ? (
@@ -473,6 +513,8 @@ export const SettingsView: React.FC = () => {
           </div>
         </div>
       </section>
-    </div>
+    </>
+  )}
+</div>
   );
 };

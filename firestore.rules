@@ -31,6 +31,12 @@ service cloud.firestore {
     match /commercial_pricing_requests/{docId} { allow read, write: if signedIn(); }
     match /project_analyses/{docId}            { allow read, write: if signedIn(); }
     match /duplicate_override_audits/{docId}   { allow read, write: if signedIn(); }
+    // Immutable audit logs: Authenticated users can create, but no user can update or delete.
+    match /audit_logs/{docId} {
+      allow read: if signedIn();
+      allow create: if signedIn();
+      allow update, delete: if false;
+    }
 
     // Workspace configuration and profiles.
     match /settings/{docId} { allow read, write: if signedIn(); }

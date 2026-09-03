@@ -43,6 +43,7 @@ export const CRMTasksActivitiesView: React.FC = () => {
     navigateToCRM,
     openQuickLog,
     currentUser,
+    teamMembers,
     showToast
   } = useApp();
 
@@ -56,6 +57,7 @@ export const CRMTasksActivitiesView: React.FC = () => {
 
   // Activity tab state
   const [activityTypeFilter, setActivityTypeFilter] = useState("all");
+  const [activityUserFilter, setActivityUserFilter] = useState("all");
   const [expandedActivityIds, setExpandedActivityIds] = useState<Set<string>>(new Set());
 
   const todayStr = getLocalDateInputValue();
@@ -88,11 +90,13 @@ export const CRMTasksActivitiesView: React.FC = () => {
   // Filter & Group Activities
   const filteredActivities = activities.filter((act) => {
     if (activityTypeFilter !== "all" && act.type !== activityTypeFilter) return false;
+    if (activityUserFilter !== "all" && act.performedBy?.toLowerCase() !== activityUserFilter.toLowerCase()) return false;
 
     const matchesSearch =
       act.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (act.description && act.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (act.accountName && act.accountName.toLowerCase().includes(searchQuery.toLowerCase()));
+      (act.accountName && act.accountName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (act.performedBy && act.performedBy.toLowerCase().includes(searchQuery.toLowerCase()));
 
     return matchesSearch;
   });
@@ -405,7 +409,21 @@ export const CRMTasksActivitiesView: React.FC = () => {
               />
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                aria-label="Filter by team member"
+                value={activityUserFilter}
+                onChange={(e) => setActivityUserFilter(e.target.value)}
+                className="p-1.5 text-xs border border-line rounded-edge bg-white text-body font-medium"
+              >
+                <option value="all">All Team Members</option>
+                {teamMembers.map((m) => (
+                  <option key={m.id || m.name} value={m.name}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
+
               <select
                 aria-label="Filter by activity type"
                 value={activityTypeFilter}
@@ -441,12 +459,24 @@ export const CRMTasksActivitiesView: React.FC = () => {
                   <div className="divide-y divide-line border border-line rounded-panel bg-white shadow-2xs overflow-hidden">
                     {dayActs.map((act) => {
                       const isExpanded = expandedActivityIds.has(act.id);
+                      const isCall = act.type === "call" || act.title.toLowerCase().includes("call");
 
                       return (
                         <div key={act.id} className="p-3.5 hover:bg-raised/40 transition-colors space-y-1 text-spec">
-                          <div className="flex items-center justify-between text-xs text-ink-dim">
-                            <span className="font-bold text-body capitalize">{act.type.replace("_", " ")}</span>
-                            <span>{formatActivityTimestamp(act.timestamp)} by {act.performedBy}</span>
+                          <div className="flex items-center justify-between text-xs text-ink-dim flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                isCall ? "bg-sky-50 text-sky-800 border border-sky-200" :
+                                act.type === "email" ? "bg-amber-50 text-amber-800 border border-amber-200" :
+                                "bg-paper text-ink-dim border border-line"
+                              }`}>
+                                {isCall ? "📞 Call" : act.type.replace("_", " ")}
+                              </span>
+                              <span className="font-medium text-body">
+                                Logged by <strong className="text-brand-deep">{act.performedBy || "Sales Rep"}</strong>
+                              </span>
+                            </div>
+                            <span className="font-mono text-ink-dim">{formatActivityTimestamp(act.timestamp)}</span>
                           </div>
 
                           <div className="flex items-center gap-2 flex-wrap">

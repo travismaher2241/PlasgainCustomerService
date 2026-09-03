@@ -406,21 +406,31 @@ export const CRMQuickLogModal: React.FC = () => {
           </div>
 
           {/* Modal Footer Actions */}
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-line">
-            <button
-              type="button"
-              onClick={closeQuickLog}
-              className="px-3.5 py-2 text-spec font-bold text-ink-dim hover:text-ink cursor-pointer"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="px-4 py-2 font-bold text-spec rounded-edge shadow-xs bg-brand-deep hover:bg-brand text-white flex items-center gap-1.5 transition-colors cursor-pointer"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              <span>Log Activity</span>
-            </button>
+          <div className="flex items-center justify-between gap-2 pt-3 border-t border-line flex-wrap">
+            <div className="flex items-center gap-1.5 text-xs text-ink-dim">
+              <span>Author:</span>
+              <strong className="text-body font-bold">{currentUser.name}</strong>
+              <span className="text-[11px] px-1.5 py-0.5 rounded bg-paper border border-line text-ink-dim">
+                {currentUser.role || "Sales Specialist"}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={closeQuickLog}
+                className="px-3.5 py-2 text-spec font-bold text-ink-dim hover:text-ink cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 font-bold text-spec rounded-edge shadow-xs bg-brand-deep hover:bg-brand text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Log Activity</span>
+              </button>
+            </div>
           </div>
         </form>
       </div>

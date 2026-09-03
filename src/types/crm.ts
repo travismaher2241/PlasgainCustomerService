@@ -529,3 +529,41 @@ export interface AIEmailResearchResult {
     recommendedOutcome: string;
   };
 }
+
+export type AuditActionType =
+  | "CREATE"
+  | "UPDATE"
+  | "DELETE"
+  | "CALL_LOGGED"
+  | "STAGE_CHANGE"
+  | "STATUS_CHANGE"
+  | "CONVERT"
+  | "USER_AUTH"
+  | "OTHER";
+
+export type AuditEntityType =
+  | "Account"
+  | "Contact"
+  | "Deal"
+  | "Lead"
+  | "Activity"
+  | "Task"
+  | "Document"
+  | "Settings"
+  | "User"
+  | "Other";
+
+export interface AuditLogRecord {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userName: string;
+  userRole: string;
+  action: AuditActionType;
+  entityType: AuditEntityType;
+  entityId: string;
+  entityName: string;
+  details: string;
+  changes?: Record<string, { from?: any; to?: any }>;
+  metadata?: Record<string, any>;
+}

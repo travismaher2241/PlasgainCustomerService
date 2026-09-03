@@ -19,7 +19,10 @@ import {
   CRMNotification,
   CompetitorPricingRecord,
   CompetitorPricingAlert,
-  EmailComposerLaunchContext
+  EmailComposerLaunchContext,
+  AuditLogRecord,
+  AuditActionType,
+  AuditEntityType
 } from "../types/crm";
 import {
   SAMPLE_OPPORTUNITIES,
@@ -244,6 +247,19 @@ interface AppContextType {
 
   activities: CRMActivity[];
   logActivity: (activity: Omit<CRMActivity, "id" | "timestamp">) => void;
+
+  // Audit Logs & Workspace History (Append-Only)
+  auditLogs: AuditLogRecord[];
+  recordAuditLog: (
+    action: AuditActionType,
+    entityType: AuditEntityType,
+    entityId: string,
+    entityName: string,
+    details: string,
+    changes?: Record<string, { from?: any; to?: any }>,
+    metadata?: Record<string, any>
+  ) => Promise<void>;
+  refreshSharedData: () => Promise<void>;
 
   tasks: CRMTask[];
   addTask: (task: Omit<CRMTask, "id">) => void;
@@ -571,6 +587,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       saveDocToCloud("settings", "team_members", { members: updated });
       return updated;
     });
+  };
+
+  const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem("plasgain_audit_logs");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  });
+
+  const recordAuditLog = async (
+    action: AuditActionType,
+    entityType: AuditEntityType,
+    entityId: string,
+    entityName: string,
+    details: string,
+    changes?: Record<string, { from?: any; to?: any }>,
+    metadata?: Record<string, any>
+  ) => {
+    const record: AuditLogRecord = {
+      id: `audit-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      timestamp: new Date().toISOString(),
+      userId: currentUser.id || "user-unknown",
+      userName: currentUser.name || "Unknown User",
+      userRole: currentUser.role || (currentUser.isAdmin ? "Administrator" : "Sales Team"),
+      action,
+      entityType,
+      entityId,
+      entityName,
+      details,
+      changes,
+      metadata
+    };
+
+    setAuditLogs((prev) => {
+      const updated = [record, ...prev].slice(0, 500);
+      try {
+        localStorage.setItem("plasgain_audit_logs", JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    saveDocToCloud("audit_logs", record.id, record);
   };
 
   const resetCurrentUser = () => {
@@ -1220,6 +1284,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const realOpps = cloudOpps.filter((o) => !isSampleRecord(o));
         if (isMounted) setOpportunities(realOpps);
 
+        // 9. Audit Logs (Append-Only)
+        const cloudAuditLogs = await loadCollectionFromCloud<AuditLogRecord>("audit_logs");
+        const realAuditLogs = cloudAuditLogs.filter((a) => !isSampleRecord(a));
+        if (isMounted && realAuditLogs.length > 0) {
+          setAuditLogs((prev) => {
+            const map = new Map<string, AuditLogRecord>();
+            [...prev, ...realAuditLogs].forEach((l) => {
+              if (l && l.id) map.set(l.id, l);
+            });
+            return Array.from(map.values()).sort(
+              (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+            ).slice(0, 500);
+          });
+        }
+
         if (isMounted) {
           setCloudSyncStatus("synced");
           setLastCloudSyncTime(getLastSyncTime());
@@ -1237,10 +1316,80 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     initCloudSync();
 
+    // Setup periodic polling & window focus synchronization for multi-user real-time shared database
+    const syncInterval = setInterval(() => {
+      refreshSharedData();
+    }, 25000);
+
+    const onWindowFocus = () => {
+      refreshSharedData();
+    };
+
+    window.addEventListener("focus", onWindowFocus);
+
     return () => {
       isMounted = false;
+      clearInterval(syncInterval);
+      window.removeEventListener("focus", onWindowFocus);
     };
   }, []);
+
+  const refreshSharedData = async () => {
+    try {
+      const [
+        cloudAccounts,
+        cloudContacts,
+        cloudLeads,
+        cloudDeals,
+        cloudActivities,
+        cloudTasks,
+        cloudAuditLogs
+      ] = await Promise.all([
+        loadCollectionFromCloud<Account>("crm_accounts"),
+        loadCollectionFromCloud<CRMContact>("crm_contacts"),
+        loadCollectionFromCloud<CRMLead>("crm_leads"),
+        loadCollectionFromCloud<CRMOpportunity>("crm_deals"),
+        loadCollectionFromCloud<CRMActivity>("crm_activities"),
+        loadCollectionFromCloud<CRMTask>("crm_tasks"),
+        loadCollectionFromCloud<AuditLogRecord>("audit_logs")
+      ]);
+
+      const realAccounts = cloudAccounts.filter((a) => !isSampleRecord(a));
+      if (realAccounts.length > 0) setAccounts(realAccounts);
+
+      const realContacts = cloudContacts.filter((c) => !isSampleRecord(c));
+      if (realContacts.length > 0) setContacts(realContacts);
+
+      const realLeads = cloudLeads.filter((l) => !isSampleRecord(l));
+      if (realLeads.length > 0) setLeads(realLeads);
+
+      const realDeals = cloudDeals.filter((d) => !isSampleRecord(d));
+      if (realDeals.length > 0) setCrmOpportunities(realDeals);
+
+      const realActivities = cloudActivities.filter((a) => !isSampleRecord(a));
+      if (realActivities.length > 0) setActivities(realActivities);
+
+      const realTasks = cloudTasks.filter((t) => !isSampleRecord(t));
+      if (realTasks.length > 0) setTasks(realTasks);
+
+      const realAudit = cloudAuditLogs.filter((a) => !isSampleRecord(a));
+      if (realAudit.length > 0) {
+        setAuditLogs((prev) => {
+          const map = new Map<string, AuditLogRecord>();
+          [...prev, ...realAudit].forEach((l) => {
+            if (l && l.id) map.set(l.id, l);
+          });
+          return Array.from(map.values()).sort(
+            (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          ).slice(0, 500);
+        });
+      }
+
+      setLastCloudSyncTime(getLastSyncTime());
+    } catch (err) {
+      console.warn("[SharedDB] Background sync skipped:", err);
+    }
+  };
 
   const flushPendingWrites = async () => {
     setCloudSyncStatus("syncing");
@@ -1341,10 +1490,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addAccount = (account: Account) => {
     setAccounts((prev) => [account, ...prev]);
     saveDocToCloud("crm_accounts", account.id, account);
+    recordAuditLog("CREATE", "Account", account.id, account.name, `Created ${account.accountType || "Account"}: ${account.name}`);
     showToast(`Account "${account.name}" created`, "success");
   };
 
   const updateAccount = (id: string, updates: Partial<Account>) => {
+    const existing = accounts.find((a) => a.id === id);
+    const targetName = updates.name || existing?.name || "Account";
     setAccounts((prev) =>
       prev.map((acc) => {
         if (acc.id === id) {
@@ -1355,10 +1507,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return acc;
       })
     );
+    recordAuditLog("UPDATE", "Account", id, targetName, `Updated account details for ${targetName}`);
     showToast("Account updated", "success");
   };
 
   const deleteAccount = async (id: string) => {
+    const acc = accounts.find((a) => a.id === id);
+    const accName = acc?.name || id;
     setAccounts((prev) => prev.filter((a) => a.id !== id));
     setCrmOpportunities((prev) => prev.filter((d) => d.accountId !== id));
     setContacts((prev) => prev.filter((c) => c.accountId !== id));
@@ -1369,16 +1524,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSelectedAccountId(null);
     }
     await deleteDocFromCloud("crm_accounts", id);
+    recordAuditLog("DELETE", "Account", id, accName, `Deleted account ${accName}`);
     showToast("Account removed from workspace", "info");
   };
 
   const addContact = (contact: CRMContact) => {
     setContacts((prev) => [contact, ...prev]);
     saveDocToCloud("crm_contacts", contact.id, contact);
+    const fullName = `${contact.firstName || ""} ${contact.lastName || ""}`.trim() || contact.name || "Contact";
+    recordAuditLog("CREATE", "Contact", contact.id, fullName, `Added contact ${fullName} (${contact.jobTitle || "Contact"}) for ${contact.accountName || "Account"}`);
     showToast(`Contact "${contact.firstName} ${contact.lastName}" added`, "success");
   };
 
   const updateContact = (id: string, updates: Partial<CRMContact>) => {
+    const existing = contacts.find((c) => c.id === id);
+    const contactName = `${updates.firstName || existing?.firstName || ""} ${updates.lastName || existing?.lastName || ""}`.trim() || existing?.name || "Contact";
     setContacts((prev) =>
       prev.map((c) => {
         if (c.id === id) {
@@ -1389,22 +1549,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return c;
       })
     );
+    recordAuditLog("UPDATE", "Contact", id, contactName, `Updated contact details for ${contactName}`);
     showToast("Contact updated", "success");
   };
 
   const deleteContact = (id: string) => {
+    const con = contacts.find((c) => c.id === id);
+    const conName = con ? `${con.firstName || ""} ${con.lastName || ""}`.trim() || con.name : id;
     setContacts((prev) => prev.filter((c) => c.id !== id));
     deleteDocFromCloud("crm_contacts", id);
+    recordAuditLog("DELETE", "Contact", id, conName, `Removed contact ${conName}`);
     showToast("Contact removed", "info");
   };
 
   const addLead = (lead: CRMLead) => {
     setLeads((prev) => [lead, ...prev]);
     saveDocToCloud("crm_leads", lead.id, lead);
+    recordAuditLog("CREATE", "Lead", lead.id, lead.leadName, `Created lead ${lead.leadName} (${lead.company})`);
     showToast(`Lead "${lead.leadName}" added`, "success");
   };
 
   const updateLead = (id: string, updates: Partial<CRMLead>) => {
+    const existing = leads.find((l) => l.id === id);
+    const leadName = updates.leadName || existing?.leadName || "Lead";
     setLeads((prev) =>
       prev.map((l) => {
         if (l.id === id) {
@@ -1415,6 +1582,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return l;
       })
     );
+    recordAuditLog("UPDATE", "Lead", id, leadName, `Updated lead ${leadName}`);
     showToast("Lead updated", "success");
   };
 
@@ -1551,6 +1719,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       convertedBy: currentUser.name
     });
 
+    recordAuditLog("CONVERT", "Lead", leadId, lead.leadName, `Converted lead ${lead.leadName} into Account "${accountName}" and Opportunity "${lead.leadName}" ($${lead.estimatedValue?.toLocaleString() || 0})`);
+
     logActivity({
       type: "opportunity_created",
       title: `Lead Converted: ${lead.leadName}`,
@@ -1571,10 +1741,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addCrmOpportunity = (opp: CRMOpportunity) => {
     setCrmOpportunities((prev) => [opp, ...prev]);
     saveDocToCloud("crm_deals", opp.id, opp);
+    recordAuditLog("CREATE", "Deal", opp.id, opp.name, `Created deal: ${opp.name} ($${opp.dealValue?.toLocaleString() || 0}) for ${opp.accountName}`);
     showToast(`Opportunity "${opp.name}" added to pipeline`, "success");
   };
 
   const updateCrmOpportunity = (id: string, updates: Partial<CRMOpportunity>) => {
+    const existing = crmOpportunities.find((d) => d.id === id);
+    const dealName = updates.name || existing?.name || "Deal";
+    const isStageMove = Boolean(updates.stageName && existing && updates.stageName !== existing.stageName);
+    const oldStage = existing?.stageName || "";
+    const newStage = updates.stageName || "";
+
     setCrmOpportunities((prev) =>
       prev.map((opp) => {
         if (opp.id === id) {
@@ -1589,10 +1766,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return opp;
       })
     );
+
+    if (isStageMove) {
+      recordAuditLog("STAGE_CHANGE", "Deal", id, dealName, `Moved deal "${dealName}" from ${oldStage} -> ${newStage}`);
+    } else {
+      recordAuditLog("UPDATE", "Deal", id, dealName, `Updated deal details for "${dealName}"`);
+    }
+
     showToast("Opportunity updated", "success");
   };
 
   const deleteCrmOpportunity = async (id: string) => {
+    const opp = crmOpportunities.find((d) => d.id === id);
+    const oppName = opp?.name || id;
     setCrmOpportunities((prev) => prev.filter((d) => d.id !== id));
     setTasks((prev) => prev.filter((t) => t.opportunityId !== id));
     setActivities((prev) => prev.filter((a) => a.opportunityId !== id));
@@ -1603,6 +1789,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setSelectedOpportunityId(null);
     }
     await deleteDocFromCloud("crm_deals", id);
+    recordAuditLog("DELETE", "Deal", id, oppName, `Deleted opportunity ${oppName}`);
     showToast("Opportunity deleted", "info");
   };
 
@@ -1679,6 +1866,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActivities((prev) => [newAct, ...prev]);
     saveDocToCloud("crm_activities", newAct.id, newAct);
 
+    const isCall = activityData.type === "call" || activityData.title.toLowerCase().includes("call");
+    recordAuditLog(
+      isCall ? "CALL_LOGGED" : "CREATE",
+      "Activity",
+      newAct.id,
+      activityData.title,
+      `Logged ${activityData.type}: "${activityData.title}" (${activityData.outcome || "recorded"})${activityData.accountName ? ` for ${activityData.accountName}` : ""}`
+    );
+
     // Update last interaction on related account
     if (activityData.accountId) {
       setAccounts((prev) =>
@@ -1721,13 +1917,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     setTasks((prev) => [newTask, ...prev]);
     saveDocToCloud("crm_tasks", newTask.id, newTask);
+    recordAuditLog("CREATE", "Task", newTask.id, taskData.title, `Created task: ${taskData.title} (Priority: ${taskData.priority || "Medium"})`);
     showToast(`Task "${taskData.title}" created`, "success");
   };
 
   const updateTask = (id: string, updates: Partial<CRMTask>) => {
+    let taskTitle = "Task";
     setTasks((prev) =>
       prev.map((t) => {
         if (t.id === id) {
+          taskTitle = t.title;
           const updated = { ...t, ...updates };
           saveDocToCloud("crm_tasks", id, updated);
           return updated;
@@ -1735,14 +1934,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return t;
       })
     );
+    recordAuditLog("UPDATE", "Task", id, taskTitle, `Updated task ${taskTitle}`);
     showToast("Task updated", "success");
   };
 
   const toggleTaskComplete = (id: string) => {
+    let taskTitle = "Task";
+    let nowCompleted = false;
     setTasks((prev) =>
       prev.map((t) => {
         if (t.id === id) {
+          taskTitle = t.title;
           const isDone = t.status === "Completed";
+          nowCompleted = !isDone;
           const updated = {
             ...t,
             status: (isDone ? "To Do" : "Completed") as "To Do" | "In Progress" | "Completed",
@@ -1754,6 +1958,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return t;
       })
     );
+    recordAuditLog("STATUS_CHANGE", "Task", id, taskTitle, `Marked task "${taskTitle}" as ${nowCompleted ? "Completed" : "To Do"}`);
     showToast("Task status updated", "success");
   };
 
@@ -1900,6 +2105,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         clearAllWorkspaceData,
         activities,
         logActivity,
+        auditLogs,
+        recordAuditLog,
+        refreshSharedData,
         tasks,
         addTask,
         updateTask,
