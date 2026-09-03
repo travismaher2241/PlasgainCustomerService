@@ -127,4 +127,104 @@ describe('CRMQuickLogModal Component', () => {
     // Modal should close
     expect(screen.queryByText(/Quick Log Activity/i)).not.toBeInTheDocument();
   });
+
+  it('renders Call outcome checkboxes (Contact Made, No Answer, Voicemail Left) and follows exact mutual exclusivity and coupling rules', () => {
+    render(
+      <AppProvider>
+        <QuickLogTestWrapper />
+      </AppProvider>
+    );
+
+    fireEvent.click(screen.getByTestId('open-log-btn'));
+
+    // Checkboxes are present for Call activity
+    const contactMadeCheckbox = screen.getByLabelText(/Contact Made/i) as HTMLInputElement;
+    const noAnswerCheckbox = screen.getByLabelText(/No Answer/i) as HTMLInputElement;
+    const voicemailLeftCheckbox = screen.getByLabelText(/Voicemail Left/i) as HTMLInputElement;
+
+    expect(contactMadeCheckbox).toBeInTheDocument();
+    expect(noAnswerCheckbox).toBeInTheDocument();
+    expect(voicemailLeftCheckbox).toBeInTheDocument();
+
+    // Initially all unchecked
+    expect(contactMadeCheckbox).not.toBeChecked();
+    expect(noAnswerCheckbox).not.toBeChecked();
+    expect(voicemailLeftCheckbox).not.toBeChecked();
+
+    // 1. Select Contact Made
+    fireEvent.click(contactMadeCheckbox);
+    expect(contactMadeCheckbox).toBeChecked();
+    expect(noAnswerCheckbox).not.toBeChecked();
+    expect(voicemailLeftCheckbox).not.toBeChecked();
+
+    // 2. Select No Answer -> Contact Made must be cleared; Voicemail Left must NOT be automatically selected
+    fireEvent.click(noAnswerCheckbox);
+    expect(contactMadeCheckbox).not.toBeChecked();
+    expect(noAnswerCheckbox).toBeChecked();
+    expect(voicemailLeftCheckbox).not.toBeChecked();
+
+    // 3. Select Voicemail Left -> No Answer stays checked, Voicemail Left is checked (Valid combination 3: No Answer + Voicemail Left)
+    fireEvent.click(voicemailLeftCheckbox);
+    expect(contactMadeCheckbox).not.toBeChecked();
+    expect(noAnswerCheckbox).toBeChecked();
+    expect(voicemailLeftCheckbox).toBeChecked();
+
+    // 4. Select Contact Made -> must automatically clear both No Answer and Voicemail Left
+    fireEvent.click(contactMadeCheckbox);
+    expect(contactMadeCheckbox).toBeChecked();
+    expect(noAnswerCheckbox).not.toBeChecked();
+    expect(voicemailLeftCheckbox).not.toBeChecked();
+
+    // 5. Select Voicemail Left while Contact Made is checked -> must automatically clear Contact Made and select No Answer + Voicemail Left
+    fireEvent.click(voicemailLeftCheckbox);
+    expect(contactMadeCheckbox).not.toBeChecked();
+    expect(noAnswerCheckbox).toBeChecked();
+    expect(voicemailLeftCheckbox).toBeChecked();
+
+    // 6. Deselect No Answer while Voicemail Left is selected -> must also clear Voicemail Left
+    fireEvent.click(noAnswerCheckbox);
+    expect(contactMadeCheckbox).not.toBeChecked();
+    expect(noAnswerCheckbox).not.toBeChecked();
+    expect(voicemailLeftCheckbox).not.toBeChecked();
+
+    // 7. Select Voicemail Left directly from clean state -> automatically selects No Answer as well
+    fireEvent.click(voicemailLeftCheckbox);
+    expect(noAnswerCheckbox).toBeChecked();
+    expect(voicemailLeftCheckbox).toBeChecked();
+
+    // 8. Deselect Voicemail Left -> No Answer remains checked
+    fireEvent.click(voicemailLeftCheckbox);
+    expect(noAnswerCheckbox).toBeChecked();
+    expect(voicemailLeftCheckbox).not.toBeChecked();
+  });
+
+  it('switches between Call checkboxes and non-Call select dropdown cleanly', () => {
+    render(
+      <AppProvider>
+        <QuickLogTestWrapper />
+      </AppProvider>
+    );
+
+    fireEvent.click(screen.getByTestId('open-log-btn'));
+
+    // Under Call, checkboxes exist, select dropdown does not
+    expect(screen.getByLabelText(/Contact Made/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Select Activity Outcome/i)).not.toBeInTheDocument();
+
+    // Switch to Email
+    const emailButton = screen.getByRole('button', { name: /^email$/i });
+    fireEvent.click(emailButton);
+
+    // Under Email, select dropdown exists, checkboxes do not
+    expect(screen.queryByLabelText(/Contact Made/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Select Activity Outcome/i)).toBeInTheDocument();
+
+    // Switch back to Call
+    const callButton = screen.getByRole('button', { name: /^call$/i });
+    fireEvent.click(callButton);
+
+    // Call checkboxes restored
+    expect(screen.getByLabelText(/Contact Made/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Select Activity Outcome/i)).not.toBeInTheDocument();
+  });
 });

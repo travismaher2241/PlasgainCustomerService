@@ -32,9 +32,54 @@ export const CRMQuickLogModal: React.FC = () => {
   const [title, setTitle] = useState("");
   const [isTitleManuallyEdited, setIsTitleManuallyEdited] = useState(false);
   const [description, setDescription] = useState("");
-  const [outcome, setOutcome] = useState("Connected / Positive");
+  const [callContactMade, setCallContactMade] = useState(false);
+  const [callNoAnswer, setCallNoAnswer] = useState(false);
+  const [callVoicemailLeft, setCallVoicemailLeft] = useState(false);
+  const [nonCallOutcome, setNonCallOutcome] = useState("Connected / Positive");
   const [scheduleFollowUp, setScheduleFollowUp] = useState(false);
   const [followUpDate, setFollowUpDate] = useState(() => addDaysLocal(3));
+
+  const handleToggleContactMade = () => {
+    if (!callContactMade) {
+      setCallContactMade(true);
+      setCallNoAnswer(false);
+      setCallVoicemailLeft(false);
+    } else {
+      setCallContactMade(false);
+    }
+  };
+
+  const handleToggleNoAnswer = () => {
+    if (!callNoAnswer) {
+      setCallNoAnswer(true);
+      setCallContactMade(false);
+      // do not automatically select Voicemail Left
+    } else {
+      setCallNoAnswer(false);
+      // If No Answer is deselected while Voicemail Left is selected, also clear Voicemail Left.
+      setCallVoicemailLeft(false);
+    }
+  };
+
+  const handleToggleVoicemailLeft = () => {
+    if (!callVoicemailLeft) {
+      setCallVoicemailLeft(true);
+      // If user selects Voicemail Left, automatically also select No Answer
+      setCallNoAnswer(true);
+      // Voicemail Left must never be selected together with Contact Made
+      setCallContactMade(false);
+    } else {
+      setCallVoicemailLeft(false);
+    }
+  };
+
+  const getCallOutcome = (): string => {
+    if (callContactMade) return "Contact Made";
+    if (callNoAnswer && callVoicemailLeft) return "No Answer + Voicemail Left";
+    if (callNoAnswer) return "No Answer";
+    if (callVoicemailLeft) return "No Answer + Voicemail Left";
+    return "";
+  };
 
   // Resolved CRM records
   const targetAccount = useMemo(() => {
@@ -91,7 +136,10 @@ export const CRMQuickLogModal: React.FC = () => {
       setShowAccountSelectors(!quickLogModal.accountId);
       setIsTitleManuallyEdited(false);
       setDescription(quickLogModal.prefillNotes || "");
-      setOutcome("Connected / Positive");
+      setCallContactMade(false);
+      setCallNoAnswer(false);
+      setCallVoicemailLeft(false);
+      setNonCallOutcome("Connected / Positive");
       setScheduleFollowUp(false);
       setFollowUpDate(addDaysLocal(3));
 
@@ -121,10 +169,13 @@ export const CRMQuickLogModal: React.FC = () => {
     e.preventDefault();
     if (!title.trim()) return;
 
+    const callOutcome = getCallOutcome();
+    const resolvedOutcome = type === "call" ? (callOutcome || "Call Recorded") : nonCallOutcome;
+
     logActivity({
       type,
       title: title.trim(),
-      description: description.trim() || `Recorded ${type} with ${targetContact ? `${targetContact.firstName} ${targetContact.lastName}` : targetAccount?.name || "client"}. Outcome: ${outcome}.`,
+      description: description.trim() || `Recorded ${type} with ${targetContact ? `${targetContact.firstName} ${targetContact.lastName}` : targetAccount?.name || "client"}.${resolvedOutcome ? ` Outcome: ${resolvedOutcome}.` : ""}`,
       accountId: targetAccount?.id,
       accountName: targetAccount?.name,
       opportunityId: targetOpp?.id,
@@ -134,11 +185,14 @@ export const CRMQuickLogModal: React.FC = () => {
       performedBy: currentUser.name,
       authorId: currentUser.id,
       isImmutable: true,
-      outcome,
+      outcome: resolvedOutcome,
       nextAction: scheduleFollowUp ? `Follow-up required by ${followUpDate}` : undefined,
       nextActionDate: scheduleFollowUp ? followUpDate : undefined,
       metadata: {
-        outcome
+        outcome: resolvedOutcome,
+        callContactMade: type === "call" ? callContactMade : undefined,
+        callNoAnswer: type === "call" ? callNoAnswer : undefined,
+        callVoicemailLeft: type === "call" ? callVoicemailLeft : undefined
       }
     });
 
@@ -307,23 +361,56 @@ export const CRMQuickLogModal: React.FC = () => {
 
           {/* 2. OUTCOME (Positioned directly above Notes) */}
           <div>
-            <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
+            <label className="block text-spec font-bold text-ink-dim uppercase mb-1.5">
               Outcome
             </label>
-            <select
-              value={outcome}
-              onChange={(e) => setOutcome(e.target.value)}
-              aria-label="Select Activity Outcome"
-              className="w-full p-2 rounded-edge border border-line bg-paper focus:bg-white text-meta font-medium focus:outline-none focus:border-brand-deep"
-            >
-              <option value="Connected / Positive">Connected / Positive Discussion</option>
-              <option value="Left Voicemail">Left Voicemail / Sent Message</option>
-              <option value="Sent Technical Package">Sent Technical Package / Proposal</option>
-              <option value="Price Accepted">Price Accepted / Awaiting PO</option>
-              <option value="Revision Requested">Revision Requested (Specs / Poles)</option>
-              <option value="Lost to Competitor">Lost to Competitor</option>
-              <option value="No Answer">No Answer / Gatekeeper</option>
-            </select>
+            {type === "call" ? (
+              <div className="bg-paper p-3 rounded-edge border border-line space-y-2.5">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={callContactMade}
+                    onChange={handleToggleContactMade}
+                    className="h-4 w-4 rounded border-line-strong text-brand-deep focus:ring-brand-deep cursor-pointer"
+                  />
+                  <span className="text-spec font-medium text-body">Contact Made</span>
+                </label>
+
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={callNoAnswer}
+                    onChange={handleToggleNoAnswer}
+                    className="h-4 w-4 rounded border-line-strong text-brand-deep focus:ring-brand-deep cursor-pointer"
+                  />
+                  <span className="text-spec font-medium text-body">No Answer</span>
+                </label>
+
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={callVoicemailLeft}
+                    onChange={handleToggleVoicemailLeft}
+                    className="h-4 w-4 rounded border-line-strong text-brand-deep focus:ring-brand-deep cursor-pointer"
+                  />
+                  <span className="text-spec font-medium text-body">Voicemail Left</span>
+                </label>
+              </div>
+            ) : (
+              <select
+                value={nonCallOutcome}
+                onChange={(e) => setNonCallOutcome(e.target.value)}
+                aria-label="Select Activity Outcome"
+                className="w-full p-2 rounded-edge border border-line bg-paper focus:bg-white text-meta font-medium focus:outline-none focus:border-brand-deep"
+              >
+                <option value="Connected / Positive">Connected / Positive Discussion</option>
+                <option value="Sent Technical Package">Sent Technical Package / Proposal</option>
+                <option value="Price Accepted">Price Accepted / Awaiting PO</option>
+                <option value="Revision Requested">Revision Requested (Specs / Poles)</option>
+                <option value="Lost to Competitor">Lost to Competitor</option>
+                <option value="Completed">Completed</option>
+              </select>
+            )}
           </div>
 
           {/* 3. NOTES / CUSTOMER FEEDBACK */}
