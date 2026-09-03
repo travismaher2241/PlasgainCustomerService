@@ -64,155 +64,6 @@ export interface ExtendedBOMItem extends BOMItem {
   reviewStatus?: TakeoffReviewStatus;
 }
 
-interface SamplePlan {
-  id: string;
-  name: string;
-  customerName: string;
-  category: string;
-  sheetTitle: string;
-  drawingNumber: string;
-  scale: string;
-  description: string;
-  result: DrawingTakeoffResult;
-}
-
-const SAMPLE_PLANS: SamplePlan[] = [
-  {
-    id: "ballarat-shared-path",
-    name: "Ballarat 1.2km Shared Path Upgrade",
-    customerName: "City of Ballarat",
-    category: "Civil & Solar Lighting",
-    sheetTitle: "Public Lighting & Trenching Layout - Sheet E-02",
-    drawingNumber: "BCC-2025-E02-REV-B",
-    scale: "1:500 @ A1",
-    description: "24x 6m Solar Pathway Poles, 1,200m underground civil trenching protection, and riverbank canopy notes.",
-    result: {
-      drawingMetadata: {
-        sheetTitle: "Public Lighting & Trenching Layout - Sheet E-02",
-        drawingNumber: "BCC-2025-E02-REV-B",
-        scale: "1:500 @ A1",
-        revision: "Rev B"
-      },
-      legendAndSchedules: [
-        { symbol: "Type S1", description: "Solar LED Pathway Luminaire (3000K Warm White)", scheduleRef: "Luminaire Schedule Type S1" },
-        { symbol: "P-6M", description: "6.0m Recycled Composite Light Pole (Direct Burial)", scheduleRef: "Pole Schedule Detail 3" },
-        { symbol: "CC-200", description: "Plasgain Polymeric Cable Cover Slab (200mm width)", scheduleRef: "Civil Trenching Spec 4.2" }
-      ],
-      billOfMaterials: [
-        {
-          id: "bom-1",
-          category: "Solar Luminaire & Fitting",
-          itemDescription: "Plasgain Pro Blade 75 Solar Luminaire (3000K Warm White, 75W PV, 460Wh LiFePO4)",
-          quantity: 24,
-          unit: "ea",
-          recommendedProductCode: "PB-75W-3K",
-          drawingReference: "Poles P1 to P24 along shared path alignment",
-          confidence: "High",
-          notes: "3000K specified in drawing notes for wildlife preservation buffer"
-        },
-        {
-          id: "bom-2",
-          category: "Pole & Structural Foundation",
-          itemDescription: "Plaspole 6.0m Recycled Composite Light Pole (Direct Burial, Heritage Green finish)",
-          quantity: 24,
-          unit: "ea",
-          recommendedProductCode: "PLASPOLE-6M-DB-GRN",
-          drawingReference: "P1–P24 (1.2m embedment depth per detail 3/E02)",
-          confidence: "High",
-          notes: "Non-conductive composite suitable for riverbank salinity"
-        },
-        {
-          id: "bom-3",
-          category: "Civil & Trenching Protection",
-          itemDescription: "Plasgain Polymeric Cable Cover Slabs (1000mm x 200mm x 6mm AS 4702 Cat 1)",
-          quantity: 1200,
-          unit: "m",
-          recommendedProductCode: "PCC-200-1M",
-          drawingReference: "Submains trench run T-01 to T-04 (1,200 linear metres)",
-          confidence: "High",
-          notes: "Replaces 31.8 Tonnes of heavy concrete slabs; 1200 interlocking units"
-        },
-        {
-          id: "bom-4",
-          category: "Civil & Electrical Warning",
-          itemDescription: "AS/NZS 2648.1 Heavy Duty Underground Warning Tape (500m rolls)",
-          quantity: 3,
-          unit: "rolls",
-          recommendedProductCode: "WT-ELEC-500M",
-          drawingReference: "Laid 200mm above cable covers across 1.2km trench",
-          confidence: "High",
-          notes: "Continuous orange warning tape 'DANGER ELECTRICAL CABLE BELOW'"
-        }
-      ],
-      notes: [
-        "Dense mature eucalyptus canopy noted between chainage Ch 450m and Ch 620m (Poles P9–P12) — may affect solar clearance, worth flagging to the customer."
-      ],
-      summary: "Deciphered 24x 6m Solar Pathway Poles and 1,200m underground civil trenching protection."
-    }
-  },
-  {
-    id: "geelong-commercial-park",
-    name: "Geelong Commercial Business Park",
-    customerName: "City of Greater Geelong",
-    category: "Car Park & Area Lighting",
-    sheetTitle: "Site Electrical & External Car Park Lighting - Plan E-101",
-    drawingNumber: "GBP-2025-E101",
-    scale: "1:250 @ A1",
-    description: "16x 8.0m High-Output Solar Car Park Poles with 800m Polymeric Cover trenching.",
-    result: {
-      drawingMetadata: {
-        sheetTitle: "Site Electrical & External Car Park Lighting - Plan E-101",
-        drawingNumber: "GBP-2025-E101",
-        scale: "1:250 @ A1",
-        revision: "Rev C"
-      },
-      legendAndSchedules: [
-        { symbol: "CP-SL", description: "High-Output Solar Area Luminaire (896Wh LiFePO4)", scheduleRef: "Type CP-1" },
-        { symbol: "BP-8M", description: "8.0m Galvanised Steel Ragbolt Baseplate Pole", scheduleRef: "Pole Schedule BP-8" }
-      ],
-      billOfMaterials: [
-        {
-          id: "bom-1",
-          category: "Solar Luminaire & Fitting",
-          itemDescription: "Plasgain Intense 50W Solar Luminaire (8,500 lm, 130W PV, 896Wh LiFePO4, 4000K)",
-          quantity: 16,
-          unit: "ea",
-          recommendedProductCode: "INTENSE-50W-4K",
-          drawingReference: "Car park bays A1 to D4 perimeter poles",
-          confidence: "High",
-          notes: "Category P11b compliance for commercial pedestrian night safety"
-        },
-        {
-          id: "bom-2",
-          category: "Pole & Structural Foundation",
-          itemDescription: "8.0m Galvanised Mild Steel Baseplate Pole (AS/NZS 4680 Hot-Dip Galvanised)",
-          quantity: 16,
-          unit: "ea",
-          recommendedProductCode: "STEEL-8M-BP",
-          drawingReference: "4x M24 ragbolt cage on 300mm PCD in concrete footing",
-          confidence: "High",
-          notes: "Engineered for Wind Region B coastal buffer"
-        },
-        {
-          id: "bom-3",
-          category: "Civil & Trenching Protection",
-          itemDescription: "Plasgain Polymeric Cable Cover Slabs (1000mm x 300mm x 6mm AS 4702 Cat 1)",
-          quantity: 800,
-          unit: "m",
-          recommendedProductCode: "PCC-300-1M",
-          drawingReference: "Main distributor trench between switchboard and perimeter",
-          confidence: "High",
-          notes: "300mm wide for 3-phase multi-circuit conduit bank"
-        }
-      ],
-      notes: [
-        "Car park schedule specifies 100% output from dusk to 11:00 PM, then 30% dim with PIR motion activation."
-      ],
-      summary: "Deciphered 16x 8m Intense 50W Solar Luminaires on Baseplate Steel Poles with 800m Polymeric Cable Protection."
-    }
-  }
-];
-
 export const PlanTakeoffWorkspace: React.FC = () => {
   const {
     showToast,
@@ -242,7 +93,6 @@ export const PlanTakeoffWorkspace: React.FC = () => {
   // Take-off Result State
   const [takeoffResult, setTakeoffResult] = useState<DrawingTakeoffResult | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
-  const [isExamplePlan, setIsExamplePlan] = useState(false);
 
   // Mobile Tab Switcher
   const [mobileActiveTab, setMobileActiveTab] = useState<"preview" | "schedule">("preview");
@@ -254,7 +104,6 @@ export const PlanTakeoffWorkspace: React.FC = () => {
   // Action Dropdowns
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
-  const [isSampleDropdownOpen, setIsSampleDropdownOpen] = useState(false);
 
   // Export & Datasheet Modal State
   const [isDatasheetModalOpen, setIsDatasheetModalOpen] = useState(false);
@@ -288,7 +137,6 @@ export const PlanTakeoffWorkspace: React.FC = () => {
     const handleDocumentClick = () => {
       setIsExportMenuOpen(false);
       setIsMoreMenuOpen(false);
-      setIsSampleDropdownOpen(false);
     };
     document.addEventListener("click", handleDocumentClick);
     return () => document.removeEventListener("click", handleDocumentClick);
@@ -316,7 +164,6 @@ export const PlanTakeoffWorkspace: React.FC = () => {
       setTakeoffResult(null);
       setAnalysisError(null);
       setExportValidationErrors([]);
-      setIsExamplePlan(false);
 
       const reader = new FileReader();
       reader.onload = () => {
@@ -337,38 +184,10 @@ export const PlanTakeoffWorkspace: React.FC = () => {
     }
   };
 
-  // Load Sample Plan
-  const handleSelectSample = (sample: SamplePlan) => {
-    setSelectedPlanId(sample.id);
-    setIsExamplePlan(true);
-    setProjectName(sample.name);
-    setCustomerName(sample.customerName);
-    setDrawingRef(sample.drawingNumber);
-    setUploadedFile({
-      name: `${sample.drawingNumber}.pdf`,
-      size: "2.4 MB",
-      type: "application/pdf"
-    });
-    // Set initial review status for sample line items
-    const extendedBOM = sample.result.billOfMaterials.map((item, idx) => ({
-      ...item,
-      reviewStatus: (idx === 0 ? "Reviewed" : "Extracted") as TakeoffReviewStatus
-    }));
-    setTakeoffResult({
-      ...sample.result,
-      billOfMaterials: extendedBOM
-    });
-    setZoomLevel(1.0);
-    setRotation(0);
-    setExportValidationErrors([]);
-    showToast(`Loaded example plan (Demo): ${sample.name}`, "info");
-  };
-
   // Clear Uploaded Plan
   const handleClearPlan = () => {
     setUploadedFile(null);
     setSelectedPlanId(null);
-    setIsExamplePlan(false);
     setTakeoffResult(null);
     setAnalysisError(null);
     setExportValidationErrors([]);
@@ -743,11 +562,6 @@ export const PlanTakeoffWorkspace: React.FC = () => {
         <div>
           <div className="flex items-center gap-2.5">
             <h1 className="text-xl md:text-2xl font-bold text-body tracking-tight">Plan Take-off</h1>
-            {isExamplePlan && (
-              <span className="text-spec font-bold px-2 py-0.5 rounded bg-soon-wash text-soon border border-soon/40">
-                Example Demo Plan
-              </span>
-            )}
           </div>
           <p className="text-meta text-ink-dim mt-0.5">
             Upload an engineering drawing to extract luminaire schedules, pole tables, and civil quantities.
@@ -805,45 +619,10 @@ export const PlanTakeoffWorkspace: React.FC = () => {
 
       {/* 2. Upload Plan & Compact Project Details Section */}
       <div className="bg-white p-4 rounded-panel border border-line shadow-2xs space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-line pb-2.5">
+        <div className="border-b border-line pb-2.5">
           <span className="text-spec font-bold text-ink-dim uppercase tracking-wider">
             Upload Plan &amp; Project Details
           </span>
-
-          {/* Example Plan Switcher */}
-          <div className="relative" onClick={(e) => e.stopPropagation()}>
-            <button
-              onClick={() => setIsSampleDropdownOpen((prev) => !prev)}
-              className="text-spec font-semibold text-brand-deep hover:text-brand bg-brand-wash/60 hover:bg-brand-wash px-2.5 py-1 rounded-edge border border-brand-edge flex items-center gap-1.5 cursor-pointer transition-colors"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Load Example Plan (Demo)</span>
-              <ChevronDown className="w-3 h-3" />
-            </button>
-
-            {isSampleDropdownOpen && (
-              <div className="absolute right-0 mt-1 w-64 bg-white rounded-panel shadow-lg border border-line py-1 z-30 animate-in fade-in zoom-in-95 duration-100">
-                <div className="px-3 py-1.5 text-[11px] font-bold uppercase text-ink-faint border-b border-line">
-                  Select Demo Plan
-                </div>
-                {SAMPLE_PLANS.map((sample) => (
-                  <button
-                    key={sample.id}
-                    onClick={() => {
-                      handleSelectSample(sample);
-                      setIsSampleDropdownOpen(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 text-meta hover:bg-raised transition-colors flex flex-col ${
-                      selectedPlanId === sample.id ? "bg-brand-wash/40 font-bold text-brand-deep" : "text-body"
-                    }`}
-                  >
-                    <span className="font-semibold">{sample.name}</span>
-                    <span className="text-spec text-ink-dim">{sample.drawingNumber} • {sample.category}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Upload Dropzone & Core Metadata Inputs */}
@@ -1059,45 +838,6 @@ export const PlanTakeoffWorkspace: React.FC = () => {
                   alt={uploadedFile.name}
                   className="max-w-full max-h-full object-contain rounded"
                 />
-              </div>
-            )}
-
-            {/* 4. Example Demo Drawing View */}
-            {isExamplePlan && (
-              <div className="relative w-full h-full flex flex-col items-center justify-center p-4">
-                <div className="absolute top-2 left-2 px-2 py-0.5 rounded bg-soon-wash text-soon border border-soon/40 text-[10px] font-mono font-bold">
-                  DEMO EXAMPLE DRAWING
-                </div>
-                <div
-                  className="transition-transform duration-150 flex flex-col items-center text-center p-4 space-y-3"
-                  style={{ transform: `scale(${zoomLevel}) rotate(${rotation}deg)` }}
-                >
-                  <div className="w-56 h-36 border-2 border-cyan-500/40 rounded bg-cyan-950/20 p-3 relative flex flex-col justify-between">
-                    <div className="text-left font-mono text-[9px] text-cyan-400 border-b border-cyan-500/30 pb-1">
-                      <div>DWG: {takeoffResult?.drawingMetadata.drawingNumber || "E-02"}</div>
-                      <div>SCALE: {takeoffResult?.drawingMetadata.scale || "1:500"}</div>
-                    </div>
-                    <div className="flex justify-around items-center py-2">
-                      <div className="flex flex-col items-center gap-0.5">
-                        <div className="w-3 h-3 rounded-full bg-amber-400 shadow-md shadow-amber-500/50" />
-                        <span className="text-[8px] font-mono text-amber-300 font-bold">P1 (6m)</span>
-                      </div>
-                      <div className="h-0.5 w-12 bg-dashed border-b border-dashed border-orange-400" />
-                      <div className="flex flex-col items-center gap-0.5">
-                        <div className="w-3 h-3 rounded-full bg-amber-400 shadow-md shadow-amber-500/50" />
-                        <span className="text-[8px] font-mono text-amber-300 font-bold">P2 (6m)</span>
-                      </div>
-                      <div className="h-0.5 w-12 bg-dashed border-b border-dashed border-orange-400" />
-                      <div className="flex flex-col items-center gap-0.5">
-                        <div className="w-3 h-3 rounded-full bg-amber-400 shadow-md shadow-amber-500/50" />
-                        <span className="text-[8px] font-mono text-amber-300 font-bold">P3 (6m)</span>
-                      </div>
-                    </div>
-                    <div className="text-[8px] font-mono text-orange-400 bg-orange-950/60 px-1 py-0.5 rounded border border-orange-500/30">
-                      ⚡ 1,200m Polymeric Cover Run
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
           </div>
