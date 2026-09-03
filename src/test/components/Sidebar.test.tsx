@@ -42,6 +42,14 @@ describe('Sidebar Component', () => {
       </AppProvider>
     );
 
+    const aside = screen.getByRole('dialog', { name: /Main Navigation/i });
+    expect(aside.className).toContain('w-72');
+
+    const closeBtn = screen.getByRole('button', { name: /Close navigation menu/i });
+    expect(closeBtn).toBeInTheDocument();
+    fireEvent.click(closeBtn);
+    expect(setMobileOpen).toHaveBeenCalledWith(false);
+
     const crmButton = screen.getByText('CRM Command Centre');
     fireEvent.click(crmButton);
     expect(setMobileOpen).toHaveBeenCalledWith(false);

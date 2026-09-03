@@ -149,14 +149,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
         aria-label="Main Navigation"
         className={`bg-chrome border-r border-chrome-line flex flex-col shrink-0 h-screen sticky top-0 transition-[width,transform] duration-200 ease-in-out z-50 ${
           mobileOpen
-            ? "w-58 fixed inset-y-0 left-0 translate-x-0 shadow-2xl"
+            ? "w-72 max-w-[calc(100vw-3rem)] fixed inset-y-0 left-0 translate-x-0 shadow-2xl"
             : isSidebarCollapsed
             ? "hidden md:flex w-16"
             : "hidden md:flex w-58"
         }`}
       >
         {/* Brand lockup & collapse toggle */}
-        <div className={`pt-5.5 pb-6 flex items-center ${isSidebarCollapsed && !mobileOpen ? "px-2.5 justify-center flex-col gap-3" : "px-4.5 justify-between"}`}>
+        <div className={`pt-5.5 pb-6 flex items-center ${isSidebarCollapsed && !mobileOpen ? "px-2.5 justify-center flex-col gap-3" : "px-4.5 justify-between gap-3"}`}>
           {isSidebarCollapsed && !mobileOpen ? (
             <button
               type="button"
@@ -194,10 +194,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
               type="button"
               onClick={() => setMobileOpen(false)}
               aria-label="Close navigation menu"
-              className="md:hidden text-chrome-dim hover:text-chrome-text p-1 cursor-pointer focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none rounded-edge"
+              className="md:hidden text-chrome-dim hover:text-chrome-text p-1.5 cursor-pointer hover:bg-chrome-line/60 active:bg-chrome-line focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none rounded-edge transition-colors shrink-0 flex items-center justify-center"
               title="Close menu"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5 shrink-0" />
             </button>
           )}
         </div>
