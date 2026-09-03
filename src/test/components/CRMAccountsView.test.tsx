@@ -149,7 +149,7 @@ describe("CRMAccountsView Component (Step 5)", () => {
 
     // Primary action buttons
     expect(screen.getByRole("button", { name: /Log activity/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /New deal/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /New quote/i })).toBeInTheDocument();
 
     // Secondary actions inside menu
     const menuBtn = screen.getByRole("button", { name: /Account actions/i });
@@ -207,11 +207,11 @@ describe("CRMAccountsView Component (Step 5)", () => {
       </AppProvider>
     );
 
-    // Click New deal button
-    const newDealBtn = screen.getAllByRole("button", { name: /New deal/i })[0];
-    fireEvent.click(newDealBtn);
+    // Click New quote button
+    const newQuoteBtn = screen.getAllByRole("button", { name: /New quote/i })[0];
+    fireEvent.click(newQuoteBtn);
 
-    expect(screen.getByRole("dialog", { name: /Create New Deal/i })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: /Create New Quote/i })).toBeInTheDocument();
     expect(screen.getByText(/Account:/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Townsville City Council/i).length).toBeGreaterThanOrEqual(1);
   });

@@ -1064,10 +1064,10 @@ export const CRMAccountsView: React.FC = () => {
                         setIsNewDealModalOpen(true);
                       }}
                       className="px-3.5 py-1.5 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
-                      title="Create a new deal for this account"
+                      title="Create a new quote for this account"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>New deal</span>
+                      <span>New quote</span>
                     </button>
 
                     {/* SECONDARY ACTIONS DROPDOWN (PART E) */}
@@ -1339,7 +1339,7 @@ export const CRMAccountsView: React.FC = () => {
 
                       {accountDeals.length === 0 ? (
                         <div className="p-4 bg-paper/40 rounded-panel border border-line text-center text-spec text-ink-dim">
-                          No active deals currently open. Click <strong>New deal</strong> to start an opportunity.
+                          No active quotes currently open. Click <strong>New quote</strong> to start an opportunity.
                         </div>
                       ) : (
                         <div className="divide-y divide-line border border-line rounded-panel overflow-hidden">
@@ -1580,9 +1580,10 @@ export const CRMAccountsView: React.FC = () => {
                             setIsNewDealModalOpen(true);
                           }}
                           className="px-3 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                          title="Create a new quote for this account"
                         >
                           <Plus className="w-3.5 h-3.5" />
-                          <span>New deal</span>
+                          <span>New quote</span>
                         </button>
                       </div>
                     </div>
@@ -2147,7 +2148,7 @@ export const CRMAccountsView: React.FC = () => {
             <div className="flex items-center justify-between border-b border-line pb-3">
               <div>
                 <h3 id="new-deal-title" className="font-bold text-body text-base">
-                  Create New Deal
+                  Create New Quote
                 </h3>
                 <p className="text-spec text-ink-dim">
                   Account: <strong>{selectedAccount.name}</strong>
