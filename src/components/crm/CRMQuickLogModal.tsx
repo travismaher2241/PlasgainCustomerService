@@ -189,10 +189,7 @@ export const CRMQuickLogModal: React.FC = () => {
       nextAction: scheduleFollowUp ? `Follow-up required by ${followUpDate}` : undefined,
       nextActionDate: scheduleFollowUp ? followUpDate : undefined,
       metadata: {
-        outcome: resolvedOutcome,
-        callContactMade: type === "call" ? callContactMade : undefined,
-        callNoAnswer: type === "call" ? callNoAnswer : undefined,
-        callVoicemailLeft: type === "call" ? callVoicemailLeft : undefined
+        outcome: resolvedOutcome
       }
     });
 

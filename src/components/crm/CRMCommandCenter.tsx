@@ -335,7 +335,7 @@ export const CRMCommandCenter: React.FC = () => {
             <div className="shrink-0">
               <button
                 type="button"
-                onClick={() => openQuickLog({ isOpen: true, type: "call" })}
+                onClick={() => openQuickLog("call")}
                 className="h-8 px-2.5 sm:px-3 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-xs sm:text-spec transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                 title="Quick Log Call, Email, Meeting, or Note"
               >
@@ -348,7 +348,7 @@ export const CRMCommandCenter: React.FC = () => {
       </div>
 
       {/* Main CRM Tab Content Area */}
-      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 w-full min-w-0">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 w-full min-w-0">
         <ErrorBoundary>
           <Suspense
             fallback={
@@ -364,9 +364,17 @@ export const CRMCommandCenter: React.FC = () => {
             {activeCRMTab === "leads" && <CRMLeadsView />}
             {activeCRMTab === "tasks" && <CRMTasksActivitiesView />}
             {activeCRMTab === "competitor-pricing" && <CRMCompetitorPricingView />}
+            {!(
+              activeCRMTab === "today" ||
+              activeCRMTab === "accounts" ||
+              activeCRMTab === "pipeline" ||
+              activeCRMTab === "leads" ||
+              activeCRMTab === "tasks" ||
+              activeCRMTab === "competitor-pricing"
+            ) && <CRMTodayWorkspace />}
           </Suspense>
         </ErrorBoundary>
-      </main>
+      </div>
     </div>
   );
 };

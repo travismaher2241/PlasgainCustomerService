@@ -129,49 +129,51 @@ export const CRMTodayWorkspace: React.FC = () => {
   }, [crmOpportunities]);
 
   const highPriorityNBACount = useMemo(() => {
-    return nextBestActions.filter((a) => a.urgency === "Immediate" || a.priorityScore >= 80).length;
+    return nextBestActions.filter((a) => a.urgency === "Immediate").length;
   }, [nextBestActions]);
 
   // Unified Action Queue
   const workItems = useMemo<UnifiedWorkItem[]>(() => {
     const items: UnifiedWorkItem[] = [];
 
-    // 1. Next Best Actions
-    nextBestActions.forEach((nba) => {
+    // 1. Next Best Actions (exclude task-based actions since tasks are included directly in section 2)
+    nextBestActions
+      .filter((nba) => nba.category !== "Overdue Task" && nba.relatedEntityType !== "Task")
+      .forEach((nba) => {
       let tier: PriorityTier = "normal";
-      if (nba.urgency === "Immediate" || nba.priorityScore >= 80) tier = "do_now";
-      else if (nba.urgency === "Today" || nba.priorityScore >= 60) tier = "today";
+      if (nba.urgency === "Immediate") tier = "do_now";
+      else if (nba.urgency === "Today") tier = "today";
 
       let actType: UnifiedWorkItem["primaryActionType"] = "followup";
-      let actLabel = "Review & Follow Up";
       if (nba.category === "Quote Follow-up") {
         actType = "followup";
-        actLabel = "Follow Up Quote";
-      } else if (nba.category === "Competitor Defense") {
+      } else if (nba.category === "Decision Maker") {
         actType = "call";
-        actLabel = "Defend Position";
-      } else if (nba.category === "Deal Acceleration") {
+      } else if (nba.category === "Stalled Deal") {
         actType = "open";
-        actLabel = "Accelerate Deal";
+      } else if (nba.category === "Overdue Task") {
+        actType = "complete";
       }
+
+      const urgency: UnifiedWorkItem["urgency"] =
+        nba.urgency === "Immediate" ? "Immediate" : nba.urgency === "Today" ? "Today" : "Normal";
 
       items.push({
         id: nba.id,
         sourceType: "nba",
-        title: nba.actionTitle,
-        entityName: nba.accountName || nba.opportunityName || "Customer Record",
-        entityType: nba.dealId ? "Opportunity" : "Account",
-        entityId: nba.dealId || nba.accountId,
-        accountId: nba.accountId,
-        dealId: nba.dealId,
+        title: nba.title,
+        entityName: nba.relatedEntityName || (nba.relatedEntityType === "Lead" ? "Lead Record" : "Customer Record"),
+        entityType: nba.relatedEntityType,
+        entityId: nba.relatedEntityId,
+        accountId: nba.relatedEntityType === "Account" ? nba.relatedEntityId : undefined,
+        dealId: nba.relatedEntityType === "Opportunity" ? nba.relatedEntityId : undefined,
         context: nba.description,
-        reason: nba.reasoning,
-        urgency: nba.urgency,
+        reason: nba.reason,
+        urgency,
         priorityTier: tier,
-        dueDate: nba.recommendedDate,
         category: nba.category,
         primaryActionType: actType,
-        primaryActionLabel: actLabel
+        primaryActionLabel: nba.actionLabel || "Review & Follow Up"
       });
     });
 
@@ -266,25 +268,46 @@ export const CRMTodayWorkspace: React.FC = () => {
       return;
     }
 
+    if (item.sourceType === "nba") {
+      if (item.entityType === "Opportunity" && item.entityId) {
+        setSelectedCrmOpportunityId(item.entityId);
+        navigateToCRM("pipeline", item.entityId);
+        return;
+      }
+      if (item.entityType === "Account" && item.entityId) {
+        setSelectedAccountId(item.entityId);
+        navigateToCRM("accounts", item.entityId);
+        return;
+      }
+      if (item.entityType === "Lead") {
+        navigateToCRM("leads", item.entityId);
+        return;
+      }
+      if (item.entityType === "Task" && item.entityId) {
+        toggleTaskComplete(item.entityId);
+        return;
+      }
+    }
+
     if (item.dealId) {
       setSelectedCrmOpportunityId(item.dealId);
-      navigateToCRM("deals");
+      navigateToCRM("pipeline", item.dealId);
       return;
     }
 
     if (item.accountId) {
       setSelectedAccountId(item.accountId);
-      navigateToCRM("accounts");
+      navigateToCRM("accounts", item.accountId);
       return;
     }
 
     if (item.sourceType === "lead") {
-      navigateToCRM("leads");
+      navigateToCRM("leads", item.entityId);
       return;
     }
 
     if (item.primaryActionType === "call") {
-      openQuickLog({ isOpen: true, type: "call", accountId: item.accountId });
+      openQuickLog("call", item.accountId, item.dealId);
     }
   };
 

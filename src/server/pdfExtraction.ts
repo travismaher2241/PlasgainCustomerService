@@ -21,7 +21,6 @@ let activeExtractions = 0;
 async function extractDirectly(bytes: Buffer): Promise<KnowledgePage[]> {
   const task = getDocument({
     data: new Uint8Array(bytes),
-    isEvalSupported: false,
     useSystemFonts: false,
     disableFontFace: true,
     stopAtErrors: true,

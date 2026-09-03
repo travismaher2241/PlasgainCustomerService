@@ -44,6 +44,7 @@ import {
 import { useApp } from "../../context/AppContext";
 import {
   Account,
+  AccountStatus,
   AccountType,
   CRMContact,
   CRMOpportunity,
@@ -140,9 +141,9 @@ export const CRMAccountsView: React.FC = () => {
     name: "",
     tradingName: "",
     accountType: "Prospect" as AccountType,
-    status: "Prospect" as const,
+    status: "Prospect" as AccountStatus,
     industry: "Government & Public Infrastructure",
-    territory: "VIC/TAS" as const,
+    territory: "VIC/TAS" as Account["territory"],
     accountOwner: currentUser.name,
     mainPhone: "",
     generalEmail: "",
@@ -175,20 +176,34 @@ export const CRMAccountsView: React.FC = () => {
 
   // Create new account modal state
   const [isNewAccountModalOpen, setIsNewAccountModalOpen] = useState(false);
-  const [newAccountForm, setNewAccountForm] = useState({
+  const [newAccountForm, setNewAccountForm] = useState<{
+    name: string;
+    tradingName: string;
+    accountType: AccountType;
+    status: AccountStatus;
+    industry: string;
+    territory: Account["territory"];
+    accountOwner: string;
+    mainPhone: string;
+    generalEmail: string;
+    website: string;
+    notes: string;
+    customerRelationshipStatus: CustomerRelationshipStatus;
+    prospectStage: ProspectStage;
+  }>({
     name: "",
     tradingName: "",
-    accountType: "Prospect" as AccountType,
-    status: "Prospect" as const,
+    accountType: "Prospect",
+    status: "Prospect",
     industry: "Government & Public Infrastructure",
-    territory: "VIC/TAS" as const,
+    territory: "VIC/TAS",
     accountOwner: currentUser.name,
     mainPhone: "",
     generalEmail: "",
     website: "",
     notes: "",
-    customerRelationshipStatus: "Active" as CustomerRelationshipStatus,
-    prospectStage: "Identified" as ProspectStage
+    customerRelationshipStatus: "Active",
+    prospectStage: "Identified"
   });
 
   // Contact modal state
@@ -289,8 +304,8 @@ export const CRMAccountsView: React.FC = () => {
     (c) =>
       c.accountId === selectedAccount?.id ||
       (Boolean(selectedAccount?.name) &&
-        Boolean(c.company) &&
-        c.company.trim().toLowerCase() === selectedAccount?.name.trim().toLowerCase())
+        Boolean(c.accountName) &&
+        c.accountName.trim().toLowerCase() === selectedAccount?.name.trim().toLowerCase())
   );
   const accountDeals = crmOpportunities.filter((d) => d.accountId === selectedAccount?.id);
   const accountActivities = sortActivitiesChronological(
@@ -512,7 +527,7 @@ export const CRMAccountsView: React.FC = () => {
       accountId: selectedAccount.id,
       accountName: selectedAccount.name,
       primaryContactId: matchedContact?.id || "",
-      primaryContactName: matchedContact?.name || "",
+      primaryContactName: matchedContact ? `${matchedContact.firstName} ${matchedContact.lastName}`.trim() : "",
       primaryContactEmail: matchedContact?.email,
       primaryContactPhone: matchedContact?.phone,
       opportunityOwner: selectedAccount.accountOwner || currentUser.name,
@@ -745,7 +760,7 @@ export const CRMAccountsView: React.FC = () => {
                     <label className="block text-spec font-bold mb-1">Territory</label>
                     <select
                       value={newAccountForm.territory}
-                      onChange={(e) => setNewAccountForm({ ...newAccountForm, territory: e.target.value as any })}
+                      onChange={(e) => setNewAccountForm({ ...newAccountForm, territory: e.target.value as Account["territory"] })}
                       className="w-full p-2 border border-line rounded-edge bg-white text-spec"
                     >
                       <option>VIC/TAS</option>
@@ -1043,13 +1058,7 @@ export const CRMAccountsView: React.FC = () => {
 
                     <button
                       type="button"
-                      onClick={() =>
-                        openQuickLog({
-                          isOpen: true,
-                          type: "call",
-                          accountId: selectedAccount.id
-                        })
-                      }
+                      onClick={() => openQuickLog("call", selectedAccount.id)}
                       className="px-3 py-1.5 rounded-edge bg-white hover:bg-raised text-brand-deep border border-brand-edge font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
                       title="Log a phone call, meeting, or customer note"
                     >
@@ -1110,8 +1119,11 @@ export const CRMAccountsView: React.FC = () => {
                             onClick={() => {
                               setIsHeaderMenuOpen(false);
                               openEmailComposer({
-                                to: selectedAccount.generalEmail || accountContacts[0]?.email || "",
-                                recipientName: accountContacts[0]?.name || selectedAccount.name,
+                                contactEmail: selectedAccount.generalEmail || accountContacts[0]?.email || "",
+                                contactName: accountContacts[0]
+                                  ? `${accountContacts[0].firstName} ${accountContacts[0].lastName}`.trim()
+                                  : selectedAccount.name,
+                                companyName: selectedAccount.name,
                                 accountId: selectedAccount.id
                               });
                             }}
@@ -1357,7 +1369,7 @@ export const CRMAccountsView: React.FC = () => {
                               key={deal.id}
                               onClick={() => {
                                 setSelectedCrmOpportunityId(deal.id);
-                                navigateToCRM("deals");
+                                navigateToCRM("pipeline");
                               }}
                               className="p-3 hover:bg-raised/60 transition-colors cursor-pointer flex items-center justify-between gap-3"
                             >
@@ -1476,7 +1488,7 @@ export const CRMAccountsView: React.FC = () => {
                     ) : (
                       <div className="divide-y divide-line border border-line rounded-panel overflow-hidden">
                         {accountContacts.map((contact) => {
-                          const fullName = `${contact.firstName || ""} ${contact.lastName || ""}`.trim() || contact.name || "Unnamed Contact";
+                          const fullName = `${contact.firstName || ""} ${contact.lastName || ""}`.trim() || "Unnamed Contact";
                           const displayName = contact.preferredName ? `${fullName} (${contact.preferredName})` : fullName;
                           const hasPersonal = Boolean(contact.hobbies || contact.hasPartner || contact.partnerName || contact.hasChildren || contact.birthday);
 
@@ -1618,7 +1630,7 @@ export const CRMAccountsView: React.FC = () => {
                               key={deal.id}
                               onClick={() => {
                                 setSelectedCrmOpportunityId(deal.id);
-                                navigateToCRM("deals");
+                                navigateToCRM("pipeline");
                               }}
                               className="p-3.5 hover:bg-raised/60 transition-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                             >
@@ -1685,13 +1697,7 @@ export const CRMAccountsView: React.FC = () => {
 
                         <button
                           type="button"
-                          onClick={() =>
-                            openQuickLog({
-                              isOpen: true,
-                              type: "call",
-                              accountId: selectedAccount.id
-                            })
-                          }
+                          onClick={() => openQuickLog("call", selectedAccount.id)}
                           className="px-3 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -1830,7 +1836,7 @@ export const CRMAccountsView: React.FC = () => {
                             Executive Relationship Summary
                           </h4>
                           <p className="text-body text-spec leading-relaxed">
-                            {aiSummary.accountOverview ||
+                            {aiSummary.accountSummary ||
                               `${selectedAccount.name} is an active ${selectedAccount.accountType || "Account"} with ${accountDeals.length} active opportunities and regular technical engagement across AS/NZS 1158 solar lighting standards.`}
                           </p>
                         </div>
@@ -1842,11 +1848,11 @@ export const CRMAccountsView: React.FC = () => {
                             <span>Current Risks &amp; Commercial Watchpoints</span>
                           </h4>
                           <ul className="text-spec text-amber-950 space-y-1 text-xs">
-                            {aiSummary.potentialRisks && aiSummary.potentialRisks.length > 0 ? (
-                              aiSummary.potentialRisks.map((risk, idx) => (
+                            {aiSummary.risks && aiSummary.risks.length > 0 ? (
+                              aiSummary.risks.map((risk, idx) => (
                                 <li key={idx} className="flex items-start gap-1.5">
                                   <span className="font-bold">•</span>
-                                  <span>{risk}</span>
+                                  <span>{risk.statement}</span>
                                 </li>
                               ))
                             ) : (
@@ -1860,12 +1866,12 @@ export const CRMAccountsView: React.FC = () => {
                           <h4 className="text-spec font-bold text-body">Next 3 Strategic Actions</h4>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             {(aiSummary.recommendedNextActions || [
-                              "Schedule Dialux photometric verification with engineering team",
-                              "Follow up quotation schedule with primary procurement contact",
-                              "Confirm foundation and rag-bolt requirements for composite poles"
+                              { action: "Schedule Dialux photometric verification with engineering team", reason: "" },
+                              { action: "Follow up quotation schedule with primary procurement contact", reason: "" },
+                              { action: "Confirm foundation and rag-bolt requirements for composite poles", reason: "" }
                             ])
                               .slice(0, 3)
-                              .map((action, idx) => (
+                              .map((actionItem, idx) => (
                                 <div
                                   key={idx}
                                   className="p-3 bg-paper rounded-panel border border-line text-spec flex items-start gap-2"
@@ -1873,7 +1879,9 @@ export const CRMAccountsView: React.FC = () => {
                                   <span className="w-5 h-5 rounded-full bg-brand-deep text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
                                     {idx + 1}
                                   </span>
-                                  <span className="text-xs font-medium text-body">{action}</span>
+                                  <span className="text-xs font-medium text-body">
+                                    {typeof actionItem === "string" ? actionItem : actionItem.action}
+                                  </span>
                                 </div>
                               ))}
                           </div>
@@ -1895,14 +1903,14 @@ export const CRMAccountsView: React.FC = () => {
                               <div>
                                 <span className="text-xs font-bold text-ink-dim uppercase">Contact Role Analysis</span>
                                 <p className="text-xs text-body mt-0.5">
-                                  {aiSummary.buyingCommitteeInsights || "Primary stakeholders actively engaged in technical compliance sign-off."}
+                                  {aiSummary.knownRequirements?.join("; ") || "Primary stakeholders actively engaged in technical compliance sign-off."}
                                 </p>
                               </div>
 
                               <div>
                                 <span className="text-xs font-bold text-ink-dim uppercase">Competitive Positioning</span>
                                 <p className="text-xs text-body mt-0.5">
-                                  {aiSummary.competitorThreats || "Plasgain holds competitive advantage with Category P composite poles and 10-year warranty."}
+                                  {aiSummary.commercialIntelligence?.join("; ") || "Plasgain holds competitive advantage with Category P composite poles and 10-year warranty."}
                                 </p>
                               </div>
                             </div>
@@ -1984,7 +1992,7 @@ export const CRMAccountsView: React.FC = () => {
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <h3 className="font-bold text-body text-lg">
-                    {`${drawerContact.firstName || ""} ${drawerContact.lastName || ""}`.trim() || drawerContact.name || "Contact Details"}
+                    {`${drawerContact.firstName || ""} ${drawerContact.lastName || ""}`.trim() || "Contact Details"}
                   </h3>
                   {drawerContact.preferredName && (
                     <span className="text-spec text-ink-dim font-normal">
@@ -2233,7 +2241,7 @@ export const CRMAccountsView: React.FC = () => {
                     </option>
                     {accountContacts.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.name}{c.role ? ` (${c.role})` : ""}
+                        {`${c.firstName} ${c.lastName}`.trim()}{c.role ? ` (${c.role})` : ""}
                       </option>
                     ))}
                   </select>
@@ -2365,7 +2373,7 @@ export const CRMAccountsView: React.FC = () => {
                   <label className="block text-spec font-bold mb-1">Territory</label>
                   <select
                     value={newAccountForm.territory}
-                    onChange={(e) => setNewAccountForm({ ...newAccountForm, territory: e.target.value as any })}
+                    onChange={(e) => setNewAccountForm({ ...newAccountForm, territory: e.target.value as Account["territory"] })}
                     className="w-full p-2 border border-line rounded-edge bg-white text-spec"
                   >
                     <option>VIC/TAS</option>

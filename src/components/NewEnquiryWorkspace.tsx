@@ -42,6 +42,7 @@ import {
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { EnquiryAnalysisResult, StatusField, FieldStatus } from "../types";
+import type { Account } from "../types/crm";
 import { CustomerFollowUpModal } from "./CustomerFollowUpModal";
 import { DatasheetPackageModal } from "./DatasheetPackageModal";
 import { QuoteReadinessModal } from "./QuoteReadinessModal";
@@ -363,23 +364,29 @@ export const NewEnquiryWorkspace: React.FC = () => {
 
   const handleInlineCreateAccount = () => {
     if (!rawEnquiryInput.company) return;
-    const newAcc = {
+    const newAcc: Account = {
       id: `acc-${Date.now()}`,
       name: rawEnquiryInput.company,
+      accountType: "Prospect",
+      status: "Prospect",
       industry: "Civil Contractor / Lighting",
-      tier: "Tier 2",
-      totalPipelineValue: 0,
-      openDealsCount: 0,
-      activeProjectsCount: 0,
-      health: "Healthy" as const,
-      healthReasons: ["Created from New Enquiry ingestion"],
-      primaryContactName: rawEnquiryInput.customer || "Engineering Contact",
-      primaryContactEmail: rawEnquiryInput.contact?.includes("@") ? rawEnquiryInput.contact : "enquiries@" + rawEnquiryInput.company.toLowerCase().replace(/[^a-z0-9]/g, "") + ".com.au",
-      primaryContactPhone: !rawEnquiryInput.contact?.includes("@") ? rawEnquiryInput.contact : "1300 PLASGAIN",
-      billingAddress: rawEnquiryInput.location || "Victoria, Australia",
-      shippingAddress: rawEnquiryInput.location || "Victoria, Australia",
-      paymentTerms: "Net 30 Days",
-      ostendoCustomerCode: `CUST-${rawEnquiryInput.company.slice(0, 4).toUpperCase()}`
+      territory: "VIC/TAS",
+      accountOwner: currentUser?.name || "Travis Maher",
+      leadSource: "New Enquiry Ingestion",
+      createdDate: new Date().toISOString(),
+      lastInteractionDate: new Date().toISOString(),
+      customerRelationshipStatus: "Developing",
+      prospectStage: "Identified",
+      tags: ["Created from New Enquiry Ingestion"],
+      mainPhone: !rawEnquiryInput.contact?.includes("@") ? rawEnquiryInput.contact : "1300 PLASGAIN",
+      generalEmail: rawEnquiryInput.contact?.includes("@") ? rawEnquiryInput.contact : "enquiries@" + rawEnquiryInput.company.toLowerCase().replace(/[^a-z0-9]/g, "") + ".com.au",
+      billingAddress: {
+        street: "",
+        city: "Melbourne",
+        state: "VIC",
+        postcode: "3000",
+        country: "Australia"
+      }
     };
     addAccount(newAcc);
     showToast(`Created new CRM Account: ${rawEnquiryInput.company}`, "success");
@@ -404,20 +411,26 @@ export const NewEnquiryWorkspace: React.FC = () => {
       addAccount({
         id: accId,
         name: company,
+        accountType: "Prospect",
+        status: "Prospect",
         industry: "Civil Contractor / Lighting",
-        tier: "Tier 2",
-        totalPipelineValue: 0,
-        openDealsCount: 1,
-        activeProjectsCount: 1,
-        health: "Healthy",
-        healthReasons: ["Auto-created from Enquiry Analysis Ingestion"],
-        primaryContactName: contact,
-        primaryContactEmail: rawEnquiryInput.contact?.includes("@") ? rawEnquiryInput.contact : "",
-        primaryContactPhone: !rawEnquiryInput.contact?.includes("@") ? rawEnquiryInput.contact : "",
-        billingAddress: location,
-        shippingAddress: location,
-        paymentTerms: "Net 30 Days",
-        ostendoCustomerCode: `CUST-${company.slice(0, 4).toUpperCase()}`
+        territory: "VIC/TAS",
+        accountOwner: currentUser?.name || "Travis Maher",
+        leadSource: "Enquiry Analysis Ingestion",
+        createdDate: new Date().toISOString(),
+        lastInteractionDate: new Date().toISOString(),
+        customerRelationshipStatus: "Developing",
+        prospectStage: "Identified",
+        tags: ["Auto-created from Enquiry Analysis Ingestion"],
+        generalEmail: rawEnquiryInput.contact?.includes("@") ? rawEnquiryInput.contact : "",
+        mainPhone: !rawEnquiryInput.contact?.includes("@") ? rawEnquiryInput.contact : "",
+        billingAddress: {
+          street: "",
+          city: "Melbourne",
+          state: "VIC",
+          postcode: "3000",
+          country: "Australia"
+        }
       });
     }
 
@@ -430,6 +443,7 @@ export const NewEnquiryWorkspace: React.FC = () => {
       name: `${project} - ${company}`,
       accountId: accId || "acc-direct",
       accountName: company,
+      primaryContactId: matchedAccount ? (contacts.find(c => c.accountId === matchedAccount.id)?.id || "") : "",
       primaryContactName: contact,
       primaryContactEmail: rawEnquiryInput.contact?.includes("@") ? rawEnquiryInput.contact : "",
       opportunityOwner: currentUser?.name || "Travis Maher",

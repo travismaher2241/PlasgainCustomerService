@@ -132,20 +132,24 @@ export const CRMLeadsView: React.FC = () => {
       enquiryType: newLeadForm.enquiryType,
       leadStatus: "New",
       leadScore: 75,
+      leadScoreRating: "Warm",
       scoringFactors: [
-        "Verified company organisation",
-        "Clear solar public lighting application",
-        "Direct contact phone and email provided"
+        { factor: "Verified Organisation", scoreDelta: 25, reason: "Verified company organisation" },
+        { factor: "Clear Application", scoreDelta: 25, reason: "Clear solar public lighting application" },
+        { factor: "Direct Contact Details", scoreDelta: 25, reason: "Direct contact phone and email provided" }
       ],
       estimatedValue: Number(newLeadForm.estimatedValue) || 25000,
       estimatedValueBasis: "Estimate",
       territory: "VIC/TAS",
       productInterest: ["Plasgain Pro Blade 75", "Composite Solar Poles"],
+      urgency: "Within 1 Month",
       location: newLeadForm.location,
       notes: newLeadForm.notes || "Inbound enquiry awaiting qualification call",
+      dateReceived: new Date().toISOString(),
+      lastActivity: "Lead created",
+      lastActivityDate: new Date().toISOString(),
       nextAction: newLeadForm.nextAction,
       nextActionDate: new Date().toISOString().split("T")[0],
-      createdAt: new Date().toISOString(),
       assignedSalesperson: currentUser.name
     };
 
@@ -354,15 +358,18 @@ export const CRMLeadsView: React.FC = () => {
                   {showScoreFactors && (
                     <ul className="text-xs text-ink-dim space-y-1 pt-1 border-t border-line animate-in fade-in duration-100">
                       {(selectedLead.scoringFactors || [
-                        "Complete customer contact details provided",
-                        "High commercial intent with clear project application",
-                        "Compliant solar lighting product scope"
-                      ]).map((factor, idx) => (
-                        <li key={idx} className="flex items-center gap-1.5">
-                          <Check className="w-3 h-3 text-emerald-600 shrink-0" />
-                          <span>{factor}</span>
-                        </li>
-                      ))}
+                        { factor: "Contact Details", scoreDelta: 20, reason: "Complete customer contact details provided" },
+                        { factor: "High Intent", scoreDelta: 30, reason: "High commercial intent with clear project application" },
+                        { factor: "Product Scope", scoreDelta: 25, reason: "Compliant solar lighting product scope" }
+                      ]).map((item, idx) => {
+                        const label = typeof item === "string" ? item : (item.reason || item.factor);
+                        return (
+                          <li key={idx} className="flex items-center gap-1.5">
+                            <Check className="w-3 h-3 text-emerald-600 shrink-0" />
+                            <span>{label}</span>
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                 </div>

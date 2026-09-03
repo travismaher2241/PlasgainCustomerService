@@ -4,26 +4,29 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { CRMCallPrepModal } from '../../components/crm/CRMCallPrepModal';
 import { CRMQuickLogModal } from '../../components/crm/CRMQuickLogModal';
 import { AppProvider, useApp } from '../../context/AppContext';
-import { makeOpportunity, makeContact } from '../factories';
+import { makeOpportunity, makeContact, makeAccount } from '../factories';
 
 const CallPrepTestWrapper: React.FC = () => {
   const { openCallPrep, addAccount, addCrmOpportunity, addContact, activities } = useApp();
 
   React.useEffect(() => {
-    addAccount({
-      id: 'acc-test-99',
-      name: 'Moreton Regional Council',
-      status: 'Customer',
-      industry: 'Government',
-      customerSegment: 'Local Government / Council',
-      accountType: 'Council',
-      accountOwner: 'Travis Maher',
-      customerRelationshipStatus: 'Active',
-      tags: [],
-      lastInteractionDate: '2026-08-28',
-      leadSource: 'Referral',
-      createdDate: '2026-08-28'
-    });
+    addAccount(
+      makeAccount({
+        id: 'acc-test-99',
+        name: 'Moreton Regional Council',
+        status: 'Customer',
+        industry: 'Government',
+        customerSegment: 'Local Government / Council',
+        accountType: 'Council',
+        territory: 'QLD/NT',
+        accountOwner: 'Travis Maher',
+        customerRelationshipStatus: 'Active',
+        tags: [],
+        lastInteractionDate: '2026-08-28',
+        leadSource: 'Referral',
+        createdDate: '2026-08-28'
+      })
+    );
 
     addCrmOpportunity(makeOpportunity({
       id: 'opp-test-99',

@@ -56,7 +56,11 @@ const LeadsTestWrapper: React.FC = () => {
       enquiryType: "Solar Pathway Lighting",
       leadStatus: "New",
       leadScore: 85,
-      scoringFactors: ["Verified company organisation", "High intent scope", "Direct phone provided"],
+      scoringFactors: [
+        { factor: "Verified Organisation", scoreDelta: 30, reason: "Verified company organisation" },
+        { factor: "High Intent", scoreDelta: 30, reason: "High intent scope" },
+        { factor: "Direct Phone", scoreDelta: 25, reason: "Direct phone provided" }
+      ],
       estimatedValue: 42000,
       estimatedValueBasis: "Estimate",
       territory: "VIC/TAS",
@@ -65,7 +69,12 @@ const LeadsTestWrapper: React.FC = () => {
       notes: "Enquiry for 16 composite solar lights on community shared trail.",
       nextAction: "Schedule technical consultation with council engineer",
       nextActionDate: "2026-09-05",
-      createdAt: "2026-08-28"
+      dateReceived: "2026-08-28",
+      leadScoreRating: "Warm",
+      urgency: "Within 1 Month",
+      lastActivity: "Lead created",
+      lastActivityDate: "2026-08-28",
+      assignedSalesperson: "Travis Maher"
     });
   }, []);
 
@@ -77,25 +86,25 @@ const TasksTestWrapper: React.FC = () => {
 
   React.useEffect(() => {
     addTask({
-      id: "task-1",
       title: "Review footing design for cyclone Region C",
-      type: "Review",
+      type: "Research",
       dueDate: "2026-09-10",
       priority: "High",
-      status: "Pending",
+      status: "To Do",
       assignedTo: "Travis Maher",
+      createdBy: "Travis Maher",
       accountName: "Townsville City Council",
       notes: "Confirm embedment depths with structural team."
     });
 
     addTask({
-      id: "task-2",
       title: "Archived historical task",
       type: "Call",
       dueDate: "2026-08-01",
-      priority: "Normal",
+      priority: "Medium",
       status: "Completed",
-      assignedTo: "Travis Maher"
+      assignedTo: "Travis Maher",
+      createdBy: "Travis Maher"
     });
 
     logActivity({

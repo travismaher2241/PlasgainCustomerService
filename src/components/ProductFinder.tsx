@@ -134,7 +134,7 @@ export const ProductFinder: React.FC = () => {
     if (!quickQuery.trim()) return [];
     return (Array.isArray(documents) ? documents : []).filter((doc) => {
       if (!doc) return false;
-      const term = `${doc.title || ""} ${doc.productFamily || ""} ${doc.source || ""} ${doc.version || ""} ${doc.documentType || ""}`.toLowerCase();
+      const term = `${doc.title || ""} ${doc.product || ""} ${doc.category || ""} ${doc.version || ""}`.toLowerCase();
       return term.includes(quickQuery.toLowerCase());
     });
   }, [documents, quickQuery]);
@@ -346,7 +346,7 @@ export const ProductFinder: React.FC = () => {
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-body truncate">{doc.title}</p>
                       <p className="text-[11px] text-ink-dim truncate">
-                        {doc.productFamily} · {doc.version}
+                        {doc.product || doc.category} · {doc.version}
                       </p>
                     </div>
                     <button

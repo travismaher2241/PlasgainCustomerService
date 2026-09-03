@@ -5,6 +5,7 @@ import { AppProvider, useApp } from "../../context/AppContext";
 import { AdminAuditLogView } from "../../components/AdminAuditLogView";
 import { CRMQuickLogModal } from "../../components/crm/CRMQuickLogModal";
 import { CRMAccountsView } from "../../components/crm/CRMAccountsView";
+import { makeAccount, makeContact, makeOpportunity } from "../factories";
 
 // Mock Firebase cloud functions
 vi.mock("../../utils/firebase", () => ({
@@ -28,14 +29,16 @@ const TestMutationsTrigger: React.FC = () => {
     <div>
       <button
         onClick={() =>
-          addAccount({
-            id: "acc-test-101",
-            name: "Brisbane Civil Works",
-            accountType: "Account",
-            status: "Customer",
-            industry: "Civil Infrastructure",
-            customerRelationshipStatus: "Active"
-          })
+          addAccount(
+            makeAccount({
+              id: "acc-test-101",
+              name: "Brisbane Civil Works",
+              accountType: "Account",
+              status: "Customer",
+              industry: "Civil Infrastructure",
+              customerRelationshipStatus: "Active"
+            })
+          )
         }
       >
         Add Test Account
@@ -43,16 +46,18 @@ const TestMutationsTrigger: React.FC = () => {
 
       <button
         onClick={() =>
-          addContact({
-            id: "con-test-101",
-            accountId: "acc-test-101",
-            accountName: "Brisbane Civil Works",
-            firstName: "David",
-            lastName: "Miller",
-            jobTitle: "Senior Project Engineer",
-            email: "david@brisbanecivil.com.au",
-            mobile: "0412 345 678"
-          })
+          addContact(
+            makeContact({
+              id: "con-test-101",
+              accountId: "acc-test-101",
+              accountName: "Brisbane Civil Works",
+              firstName: "David",
+              lastName: "Miller",
+              jobTitle: "Senior Project Engineer",
+              email: "david@brisbanecivil.com.au",
+              mobile: "0412 345 678"
+            })
+          )
         }
       >
         Add Test Contact
@@ -66,7 +71,8 @@ const TestMutationsTrigger: React.FC = () => {
             description: "Discussed solar bollard specifications for riverside precinct.",
             accountId: "acc-test-101",
             accountName: "Brisbane Civil Works",
-            outcome: "Connected / Positive"
+            outcome: "Connected / Positive",
+            performedBy: currentUser.name || "Travis Maher"
           })
         }
       >
@@ -75,21 +81,23 @@ const TestMutationsTrigger: React.FC = () => {
 
       <button
         onClick={() =>
-          addCrmOpportunity({
-            id: "deal-test-101",
-            name: "Riverside Shared Path Lighting",
-            accountId: "acc-test-101",
-            accountName: "Brisbane Civil Works",
-            pipelineId: "pipe-major-projects",
-            stageId: "stage-discovery",
-            stageName: "Discovery & Qualification",
-            dealValue: 45000,
-            weightedValue: 11250,
-            probability: 25,
-            forecastCategory: "Pipeline",
-            expectedCloseDate: "2026-10-15",
-            products: []
-          })
+          addCrmOpportunity(
+            makeOpportunity({
+              id: "deal-test-101",
+              name: "Riverside Shared Path Lighting",
+              accountId: "acc-test-101",
+              accountName: "Brisbane Civil Works",
+              pipelineId: "pipe-major-projects",
+              stageId: "stage-discovery",
+              stageName: "Discovery & Qualification",
+              dealValue: 45000,
+              weightedValue: 11250,
+              probability: 25,
+              forecastCategory: "Pipeline",
+              expectedCloseDate: "2026-10-15",
+              products: []
+            })
+          )
         }
       >
         Add Test Deal

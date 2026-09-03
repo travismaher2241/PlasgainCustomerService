@@ -63,7 +63,11 @@ test.describe("Plasgain Sales Copilot", () => {
       // menu — with one hidden for the current breakpoint. The strip also
       // remounts while a sub-view loads, so wait for the control rather than
       // sampling visibility at a single instant.
-      const visibleTab = page.getByRole("button", { name: tab }).filter({ visible: true }).first();
+      const visibleTab = page
+        .getByRole("button", { name: tab })
+        .or(page.getByRole("tab", { name: tab }))
+        .filter({ visible: true })
+        .first();
       try {
         await visibleTab.waitFor({ state: "visible", timeout: 4000 });
       } catch {

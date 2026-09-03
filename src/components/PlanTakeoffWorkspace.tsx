@@ -350,33 +350,26 @@ export const PlanTakeoffWorkspace: React.FC = () => {
       id: `acc-auto-${Date.now()}`,
       name: customerName.trim(),
       industry: "Local Government / Civil",
-      tier: "Tier 2",
       accountType: "Customer",
       status: "Customer",
       customerRelationshipStatus: "Active",
-      address: {
+      billingAddress: {
         street: "1 Main Street",
-        suburb: "Central",
+        city: "Central",
         state: "VIC",
         postcode: "3000",
         country: "Australia"
       },
-      contacts: [],
-      territory: "VIC South-East",
-      assignedSalesRep: currentUser.name,
-      annualRevenuePotential: 75000,
-      currentYearSpend: 0,
-      pricingTier: "Tier 2",
-      approvedTerms: "Net 30 Days",
+      territory: "VIC/TAS",
+      accountOwner: currentUser.name,
+      leadSource: "Plan Take-off",
       createdDate: new Date().toISOString().split("T")[0],
       lastInteractionDate: new Date().toISOString().split("T")[0],
-      openOpportunitiesCount: 1,
-      totalDealsValue: 0,
       tags: ["Auto-Created from Plan Take-off"]
     };
 
     const duplicateCheck = detectDuplicateAccount(candidateAccount, accounts);
-    if (duplicateCheck.hasMatch && duplicateCheck.confidence !== "low") {
+    if (duplicateCheck && duplicateCheck.confidence !== "NONE") {
       setDuplicateMatch(duplicateCheck);
       setPendingAccountToCreate(candidateAccount);
       setIsDuplicateModalOpen(true);
@@ -610,10 +603,9 @@ export const PlanTakeoffWorkspace: React.FC = () => {
       {/* AI Unavailable Notification */}
       {analysisError && (
         <AIUnavailableNotice
-          context="AI Plan &amp; Drawing Deciphering"
           detail={analysisError.detail}
           guidance={analysisError.guidance || "Do not quote from this screen until analysis is restored."}
-          onDismiss={() => setAnalysisError(null)}
+          onRetry={() => handleRunAnalysis()}
         />
       )}
 

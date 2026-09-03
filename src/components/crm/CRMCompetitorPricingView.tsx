@@ -75,7 +75,7 @@ export const CRMCompetitorPricingView: React.FC = () => {
   // Filtered Records (PART G: DEFAULTS TO CURRENT RECORDS!)
   const filteredRecords = useMemo(() => {
     return records.filter((r) => {
-      const isSuperseded = r.status === "Superseded" || r.status === "Inactive";
+      const isSuperseded = r.status === "Superseded";
       if (statusScope === "current" && isSuperseded) return false;
       if (statusScope === "superseded" && !isSuperseded) return false;
 

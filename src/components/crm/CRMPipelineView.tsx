@@ -87,8 +87,8 @@ export const CRMPipelineView: React.FC = () => {
       (c) =>
         c.accountId === selectedPipelineAccount.id ||
         (Boolean(selectedPipelineAccount.name) &&
-          Boolean(c.company) &&
-          c.company.trim().toLowerCase() === selectedPipelineAccount.name.trim().toLowerCase())
+          Boolean(c.accountName) &&
+          c.accountName.trim().toLowerCase() === selectedPipelineAccount.name.trim().toLowerCase())
     );
   }, [contacts, selectedPipelineAccount]);
 
@@ -133,7 +133,7 @@ export const CRMPipelineView: React.FC = () => {
       accountId: acc?.id || "acc-general",
       accountName: acc?.name || "General Account",
       primaryContactId: matchedContact?.id || "",
-      primaryContactName: matchedContact?.name || "",
+      primaryContactName: matchedContact ? `${matchedContact.firstName} ${matchedContact.lastName}`.trim() : "",
       primaryContactEmail: matchedContact?.email,
       primaryContactPhone: matchedContact?.phone,
       opportunityOwner: currentUser.name,
@@ -391,7 +391,7 @@ export const CRMPipelineView: React.FC = () => {
                               type="button"
                               onClick={() => {
                                 setActiveMenuDealId(null);
-                                openQuickLog({ isOpen: true, type: "call", dealId: deal.id, accountId: deal.accountId });
+                                openQuickLog("call", deal.accountId, deal.id);
                               }}
                               className="w-full px-3 py-1.5 hover:bg-raised flex items-center gap-2 text-body"
                             >
@@ -445,8 +445,8 @@ export const CRMPipelineView: React.FC = () => {
                           (c) =>
                             c.accountId === nextAcc.id ||
                             (Boolean(nextAcc.name) &&
-                              Boolean(c.company) &&
-                              c.company.trim().toLowerCase() === nextAcc.name.trim().toLowerCase())
+                              Boolean(c.accountName) &&
+                              c.accountName.trim().toLowerCase() === nextAcc.name.trim().toLowerCase())
                         )
                       : [];
                     setNewDealForm((prev) => ({
@@ -539,7 +539,7 @@ export const CRMPipelineView: React.FC = () => {
                     </option>
                     {pipelineAccountContacts.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.name}{c.role ? ` (${c.role})` : ""}
+                        {`${c.firstName} ${c.lastName}`.trim()}{c.role ? ` (${c.role})` : ""}
                       </option>
                     ))}
                   </select>

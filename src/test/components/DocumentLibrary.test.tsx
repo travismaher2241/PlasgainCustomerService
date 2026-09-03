@@ -21,7 +21,9 @@ const mockControlledDocs: ControlledDocument[] = [
     reviewExpiryDate: "2027-01-01",
     checksum: "sha256-abcdef1234567890",
     versionOwner: "Travis Maher",
-    source: "Plasgain Engineering"
+    source: "Plasgain Engineering",
+    uploader: "Travis Maher",
+    uploadedAt: "2026-01-01T00:00:00.000Z"
   },
   {
     id: "doc-superseded",
@@ -36,13 +38,15 @@ const mockControlledDocs: ControlledDocument[] = [
     reviewExpiryDate: "2025-01-01",
     checksum: "sha256-legacy1234567890",
     versionOwner: "Travis Maher",
-    source: "Plasgain Engineering"
+    source: "Plasgain Engineering",
+    uploader: "Travis Maher",
+    uploadedAt: "2024-01-01T00:00:00.000Z"
   },
   {
     id: "doc-pending",
     title: "Werribee Trail Lighting Compliance Guide",
     productFamily: "Compliance Standards",
-    documentType: "Standard",
+    documentType: "Standard / Guide",
     version: "2026.1",
     approvalStatus: "Pending Review",
     fileUrl: "/api/knowledge/files/doc-pending.pdf",
@@ -51,18 +55,23 @@ const mockControlledDocs: ControlledDocument[] = [
     reviewExpiryDate: "2027-02-01",
     checksum: "sha256-pending1234567890",
     versionOwner: "Lead Engineer",
-    source: "Standards Australia"
+    source: "Standards Australia",
+    uploader: "Travis Maher",
+    uploadedAt: "2026-02-01T00:00:00.000Z"
   },
   {
     id: "doc-nopdf",
     title: "AS/NZS 1158.3.1 Category P Reference Note",
     productFamily: "Compliance Standards",
-    documentType: "Standard",
+    documentType: "Standard / Guide",
     version: "2020 AMD 1",
     approvalStatus: "Draft",
     fileUrl: "",
     effectiveDate: "2020-05-01",
-    source: "Standards Australia"
+    reviewExpiryDate: "2027-01-01",
+    source: "Standards Australia",
+    uploader: "Travis Maher",
+    uploadedAt: "2020-05-01T00:00:00.000Z"
   }
 ];
 
@@ -70,6 +79,8 @@ const mockKnowledgeDocs: KnowledgeDocument[] = [
   {
     ...mockControlledDocs[0],
     knowledge: {
+      extractionMethod: "pdfjs-positioned-text-v1",
+      status: "Ready",
       storage: "local",
       reviewedPages: 12,
       warningPages: [],
@@ -79,6 +90,8 @@ const mockKnowledgeDocs: KnowledgeDocument[] = [
   {
     ...mockControlledDocs[1],
     knowledge: {
+      extractionMethod: "pdfjs-positioned-text-v1",
+      status: "Ready",
       storage: "local",
       reviewedPages: 10,
       warningPages: [],
@@ -88,6 +101,8 @@ const mockKnowledgeDocs: KnowledgeDocument[] = [
   {
     ...mockControlledDocs[2],
     knowledge: {
+      extractionMethod: "pdfjs-positioned-text-v1",
+      status: "Pending Review",
       storage: "local",
       reviewedPages: 2,
       warningPages: [3],

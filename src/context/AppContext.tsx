@@ -643,10 +643,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem("plasgain_active_user_id");
   };
 
-  // Known sample prefixes and exact legacy seed IDs/names to permanently purge from legacy caches and Firestore
+  // Known sample prefixes and exact legacy seed IDs to purge from legacy caches and Firestore
   const KNOWN_SAMPLE_PREFIXES = [
+    "sample-", "seed-", "test-", "mock-", "demo-",
     "acc-00", "opp-00", "lead-00", "con-00", "task-00", "act-00", "comp-00", "notif-",
-    "sample-", "seed-", "test-", "acc-offline", "opp-offline", "offline-", "mock-",
+    "acc-sample-", "acc-demo-", "lead-sample-", "lead-demo-", "opp-sample-", "opp-demo-",
+    "con-sample-", "con-demo-", "task-sample-", "task-demo-", "act-sample-", "act-demo-",
+    "acc-offline", "opp-offline", "offline-",
     "cp-00", "cpa-00", "comp-"
   ];
   const KNOWN_SAMPLE_IDS = new Set([
@@ -659,48 +662,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     "comp-1", "comp-2", "comp-3", "acc-offline-1", "acc-offline-2",
     "cp-001", "cp-002", "cp-003", "cpa-001", "cpa-002"
   ]);
-  const KNOWN_SAMPLE_NAMES = [
-    "city of moreton bay",
-    "downer edi works",
-    "aeria commercial precinct",
-    "m1 pacific motorway upgrade",
-    "lake samsonvale shared trail",
-    "stockland retail car park",
-    "john holland rail",
-    "energy queensland wholesalers",
-    "rexel electrical supplies",
-    "city of gold coast",
-    "call with client",
-    "follow-up: call with client",
-    "account note: client",
-    "baw baw",
-    "latrobe",
-    "traralgon",
-    "okafor",
-    "sarah reed",
-    "ballarat",
-    "technical requirements discovery",
-    "drouin rail trail",
-    "solar pathway lighting",
-    "recreation reserve car park",
-    "regional road authority",
-    "regional road",
-    "road authority",
-    "townsville city council",
-    "cardinia shire council",
-    "cardinia",
-    "townsville",
-    "flinders street",
-    "sunshine coast council",
-    "sunshine coast",
-    "orca solar",
-    "orca",
-    "leadsun",
-    "greenfrog",
-    "vertex 60w",
-    "ae3",
-    "aerolux"
-  ];
 
   const isSampleRecord = (item: any): boolean => {
     if (!item) return false;
@@ -708,27 +669,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const id = String(item.id || "").toLowerCase();
     const accountId = String(item.accountId || "").toLowerCase();
     const dealId = String(item.dealId || item.opportunityId || "").toLowerCase();
-    const title = String(item.title || item.name || "").toLowerCase();
-    const accountName = String(item.accountName || item.companyName || item.company || "").toLowerCase();
-    const description = String(item.description || item.notes || item.summary || item.message || "").toLowerCase();
-    const competitorName = String(item.competitorName || "").toLowerCase();
-    const competitorProduct = String(item.competitorProduct || "").toLowerCase();
 
     if (KNOWN_SAMPLE_PREFIXES.some((p) => id.startsWith(p) || accountId.startsWith(p) || dealId.startsWith(p))) {
       return true;
     }
 
     if (KNOWN_SAMPLE_IDS.has(id) || KNOWN_SAMPLE_IDS.has(accountId) || KNOWN_SAMPLE_IDS.has(dealId)) {
-      return true;
-    }
-
-    if (KNOWN_SAMPLE_NAMES.some((name) => (
-      title.includes(name) ||
-      accountName.includes(name) ||
-      description.includes(name) ||
-      competitorName.includes(name) ||
-      competitorProduct.includes(name)
-    ))) {
       return true;
     }
 
@@ -1235,54 +1181,110 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
 
+        const isMigrationPurgeNeeded = !localStorage.getItem("plasgain_sample_purge_v1");
+        let totalPurged = 0;
+
         // 2. Accounts
         const cloudAccounts = await loadCollectionFromCloud<Account>("crm_accounts");
-        const sampleAccounts = cloudAccounts.filter(isSampleRecord);
-        sampleAccounts.forEach((a) => deleteDocFromCloud("crm_accounts", a.id));
+        if (isMigrationPurgeNeeded) {
+          const sampleAccounts = cloudAccounts.filter(isSampleRecord);
+          sampleAccounts.forEach((a) => {
+            console.warn('[Data Safety] Purged legacy sample record:', a.id);
+            deleteDocFromCloud("crm_accounts", a.id);
+            totalPurged++;
+          });
+        }
         const realAccounts = cloudAccounts.filter((a) => !isSampleRecord(a));
         if (isMounted) setAccounts(realAccounts);
 
         // 3. Contacts
         const cloudContacts = await loadCollectionFromCloud<CRMContact>("crm_contacts");
-        const sampleContacts = cloudContacts.filter(isSampleRecord);
-        sampleContacts.forEach((c) => deleteDocFromCloud("crm_contacts", c.id));
+        if (isMigrationPurgeNeeded) {
+          const sampleContacts = cloudContacts.filter(isSampleRecord);
+          sampleContacts.forEach((c) => {
+            console.warn('[Data Safety] Purged legacy sample record:', c.id);
+            deleteDocFromCloud("crm_contacts", c.id);
+            totalPurged++;
+          });
+        }
         const realContacts = cloudContacts.filter((c) => !isSampleRecord(c));
         if (isMounted) setContacts(realContacts);
 
         // 4. Leads
         const cloudLeads = await loadCollectionFromCloud<CRMLead>("crm_leads");
-        const sampleLeads = cloudLeads.filter(isSampleRecord);
-        sampleLeads.forEach((l) => deleteDocFromCloud("crm_leads", l.id));
+        if (isMigrationPurgeNeeded) {
+          const sampleLeads = cloudLeads.filter(isSampleRecord);
+          sampleLeads.forEach((l) => {
+            console.warn('[Data Safety] Purged legacy sample record:', l.id);
+            deleteDocFromCloud("crm_leads", l.id);
+            totalPurged++;
+          });
+        }
         const realLeads = cloudLeads.filter((l) => !isSampleRecord(l));
         if (isMounted) setLeads(realLeads);
 
         // 5. CRM Deals
         const cloudDeals = await loadCollectionFromCloud<CRMOpportunity>("crm_deals");
-        const sampleDeals = cloudDeals.filter(isSampleRecord);
-        sampleDeals.forEach((d) => deleteDocFromCloud("crm_deals", d.id));
+        if (isMigrationPurgeNeeded) {
+          const sampleDeals = cloudDeals.filter(isSampleRecord);
+          sampleDeals.forEach((d) => {
+            console.warn('[Data Safety] Purged legacy sample record:', d.id);
+            deleteDocFromCloud("crm_deals", d.id);
+            totalPurged++;
+          });
+        }
         const realDeals = cloudDeals.filter((d) => !isSampleRecord(d));
         if (isMounted) setCrmOpportunities(realDeals);
 
         // 6. Activities
         const cloudActivities = await loadCollectionFromCloud<CRMActivity>("crm_activities");
-        const sampleActivities = cloudActivities.filter(isSampleRecord);
-        sampleActivities.forEach((a) => deleteDocFromCloud("crm_activities", a.id));
+        if (isMigrationPurgeNeeded) {
+          const sampleActivities = cloudActivities.filter(isSampleRecord);
+          sampleActivities.forEach((a) => {
+            console.warn('[Data Safety] Purged legacy sample record:', a.id);
+            deleteDocFromCloud("crm_activities", a.id);
+            totalPurged++;
+          });
+        }
         const realActivities = cloudActivities.filter((a) => !isSampleRecord(a));
         if (isMounted) setActivities(realActivities);
 
         // 7. Tasks
         const cloudTasks = await loadCollectionFromCloud<CRMTask>("crm_tasks");
-        const sampleTasks = cloudTasks.filter(isSampleRecord);
-        sampleTasks.forEach((t) => deleteDocFromCloud("crm_tasks", t.id));
+        if (isMigrationPurgeNeeded) {
+          const sampleTasks = cloudTasks.filter(isSampleRecord);
+          sampleTasks.forEach((t) => {
+            console.warn('[Data Safety] Purged legacy sample record:', t.id);
+            deleteDocFromCloud("crm_tasks", t.id);
+            totalPurged++;
+          });
+        }
         const realTasks = cloudTasks.filter((t) => !isSampleRecord(t));
         if (isMounted) setTasks(realTasks);
 
         // 8. Opportunities (Legacy)
         const cloudOpps = await loadCollectionFromCloud<Opportunity>("opportunities");
-        const sampleOpps = cloudOpps.filter(isSampleRecord);
-        sampleOpps.forEach((o) => deleteDocFromCloud("opportunities", o.id));
+        if (isMigrationPurgeNeeded) {
+          const sampleOpps = cloudOpps.filter(isSampleRecord);
+          sampleOpps.forEach((o) => {
+            console.warn('[Data Safety] Purged legacy sample record:', o.id);
+            deleteDocFromCloud("opportunities", o.id);
+            totalPurged++;
+          });
+        }
         const realOpps = cloudOpps.filter((o) => !isSampleRecord(o));
         if (isMounted) setOpportunities(realOpps);
+
+        if (isMigrationPurgeNeeded) {
+          try {
+            localStorage.setItem("plasgain_sample_purge_v1", "true");
+          } catch {
+            // ignore localStorage quota errors
+          }
+          if (totalPurged > 0) {
+            showToast(`Cleaned up ${totalPurged} legacy sample records`, "info");
+          }
+        }
 
         // 9. Audit Logs (Append-Only)
         const cloudAuditLogs = await loadCollectionFromCloud<AuditLogRecord>("audit_logs");
@@ -1567,14 +1569,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addContact = (contact: CRMContact) => {
     setContacts((prev) => [contact, ...prev]);
     saveDocToCloud("crm_contacts", contact.id, contact);
-    const fullName = `${contact.firstName || ""} ${contact.lastName || ""}`.trim() || contact.name || "Contact";
+    const fullName = `${contact.firstName || ""} ${contact.lastName || ""}`.trim() || "Contact";
     recordAuditLog("CREATE", "Contact", contact.id, fullName, `Added contact ${fullName} (${contact.jobTitle || "Contact"}) for ${contact.accountName || "Account"}`);
     showToast(`Contact "${contact.firstName} ${contact.lastName}" added`, "success");
   };
 
   const updateContact = (id: string, updates: Partial<CRMContact>) => {
     const existing = contacts.find((c) => c.id === id);
-    const contactName = `${updates.firstName || existing?.firstName || ""} ${updates.lastName || existing?.lastName || ""}`.trim() || existing?.name || "Contact";
+    const contactName = `${updates.firstName || existing?.firstName || ""} ${updates.lastName || existing?.lastName || ""}`.trim() || "Contact";
     setContacts((prev) =>
       prev.map((c) => {
         if (c.id === id) {
@@ -1591,7 +1593,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteContact = (id: string) => {
     const con = contacts.find((c) => c.id === id);
-    const conName = con ? `${con.firstName || ""} ${con.lastName || ""}`.trim() || con.name : id;
+    const conName = con ? `${con.firstName || ""} ${con.lastName || ""}`.trim() || "Contact" : id;
     setContacts((prev) => prev.filter((c) => c.id !== id));
     deleteDocFromCloud("crm_contacts", id);
     recordAuditLog("DELETE", "Contact", id, conName, `Removed contact ${conName}`);

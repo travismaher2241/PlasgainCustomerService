@@ -49,7 +49,7 @@ export const DatasheetPackageModal: React.FC<DatasheetPackageModalProps> = ({
 
   // Preflight analysis
   const preflight: PackagePreflightResult = useMemo(() => {
-    return preflightProductPackage(initialProductNames, manualMappings);
+    return preflightProductPackage(initialProductNames, SAMPLE_PRODUCTS, manualMappings);
   }, [initialProductNames, manualMappings]);
 
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>(() =>

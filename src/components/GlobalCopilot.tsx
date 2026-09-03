@@ -212,20 +212,22 @@ export const GlobalCopilot: React.FC = () => {
             customContext: copilotCustomContext
           }
         },
-        (chunk) => {
-          if (chunk.content) {
-            streamedAnswer += chunk.content;
+        {
+          onChunk: (delta: string) => {
+            streamedAnswer += delta;
             setMessages([
               ...newMessages,
               { role: "assistant", content: streamedAnswer, citations: incomingCitations }
             ]);
-          }
-          if (chunk.citations) {
-            incomingCitations = chunk.citations;
-            setMessages([
-              ...newMessages,
-              { role: "assistant", content: streamedAnswer, citations: incomingCitations }
-            ]);
+          },
+          onComplete: (data: any) => {
+            if (data?.citations) {
+              incomingCitations = data.citations;
+              setMessages([
+                ...newMessages,
+                { role: "assistant", content: streamedAnswer || data.content || data.reply || "", citations: incomingCitations }
+              ]);
+            }
           }
         }
       );
@@ -458,7 +460,7 @@ export const GlobalCopilot: React.FC = () => {
         <PDFViewerModal
           isOpen={Boolean(viewingDoc)}
           onClose={() => setViewingDoc(null)}
-          doc={viewingDoc}
+          document={viewingDoc}
           initialPage={citationPage}
         />
       )}

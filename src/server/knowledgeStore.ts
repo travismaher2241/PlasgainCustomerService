@@ -148,7 +148,7 @@ export class KnowledgeStore {
       ...metadata, id, uploader, approvalStatus: "Approved", uploadedAt: now, approvedBy: `${uploader} (AI Ingested)`, approvedAt: now,
       checksum: id.slice(4), fileSizeBytes: bytes.length, mimeType: "application/pdf", isExternalMetadataOnly: false,
       fileUrl: `/api/knowledge/documents/${id}/file`, pageCount: pages.length,
-      knowledge: { extractionMethod: "gemini-pdf-knowledge-v1", status: "Ready", reviewedPages: pages.length,
+      knowledge: { extractionMethod: "pdfjs-positioned-text-v1", status: "Ready", reviewedPages: pages.length,
         warningPages: pages.filter(page => page.warnings.length > 1).map(page => page.page), storage: this.storageKind(), revision: 1 },
     };
     await this.saveOriginal(id, bytes);

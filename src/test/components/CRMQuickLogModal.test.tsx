@@ -3,25 +3,29 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CRMQuickLogModal } from '../../components/crm/CRMQuickLogModal';
 import { AppProvider, useApp } from '../../context/AppContext';
+import { makeAccount } from '../factories';
 
 const QuickLogTestWrapper: React.FC = () => {
   const { openQuickLog, addAccount, activities, tasks } = useApp();
 
   React.useEffect(() => {
-    addAccount({
-      id: 'acc-custom-123',
-      name: 'Sunshine Coast Council',
-      status: 'Customer',
-      industry: 'Government',
-      customerSegment: 'Local Government / Council',
-      accountType: 'Council',
-      accountOwner: 'Travis Maher',
-      customerRelationshipStatus: 'Active',
-      tags: [],
-      lastInteractionDate: '2026-08-28',
-      leadSource: 'Referral',
-      createdDate: '2026-08-28'
-    });
+    addAccount(
+      makeAccount({
+        id: 'acc-custom-123',
+        name: 'Sunshine Coast Council',
+        status: 'Customer',
+        industry: 'Government',
+        customerSegment: 'Local Government / Council',
+        accountType: 'Council',
+        territory: 'QLD/NT',
+        accountOwner: 'Travis Maher',
+        customerRelationshipStatus: 'Active',
+        tags: [],
+        lastInteractionDate: '2026-08-28',
+        leadSource: 'Referral',
+        createdDate: '2026-08-28'
+      })
+    );
   }, []);
 
   return (

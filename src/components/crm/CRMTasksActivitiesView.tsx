@@ -15,7 +15,6 @@ export const CRMTasksActivitiesView: React.FC = () => {
     toggleTaskComplete,
     addTask,
     updateTask,
-    deleteTask,
     accounts,
     crmOpportunities,
     setSelectedAccountId,
@@ -70,14 +69,14 @@ export const CRMTasksActivitiesView: React.FC = () => {
       title: newTaskForm.title,
       type: newTaskForm.type,
       priority: newTaskForm.priority,
-      status: "Pending",
+      status: "To Do",
       dueDate: newTaskForm.dueDate,
       dueTime: "10:00 AM",
       accountId: acc?.id,
       accountName: acc?.name,
       notes: newTaskForm.notes,
       assignedTo: currentUser.name,
-      createdAt: new Date().toISOString()
+      createdBy: currentUser.name
     };
 
     addTask(newTask);

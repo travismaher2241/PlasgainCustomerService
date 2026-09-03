@@ -47,8 +47,8 @@ export const HomeDashboard: React.FC = () => {
       (c) =>
         c.accountId === selectedQuoteAccount.id ||
         (Boolean(selectedQuoteAccount.name) &&
-          Boolean(c.company) &&
-          c.company.trim().toLowerCase() === selectedQuoteAccount.name.trim().toLowerCase())
+          Boolean(c.accountName) &&
+          c.accountName.trim().toLowerCase() === selectedQuoteAccount.name.trim().toLowerCase())
     );
   }, [contacts, selectedQuoteAccount]);
 
@@ -58,7 +58,7 @@ export const HomeDashboard: React.FC = () => {
       ? contacts.filter(
           (c) =>
             c.accountId === acc.id ||
-            (Boolean(acc.name) && Boolean(c.company) && c.company.trim().toLowerCase() === acc.name.trim().toLowerCase())
+            (Boolean(acc.name) && Boolean(c.accountName) && c.accountName.trim().toLowerCase() === acc.name.trim().toLowerCase())
         )
       : [];
     setNewQuoteForm({
@@ -87,7 +87,7 @@ export const HomeDashboard: React.FC = () => {
       accountId: acc.id,
       accountName: acc.name,
       primaryContactId: matchedContact?.id || "",
-      primaryContactName: matchedContact?.name || "",
+      primaryContactName: matchedContact ? `${matchedContact.firstName} ${matchedContact.lastName}`.trim() : "",
       primaryContactEmail: matchedContact?.email,
       primaryContactPhone: matchedContact?.phone,
       opportunityOwner: acc.accountOwner || currentUser.name,
@@ -459,8 +459,8 @@ export const HomeDashboard: React.FC = () => {
                           (c) =>
                             c.accountId === nextAcc.id ||
                             (Boolean(nextAcc.name) &&
-                              Boolean(c.company) &&
-                              c.company.trim().toLowerCase() === nextAcc.name.trim().toLowerCase())
+                              Boolean(c.accountName) &&
+                              c.accountName.trim().toLowerCase() === nextAcc.name.trim().toLowerCase())
                         )
                       : [];
                     setNewQuoteForm((prev) => ({
@@ -560,7 +560,7 @@ export const HomeDashboard: React.FC = () => {
                     </option>
                     {quoteAccountContacts.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.name}{c.role ? ` (${c.role})` : ""}
+                        {`${c.firstName} ${c.lastName}`.trim()}{c.role ? ` (${c.role})` : ""}
                       </option>
                     ))}
                   </select>

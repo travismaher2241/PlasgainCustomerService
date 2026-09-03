@@ -124,7 +124,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
   const [quoteFormData, setQuoteFormData] = useState({
     ostendoQuoteRef: deal.ostendoQuoteRef || deal.quoteNumber || "",
     quoteRevision: deal.quoteRevision || "Rev A",
-    quoteStatus: deal.quoteStatus || "Draft",
+    quoteStatus: (deal.quoteStatus || "Draft") as NonNullable<CRMOpportunity["quoteStatus"]>,
     quoteExpiryDate:
       deal.quoteExpiryDate ||
       new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
@@ -1573,13 +1573,13 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                     <select
                       id="quote-status-select"
                       value={quoteFormData.quoteStatus}
-                      onChange={(e) => setQuoteFormData({ ...quoteFormData, quoteStatus: e.target.value })}
+                      onChange={(e) => setQuoteFormData({ ...quoteFormData, quoteStatus: e.target.value as NonNullable<CRMOpportunity["quoteStatus"]> })}
                       className="w-full p-2 bg-white rounded-edge border border-line font-medium"
                     >
                       <option value="Draft">Draft (Estimating)</option>
                       <option value="Issued">Issued to Client</option>
                       <option value="Client Review">Client Review</option>
-                      <option value="Revised">Revised</option>
+                      <option value="Revising">Revising</option>
                       <option value="PO Received">PO Received (Won)</option>
                       <option value="Expired">Expired</option>
                     </select>

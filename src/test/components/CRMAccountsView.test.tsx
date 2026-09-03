@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor, within } from "@testing-library/rea
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CRMAccountsView } from "../../components/crm/CRMAccountsView";
 import { AppProvider, useApp } from "../../context/AppContext";
+import { makeOpportunity } from "../factories";
 
 const AccountsTestWrapper: React.FC<{ initialAccounts?: any[] }> = ({ initialAccounts }) => {
   const { addAccount, addContact, addCrmOpportunity, logActivity } = useApp();
@@ -34,9 +35,9 @@ const AccountsTestWrapper: React.FC<{ initialAccounts?: any[] }> = ({ initialAcc
       addContact({
         id: "con-test-1",
         accountId: "acc-test-1",
+        accountName: "Townsville City Council",
         firstName: "Sarah",
         lastName: "Jenkins",
-        name: "Sarah Jenkins",
         jobTitle: "Senior Infrastructure Engineer",
         email: "sarah.jenkins@townsville.qld.gov.au",
         phone: "0412 345 678",
@@ -44,49 +45,53 @@ const AccountsTestWrapper: React.FC<{ initialAccounts?: any[] }> = ({ initialAcc
         contactOwner: "Travis Maher"
       });
 
-      addCrmOpportunity({
-        id: "opp-test-1",
-        name: "Flinders Street Cat P4 Lighting Upgrade",
-        accountId: "acc-test-1",
-        accountName: "Townsville City Council",
-        stageName: "Proposal & Quoting",
-        dealValue: 45000,
-        expectedCloseDate: "2026-10-15",
-        nextAction: "Present photometric report to civil engineering committee",
-        pipelineId: "pipe-major-projects",
-        stageId: "stage-proposal",
-        weightedValue: 22500,
-        probability: 50,
-        forecastCategory: "Pipeline",
-        opportunityOwner: "Travis Maher",
-        daysInCurrentStage: 4,
-        totalDealAgeDays: 14,
-        dealHealth: "Healthy",
-        dealHealthReasons: ["Regular stakeholder engagement"],
-        products: []
-      });
+      addCrmOpportunity(
+        makeOpportunity({
+          id: "opp-test-1",
+          name: "Flinders Street Cat P4 Lighting Upgrade",
+          accountId: "acc-test-1",
+          accountName: "Townsville City Council",
+          stageName: "Proposal & Quoting",
+          dealValue: 45000,
+          expectedCloseDate: "2026-10-15",
+          nextAction: "Present photometric report to civil engineering committee",
+          pipelineId: "pipe-major-projects",
+          stageId: "stage-proposal",
+          weightedValue: 22500,
+          probability: 50,
+          forecastCategory: "Pipeline",
+          opportunityOwner: "Travis Maher",
+          daysInCurrentStage: 4,
+          totalDealAgeDays: 14,
+          dealHealth: "Healthy",
+          dealHealthReasons: ["Regular stakeholder engagement"],
+          products: []
+        })
+      );
 
-      addCrmOpportunity({
-        id: "opp-test-closed",
-        name: "Riverway Pathway Stage 1 (Historical)",
-        accountId: "acc-test-1",
-        accountName: "Townsville City Council",
-        stageName: "Closed Won",
-        dealValue: 62000,
-        expectedCloseDate: "2026-06-30",
-        nextAction: "Completed installation",
-        pipelineId: "pipe-major-projects",
-        stageId: "stage-won",
-        weightedValue: 62000,
-        probability: 100,
-        forecastCategory: "Closed",
-        opportunityOwner: "Travis Maher",
-        daysInCurrentStage: 60,
-        totalDealAgeDays: 90,
-        dealHealth: "Healthy",
-        dealHealthReasons: ["Won and completed"],
-        products: []
-      });
+      addCrmOpportunity(
+        makeOpportunity({
+          id: "opp-test-closed",
+          name: "Riverway Pathway Stage 1 (Historical)",
+          accountId: "acc-test-1",
+          accountName: "Townsville City Council",
+          stageName: "Closed Won",
+          dealValue: 62000,
+          expectedCloseDate: "2026-06-30",
+          nextAction: "Completed installation",
+          pipelineId: "pipe-major-projects",
+          stageId: "stage-won",
+          weightedValue: 62000,
+          probability: 100,
+          forecastCategory: "Won",
+          opportunityOwner: "Travis Maher",
+          daysInCurrentStage: 60,
+          totalDealAgeDays: 90,
+          dealHealth: "Healthy",
+          dealHealthReasons: ["Won and completed"],
+          products: []
+        })
+      );
 
       logActivity({
         type: "call",
