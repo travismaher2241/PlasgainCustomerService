@@ -33,7 +33,8 @@ const TestMutationsTrigger: React.FC = () => {
             name: "Brisbane Civil Works",
             accountType: "Account",
             status: "Customer",
-            industry: "Civil Infrastructure"
+            industry: "Civil Infrastructure",
+            customerRelationshipStatus: "Active"
           })
         }
       >

@@ -16,7 +16,8 @@ describe('CRMIntelligenceEngine', () => {
     lastInteractionDate: '2026-08-20',
     nextAction: 'Follow up with Sarah',
     nextActionDate: '2026-08-30',
-    relationshipHealth: 'Healthy',
+    accountType: 'Council',
+    customerRelationshipStatus: 'Active',
     tags: ['Council', 'Solar']
   };
 
@@ -150,31 +151,6 @@ describe('CRMIntelligenceEngine', () => {
       const result = CRMIntelligenceEngine.evaluateDealHealth(riskyDeal, '2026-08-26');
       expect(result.rating).toBe('At Risk');
       expect(result.reasons.some(r => r.includes('passed'))).toBe(true);
-    });
-  });
-
-  describe('evaluateAccountHealth', () => {
-    it('should evaluate active engaged account as Strong or Healthy', () => {
-      const result = CRMIntelligenceEngine.evaluateAccountHealth(
-        mockAccount,
-        [mockDeal],
-        [
-          { id: 'act-1', type: 'call', title: 'Call with Sarah', description: 'Review specs', accountId: 'acc-1', performedBy: 'Marcus', timestamp: '2026-08-24' },
-          { id: 'act-2', type: 'email', title: 'Sent Dialux', description: 'Photometrics', accountId: 'acc-1', performedBy: 'Marcus', timestamp: '2026-08-22' }
-        ],
-        '2026-08-26'
-      );
-      expect(['Strong', 'Healthy']).toContain(result.health);
-    });
-
-    it('should evaluate disengaged account (>45 days inactivity) as At Risk', () => {
-      const disengagedAccount: Account = {
-        ...mockAccount,
-        lastInteractionDate: '2026-06-01',
-        nextAction: ''
-      };
-      const result = CRMIntelligenceEngine.evaluateAccountHealth(disengagedAccount, [], [], '2026-08-26');
-      expect(result.health).toBe('At Risk');
     });
   });
 });

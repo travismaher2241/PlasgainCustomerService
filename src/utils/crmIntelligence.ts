@@ -5,8 +5,7 @@ import {
   CRMTask,
   CRMActivity,
   NextBestActionItem,
-  DealHealthRating,
-  RelationshipHealth
+  DealHealthRating
 } from "../types/crm";
 
 export class CRMIntelligenceEngine {
@@ -228,53 +227,6 @@ export class CRMIntelligenceEngine {
     return {
       rating: "Healthy",
       reasons: reasons.length > 0 ? reasons : ["Recent activity logged", "Clear next action scheduled", "Healthy stage velocity"]
-    };
-  }
-
-  /**
-   * Evaluate Account Relationship Health
-   */
-  static evaluateAccountHealth(
-    account: Account,
-    deals: CRMOpportunity[],
-    activities: CRMActivity[],
-    todayStr: string = new Date().toISOString().split("T")[0]
-  ): {
-    health: RelationshipHealth;
-    reasons: string[];
-  } {
-    const reasons: string[] = [];
-    const accountDeals = deals.filter((d) => d.accountId === account.id);
-    const accountActs = activities.filter((a) => a.accountId === account.id);
-
-    const hasAtRiskDeals = accountDeals.some((d) => d.dealHealth === "At Risk" || d.dealHealth === "Stalled");
-    const daysSinceLastInteraction = account.lastInteractionDate ? this.daysBetween(account.lastInteractionDate, todayStr) : 999;
-
-    if (daysSinceLastInteraction > 30) {
-      reasons.push(`No logged interaction for ${daysSinceLastInteraction} days`);
-    }
-    if (hasAtRiskDeals) {
-      reasons.push(`Contains active opportunities marked At Risk or Stalled`);
-    }
-    if (!account.nextAction || (account.nextActionDate && account.nextActionDate < todayStr)) {
-      reasons.push(`Next scheduled follow-up is missing or overdue`);
-    }
-
-    if (daysSinceLastInteraction > 45 || (daysSinceLastInteraction > 21 && hasAtRiskDeals)) {
-      return { health: "At Risk", reasons: reasons.length ? reasons : ["Account is disengaged"] };
-    }
-    if (reasons.length > 0) {
-      return { health: "Needs Attention", reasons };
-    }
-    if (accountDeals.length >= 1 && daysSinceLastInteraction <= 14 && accountActs.length >= 2) {
-      return {
-        health: "Strong",
-        reasons: ["Active ongoing pipeline", "Frequent touchpoints", "Responsive stakeholder communication"]
-      };
-    }
-    return {
-      health: "Healthy",
-      reasons: ["Regular account cadence", "Up-to-date communications"]
     };
   }
 

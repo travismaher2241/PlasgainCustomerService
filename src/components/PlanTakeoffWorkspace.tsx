@@ -532,9 +532,9 @@ export const PlanTakeoffWorkspace: React.FC = () => {
       name: customerName.trim(),
       industry: "Local Government / Civil",
       tier: "Tier 2",
-      type: "Customer",
-      status: "Active",
-      relationshipHealth: "Good",
+      accountType: "Customer",
+      status: "Customer",
+      customerRelationshipStatus: "Active",
       address: {
         street: "1 Main Street",
         suburb: "Central",

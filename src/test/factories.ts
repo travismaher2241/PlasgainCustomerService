@@ -20,7 +20,7 @@ export function makeAccount(overrides: Partial<Account> = {}): Account {
     customerSegment: "Local Government / Council",
     territory: "VIC/TAS",
     accountOwner: "Sarah Reed",
-    relationshipHealth: "Healthy",
+    customerRelationshipStatus: "Active",
     tags: [],
     leadSource: "Referral",
     createdDate: "2026-08-28",

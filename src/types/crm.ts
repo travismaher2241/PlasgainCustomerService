@@ -1,7 +1,24 @@
 import { EnquiryAnalysisResult } from "../types";
 
 export type AccountStatus = "Customer" | "Prospect" | "Former Customer" | "Partner" | "Distributor" | "Archived";
-export type AccountType = "Prospect" | "Account" | "Council";
+export type AccountType = "Prospect" | "Customer" | "Account" | "Council";
+
+export type CustomerRelationshipStatus =
+  | "Active"
+  | "Developing"
+  | "Occasional"
+  | "At Risk"
+  | "Dormant";
+
+export type ProspectStage =
+  | "Identified"
+  | "Researching"
+  | "Contacting"
+  | "Engaged"
+  | "Opportunity Identified"
+  | "Nurture"
+  | "Not Pursuing";
+
 export type RelationshipHealth = "Strong" | "Healthy" | "Needs Attention" | "At Risk";
 export type LeadStatus = "New" | "Attempting Contact" | "Contacted" | "Qualifying" | "Qualified" | "Unqualified" | "Converted";
 export type LeadScoreRating = "Hot" | "Warm" | "Developing" | "Low Priority";
@@ -87,7 +104,10 @@ export interface Account {
   nextScheduledInteraction?: string;
   nextAction?: string;
   nextActionDate?: string;
-  relationshipHealth: RelationshipHealth;
+  customerRelationshipStatus?: CustomerRelationshipStatus;
+  prospectStage?: ProspectStage;
+  // Legacy deprecated fields:
+  relationshipHealth?: RelationshipHealth;
   healthReasons?: string[];
   tags: string[];
   notes?: string;

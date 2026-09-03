@@ -47,7 +47,8 @@ import {
   AccountType,
   CRMContact,
   CRMOpportunity,
-  RelationshipHealth,
+  CustomerRelationshipStatus,
+  ProspectStage,
   CompetitorPricingRecord,
   CompetitorPriceBasis,
   CompetitorGstStatus,
@@ -93,7 +94,7 @@ export const CRMAccountsView: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [accountTypeFilter, setAccountTypeFilter] = useState<"all" | AccountType>("all");
-  const [healthFilter, setHealthFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [archiveFilter, setArchiveFilter] = useState<"active" | "archived" | "all">("active");
   const [activeAccountTab, setActiveAccountTab] = useState<
     "overview" | "contacts" | "deals" | "activity" | "brief" | "competitors"
@@ -138,7 +139,7 @@ export const CRMAccountsView: React.FC = () => {
     name: "",
     tradingName: "",
     accountType: "Prospect" as AccountType,
-    status: "Customer" as const,
+    status: "Prospect" as const,
     industry: "Government & Public Infrastructure",
     territory: "VIC/TAS" as const,
     accountOwner: currentUser.name,
@@ -146,7 +147,8 @@ export const CRMAccountsView: React.FC = () => {
     generalEmail: "",
     website: "",
     notes: "",
-    relationshipHealth: "Healthy" as RelationshipHealth
+    customerRelationshipStatus: "Active" as CustomerRelationshipStatus,
+    prospectStage: "Identified" as ProspectStage
   });
 
   // AI Account Summary / Account Brief
@@ -176,14 +178,16 @@ export const CRMAccountsView: React.FC = () => {
     name: "",
     tradingName: "",
     accountType: "Prospect" as AccountType,
-    status: "Customer" as const,
+    status: "Prospect" as const,
     industry: "Government & Public Infrastructure",
     territory: "VIC/TAS" as const,
     accountOwner: currentUser.name,
     mainPhone: "",
     generalEmail: "",
     website: "",
-    notes: ""
+    notes: "",
+    customerRelationshipStatus: "Active" as CustomerRelationshipStatus,
+    prospectStage: "Identified" as ProspectStage
   });
 
   // Contact modal state
@@ -262,8 +266,11 @@ export const CRMAccountsView: React.FC = () => {
     const matchesType =
       accountTypeFilter === "all" ||
       (acc.accountType || "Prospect") === accountTypeFilter;
-    const matchesHealth = healthFilter === "all" || acc.relationshipHealth === healthFilter;
-    return matchesArchive && matchesSearch && matchesType && matchesHealth;
+    const matchesStatus =
+      statusFilter === "all" ||
+      acc.customerRelationshipStatus === statusFilter ||
+      acc.prospectStage === statusFilter;
+    return matchesArchive && matchesSearch && matchesType && matchesStatus;
   });
 
   const selectedAccount =
@@ -358,34 +365,26 @@ export const CRMAccountsView: React.FC = () => {
         handleFetchAiSummary(selectedAccount, false);
       }
     }
-  }, [activeAccountTab, selectedAccountId]);
+  }, [activeAccountTab, selectedAccount?.id]);
 
-  // Handle Archive / Restore toggle
+  // Handle Archive / Restore Toggle
   const handleArchiveToggle = (accountToToggle: Account) => {
-    const isCurrentlyArchived = Boolean(accountToToggle.isArchived || accountToToggle.status === "Archived");
-    if (isCurrentlyArchived) {
-      updateAccount(accountToToggle.id, {
-        isArchived: false,
-        status: "Customer"
-      });
-      showToast(`"${accountToToggle.name}" restored to active accounts.`, "success");
-    } else {
-      if (
-        window.confirm(
-          `Archive "${accountToToggle.name}"?\n\nThis moves the account out of active CRM views while safely preserving all historical deals, contacts, notes, and activity history.`
-        )
-      ) {
-        updateAccount(accountToToggle.id, {
-          isArchived: true,
-          status: "Archived",
-          archivedDate: getLocalDateInputValue()
-        });
-        showToast(`"${accountToToggle.name}" archived.`, "info");
-      }
-    }
+    const isNowArchived = !accountToToggle.isArchived;
+    updateAccount(accountToToggle.id, {
+      isArchived: isNowArchived,
+      archivedDate: isNowArchived ? new Date().toISOString().split("T")[0] : undefined,
+      archivedReason: isNowArchived ? "Manually archived by user" : undefined,
+      status: isNowArchived ? "Archived" : (accountToToggle.accountType === "Prospect" ? "Prospect" : "Customer")
+    });
+    showToast(
+      isNowArchived
+        ? `Account "${accountToToggle.name}" archived.`
+        : `Account "${accountToToggle.name}" restored to active list.`,
+      "info"
+    );
   };
 
-  // Handle Account Deletion
+  // Handle Delete Account
   const handleDeleteAccount = async (accountToDelete: Account) => {
     if (
       window.confirm(
@@ -402,12 +401,16 @@ export const CRMAccountsView: React.FC = () => {
     e.preventDefault();
     if (!newAccountForm.name.trim()) return;
 
+    const isProspect = newAccountForm.accountType === "Prospect";
+
     const newAcc: Account = {
       id: `acc-${Date.now()}`,
       name: newAccountForm.name.trim(),
       tradingName: newAccountForm.tradingName.trim(),
       accountType: newAccountForm.accountType,
-      status: newAccountForm.status,
+      status: isProspect ? "Prospect" : "Customer",
+      customerRelationshipStatus: isProspect ? undefined : newAccountForm.customerRelationshipStatus || "Active",
+      prospectStage: isProspect ? newAccountForm.prospectStage || "Identified" : undefined,
       industry: newAccountForm.industry,
       territory: newAccountForm.territory,
       accountOwner: newAccountForm.accountOwner,
@@ -418,7 +421,6 @@ export const CRMAccountsView: React.FC = () => {
       generalEmail: newAccountForm.generalEmail,
       website: newAccountForm.website,
       notes: newAccountForm.notes,
-      relationshipHealth: "Healthy",
       tags: [newAccountForm.accountType],
       metrics: {
         openPipelineValue: 0,
@@ -437,11 +439,12 @@ export const CRMAccountsView: React.FC = () => {
   // Open Edit Account Modal
   const openEditAccountModal = () => {
     if (!selectedAccount) return;
+    const isProspect = selectedAccount.accountType === "Prospect";
     setEditAccountForm({
       name: selectedAccount.name,
       tradingName: selectedAccount.tradingName || "",
       accountType: selectedAccount.accountType || "Prospect",
-      status: selectedAccount.status || "Customer",
+      status: selectedAccount.status || (isProspect ? "Prospect" : "Customer"),
       industry: selectedAccount.industry || "Government & Public Infrastructure",
       territory: selectedAccount.territory || "VIC/TAS",
       accountOwner: selectedAccount.accountOwner || currentUser.name,
@@ -449,7 +452,8 @@ export const CRMAccountsView: React.FC = () => {
       generalEmail: selectedAccount.generalEmail || "",
       website: selectedAccount.website || "",
       notes: selectedAccount.notes || "",
-      relationshipHealth: selectedAccount.relationshipHealth || "Healthy"
+      customerRelationshipStatus: selectedAccount.customerRelationshipStatus || "Active",
+      prospectStage: selectedAccount.prospectStage || "Identified"
     });
     setIsEditAccountModalOpen(true);
   };
@@ -459,19 +463,22 @@ export const CRMAccountsView: React.FC = () => {
     e.preventDefault();
     if (!selectedAccount || !editAccountForm.name.trim()) return;
 
+    const isProspect = editAccountForm.accountType === "Prospect";
+
     updateAccount(selectedAccount.id, {
       name: editAccountForm.name.trim(),
       tradingName: editAccountForm.tradingName.trim(),
       accountType: editAccountForm.accountType,
-      status: editAccountForm.status,
+      status: isProspect ? "Prospect" : "Customer",
+      customerRelationshipStatus: isProspect ? undefined : editAccountForm.customerRelationshipStatus,
+      prospectStage: isProspect ? editAccountForm.prospectStage : undefined,
       industry: editAccountForm.industry,
       territory: editAccountForm.territory,
       accountOwner: editAccountForm.accountOwner,
       mainPhone: editAccountForm.mainPhone,
       generalEmail: editAccountForm.generalEmail,
       website: editAccountForm.website,
-      notes: editAccountForm.notes,
-      relationshipHealth: editAccountForm.relationshipHealth
+      notes: editAccountForm.notes
     });
 
     setIsEditAccountModalOpen(false);
@@ -533,39 +540,107 @@ export const CRMAccountsView: React.FC = () => {
     showToast(`New deal "${newDeal.name}" added for ${selectedAccount.name}`, "success");
   };
 
-  const getHealthBadge = (health?: RelationshipHealth) => {
-    switch (health) {
-      case "Strong":
+  const getCustomerStatusBadge = (status?: CustomerRelationshipStatus) => {
+    const st = status || "Active";
+    switch (st) {
+      case "Active":
         return (
           <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-            Strong
+            Active
           </span>
         );
-      case "Healthy":
+      case "Developing":
         return (
-          <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
-            Healthy
+          <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-sky-50 text-sky-800 border border-sky-200">
+            Developing
           </span>
         );
-      case "Needs Attention":
+      case "Occasional":
         return (
-          <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-amber-50 text-amber-900 border border-amber-200">
-            Needs Attention
+          <span className="px-2 py-0.5 rounded-full text-spec font-medium bg-slate-100 text-slate-700 border border-slate-300">
+            Occasional
           </span>
         );
       case "At Risk":
         return (
-          <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-red-50 text-red-800 border border-red-200">
+          <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-amber-50 text-amber-800 border border-amber-300">
             At Risk
+          </span>
+        );
+      case "Dormant":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-spec font-medium bg-stone-100 text-stone-600 border border-stone-300">
+            Dormant
           </span>
         );
       default:
         return (
           <span className="px-2 py-0.5 rounded-full text-spec font-medium bg-slate-100 text-slate-700 border border-slate-200">
-            {health || "Unknown"}
+            {st}
           </span>
         );
     }
+  };
+
+  const getProspectStageBadge = (stage?: ProspectStage) => {
+    const sg = stage || "Identified";
+    switch (sg) {
+      case "Identified":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-spec font-medium bg-slate-100 text-slate-700 border border-slate-300">
+            Identified
+          </span>
+        );
+      case "Researching":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-spec font-medium bg-slate-100 text-slate-800 border border-slate-300">
+            Researching
+          </span>
+        );
+      case "Contacting":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-blue-50 text-blue-800 border border-blue-200">
+            Contacting
+          </span>
+        );
+      case "Engaged":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-teal-50 text-teal-800 border border-teal-200">
+            Engaged
+          </span>
+        );
+      case "Opportunity Identified":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+            Opportunity Identified
+          </span>
+        );
+      case "Nurture":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-spec font-medium bg-purple-50 text-purple-800 border border-purple-200">
+            Nurture
+          </span>
+        );
+      case "Not Pursuing":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-spec font-medium bg-zinc-100 text-zinc-500 border border-zinc-200">
+            Not Pursuing
+          </span>
+        );
+      default:
+        return (
+          <span className="px-2 py-0.5 rounded-full text-spec font-medium bg-slate-100 text-slate-700 border border-slate-200">
+            {sg}
+          </span>
+        );
+    }
+  };
+
+  const renderAccountStatusBadge = (acc: Account) => {
+    if (acc.accountType === "Prospect") {
+      return getProspectStageBadge(acc.prospectStage || "Identified");
+    }
+    return getCustomerStatusBadge(acc.customerRelationshipStatus || "Active");
   };
 
   // Group activities by date
@@ -760,25 +835,69 @@ export const CRMAccountsView: React.FC = () => {
               <select
                 aria-label="Filter by account type"
                 value={accountTypeFilter}
-                onChange={(e) => setAccountTypeFilter(e.target.value as any)}
+                onChange={(e) => {
+                  const val = e.target.value as any;
+                  setAccountTypeFilter(val);
+                  setStatusFilter("all");
+                }}
                 className="p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-semibold"
               >
                 <option value="all">All Types</option>
                 <option value="Prospect">Prospect</option>
-                <option value="Account">Account</option>
+                <option value="Customer">Customer</option>
                 <option value="Council">Council</option>
+                <option value="Account">Account</option>
               </select>
 
               <select
-                aria-label="Filter by health"
-                value={healthFilter}
-                onChange={(e) => setHealthFilter(e.target.value)}
+                aria-label="Filter by status or stage"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
                 className="p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-medium"
               >
-                <option value="all">All Health</option>
-                <option value="Healthy">Healthy</option>
-                <option value="Needs Attention">Needs Attention</option>
-                <option value="At Risk">At Risk</option>
+                {accountTypeFilter === "all" && (
+                  <>
+                    <option value="all">All Statuses &amp; Stages</option>
+                    <optgroup label="Customer Relationship Status">
+                      <option value="Active">Active</option>
+                      <option value="Developing">Developing</option>
+                      <option value="Occasional">Occasional</option>
+                      <option value="At Risk">At Risk</option>
+                      <option value="Dormant">Dormant</option>
+                    </optgroup>
+                    <optgroup label="Prospect Stage">
+                      <option value="Identified">Identified</option>
+                      <option value="Researching">Researching</option>
+                      <option value="Contacting">Contacting</option>
+                      <option value="Engaged">Engaged</option>
+                      <option value="Opportunity Identified">Opportunity Identified</option>
+                      <option value="Nurture">Nurture</option>
+                      <option value="Not Pursuing">Not Pursuing</option>
+                    </optgroup>
+                  </>
+                )}
+                {accountTypeFilter === "Prospect" && (
+                  <>
+                    <option value="all">All Prospect Stages</option>
+                    <option value="Identified">Identified</option>
+                    <option value="Researching">Researching</option>
+                    <option value="Contacting">Contacting</option>
+                    <option value="Engaged">Engaged</option>
+                    <option value="Opportunity Identified">Opportunity Identified</option>
+                    <option value="Nurture">Nurture</option>
+                    <option value="Not Pursuing">Not Pursuing</option>
+                  </>
+                )}
+                {accountTypeFilter !== "all" && accountTypeFilter !== "Prospect" && (
+                  <>
+                    <option value="all">All Relationship Statuses</option>
+                    <option value="Active">Active</option>
+                    <option value="Developing">Developing</option>
+                    <option value="Occasional">Occasional</option>
+                    <option value="At Risk">At Risk</option>
+                    <option value="Dormant">Dormant</option>
+                  </>
+                )}
               </select>
             </div>
           </div>
@@ -828,7 +947,7 @@ export const CRMAccountsView: React.FC = () => {
                       </div>
 
                       <div className="flex flex-col items-end gap-1.5 shrink-0">
-                        {getHealthBadge(acc.relationshipHealth)}
+                        {renderAccountStatusBadge(acc)}
 
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                           <button
@@ -891,7 +1010,7 @@ export const CRMAccountsView: React.FC = () => {
                         {selectedAccount.name}
                       </h2>
                       {getAccountTypeBadge(selectedAccount.accountType, "md")}
-                      {getHealthBadge(selectedAccount.relationshipHealth)}
+                      {renderAccountStatusBadge(selectedAccount)}
                       {selectedAccount.isArchived && (
                         <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-800">
                           Archived Account
@@ -900,6 +1019,12 @@ export const CRMAccountsView: React.FC = () => {
                     </div>
                     <p className="text-spec text-ink-dim flex items-center gap-2 flex-wrap">
                       <span>Account Type: <strong className="text-body font-semibold">{selectedAccount.accountType || "Prospect"}</strong></span>
+                      <span>•</span>
+                      {selectedAccount.accountType === "Prospect" ? (
+                        <span>Prospect Stage: <strong className="text-body font-semibold">{selectedAccount.prospectStage || "Identified"}</strong></span>
+                      ) : (
+                        <span>Relationship Status: <strong className="text-body font-semibold">{selectedAccount.customerRelationshipStatus || "Active"}</strong></span>
+                      )}
                       <span>•</span>
                       <span>Owner: <strong className="text-body font-semibold">{selectedAccount.accountOwner || currentUser.name}</strong></span>
                       <span>•</span>
@@ -2168,21 +2293,70 @@ export const CRMAccountsView: React.FC = () => {
                   placeholder="e.g. City of Melton Council"
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-spec font-bold mb-1">Account Type *</label>
                   <select
                     required
                     aria-label="Account Type"
                     value={newAccountForm.accountType}
-                    onChange={(e) => setNewAccountForm({ ...newAccountForm, accountType: e.target.value as AccountType })}
+                    onChange={(e) => {
+                      const nextType = e.target.value as AccountType;
+                      setNewAccountForm((prev) => ({
+                        ...prev,
+                        accountType: nextType,
+                        status: nextType === "Prospect" ? "Prospect" : "Customer",
+                        prospectStage: nextType === "Prospect" ? "Identified" : prev.prospectStage,
+                        customerRelationshipStatus: nextType !== "Prospect" ? (prev.customerRelationshipStatus || "Active") : prev.customerRelationshipStatus
+                      }));
+                    }}
                     className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
                   >
                     <option value="Prospect">Prospect</option>
-                    <option value="Account">Account</option>
+                    <option value="Customer">Customer</option>
                     <option value="Council">Council</option>
+                    <option value="Account">Account</option>
                   </select>
                 </div>
+
+                {newAccountForm.accountType === "Prospect" ? (
+                  <div>
+                    <label className="block text-spec font-bold mb-1">Prospect Stage *</label>
+                    <select
+                      required
+                      aria-label="Prospect Stage"
+                      value={newAccountForm.prospectStage}
+                      onChange={(e) => setNewAccountForm({ ...newAccountForm, prospectStage: e.target.value as ProspectStage })}
+                      className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
+                    >
+                      <option value="Identified">Identified</option>
+                      <option value="Researching">Researching</option>
+                      <option value="Contacting">Contacting</option>
+                      <option value="Engaged">Engaged</option>
+                      <option value="Opportunity Identified">Opportunity Identified</option>
+                      <option value="Nurture">Nurture</option>
+                      <option value="Not Pursuing">Not Pursuing</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-spec font-bold mb-1">Customer Relationship Status *</label>
+                    <select
+                      required
+                      aria-label="Customer Relationship Status"
+                      value={newAccountForm.customerRelationshipStatus}
+                      onChange={(e) => setNewAccountForm({ ...newAccountForm, customerRelationshipStatus: e.target.value as CustomerRelationshipStatus })}
+                      className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Developing">Developing</option>
+                      <option value="Occasional">Occasional</option>
+                      <option value="At Risk">At Risk</option>
+                      <option value="Dormant">Dormant</option>
+                    </select>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-spec font-bold mb-1">Territory</label>
                   <select
@@ -2255,14 +2429,63 @@ export const CRMAccountsView: React.FC = () => {
                     required
                     aria-label="Edit Account Type"
                     value={editAccountForm.accountType}
-                    onChange={(e) => setEditAccountForm({ ...editAccountForm, accountType: e.target.value as AccountType })}
+                    onChange={(e) => {
+                      const nextType = e.target.value as AccountType;
+                      setEditAccountForm((prev) => ({
+                        ...prev,
+                        accountType: nextType,
+                        status: nextType === "Prospect" ? "Prospect" : "Customer",
+                        prospectStage: nextType === "Prospect" ? (prev.prospectStage || "Identified") : prev.prospectStage,
+                        customerRelationshipStatus: nextType !== "Prospect" ? (prev.customerRelationshipStatus || "Active") : prev.customerRelationshipStatus
+                      }));
+                    }}
                     className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
                   >
                     <option value="Prospect">Prospect</option>
-                    <option value="Account">Account</option>
+                    <option value="Customer">Customer</option>
                     <option value="Council">Council</option>
+                    <option value="Account">Account</option>
                   </select>
                 </div>
+
+                {editAccountForm.accountType === "Prospect" ? (
+                  <div>
+                    <label className="block text-spec font-bold mb-1">Prospect Stage *</label>
+                    <select
+                      required
+                      aria-label="Edit Prospect Stage"
+                      value={editAccountForm.prospectStage}
+                      onChange={(e) => setEditAccountForm({ ...editAccountForm, prospectStage: e.target.value as ProspectStage })}
+                      className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
+                    >
+                      <option value="Identified">Identified</option>
+                      <option value="Researching">Researching</option>
+                      <option value="Contacting">Contacting</option>
+                      <option value="Engaged">Engaged</option>
+                      <option value="Opportunity Identified">Opportunity Identified</option>
+                      <option value="Nurture">Nurture</option>
+                      <option value="Not Pursuing">Not Pursuing</option>
+                    </select>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-spec font-bold mb-1">Customer Relationship Status *</label>
+                    <select
+                      required
+                      aria-label="Edit Customer Relationship Status"
+                      value={editAccountForm.customerRelationshipStatus}
+                      onChange={(e) => setEditAccountForm({ ...editAccountForm, customerRelationshipStatus: e.target.value as CustomerRelationshipStatus })}
+                      className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
+                    >
+                      <option value="Active">Active</option>
+                      <option value="Developing">Developing</option>
+                      <option value="Occasional">Occasional</option>
+                      <option value="At Risk">At Risk</option>
+                      <option value="Dormant">Dormant</option>
+                    </select>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-spec font-bold mb-1">Territory</label>
                   <select
@@ -2275,19 +2498,6 @@ export const CRMAccountsView: React.FC = () => {
                     <option>QLD/NT</option>
                     <option>WA/SA</option>
                     <option>National / Key Accounts</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-spec font-bold mb-1">Relationship Health</label>
-                  <select
-                    value={editAccountForm.relationshipHealth}
-                    onChange={(e) => setEditAccountForm({ ...editAccountForm, relationshipHealth: e.target.value as RelationshipHealth })}
-                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  >
-                    <option value="Strong">Strong</option>
-                    <option value="Healthy">Healthy</option>
-                    <option value="Needs Attention">Needs Attention</option>
-                    <option value="At Risk">At Risk</option>
                   </select>
                 </div>
               </div>

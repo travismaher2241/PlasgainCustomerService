@@ -20,7 +20,7 @@ const AccountsTestWrapper: React.FC<{ initialAccounts?: any[] }> = ({ initialAcc
         customerSegment: "Local Government / Council",
         territory: "QLD/NT",
         accountOwner: "Travis Maher",
-        relationshipHealth: "Healthy",
+        customerRelationshipStatus: "Active",
         tags: ["Council"],
         lastInteractionDate: "2026-08-28",
         leadSource: "Referral",
@@ -130,13 +130,13 @@ describe("CRMAccountsView Component (Step 5)", () => {
 
     expect(screen.getByPlaceholderText(/Search accounts by name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Filter by account type/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Filter by health/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Filter by status or stage/i)).toBeInTheDocument();
 
     // Compact row rendered
     expect(screen.getAllByText(/Townsville City Council/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/QLD\/NT/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Next: Issue preliminary design verification/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Healthy/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Active/i).length).toBeGreaterThanOrEqual(1);
   });
 
   it("Test 3 — Compact account header prioritises identity, health, and primary actions", () => {
@@ -300,7 +300,7 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(screen.getByText(/Account Type:/i)).toBeInTheDocument();
   });
 
-  it("Test 12 — Filters account list by Account Type picklist", () => {
+  it("Test 12 — Filters account list by Account Type and Status/Stage picklists", () => {
     const multiAccounts = [
       {
         id: "acc-council",
@@ -311,7 +311,7 @@ describe("CRMAccountsView Component (Step 5)", () => {
         customerSegment: "Local Government / Council",
         territory: "QLD/NT",
         accountOwner: "Travis Maher",
-        relationshipHealth: "Healthy",
+        customerRelationshipStatus: "Active",
         tags: []
       },
       {
@@ -323,7 +323,7 @@ describe("CRMAccountsView Component (Step 5)", () => {
         customerSegment: "Civil Contractor",
         territory: "NSW/ACT",
         accountOwner: "Travis Maher",
-        relationshipHealth: "Healthy",
+        prospectStage: "Engaged",
         tags: []
       },
       {
@@ -335,7 +335,7 @@ describe("CRMAccountsView Component (Step 5)", () => {
         customerSegment: "Electrical Wholesaler / Distributor",
         territory: "VIC/TAS",
         accountOwner: "Travis Maher",
-        relationshipHealth: "Healthy",
+        customerRelationshipStatus: "Developing",
         tags: []
       }
     ];
@@ -359,6 +359,9 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(screen.getAllByText("Apex Civil Contracting").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("Rexel Electrical Supplies")).not.toBeInTheDocument();
 
+    // Prospect stage badge rendered
+    expect(screen.getAllByText("Engaged").length).toBeGreaterThanOrEqual(1);
+
     // Filter by Council
     fireEvent.change(typeFilter, { target: { value: "Council" } });
     expect(screen.getAllByText("Brisbane City Council").length).toBeGreaterThanOrEqual(1);
@@ -369,7 +372,7 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(screen.getAllByText("Rexel Electrical Supplies").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("Test 13 — Creating a new account requires and sets the Account Type picklist", () => {
+  it("Test 13 — Creating a new account conditionally requires Prospect Stage or Customer Relationship Status", () => {
     render(
       <AppProvider>
         <AccountsTestWrapper />
@@ -384,8 +387,15 @@ describe("CRMAccountsView Component (Step 5)", () => {
     const typeSelect = within(dialog).getByLabelText(/Account Type/i);
     expect(typeSelect).toBeInTheDocument();
 
-    // Change Account Type to Council
-    fireEvent.change(typeSelect, { target: { value: "Council" } });
+    // Initially Prospect -> shows Prospect Stage
+    expect(within(dialog).getByLabelText(/Prospect Stage/i)).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/Customer Relationship Status/i)).not.toBeInTheDocument();
+
+    // Switch Account Type to Customer -> shows Customer Relationship Status
+    fireEvent.change(typeSelect, { target: { value: "Customer" } });
+    expect(within(dialog).queryByLabelText(/Prospect Stage/i)).not.toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/Customer Relationship Status/i)).toBeInTheDocument();
+
     fireEvent.change(within(dialog).getByPlaceholderText(/e\.g\. City of Melton Council/i), {
       target: { value: "Geelong City Council" }
     });
@@ -395,7 +405,7 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(screen.getAllByText("Geelong City Council").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("Test 14 — Editing an account updates the Account Type and persists changes", () => {
+  it("Test 14 — Editing an account dynamically switches between Prospect Stage and Customer Relationship Status", () => {
     render(
       <AppProvider>
         <AccountsTestWrapper />
@@ -407,11 +417,19 @@ describe("CRMAccountsView Component (Step 5)", () => {
 
     expect(screen.getByRole("dialog", { name: /Edit Account/i })).toBeInTheDocument();
     const editTypeSelect = screen.getByLabelText(/Edit Account Type/i);
-    fireEvent.change(editTypeSelect, { target: { value: "Account" } });
+
+    // Switch to Prospect
+    fireEvent.change(editTypeSelect, { target: { value: "Prospect" } });
+    expect(screen.getByLabelText(/Edit Prospect Stage/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Edit Customer Relationship Status/i)).not.toBeInTheDocument();
+
+    // Switch back to Customer
+    fireEvent.change(editTypeSelect, { target: { value: "Customer" } });
+    expect(screen.queryByLabelText(/Edit Prospect Stage/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Edit Customer Relationship Status/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
 
-    // Now Account Type shows Account
     expect(screen.getByText(/Account Type:/i)).toBeInTheDocument();
   });
 });

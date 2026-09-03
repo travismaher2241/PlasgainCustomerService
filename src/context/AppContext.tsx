@@ -1497,6 +1497,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateAccount = (id: string, updates: Partial<Account>) => {
     const existing = accounts.find((a) => a.id === id);
     const targetName = updates.name || existing?.name || "Account";
+    const typeChanged = Boolean(updates.accountType && existing && updates.accountType !== existing.accountType);
+    const statusChanged = Boolean(updates.customerRelationshipStatus && existing && updates.customerRelationshipStatus !== existing.customerRelationshipStatus);
+    const stageChanged = Boolean(updates.prospectStage && existing && updates.prospectStage !== existing.prospectStage);
+
     setAccounts((prev) =>
       prev.map((acc) => {
         if (acc.id === id) {
@@ -1507,7 +1511,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return acc;
       })
     );
-    recordAuditLog("UPDATE", "Account", id, targetName, `Updated account details for ${targetName}`);
+
+    if (typeChanged) {
+      recordAuditLog(
+        "STATUS_CHANGE",
+        "Account",
+        id,
+        targetName,
+        `Changed Account Type: ${existing?.accountType} → ${updates.accountType} (${
+          updates.accountType === "Prospect"
+            ? `Prospect Stage: ${updates.prospectStage || "Identified"}`
+            : `Relationship Status: ${updates.customerRelationshipStatus || "Active"}`
+        })`
+      );
+    } else if (statusChanged) {
+      recordAuditLog(
+        "STATUS_CHANGE",
+        "Account",
+        id,
+        targetName,
+        `Changed Customer Relationship Status: ${existing?.customerRelationshipStatus || "Unset"} → ${updates.customerRelationshipStatus}`
+      );
+    } else if (stageChanged) {
+      recordAuditLog(
+        "STATUS_CHANGE",
+        "Account",
+        id,
+        targetName,
+        `Changed Prospect Stage: ${existing?.prospectStage || "Unset"} → ${updates.prospectStage}`
+      );
+    } else {
+      recordAuditLog("UPDATE", "Account", id, targetName, `Updated account details for ${targetName}`);
+    }
+
     showToast("Account updated", "success");
   };
 
@@ -1611,19 +1647,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         accountName = existing.name;
       } else {
         accountId = `acc-${Date.now()}`;
+        const isCouncil = lead.company.toLowerCase().includes("council");
         const newAcc: Account = {
           id: accountId,
           name: lead.company,
-          accountType: lead.company.toLowerCase().includes("council") ? "Council" : "Prospect",
+          accountType: isCouncil ? "Council" : "Prospect",
           status: "Prospect",
+          customerRelationshipStatus: isCouncil ? "Developing" : undefined,
+          prospectStage: isCouncil ? undefined : "Opportunity Identified",
           industry: "Government & Public Infrastructure",
-          customerSegment: lead.company.toLowerCase().includes("council") ? "Local Government / Council" : "Civil Contractor",
+          customerSegment: isCouncil ? "Local Government / Council" : "Civil Contractor",
           territory: "QLD/NT",
           accountOwner: lead.assignedSalesperson || currentUser.name,
           leadSource: lead.source,
           createdDate: new Date().toISOString().split("T")[0],
           lastInteractionDate: new Date().toISOString().split("T")[0],
-          relationshipHealth: "Healthy",
           tags: ["Converted Lead", lead.enquiryType],
           notes: lead.notes,
           metrics: {
