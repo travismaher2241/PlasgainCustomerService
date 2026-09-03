@@ -214,6 +214,13 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(screen.getByRole("dialog", { name: /Create New Quote/i })).toBeInTheDocument();
     expect(screen.getByText(/Account:/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Townsville City Council/i).length).toBeGreaterThanOrEqual(1);
+
+    // Assert the 4 requested fields are present
+    expect(screen.getByLabelText(/\$ Value/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Quote Number/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Follow Up Date/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Contact Name/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Create Quote/i })).toBeInTheDocument();
   });
 
   it("Test 7 — Deals tab prioritises active deals and supports closed filtering", () => {

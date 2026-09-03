@@ -125,8 +125,9 @@ export const CRMAccountsView: React.FC = () => {
   const [isNewDealModalOpen, setIsNewDealModalOpen] = useState(false);
   const [newDealForm, setNewDealForm] = useState({
     name: "",
+    quoteNumber: "",
     dealValue: 25000,
-    stageName: "Discovery & Qualification" as const,
+    stageName: "Proposal & Quoting" as const,
     expectedCloseDate: new Date(Date.now() + 45 * 86400000).toISOString().split("T")[0],
     primaryContactId: "",
     projectApplication: "Solar Public Lighting",
@@ -284,7 +285,13 @@ export const CRMAccountsView: React.FC = () => {
     filteredAccounts[0] ||
     accounts[0];
 
-  const accountContacts = contacts.filter((c) => c.accountId === selectedAccount?.id);
+  const accountContacts = contacts.filter(
+    (c) =>
+      c.accountId === selectedAccount?.id ||
+      (Boolean(selectedAccount?.name) &&
+        Boolean(c.company) &&
+        c.company.trim().toLowerCase() === selectedAccount?.name.trim().toLowerCase())
+  );
   const accountDeals = crmOpportunities.filter((d) => d.accountId === selectedAccount?.id);
   const accountActivities = sortActivitiesChronological(
     activities.filter((act) => act.accountId === selectedAccount?.id),
@@ -501,19 +508,20 @@ export const CRMAccountsView: React.FC = () => {
     const newDeal: CRMOpportunity = {
       id: `opp-${Date.now()}`,
       name: newDealForm.name,
+      quoteNumber: newDealForm.quoteNumber ? newDealForm.quoteNumber.trim() : undefined,
       accountId: selectedAccount.id,
       accountName: selectedAccount.name,
-      primaryContactId: matchedContact?.id,
-      primaryContactName: matchedContact?.name,
+      primaryContactId: matchedContact?.id || "",
+      primaryContactName: matchedContact?.name || "",
       primaryContactEmail: matchedContact?.email,
       primaryContactPhone: matchedContact?.phone,
       opportunityOwner: selectedAccount.accountOwner || currentUser.name,
       pipelineId: "pipe-major-projects",
-      stageId: "stage-discovery",
-      stageName: newDealForm.stageName,
+      stageId: "stage-proposal",
+      stageName: newDealForm.stageName || "Proposal & Quoting",
       dealValue: Number(newDealForm.dealValue) || 0,
-      weightedValue: (Number(newDealForm.dealValue) || 0) * 0.25,
-      probability: 25,
+      weightedValue: (Number(newDealForm.dealValue) || 0) * 0.5,
+      probability: 50,
       forecastCategory: "Pipeline",
       expectedCloseDate: newDealForm.expectedCloseDate,
       products: [
@@ -530,20 +538,20 @@ export const CRMAccountsView: React.FC = () => {
       customerNeed: newDealForm.notes,
       keyRequirements: ["Verify AS/NZS 1158 compliance"],
       source: "Account Rep Engagement",
-      latestActivity: `Deal created for ${selectedAccount.name} by ${currentUser.name}`,
+      latestActivity: `Quote created for ${selectedAccount.name} by ${currentUser.name}`,
       latestActivityDate: new Date().toISOString().split("T")[0],
-      nextAction: "Issue preliminary luminaire specification and schedule initial design call",
-      nextActionDate: new Date().toISOString().split("T")[0],
+      nextAction: "Issue quotation package and schedule follow-up",
+      nextActionDate: newDealForm.expectedCloseDate,
       daysInCurrentStage: 0,
       totalDealAgeDays: 0,
       dealHealth: "Healthy",
-      dealHealthReasons: ["Newly created deal under active customer account"],
+      dealHealthReasons: ["Newly created quote under customer account"],
       notes: newDealForm.notes
     };
 
     addCrmOpportunity(newDeal);
     setIsNewDealModalOpen(false);
-    showToast(`New deal "${newDeal.name}" added for ${selectedAccount.name}`, "success");
+    showToast(`Quote "${newDeal.name}" added for ${selectedAccount.name}`, "success");
   };
 
   const getCustomerStatusBadge = (status?: CustomerRelationshipStatus) => {
@@ -1054,8 +1062,9 @@ export const CRMAccountsView: React.FC = () => {
                       onClick={() => {
                         setNewDealForm({
                           name: `${selectedAccount.name} - Public Lighting Tender`,
+                          quoteNumber: "",
                           dealValue: 35000,
-                          stageName: "Discovery & Qualification",
+                          stageName: "Proposal & Quoting",
                           expectedCloseDate: new Date(Date.now() + 45 * 86400000).toISOString().split("T")[0],
                           primaryContactId: accountContacts[0]?.id || "",
                           projectApplication: "Solar Public Lighting",
@@ -1570,8 +1579,9 @@ export const CRMAccountsView: React.FC = () => {
                           onClick={() => {
                             setNewDealForm({
                               name: `${selectedAccount.name} - Public Lighting Tender`,
+                              quoteNumber: "",
                               dealValue: 35000,
-                              stageName: "Discovery & Qualification",
+                              stageName: "Proposal & Quoting",
                               expectedCloseDate: new Date(Date.now() + 45 * 86400000).toISOString().split("T")[0],
                               primaryContactId: accountContacts[0]?.id || "",
                               projectApplication: "Solar Public Lighting",
@@ -2173,8 +2183,9 @@ export const CRMAccountsView: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-spec font-bold mb-1">Estimated Value ($ AUD)</label>
+                  <label htmlFor="quote-value-input" className="block text-spec font-bold mb-1">$ Value</label>
                   <input
+                    id="quote-value-input"
                     type="number"
                     required
                     min={0}
@@ -2185,24 +2196,23 @@ export const CRMAccountsView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-spec font-bold mb-1">Stage</label>
-                  <select
-                    value={newDealForm.stageName}
-                    onChange={(e) => setNewDealForm({ ...newDealForm, stageName: e.target.value as any })}
+                  <label htmlFor="quote-number-input" className="block text-spec font-bold mb-1">Quote Number</label>
+                  <input
+                    id="quote-number-input"
+                    type="text"
+                    value={newDealForm.quoteNumber}
+                    onChange={(e) => setNewDealForm({ ...newDealForm, quoteNumber: e.target.value })}
+                    placeholder="e.g. Q-2026-108"
                     className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  >
-                    <option>Discovery &amp; Qualification</option>
-                    <option>Design &amp; Compliance</option>
-                    <option>Proposal &amp; Quoting</option>
-                    <option>Negotiation &amp; Review</option>
-                  </select>
+                  />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-spec font-bold mb-1">Target Close Date</label>
+                  <label htmlFor="quote-follow-up-date" className="block text-spec font-bold mb-1">Follow Up Date</label>
                   <input
+                    id="quote-follow-up-date"
                     type="date"
                     value={newDealForm.expectedCloseDate}
                     onChange={(e) => setNewDealForm({ ...newDealForm, expectedCloseDate: e.target.value })}
@@ -2211,16 +2221,19 @@ export const CRMAccountsView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-spec font-bold mb-1">Key Contact</label>
+                  <label htmlFor="quote-contact-select" className="block text-spec font-bold mb-1">Contact Name</label>
                   <select
+                    id="quote-contact-select"
                     value={newDealForm.primaryContactId}
                     onChange={(e) => setNewDealForm({ ...newDealForm, primaryContactId: e.target.value })}
                     className="w-full p-2 border border-line rounded-edge bg-white text-spec"
                   >
-                    <option value="">Select contact</option>
+                    <option value="">
+                      {accountContacts.length > 0 ? "Select contact..." : "No contacts for this customer"}
+                    </option>
                     {accountContacts.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.name} ({c.role || "Contact"})
+                        {c.name}{c.role ? ` (${c.role})` : ""}
                       </option>
                     ))}
                   </select>
@@ -2242,15 +2255,15 @@ export const CRMAccountsView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsNewDealModalOpen(false)}
-                  className="px-3 py-1.5 border border-line rounded-edge text-spec font-medium"
+                  className="px-3 py-1.5 border border-line rounded-edge text-spec font-medium cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge"
+                  className="px-4 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge cursor-pointer"
                 >
-                  Create Deal
+                  Create Quote
                 </button>
               </div>
             </form>
