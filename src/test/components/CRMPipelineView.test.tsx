@@ -45,7 +45,7 @@ describe('CRM Deals Global Table Suite (Step 6)', () => {
 
     // Header & Actions
     expect(screen.getByRole('heading', { level: 1, name: "Deals" })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /New deal/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /New quote/i })).toBeInTheDocument();
 
     // Table should be rendered directly
     expect(screen.getByRole('table')).toBeInTheDocument();

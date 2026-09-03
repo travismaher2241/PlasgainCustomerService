@@ -172,7 +172,7 @@ export const HomeDashboard: React.FC = () => {
           <div className="p-1.5 rounded bg-paper text-ink-dim shrink-0">
             <KanbanSquare className="w-4 h-4" />
           </div>
-          <span className="text-spec font-bold text-body truncate">New deal</span>
+          <span className="text-spec font-bold text-body truncate">New quote</span>
         </button>
 
         <button

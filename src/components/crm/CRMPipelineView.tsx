@@ -177,7 +177,7 @@ export const CRMPipelineView: React.FC = () => {
           className="px-4 py-2 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
-          <span>New deal</span>
+          <span>New quote</span>
         </button>
       </div>
 
@@ -400,7 +400,7 @@ export const CRMPipelineView: React.FC = () => {
           >
             <div className="flex items-center justify-between border-b border-line pb-3">
               <h3 id="new-deal-modal-title" className="font-bold text-body text-base">
-                Create New Deal
+                Create New Quote
               </h3>
               <button onClick={() => setIsNewDealModalOpen(false)} className="text-ink-dim hover:text-body">
                 <X className="w-5 h-5" />
