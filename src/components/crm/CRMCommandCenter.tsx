@@ -49,13 +49,17 @@ export const CRMCommandCenter: React.FC = () => {
   const moreMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
         setIsMoreMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside, { passive: true });
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
   }, []);
 
   const overdueCount = tasks.filter(
@@ -86,14 +90,17 @@ export const CRMCommandCenter: React.FC = () => {
             {/* Unified Standardised CRM Navigation (PART A) */}
             <nav
               aria-label="CRM Navigation"
-              className="flex items-center gap-1 sm:gap-1.5 py-1 min-w-0 overflow-x-auto scrollbar-none"
+              className="flex items-center gap-1 sm:gap-1.5 py-1 min-w-0 overflow-visible md:overflow-x-auto md:scrollbar-none"
             >
               {/* 1. Today */}
               <button
                 type="button"
                 role="tab"
                 aria-selected={activeCRMTab === "today"}
-                onClick={() => setActiveCRMTab("today")}
+                onClick={() => {
+                  setActiveCRMTab("today");
+                  setIsMoreMenuOpen(false);
+                }}
                 className={`px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "today"
                     ? "bg-brand-deep text-white shadow-xs"
@@ -120,7 +127,10 @@ export const CRMCommandCenter: React.FC = () => {
                 type="button"
                 role="tab"
                 aria-selected={activeCRMTab === "accounts"}
-                onClick={() => setActiveCRMTab("accounts")}
+                onClick={() => {
+                  setActiveCRMTab("accounts");
+                  setIsMoreMenuOpen(false);
+                }}
                 className={`px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "accounts"
                     ? "bg-brand-deep text-white shadow-xs"
@@ -136,7 +146,10 @@ export const CRMCommandCenter: React.FC = () => {
                 type="button"
                 role="tab"
                 aria-selected={activeCRMTab === "pipeline"}
-                onClick={() => setActiveCRMTab("pipeline")}
+                onClick={() => {
+                  setActiveCRMTab("pipeline");
+                  setIsMoreMenuOpen(false);
+                }}
                 className={`px-2.5 py-1 rounded-edge text-spec font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
                   activeCRMTab === "pipeline"
                     ? "bg-brand-deep text-white shadow-xs"
@@ -221,7 +234,10 @@ export const CRMCommandCenter: React.FC = () => {
               <div className="relative md:hidden shrink-0" ref={moreMenuRef}>
                 <button
                   type="button"
-                  onClick={() => setIsMoreMenuOpen(!isMoreMenuOpen)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMoreMenuOpen((prev) => !prev);
+                  }}
                   className={`px-2 py-1 rounded-edge text-spec font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                     isMoreTabActive
                       ? "bg-brand-deep text-white shadow-xs"
@@ -243,7 +259,10 @@ export const CRMCommandCenter: React.FC = () => {
                 </button>
 
                 {isMoreMenuOpen && (
-                  <div className="absolute right-0 top-full mt-1 w-48 bg-surface rounded-edge border border-line shadow-lg py-1 z-30 text-spec">
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-edge border border-line shadow-xl py-1 z-50 text-spec"
+                  >
                     <button
                       type="button"
                       onClick={() => {
