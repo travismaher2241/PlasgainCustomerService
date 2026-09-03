@@ -83,8 +83,8 @@ export const NewEnquiryWorkspace: React.FC = () => {
   // Input collapse toggle state (auto-collapses after successful analysis)
   const [isInputExpanded, setIsInputExpanded] = useState<boolean>(!currentEnquiryAnalysis);
   
-  // Metadata collapsible section
-  const [isMetadataExpanded, setIsMetadataExpanded] = useState<boolean>(false);
+  // Metadata collapsible section (open by default to display required Customer Name)
+  const [isMetadataExpanded, setIsMetadataExpanded] = useState<boolean>(true);
 
   // Knowledge retention checkbox (Separate from Analyse)
   const [keepAsKnowledgeReview, setKeepAsKnowledgeReview] = useState<boolean>(false);
@@ -196,6 +196,8 @@ export const NewEnquiryWorkspace: React.FC = () => {
     return `${text.trim().length}:${text.slice(0, 30)}`;
   };
 
+  const hasCustomerName = Boolean(rawEnquiryInput.customer?.trim() || rawEnquiryInput.company?.trim());
+
   const isEnquiryModifiedSinceAnalysis = Boolean(
     currentEnquiryAnalysis &&
     analysisSourceHash &&
@@ -219,6 +221,12 @@ export const NewEnquiryWorkspace: React.FC = () => {
   };
 
   const handleAnalyze = async () => {
+    if (!hasCustomerName) {
+      showToast("Please enter at least a customer name in Customer details before analysing", "warning");
+      setIsMetadataExpanded(true);
+      return;
+    }
+
     const textareaEl = typeof document !== "undefined"
       ? (document.querySelector('textarea[aria-label="Pasted customer email, notes, or RFQ content"]') as HTMLTextAreaElement | null)
       : null;
@@ -841,10 +849,15 @@ export const NewEnquiryWorkspace: React.FC = () => {
             >
               <div className="flex items-center gap-1.5">
                 <Building2 className="w-3.5 h-3.5 text-ink-faint" />
-                <span>Customer details (Optional)</span>
-                {(rawEnquiryInput.company || rawEnquiryInput.customer || rawEnquiryInput.project) && (
+                <span>Customer details</span>
+                <span className="text-red-500 font-bold">*</span>
+                {hasCustomerName ? (
                   <span className="text-brand-deep text-[11px] bg-brand-wash px-2 py-0.5 rounded font-semibold ml-2">
                     {[rawEnquiryInput.company, rawEnquiryInput.customer, rawEnquiryInput.project].filter(Boolean).length} entered
+                  </span>
+                ) : (
+                  <span className="text-amber-700 text-[11px] bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded font-medium ml-2">
+                    Required
                   </span>
                 )}
               </div>
@@ -892,9 +905,12 @@ export const NewEnquiryWorkspace: React.FC = () => {
                 </div>
 
                 <div>
-                  <label htmlFor="contact-name-input" className="block text-spec font-semibold text-ink-dim mb-1">Contact Name</label>
+                  <label htmlFor="contact-name-input" className="block text-spec font-semibold text-ink-dim mb-1">
+                    Customer Name <span className="text-red-500 font-bold">*</span>
+                  </label>
                   <input
                     id="contact-name-input"
+                    aria-label="Customer Name"
                     type="text"
                     value={rawEnquiryInput.customer}
                     onChange={(e) => handleInputChange("customer", e.target.value)}
@@ -959,24 +975,33 @@ export const NewEnquiryWorkspace: React.FC = () => {
           </div>
 
           {/* PART E: ANALYSIS ACTION HIERARCHY */}
-          <div className="flex items-center justify-end pt-3 border-t border-line">
-            <button
-              onClick={handleAnalyze}
-              disabled={isLoading}
-              className="bg-brand-deep hover:bg-brand text-white font-bold px-6 py-2 rounded-edge text-meta transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
-            >
-              {isLoading ? (
-                <>
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>Analysing enquiry...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 text-soon-on-ink" />
-                  <span>Analyse enquiry</span>
-                </>
-              )}
-            </button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 pt-3 border-t border-line">
+            {!hasCustomerName && (
+              <p className="text-xs text-amber-700 font-medium flex items-center gap-1">
+                <span>* Enter a customer name in Customer details to analyse</span>
+              </p>
+            )}
+            <div className="flex items-center justify-end flex-1">
+              <button
+                type="button"
+                onClick={handleAnalyze}
+                disabled={isLoading || !hasCustomerName}
+                title={!hasCustomerName ? "Please enter at least a customer name to analyse enquiry" : "Analyse enquiry"}
+                className="bg-brand-deep hover:bg-brand text-white font-bold px-6 py-2 rounded-edge text-meta transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Analysing enquiry...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 text-soon-on-ink" />
+                    <span>Analyse enquiry</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
           {/* PART O: COMPACT STREAMING PROGRESS STEPPER */}

@@ -150,8 +150,9 @@ describe('NewEnquiryWorkspace Component (Step 3)', () => {
     // 4. One clear primary action
     expect(screen.getByRole('button', { name: /Analyse enquiry/i })).toBeInTheDocument();
 
-    // 5. Metadata does not dominate; Customer details is collapsible
-    expect(screen.getByText(/Customer details \(Optional\)/i)).toBeInTheDocument();
+    // 5. Metadata does not dominate; Customer details is present without optional text
+    expect(screen.getByText(/^Customer details/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Optional/i)).not.toBeInTheDocument();
 
     // 6. No result panels before analysis
     expect(screen.queryByText(/^Consolidated Requirements Matrix$/i)).not.toBeInTheDocument();
@@ -165,6 +166,9 @@ describe('NewEnquiryWorkspace Component (Step 3)', () => {
     fireEvent.change(textarea, {
       target: { value: "Need 24 solar lights for Melton shared pathway, 6m poles, 3000K wildlife friendly." }
     });
+
+    const customerInput = screen.getByLabelText(/Customer Name/i);
+    fireEvent.change(customerInput, { target: { value: "City of Melton Council" } });
 
     const analyseBtn = screen.getByRole('button', { name: /Analyse enquiry/i });
     fireEvent.click(analyseBtn);
@@ -214,6 +218,8 @@ describe('NewEnquiryWorkspace Component (Step 3)', () => {
 
     const textarea = screen.getByLabelText(/Pasted customer email, notes, or RFQ content/i);
     fireEvent.change(textarea, { target: { value: "Test tender content" } });
+    const customerInput = screen.getByLabelText(/Customer Name/i);
+    fireEvent.change(customerInput, { target: { value: "City of Melton Council" } });
     fireEvent.click(screen.getByRole('button', { name: /Analyse enquiry/i }));
 
     await waitFor(() => {
@@ -241,6 +247,8 @@ describe('NewEnquiryWorkspace Component (Step 3)', () => {
 
     const textarea = screen.getByLabelText(/Pasted customer email, notes, or RFQ content/i);
     fireEvent.change(textarea, { target: { value: "Test tender content" } });
+    const customerInput = screen.getByLabelText(/Customer Name/i);
+    fireEvent.change(customerInput, { target: { value: "City of Melton Council" } });
     fireEvent.click(screen.getByRole('button', { name: /Analyse enquiry/i }));
 
     await waitFor(() => {
@@ -260,6 +268,8 @@ describe('NewEnquiryWorkspace Component (Step 3)', () => {
 
     const textarea = screen.getByLabelText(/Pasted customer email, notes, or RFQ content/i);
     fireEvent.change(textarea, { target: { value: "Test tender content" } });
+    const customerInput = screen.getByLabelText(/Customer Name/i);
+    fireEvent.change(customerInput, { target: { value: "City of Melton Council" } });
     fireEvent.click(screen.getByRole('button', { name: /Analyse enquiry/i }));
 
     await waitFor(() => {
@@ -287,6 +297,8 @@ describe('NewEnquiryWorkspace Component (Step 3)', () => {
 
     const textarea = screen.getByLabelText(/Pasted customer email, notes, or RFQ content/i);
     fireEvent.change(textarea, { target: { value: "Test tender content" } });
+    const customerInput = screen.getByLabelText(/Customer Name/i);
+    fireEvent.change(customerInput, { target: { value: "City of Melton Council" } });
     fireEvent.click(screen.getByRole('button', { name: /Analyse enquiry/i }));
 
     await waitFor(() => {
@@ -316,6 +328,8 @@ describe('NewEnquiryWorkspace Component (Step 3)', () => {
 
     const textarea = screen.getByLabelText(/Pasted customer email, notes, or RFQ content/i);
     fireEvent.change(textarea, { target: { value: "Test tender content" } });
+    const customerInput = screen.getByLabelText(/Customer Name/i);
+    fireEvent.change(customerInput, { target: { value: "City of Melton Council" } });
     fireEvent.click(screen.getByRole('button', { name: /Analyse enquiry/i }));
 
     await waitFor(() => {
@@ -336,6 +350,9 @@ describe('NewEnquiryWorkspace Component (Step 3)', () => {
     const textarea = screen.getByLabelText(/Pasted customer email, notes, or RFQ content/i);
     fireEvent.change(textarea, { target: { value: "Preserve this valuable user draft" } });
 
+    const customerInput = screen.getByLabelText(/Customer Name/i);
+    fireEvent.change(customerInput, { target: { value: "City of Melton Council" } });
+
     const file = new File(['test'], 'spec.pdf', { type: 'application/pdf' });
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     fireEvent.change(fileInput, { target: { files: [file] } });
@@ -351,5 +368,37 @@ describe('NewEnquiryWorkspace Component (Step 3)', () => {
       "Preserve this valuable user draft"
     );
     expect(screen.getByText('spec.pdf')).toBeInTheDocument();
+  });
+
+  it('Test 14 — customer details is required: removes optional text and disables Analyse enquiry button until customer name is provided', () => {
+    renderWorkspace();
+
+    // 1. "Optional" text is completely removed
+    expect(screen.getByText(/^Customer details/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Optional/i)).not.toBeInTheDocument();
+
+    const analyseBtn = screen.getByRole('button', { name: /Analyse enquiry/i });
+    const textarea = screen.getByLabelText(/Pasted customer email, notes, or RFQ content/i);
+    const customerInput = screen.getByLabelText(/Customer Name/i);
+
+    // 2. Button is disabled when empty
+    expect(analyseBtn).toBeDisabled();
+
+    // 3. Adding only enquiry text still keeps button disabled because customer name is missing
+    fireEvent.change(textarea, { target: { value: "Enquiry notes without customer name" } });
+    expect(analyseBtn).toBeDisabled();
+
+    // 4. Providing customer name enables the button
+    fireEvent.change(customerInput, { target: { value: "Sarah Jenkins" } });
+    expect(analyseBtn).not.toBeDisabled();
+
+    // 5. Clearing customer name disables the button again
+    fireEvent.change(customerInput, { target: { value: "" } });
+    expect(analyseBtn).toBeDisabled();
+
+    // 6. Providing account / company also satisfies customer identification and enables the button
+    const companyInput = screen.getByLabelText(/Account \/ Company/i);
+    fireEvent.change(companyInput, { target: { value: "Wyndham Civil Group" } });
+    expect(analyseBtn).not.toBeDisabled();
   });
 });
