@@ -1,37 +1,17 @@
 import React, { useState } from "react";
 import {
   CheckCircle2,
-  Clock,
-  Calendar,
-  AlertTriangle,
   Plus,
   Search,
-  Filter,
-  Phone,
-  Mail,
-  User,
-  Building2,
-  Layers,
-  Sparkles,
-  FileText,
-  CheckSquare,
-  Square,
-  CalendarPlus,
-  Trash2,
-  X,
-  ChevronDown,
-  ChevronUp,
-  Circle
+  X
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { CRMTask, TaskPriority, TaskType } from "../../types/crm";
 import { getLocalDateInputValue } from "../../utils/dateUtils";
-import { collapseDuplicateActivities, sortActivitiesChronological, formatActivityTimestamp } from "../../utils/activityUtils";
 
 export const CRMTasksActivitiesView: React.FC = () => {
   const {
     tasks,
-    activities,
     toggleTaskComplete,
     addTask,
     updateTask,
@@ -41,24 +21,16 @@ export const CRMTasksActivitiesView: React.FC = () => {
     setSelectedAccountId,
     setSelectedCrmOpportunityId,
     navigateToCRM,
-    openQuickLog,
     currentUser,
-    teamMembers,
     showToast
   } = useApp();
 
-  const [activeSubTab, setActiveSubTab] = useState<"tasks" | "activities">("tasks");
   const [taskStatusFilter, setTaskStatusFilter] = useState<"open" | "completed" | "all">("open");
   const [taskPriorityFilter, setTaskPriorityFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isBulkSelectMode, setIsBulkSelectMode] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
-
-  // Activity tab state
-  const [activityTypeFilter, setActivityTypeFilter] = useState("all");
-  const [activityUserFilter, setActivityUserFilter] = useState("all");
-  const [expandedActivityIds, setExpandedActivityIds] = useState<Set<string>>(new Set());
 
   const todayStr = getLocalDateInputValue();
 
@@ -86,35 +58,6 @@ export const CRMTasksActivitiesView: React.FC = () => {
 
     return matchesSearch;
   });
-
-  // Filter & Group Activities
-  const filteredActivities = activities.filter((act) => {
-    if (activityTypeFilter !== "all" && act.type !== activityTypeFilter) return false;
-    if (activityUserFilter !== "all" && act.performedBy?.toLowerCase() !== activityUserFilter.toLowerCase()) return false;
-
-    const matchesSearch =
-      act.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (act.description && act.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (act.accountName && act.accountName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (act.performedBy && act.performedBy.toLowerCase().includes(searchQuery.toLowerCase()));
-
-    return matchesSearch;
-  });
-
-  const sortedActivities = sortActivitiesChronological(collapseDuplicateActivities(filteredActivities), "newest");
-
-  // Group activities by date
-  const groupedActivities = sortedActivities.reduce((acc, act) => {
-    const d = act.timestamp ? act.timestamp.split("T")[0] : "Recent";
-    let groupLabel = d;
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
-    if (d === todayStr) groupLabel = "Today";
-    else if (d === yesterday) groupLabel = "Yesterday";
-
-    if (!acc[groupLabel]) acc[groupLabel] = [];
-    acc[groupLabel].push(act);
-    return acc;
-  }, {} as Record<string, typeof sortedActivities>);
 
   const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
@@ -151,56 +94,27 @@ export const CRMTasksActivitiesView: React.FC = () => {
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto pb-16 w-full min-w-0">
-      {/* HEADER & SUB-TABS */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-3">
-        <div className="flex items-center gap-3">
+      {/* HEADER */}
+      <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
+        <div className="flex items-center gap-2.5">
           <h1 className="text-xl sm:text-2xl font-bold text-body tracking-tight">Tasks</h1>
-          <div className="flex items-center rounded-edge border border-line overflow-hidden text-spec font-bold bg-white">
-            <button
-              type="button"
-              onClick={() => setActiveSubTab("tasks")}
-              className={`px-3 py-1 cursor-pointer transition-colors ${
-                activeSubTab === "tasks" ? "bg-brand-deep text-white" : "text-ink-dim hover:text-body"
-              }`}
-            >
-              Tasks ({tasks.filter((t) => t.status !== "Completed").length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveSubTab("activities")}
-              className={`px-3 py-1 cursor-pointer transition-colors ${
-                activeSubTab === "activities" ? "bg-brand-deep text-white" : "text-ink-dim hover:text-body"
-              }`}
-            >
-              Activity Log ({activities.length})
-            </button>
-          </div>
+          <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-paper text-ink-dim border border-line">
+            {tasks.filter((t) => t.status !== "Completed").length} open
+          </span>
         </div>
 
-        {activeSubTab === "tasks" ? (
-          <button
-            type="button"
-            onClick={() => setIsNewTaskModalOpen(true)}
-            className="px-4 py-2 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs self-start sm:self-auto"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add task</span>
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => openQuickLog({ isOpen: true, type: "call" })}
-            className="px-4 py-2 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs self-start sm:self-auto"
-          >
-            <Phone className="w-4 h-4" />
-            <span>Log activity</span>
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setIsNewTaskModalOpen(true)}
+          className="px-4 py-2 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Add task</span>
+        </button>
       </div>
 
-      {/* 1. TASKS VIEW (PART E) */}
-      {activeSubTab === "tasks" && (
-        <div className="space-y-3">
+      {/* TASKS VIEW */}
+      <div className="space-y-3">
           {/* TOOLBAR */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white p-3 rounded-panel border border-line shadow-2xs">
             <div className="flex items-center gap-2 flex-1 flex-wrap">
@@ -391,142 +305,6 @@ export const CRMTasksActivitiesView: React.FC = () => {
             </div>
           )}
         </div>
-      )}
-
-      {/* 2. ACTIVITY LOG VIEW (PART F) */}
-      {activeSubTab === "activities" && (
-        <div className="space-y-3">
-          {/* TOOLBAR */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white p-3 rounded-panel border border-line shadow-2xs">
-            <div className="relative min-w-[220px] flex-1 sm:max-w-xs">
-              <Search className="w-3.5 h-3.5 text-ink-dim absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="Search activity log..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-8 pr-3 py-1.5 text-spec border border-line rounded-edge bg-white placeholder:text-ink-dim/60 focus:border-brand-deep focus:ring-1 focus:ring-brand-deep"
-              />
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <select
-                aria-label="Filter by team member"
-                value={activityUserFilter}
-                onChange={(e) => setActivityUserFilter(e.target.value)}
-                className="p-1.5 text-xs border border-line rounded-edge bg-white text-body font-medium"
-              >
-                <option value="all">All Team Members</option>
-                {teamMembers.map((m) => (
-                  <option key={m.id || m.name} value={m.name}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-
-              <select
-                aria-label="Filter by activity type"
-                value={activityTypeFilter}
-                onChange={(e) => setActivityTypeFilter(e.target.value)}
-                className="p-1.5 text-xs border border-line rounded-edge bg-white text-body font-medium"
-              >
-                <option value="all">All Types</option>
-                <option value="call">Calls</option>
-                <option value="email">Emails</option>
-                <option value="meeting">Meetings</option>
-                <option value="note">Notes</option>
-              </select>
-            </div>
-          </div>
-
-          {/* GROUPED ACTIVITY FEED (PART F) */}
-          {Object.keys(groupedActivities).length === 0 ? (
-            <div className="p-12 text-center space-y-2 bg-white rounded-panel border border-line shadow-2xs">
-              <Clock className="w-10 h-10 text-ink-faint mx-auto" />
-              <h2 className="text-base font-bold text-body">No activity logged</h2>
-              <p className="text-spec text-ink-dim max-w-md mx-auto">
-                Log calls, notes, or meetings to record customer discussions.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {Object.entries(groupedActivities).map(([dayLabel, dayActs]) => (
-                <div key={dayLabel} className="space-y-2">
-                  <span className="text-xs font-bold text-ink-dim uppercase tracking-wider block pl-1">
-                    {dayLabel}
-                  </span>
-
-                  <div className="divide-y divide-line border border-line rounded-panel bg-white shadow-2xs overflow-hidden">
-                    {dayActs.map((act) => {
-                      const isExpanded = expandedActivityIds.has(act.id);
-                      const isCall = act.type === "call" || act.title.toLowerCase().includes("call");
-
-                      return (
-                        <div key={act.id} className="p-3.5 hover:bg-raised/40 transition-colors space-y-1 text-spec">
-                          <div className="flex items-center justify-between text-xs text-ink-dim flex-wrap gap-2">
-                            <div className="flex items-center gap-2">
-                              <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                                isCall ? "bg-sky-50 text-sky-800 border border-sky-200" :
-                                act.type === "email" ? "bg-amber-50 text-amber-800 border border-amber-200" :
-                                "bg-paper text-ink-dim border border-line"
-                              }`}>
-                                {isCall ? "📞 Call" : act.type.replace("_", " ")}
-                              </span>
-                              <span className="font-medium text-body">
-                                Logged by <strong className="text-brand-deep">{act.performedBy || "Sales Rep"}</strong>
-                              </span>
-                            </div>
-                            <span className="font-mono text-ink-dim">{formatActivityTimestamp(act.timestamp)}</span>
-                          </div>
-
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <p className="font-bold text-body">{act.title}</p>
-                            {act.accountName && (
-                              <span
-                                onClick={() => {
-                                  if (act.accountId) {
-                                    setSelectedAccountId(act.accountId);
-                                    navigateToCRM("accounts");
-                                  }
-                                }}
-                                className="text-xs font-semibold text-brand-deep hover:underline cursor-pointer"
-                              >
-                                @ {act.accountName}
-                              </span>
-                            )}
-                          </div>
-
-                          {act.description && (
-                            <div>
-                              <p className={`text-xs text-ink-dim leading-relaxed ${isExpanded ? "" : "line-clamp-2"}`}>
-                                {act.description}
-                              </p>
-                              {act.description.length > 120 && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const next = new Set(expandedActivityIds);
-                                    if (isExpanded) next.delete(act.id);
-                                    else next.add(act.id);
-                                    setExpandedActivityIds(next);
-                                  }}
-                                  className="text-[11px] font-bold text-brand-deep hover:underline mt-0.5 cursor-pointer"
-                                >
-                                  {isExpanded ? "Show less" : "Read full note..."}
-                                </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* NEW TASK MODAL */}
       {isNewTaskModalOpen && (

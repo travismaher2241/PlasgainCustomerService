@@ -163,19 +163,20 @@ describe("CRM Leads, Tasks, Activity & Competitor Pricing Suite (Step 6)", () =>
     expect(screen.getAllByRole('checkbox').length).toBeGreaterThan(0);
   });
 
-  it("Test 3 — Activity log displays grouped items and expandable note preview", () => {
+  it("Test 3 — Tasks view does not display Activity Log sub-tab, remaining purely focused on tasks", () => {
     render(
       <AppProvider>
         <TasksTestWrapper />
       </AppProvider>
     );
 
-    // Switch to Activity Log sub-tab
-    const activityLogTab = screen.getByRole('button', { name: /Activity Log/i });
-    fireEvent.click(activityLogTab);
+    // Activity Log sub-tab is completely removed from Tasks view
+    expect(screen.queryByRole('button', { name: /Activity Log/i })).not.toBeInTheDocument();
 
-    expect(screen.getByText("Design alignment meeting with Cardinia Shire")).toBeInTheDocument();
-    expect(screen.getByText(/Discussed Cat P4 requirements and confirmed 6m pole heights/i)).toBeInTheDocument();
+    // Tasks heading, counter and Add task button are displayed
+    expect(screen.getByRole('heading', { level: 1, name: "Tasks" })).toBeInTheDocument();
+    expect(screen.getAllByText(/open/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByRole('button', { name: /Add task/i })).toBeInTheDocument();
   });
 
   it("Test 4 — Competitor pricing defaults to Current records and preserves commercial evidence", () => {

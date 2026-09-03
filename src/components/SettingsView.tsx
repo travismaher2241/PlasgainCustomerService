@@ -171,24 +171,26 @@ export const SettingsView: React.FC = () => {
           >
             General &amp; Profile
           </button>
-          <button
-            type="button"
-            onClick={() => setSubTab("audit")}
-            className={`px-3.5 py-1.5 cursor-pointer transition-colors flex items-center gap-1.5 ${
-              subTab === "audit" ? "bg-brand-deep text-white" : "text-ink-dim hover:text-body"
-            }`}
-          >
-            <span>Audit Trail</span>
-            <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-              subTab === "audit" ? "bg-white text-brand-deep" : "bg-brand-wash text-brand-deep"
-            }`}>
-              {auditLogs.length}
-            </span>
-          </button>
+          {currentUser.isAdmin && (
+            <button
+              type="button"
+              onClick={() => setSubTab("audit")}
+              className={`px-3.5 py-1.5 cursor-pointer transition-colors flex items-center gap-1.5 ${
+                subTab === "audit" ? "bg-brand-deep text-white" : "text-ink-dim hover:text-body"
+              }`}
+            >
+              <span>Admin Audit Trail</span>
+              <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                subTab === "audit" ? "bg-white text-brand-deep" : "bg-brand-wash text-brand-deep"
+              }`}>
+                {auditLogs.length}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
-      {subTab === "audit" ? (
+      {subTab === "audit" && currentUser.isAdmin ? (
         <AdminAuditLogView />
       ) : (
         <>

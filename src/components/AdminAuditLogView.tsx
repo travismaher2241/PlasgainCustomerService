@@ -196,6 +196,18 @@ export const AdminAuditLogView: React.FC = () => {
     }
   };
 
+  if (!currentUser.isAdmin) {
+    return (
+      <div className="bg-white p-8 rounded-panel border border-line text-center space-y-3 shadow-2xs">
+        <ShieldCheck className="w-8 h-8 text-ink-dim mx-auto" />
+        <h3 className="font-bold text-body text-base">Administrator Access Required</h3>
+        <p className="text-spec text-ink-dim max-w-md mx-auto">
+          The audit trail and change history are restricted to workspace administrators.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 w-full min-w-0">
       {/* HEADER */}
