@@ -130,7 +130,8 @@ describe("CRMAccountsView Component (Step 5)", () => {
 
     expect(screen.getByPlaceholderText(/Search accounts by name/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Filter by account type/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Filter by status or stage/i)).toBeInTheDocument();
+    // No second filter on initial load when All Types is selected
+    expect(screen.queryByLabelText(/Filter by relationship status|Filter by prospect stage|Filter by status or stage/i)).not.toBeInTheDocument();
 
     // Compact row rendered
     expect(screen.getAllByText(/Townsville City Council/i).length).toBeGreaterThanOrEqual(1);
@@ -300,12 +301,12 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(screen.getByText(/Account Type:/i)).toBeInTheDocument();
   });
 
-  it("Test 12 — Filters account list by Account Type and Status/Stage picklists", () => {
+  it("Test 12 — Verifies filter dependency: initial load, conditional reveal, option isolation, switching reset, and returning to All Types", () => {
     const multiAccounts = [
       {
-        id: "acc-council",
+        id: "acc-customer-active",
         name: "Brisbane City Council",
-        accountType: "Council",
+        accountType: "Customer",
         status: "Customer",
         industry: "Government",
         customerSegment: "Local Government / Council",
@@ -315,7 +316,19 @@ describe("CRMAccountsView Component (Step 5)", () => {
         tags: []
       },
       {
-        id: "acc-prospect",
+        id: "acc-customer-developing",
+        name: "Sydney Metro Water",
+        accountType: "Customer",
+        status: "Customer",
+        industry: "Utilities",
+        customerSegment: "Water Authority",
+        territory: "NSW/ACT",
+        accountOwner: "Travis Maher",
+        customerRelationshipStatus: "Developing",
+        tags: []
+      },
+      {
+        id: "acc-prospect-engaged",
         name: "Apex Civil Contracting",
         accountType: "Prospect",
         status: "Prospect",
@@ -327,15 +340,15 @@ describe("CRMAccountsView Component (Step 5)", () => {
         tags: []
       },
       {
-        id: "acc-account",
-        name: "Rexel Electrical Supplies",
-        accountType: "Account",
-        status: "Customer",
-        industry: "Wholesale",
-        customerSegment: "Electrical Wholesaler / Distributor",
+        id: "acc-prospect-nurture",
+        name: "Pioneer Roadworks",
+        accountType: "Prospect",
+        status: "Prospect",
+        industry: "Civil Infrastructure",
+        customerSegment: "Civil Contractor",
         territory: "VIC/TAS",
         accountOwner: "Travis Maher",
-        customerRelationshipStatus: "Developing",
+        prospectStage: "Nurture",
         tags: []
       }
     ];
@@ -346,30 +359,86 @@ describe("CRMAccountsView Component (Step 5)", () => {
       </AppProvider>
     );
 
-    // All 3 initially rendered in list or summary
-    expect(screen.getAllByText("Brisbane City Council").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("Apex Civil Contracting").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText("Rexel Electrical Supplies").length).toBeGreaterThanOrEqual(1);
-
-    // Filter by Prospect
+    // 1. Initial page load: only All Types filter is present
     const typeFilter = screen.getByLabelText(/Filter by account type/i);
-    fireEvent.change(typeFilter, { target: { value: "Prospect" } });
+    expect(typeFilter).toBeInTheDocument();
+    expect(typeFilter).toHaveValue("all");
+    expect(screen.queryByLabelText(/Filter by relationship status/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Filter by prospect stage/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/All Statuses & Stages/i)).not.toBeInTheDocument();
 
-    expect(screen.queryByText("Brisbane City Council")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Apex Civil Contracting").length).toBeGreaterThanOrEqual(1);
-    expect(screen.queryByText("Rexel Electrical Supplies")).not.toBeInTheDocument();
-
-    // Prospect stage badge rendered
-    expect(screen.getAllByText("Engaged").length).toBeGreaterThanOrEqual(1);
-
-    // Filter by Council
-    fireEvent.change(typeFilter, { target: { value: "Council" } });
+    // All accounts visible initially
     expect(screen.getAllByText("Brisbane City Council").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Sydney Metro Water").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Apex Civil Contracting").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Pioneer Roadworks").length).toBeGreaterThanOrEqual(1);
+
+    // 2. Select Customer -> reveals "All Relationship Statuses"
+    fireEvent.change(typeFilter, { target: { value: "Customer" } });
+    const relStatusFilter = screen.getByLabelText(/Filter by relationship status/i);
+    expect(relStatusFilter).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Filter by prospect stage/i)).not.toBeInTheDocument();
+
+    // Verify Customer filter contains ONLY Customer Relationship Status options
+    const relOptions = Array.from(relStatusFilter.querySelectorAll("option")).map((o) => o.textContent);
+    expect(relOptions).toEqual([
+      "All Relationship Statuses",
+      "Active",
+      "Developing",
+      "Occasional",
+      "At Risk",
+      "Dormant"
+    ]);
+    expect(relOptions).not.toContain("Identified");
+    expect(relOptions).not.toContain("Engaged");
+
+    // Filter Customer + Developing
+    fireEvent.change(relStatusFilter, { target: { value: "Developing" } });
+    expect(screen.queryByText("Brisbane City Council")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Sydney Metro Water").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("Apex Civil Contracting")).not.toBeInTheDocument();
 
-    // Filter by Account
-    fireEvent.change(typeFilter, { target: { value: "Account" } });
-    expect(screen.getAllByText("Rexel Electrical Supplies").length).toBeGreaterThanOrEqual(1);
+    // 3. Switch Customer -> Prospect
+    fireEvent.change(typeFilter, { target: { value: "Prospect" } });
+    expect(screen.queryByLabelText(/Filter by relationship status/i)).not.toBeInTheDocument();
+    const prospectStageFilter = screen.getByLabelText(/Filter by prospect stage/i);
+    expect(prospectStageFilter).toBeInTheDocument();
+
+    // Previous "Developing" filter was reset to "all"
+    expect(prospectStageFilter).toHaveValue("all");
+    expect(screen.getAllByText("Apex Civil Contracting").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Pioneer Roadworks").length).toBeGreaterThanOrEqual(1);
+
+    // Verify Prospect filter contains ONLY Prospect Stage options
+    const stageOptions = Array.from(prospectStageFilter.querySelectorAll("option")).map((o) => o.textContent);
+    expect(stageOptions).toEqual([
+      "All Prospect Stages",
+      "Identified",
+      "Researching",
+      "Contacting",
+      "Engaged",
+      "Opportunity Identified",
+      "Nurture",
+      "Not Pursuing"
+    ]);
+    expect(stageOptions).not.toContain("Active");
+    expect(stageOptions).not.toContain("Developing");
+
+    // Filter Prospect + Engaged
+    fireEvent.change(prospectStageFilter, { target: { value: "Engaged" } });
+    expect(screen.getAllByText("Apex Civil Contracting").length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryByText("Pioneer Roadworks")).not.toBeInTheDocument();
+
+    // 4. Return to All Types
+    fireEvent.change(typeFilter, { target: { value: "all" } });
+    expect(screen.queryByLabelText(/Filter by prospect stage/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Filter by relationship status/i)).not.toBeInTheDocument();
+
+    // All accounts visible again
+    expect(screen.getAllByText("Brisbane City Council").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Sydney Metro Water").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Apex Civil Contracting").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("Pioneer Roadworks").length).toBeGreaterThanOrEqual(1);
   });
 
   it("Test 13 — Creating a new account conditionally requires Prospect Stage or Customer Relationship Status", () => {

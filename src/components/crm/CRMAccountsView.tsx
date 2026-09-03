@@ -263,14 +263,20 @@ export const CRMAccountsView: React.FC = () => {
       (acc.tradingName && acc.tradingName.toLowerCase().includes(searchQuery.toLowerCase())) ||
       acc.industry.toLowerCase().includes(searchQuery.toLowerCase()) ||
       acc.territory.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType =
-      accountTypeFilter === "all" ||
-      (acc.accountType || "Prospect") === accountTypeFilter;
-    const matchesStatus =
-      statusFilter === "all" ||
-      acc.customerRelationshipStatus === statusFilter ||
-      acc.prospectStage === statusFilter;
-    return matchesArchive && matchesSearch && matchesType && matchesStatus;
+    let matchesTypeAndStatus = true;
+    if (accountTypeFilter === "all") {
+      matchesTypeAndStatus = true;
+    } else if (accountTypeFilter === "Prospect") {
+      const isProspect = (acc.accountType || "Prospect") === "Prospect";
+      const matchesStage = statusFilter === "all" || (acc.prospectStage || "Identified") === statusFilter;
+      matchesTypeAndStatus = isProspect && matchesStage;
+    } else {
+      const matchesType = (acc.accountType || "Prospect") === accountTypeFilter;
+      const matchesStatus = statusFilter === "all" || (acc.customerRelationshipStatus || "Active") === statusFilter;
+      matchesTypeAndStatus = matchesType && matchesStatus;
+    }
+
+    return matchesArchive && matchesSearch && matchesTypeAndStatus;
   });
 
   const selectedAccount =
@@ -831,7 +837,7 @@ export const CRMAccountsView: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className={accountTypeFilter === "all" ? "w-full" : "grid grid-cols-1 sm:grid-cols-2 gap-2"}>
               <select
                 aria-label="Filter by account type"
                 value={accountTypeFilter}
@@ -840,65 +846,48 @@ export const CRMAccountsView: React.FC = () => {
                   setAccountTypeFilter(val);
                   setStatusFilter("all");
                 }}
-                className="p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-semibold"
+                className="w-full p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-semibold"
               >
                 <option value="all">All Types</option>
-                <option value="Prospect">Prospect</option>
                 <option value="Customer">Customer</option>
+                <option value="Prospect">Prospect</option>
                 <option value="Council">Council</option>
                 <option value="Account">Account</option>
               </select>
 
-              <select
-                aria-label="Filter by status or stage"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-medium"
-              >
-                {accountTypeFilter === "all" && (
-                  <>
-                    <option value="all">All Statuses &amp; Stages</option>
-                    <optgroup label="Customer Relationship Status">
-                      <option value="Active">Active</option>
-                      <option value="Developing">Developing</option>
-                      <option value="Occasional">Occasional</option>
-                      <option value="At Risk">At Risk</option>
-                      <option value="Dormant">Dormant</option>
-                    </optgroup>
-                    <optgroup label="Prospect Stage">
-                      <option value="Identified">Identified</option>
-                      <option value="Researching">Researching</option>
-                      <option value="Contacting">Contacting</option>
-                      <option value="Engaged">Engaged</option>
-                      <option value="Opportunity Identified">Opportunity Identified</option>
-                      <option value="Nurture">Nurture</option>
-                      <option value="Not Pursuing">Not Pursuing</option>
-                    </optgroup>
-                  </>
-                )}
-                {accountTypeFilter === "Prospect" && (
-                  <>
-                    <option value="all">All Prospect Stages</option>
-                    <option value="Identified">Identified</option>
-                    <option value="Researching">Researching</option>
-                    <option value="Contacting">Contacting</option>
-                    <option value="Engaged">Engaged</option>
-                    <option value="Opportunity Identified">Opportunity Identified</option>
-                    <option value="Nurture">Nurture</option>
-                    <option value="Not Pursuing">Not Pursuing</option>
-                  </>
-                )}
-                {accountTypeFilter !== "all" && accountTypeFilter !== "Prospect" && (
-                  <>
-                    <option value="all">All Relationship Statuses</option>
-                    <option value="Active">Active</option>
-                    <option value="Developing">Developing</option>
-                    <option value="Occasional">Occasional</option>
-                    <option value="At Risk">At Risk</option>
-                    <option value="Dormant">Dormant</option>
-                  </>
-                )}
-              </select>
+              {accountTypeFilter === "Prospect" && (
+                <select
+                  aria-label="Filter by prospect stage"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-medium"
+                >
+                  <option value="all">All Prospect Stages</option>
+                  <option value="Identified">Identified</option>
+                  <option value="Researching">Researching</option>
+                  <option value="Contacting">Contacting</option>
+                  <option value="Engaged">Engaged</option>
+                  <option value="Opportunity Identified">Opportunity Identified</option>
+                  <option value="Nurture">Nurture</option>
+                  <option value="Not Pursuing">Not Pursuing</option>
+                </select>
+              )}
+
+              {accountTypeFilter !== "all" && accountTypeFilter !== "Prospect" && (
+                <select
+                  aria-label="Filter by relationship status"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-medium"
+                >
+                  <option value="all">All Relationship Statuses</option>
+                  <option value="Active">Active</option>
+                  <option value="Developing">Developing</option>
+                  <option value="Occasional">Occasional</option>
+                  <option value="At Risk">At Risk</option>
+                  <option value="Dormant">Dormant</option>
+                </select>
+              )}
             </div>
           </div>
 
