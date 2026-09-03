@@ -50,6 +50,7 @@ export const CRMPipelineView: React.FC = () => {
     activePipelineId,
     setActivePipelineId,
     accounts,
+    contacts,
     openQuickLog,
     openCallPrep,
     openEmailComposer,
@@ -69,13 +70,27 @@ export const CRMPipelineView: React.FC = () => {
   const [isNewDealModalOpen, setIsNewDealModalOpen] = useState(false);
   const [newDealForm, setNewDealForm] = useState({
     name: "",
+    quoteNumber: "",
     accountId: accounts[0]?.id || "",
+    primaryContactId: "",
     dealValue: 25000,
-    stageName: "Discovery & Qualification" as const,
+    stageName: "Proposal & Quoting" as const,
     expectedCloseDate: new Date(Date.now() + 45 * 86400000).toISOString().split("T")[0],
     projectApplication: "Solar Public Lighting",
     notes: ""
   });
+
+  const selectedPipelineAccount = accounts.find((a) => a.id === (newDealForm.accountId || accounts[0]?.id));
+  const pipelineAccountContacts = useMemo(() => {
+    if (!selectedPipelineAccount) return [];
+    return contacts.filter(
+      (c) =>
+        c.accountId === selectedPipelineAccount.id ||
+        (Boolean(selectedPipelineAccount.name) &&
+          Boolean(c.company) &&
+          c.company.trim().toLowerCase() === selectedPipelineAccount.name.trim().toLowerCase())
+    );
+  }, [contacts, selectedPipelineAccount]);
 
   const selectedDeal = crmOpportunities.find((d) => d.id === selectedCrmOpportunityId);
 
@@ -109,41 +124,47 @@ export const CRMPipelineView: React.FC = () => {
     if (!newDealForm.name.trim()) return;
 
     const acc = accounts.find((a) => a.id === newDealForm.accountId) || accounts[0];
+    const matchedContact = pipelineAccountContacts.find((c) => c.id === newDealForm.primaryContactId) || pipelineAccountContacts[0];
 
     const newDeal: CRMOpportunity = {
       id: `opp-${Date.now()}`,
-      name: newDealForm.name,
+      name: newDealForm.name.trim(),
+      quoteNumber: newDealForm.quoteNumber ? newDealForm.quoteNumber.trim() : undefined,
       accountId: acc?.id || "acc-general",
       accountName: acc?.name || "General Account",
+      primaryContactId: matchedContact?.id || "",
+      primaryContactName: matchedContact?.name || "",
+      primaryContactEmail: matchedContact?.email,
+      primaryContactPhone: matchedContact?.phone,
       opportunityOwner: currentUser.name,
       pipelineId: "pipe-major-projects",
-      stageId: "stage-discovery",
-      stageName: newDealForm.stageName,
+      stageId: "stage-proposal",
+      stageName: newDealForm.stageName || "Proposal & Quoting",
       dealValue: Number(newDealForm.dealValue) || 0,
-      weightedValue: (Number(newDealForm.dealValue) || 0) * 0.25,
-      probability: 25,
+      weightedValue: (Number(newDealForm.dealValue) || 0) * 0.5,
+      probability: 50,
       forecastCategory: "Pipeline",
       expectedCloseDate: newDealForm.expectedCloseDate,
       products: [],
       projectApplication: newDealForm.projectApplication,
-      location: acc?.territory || "VIC",
+      location: acc?.territory || "VIC/TAS",
       customerNeed: newDealForm.notes,
       keyRequirements: ["Verify AS/NZS 1158 compliance"],
       source: "Direct Sales Opportunity",
-      latestActivity: `Created by ${currentUser.name}`,
+      latestActivity: `Quote created by ${currentUser.name}`,
       latestActivityDate: new Date().toISOString().split("T")[0],
-      nextAction: "Initial scope consultation and photometric requirements",
-      nextActionDate: new Date().toISOString().split("T")[0],
+      nextAction: "Issue quotation package and schedule follow-up",
+      nextActionDate: newDealForm.expectedCloseDate,
       daysInCurrentStage: 0,
       totalDealAgeDays: 0,
       dealHealth: "Healthy",
-      dealHealthReasons: ["New opportunity"],
+      dealHealthReasons: ["New quote"],
       notes: newDealForm.notes
     };
 
     addCrmOpportunity(newDeal);
     setIsNewDealModalOpen(false);
-    showToast(`Deal "${newDeal.name}" created!`, "success");
+    showToast(`Quote "${newDeal.name}" created!`, "success");
   };
 
   const getHealthBadge = (health?: DealHealthRating) => {
@@ -409,22 +430,31 @@ export const CRMPipelineView: React.FC = () => {
 
             <form onSubmit={handleCreateDeal} className="space-y-3">
               <div>
-                <label className="block text-spec font-bold mb-1">Deal Name *</label>
-                <input
-                  required
-                  value={newDealForm.name}
-                  onChange={(e) => setNewDealForm({ ...newDealForm, name: e.target.value })}
-                  className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  placeholder="e.g. Wyndham Regional Park Solar Lighting"
-                />
-              </div>
-
-              <div>
-                <label className="block text-spec font-bold mb-1">Account *</label>
+                <label htmlFor="pipeline-quote-account" className="block text-spec font-bold mb-1">
+                  Customer / Account *
+                </label>
                 <select
+                  id="pipeline-quote-account"
                   required
                   value={newDealForm.accountId}
-                  onChange={(e) => setNewDealForm({ ...newDealForm, accountId: e.target.value })}
+                  onChange={(e) => {
+                    const nextAccId = e.target.value;
+                    const nextAcc = accounts.find((a) => a.id === nextAccId);
+                    const nextContacts = nextAcc
+                      ? contacts.filter(
+                          (c) =>
+                            c.accountId === nextAcc.id ||
+                            (Boolean(nextAcc.name) &&
+                              Boolean(c.company) &&
+                              c.company.trim().toLowerCase() === nextAcc.name.trim().toLowerCase())
+                        )
+                      : [];
+                    setNewDealForm((prev) => ({
+                      ...prev,
+                      accountId: nextAccId,
+                      primaryContactId: nextContacts[0]?.id || ""
+                    }));
+                  }}
                   className="w-full p-2 border border-line rounded-edge bg-white text-spec"
                 >
                   {accounts.map((acc) => (
@@ -435,10 +465,27 @@ export const CRMPipelineView: React.FC = () => {
                 </select>
               </div>
 
+              <div>
+                <label htmlFor="pipeline-quote-name" className="block text-spec font-bold mb-1">
+                  Quote / Tender Name *
+                </label>
+                <input
+                  id="pipeline-quote-name"
+                  required
+                  value={newDealForm.name}
+                  onChange={(e) => setNewDealForm({ ...newDealForm, name: e.target.value })}
+                  className="w-full p-2 border border-line rounded-edge bg-white text-spec"
+                  placeholder="e.g. Wyndham Regional Park Solar Lighting"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-spec font-bold mb-1">Value ($ Ex GST)</label>
+                  <label htmlFor="pipeline-quote-val" className="block text-spec font-bold mb-1">
+                    $ Value
+                  </label>
                   <input
+                    id="pipeline-quote-val"
                     type="number"
                     min={0}
                     required
@@ -449,16 +496,52 @@ export const CRMPipelineView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-spec font-bold mb-1">Stage</label>
+                  <label htmlFor="pipeline-quote-num" className="block text-spec font-bold mb-1">
+                    Quote Number
+                  </label>
+                  <input
+                    id="pipeline-quote-num"
+                    type="text"
+                    value={newDealForm.quoteNumber}
+                    onChange={(e) => setNewDealForm({ ...newDealForm, quoteNumber: e.target.value })}
+                    placeholder="e.g. Q-2026-108"
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="pipeline-quote-followup" className="block text-spec font-bold mb-1">
+                    Follow Up Date
+                  </label>
+                  <input
+                    id="pipeline-quote-followup"
+                    type="date"
+                    value={newDealForm.expectedCloseDate}
+                    onChange={(e) => setNewDealForm({ ...newDealForm, expectedCloseDate: e.target.value })}
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="pipeline-quote-contact" className="block text-spec font-bold mb-1">
+                    Contact Name
+                  </label>
                   <select
-                    value={newDealForm.stageName}
-                    onChange={(e) => setNewDealForm({ ...newDealForm, stageName: e.target.value as any })}
+                    id="pipeline-quote-contact"
+                    value={newDealForm.primaryContactId}
+                    onChange={(e) => setNewDealForm({ ...newDealForm, primaryContactId: e.target.value })}
                     className="w-full p-2 border border-line rounded-edge bg-white text-spec"
                   >
-                    <option>Discovery &amp; Qualification</option>
-                    <option>Design &amp; Compliance</option>
-                    <option>Proposal &amp; Quoting</option>
-                    <option>Negotiation &amp; Review</option>
+                    <option value="">
+                      {pipelineAccountContacts.length > 0 ? "Select contact..." : "No contacts for this customer"}
+                    </option>
+                    {pipelineAccountContacts.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}{c.role ? ` (${c.role})` : ""}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -467,15 +550,15 @@ export const CRMPipelineView: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setIsNewDealModalOpen(false)}
-                  className="px-3 py-1.5 border border-line rounded-edge text-spec font-medium"
+                  className="px-3 py-1.5 border border-line rounded-edge text-spec font-medium cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge"
+                  className="px-4 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge cursor-pointer"
                 >
-                  Create Deal
+                  Create Quote
                 </button>
               </div>
             </form>

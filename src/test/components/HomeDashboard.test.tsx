@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { HomeDashboard } from '../../components/HomeDashboard';
 import { AppProvider } from '../../context/AppContext';
@@ -60,5 +60,24 @@ describe('HomeDashboard Step 8 Suite', () => {
     expect(screen.getByText(/Bendigo Heritage Park Upgrade/i)).toBeInTheDocument();
     const openButtons = screen.getAllByRole('button', { name: /Open/i });
     expect(openButtons.length).toBe(1);
+  });
+
+  it('opens Create New Quote modal directly on dashboard when clicking New quote', () => {
+    render(
+      <AppProvider>
+        <HomeDashboard />
+      </AppProvider>
+    );
+
+    const newQuoteBtn = screen.getByRole('button', { name: /New quote/i });
+    fireEvent.click(newQuoteBtn);
+
+    expect(screen.getByRole('dialog', { name: /Create New Quote/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Customer \/ Account/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/\$ Value/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Quote Number/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Follow Up Date/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Contact Name/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Create Quote/i })).toBeInTheDocument();
   });
 });
