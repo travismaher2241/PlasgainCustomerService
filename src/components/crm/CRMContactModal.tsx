@@ -41,7 +41,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
   accountWebsite,
   accountOwner
 }) => {
-  const { currentUser, contacts, showToast } = useApp();
+  const { currentUser, contacts, showToast, moveContact } = useApp();
   const isEditMode = !!contactToEdit;
   const [duplicateMatch, setDuplicateMatch] = useState<DuplicateMatchResult<CRMContact> | null>(null);
   const [pendingContactPayload, setPendingContactPayload] = useState<Omit<CRMContact, "id"> | null>(null);
@@ -739,6 +739,22 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
           entityType="Contact"
           candidateName={`${pendingContactPayload.firstName} ${pendingContactPayload.lastName}`}
           matchResult={duplicateMatch}
+          targetAccountName={accountName}
+          onMoveContact={
+            duplicateMatch.existingRecord.accountId !== accountId
+              ? (existingCon) => {
+                  moveContact(existingCon.id, accountId, `Moved to ${accountName} during contact creation`, {
+                    role: pendingContactPayload.jobTitle,
+                    email: pendingContactPayload.email,
+                    phone: pendingContactPayload.phone || pendingContactPayload.mobile
+                  });
+                  setIsDuplicateModalOpen(false);
+                  setDuplicateMatch(null);
+                  setPendingContactPayload(null);
+                  onClose();
+                }
+              : undefined
+          }
           onOpenExisting={(existingCon) => {
             onClose();
             showToast(`Contact "${existingCon.firstName} ${existingCon.lastName}" already exists on file.`, "info");

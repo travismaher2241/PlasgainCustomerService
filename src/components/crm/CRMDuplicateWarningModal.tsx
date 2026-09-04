@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertTriangle, Check, ExternalLink, ShieldAlert, X } from "lucide-react";
+import { AlertTriangle, ArrowRightLeft, Check, ExternalLink, ShieldAlert, X } from "lucide-react";
 import { DuplicateConfidence, DuplicateMatchResult } from "../../utils/duplicateDetector";
 import { saveDocToCloud } from "../../utils/firebase";
 
@@ -12,6 +12,8 @@ interface CRMDuplicateWarningModalProps<T> {
   onOpenExisting: (record: T) => void;
   onUseExisting: (record: T) => void;
   onCreateAnyway: () => void;
+  onMoveContact?: (record: T) => void;
+  targetAccountName?: string;
 }
 
 export function CRMDuplicateWarningModal<T extends Record<string, any>>({
@@ -22,7 +24,9 @@ export function CRMDuplicateWarningModal<T extends Record<string, any>>({
   matchResult,
   onOpenExisting,
   onUseExisting,
-  onCreateAnyway
+  onCreateAnyway,
+  onMoveContact,
+  targetAccountName
 }: CRMDuplicateWarningModalProps<T>) {
   if (!isOpen || !matchResult) return null;
 
@@ -106,14 +110,19 @@ export function CRMDuplicateWarningModal<T extends Record<string, any>>({
                 {existingName}
               </p>
               <p className="text-spec text-ink-muted">
-                {existingRecord.id ? `ID: ${existingRecord.id}` : "Active CRM Record"}
+                {existingRecord.accountName
+                  ? `Company: ${existingRecord.accountName}`
+                  : existingRecord.id
+                  ? `ID: ${existingRecord.id}`
+                  : "Active CRM Record"}
               </p>
             </div>
           </div>
 
           <p className="text-spec text-ink-dim leading-relaxed">
-            To maintain clean CRM data integrity, you can attach to the existing {entityType} or view its full history.
-            If this is a genuinely separate entity, you may create it anyway.
+            {onMoveContact && targetAccountName
+              ? `This person is already registered under "${existingRecord.accountName || "another account"}". You can move them to "${targetAccountName}" while keeping their entire relationship history intact.`
+              : `To maintain clean CRM data integrity, you can attach to the existing ${entityType} or view its full history. If this is a genuinely separate entity, you may create it anyway.`}
           </p>
         </div>
 
@@ -140,7 +149,7 @@ export function CRMDuplicateWarningModal<T extends Record<string, any>>({
             Create Anyway
           </button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => {
                 onOpenExisting(existingRecord);
@@ -152,16 +161,29 @@ export function CRMDuplicateWarningModal<T extends Record<string, any>>({
               <span>Open Existing</span>
             </button>
 
-            <button
-              onClick={() => {
-                onUseExisting(existingRecord);
-                onClose();
-              }}
-              className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-xs flex items-center gap-1.5 cursor-pointer"
-            >
-              <Check className="w-3.5 h-3.5" />
-              <span>Use Existing {entityType}</span>
-            </button>
+            {onMoveContact ? (
+              <button
+                onClick={() => {
+                  onMoveContact(existingRecord);
+                  onClose();
+                }}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-meta rounded-edge shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+                <span>Move to {targetAccountName || "This Account"}</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  onUseExisting(existingRecord);
+                  onClose();
+                }}
+                className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-meta rounded-edge shadow-xs flex items-center gap-1.5 cursor-pointer"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>Use Existing {entityType}</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

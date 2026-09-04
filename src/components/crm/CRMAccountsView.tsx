@@ -39,7 +39,9 @@ import {
   RefreshCw,
   X,
   PhoneCall,
-  Check
+  Check,
+  ArrowRightLeft,
+  History
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import {
@@ -48,18 +50,24 @@ import {
   AccountType,
   CRMContact,
   CRMOpportunity,
-  CustomerRelationshipStatus,
-  ProspectStage,
-  CompetitorPricingRecord,
+  CRMActivity,
+  CRMTask,
+  ForecastCategory,
+  DealHealthRating,
+  ActivityType,
   CompetitorPriceBasis,
   CompetitorGstStatus,
   CompetitorSourceType,
+  CRMKnowledgeItem,
+  CustomerRelationshipStatus,
+  ProspectStage,
+  CompetitorPricingRecord,
   CompetitorPricingStatus,
   AccountIntelligenceSummary
 } from "../../types/crm";
-import { CRMContactModal } from "./CRMContactModal";
 import { getLocalDateInputValue } from "../../utils/dateUtils";
 import { sortActivitiesChronological, formatActivityTimestamp } from "../../utils/activityUtils";
+import { CRMContactModal } from "./CRMContactModal";
 import { accountIntelligenceCache, generateAccountSourceHash } from "../../utils/accountIntelligenceCache";
 import { detectDuplicateAccount, DuplicateMatchResult } from "../../utils/duplicateDetector";
 import { CRMDuplicateWarningModal } from "./CRMDuplicateWarningModal";
@@ -79,6 +87,14 @@ export const CRMAccountsView: React.FC = () => {
     addContact,
     updateContact,
     deleteContact,
+    moveContact,
+    archiveContact,
+    restoreContact,
+    confirmCandidateNotableEvent,
+    dismissCandidateNotableEvent,
+    knowledge,
+    updateKnowledgeItem,
+    archiveKnowledgeItem,
     addCrmOpportunity,
     setSelectedCrmOpportunityId,
     openQuickLog,
@@ -109,6 +125,36 @@ export const CRMAccountsView: React.FC = () => {
 
   // Selected contact for detail drawer
   const [drawerContact, setDrawerContact] = useState<CRMContact | null>(null);
+
+  // Contact reallocation state
+  const [showArchivedContacts, setShowArchivedContacts] = useState(false);
+  const [contactToMove, setContactToMove] = useState<CRMContact | null>(null);
+  const [targetMoveAccountId, setTargetMoveAccountId] = useState("");
+  const [moveReason, setMoveReason] = useState("");
+  const [moveNewRole, setMoveNewRole] = useState("");
+  const [moveNewEmail, setMoveNewEmail] = useState("");
+  const [moveNewPhone, setMoveNewPhone] = useState("");
+
+  const openMoveModal = (c: CRMContact) => {
+    setContactToMove(c);
+    const dest = accounts.find((a) => a.id !== c.accountId)?.id || "";
+    setTargetMoveAccountId(dest);
+    setMoveReason("");
+    setMoveNewRole(c.role || c.jobTitle || "");
+    setMoveNewEmail(c.email || "");
+    setMoveNewPhone(c.phone || c.mobile || "");
+  };
+
+  const handleExecuteMoveContact = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!contactToMove || !targetMoveAccountId) return;
+    moveContact(contactToMove.id, targetMoveAccountId, moveReason, {
+      role: moveNewRole,
+      email: moveNewEmail,
+      phone: moveNewPhone
+    });
+    setContactToMove(null);
+  };
 
   // Header management menu
   const [isHeaderMenuOpen, setIsHeaderMenuOpen] = useState(false);
@@ -325,10 +371,24 @@ export const CRMAccountsView: React.FC = () => {
 
   const accountContacts = contacts.filter(
     (c) =>
-      c.accountId === selectedAccount?.id ||
-      (Boolean(selectedAccount?.name) &&
-        Boolean(c.accountName) &&
-        c.accountName.trim().toLowerCase() === selectedAccount?.name.trim().toLowerCase())
+      (c.accountId === selectedAccount?.id ||
+        (Boolean(selectedAccount?.name) &&
+          Boolean(c.accountName) &&
+          c.accountName.trim().toLowerCase() === selectedAccount?.name.trim().toLowerCase())) &&
+      (showArchivedContacts ? true : !c.isArchived)
+  );
+
+  const archivedContactsCount = contacts.filter(
+    (c) =>
+      (c.accountId === selectedAccount?.id ||
+        (Boolean(selectedAccount?.name) &&
+          Boolean(c.accountName) &&
+          c.accountName.trim().toLowerCase() === selectedAccount?.name.trim().toLowerCase())) &&
+      c.isArchived
+  ).length;
+
+  const accountKnowledge = knowledge.filter(
+    (k) => k.accountId === selectedAccount?.id && k.status === "active"
   );
   const accountDeals = crmOpportunities.filter((d) => d.accountId === selectedAccount?.id);
   const accountActivities = sortActivitiesChronological(
@@ -1360,6 +1420,44 @@ export const CRMAccountsView: React.FC = () => {
                       </p>
                     </div>
 
+                    {/* ACCUMULATED CRM KNOWLEDGE BASE */}
+                    {accountKnowledge.length > 0 && (
+                      <div className="bg-white border border-line rounded-panel p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-brand-deep" />
+                            <h3 className="text-spec font-bold text-body">
+                              Accumulated CRM Knowledge ({accountKnowledge.length})
+                            </h3>
+                          </div>
+                          <span className="text-xs text-ink-dim">Sourced from customer interactions</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          {accountKnowledge.map((k) => (
+                            <div key={k.id} className="p-2.5 bg-paper rounded-edge border border-line space-y-1 text-xs">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="font-bold text-brand-deep text-[11px] uppercase tracking-wider">{k.category}</span>
+                                <span className="text-[10px] text-ink-dim">Confirmed: {k.lastConfirmedAt}</span>
+                              </div>
+                              <p className="text-body font-medium text-spec leading-relaxed">{k.statement}</p>
+                              <div className="flex items-center justify-between pt-1 border-t border-line/40 text-[10px] text-ink-dim">
+                                <span>Source: {k.sourceActivityType || "activity"}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => archiveKnowledgeItem(k.id)}
+                                  className="text-ink-dim hover:text-red-700 cursor-pointer"
+                                  title="Archive knowledge item"
+                                >
+                                  Archive
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* ACTIVE DEALS SUMMARY */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
@@ -1476,22 +1574,33 @@ export const CRMAccountsView: React.FC = () => {
                 {/* 2. CONTACTS TAB (PART H & I) */}
                 {activeAccountTab === "contacts" && (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div>
                         <h3 className="text-base font-bold text-body">Contacts</h3>
                         <p className="text-spec text-ink-dim">Direct customer stakeholders, procurement leads, and engineers.</p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setContactToEdit(null);
-                          setIsContactModalOpen(true);
-                        }}
-                        className="px-3 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add contact</span>
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {archivedContactsCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setShowArchivedContacts(!showArchivedContacts)}
+                            className="text-xs px-2.5 py-1 text-ink-dim hover:text-body border border-line rounded cursor-pointer font-medium bg-white"
+                          >
+                            {showArchivedContacts ? "Hide Archived" : `Archived (${archivedContactsCount})`}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setContactToEdit(null);
+                            setIsContactModalOpen(true);
+                          }}
+                          className="px-3 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add contact</span>
+                        </button>
+                      </div>
                     </div>
 
                     {accountContacts.length === 0 ? (
@@ -1516,6 +1625,11 @@ export const CRMAccountsView: React.FC = () => {
                               <div className="space-y-1.5 min-w-0 flex-1">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <h4 className="font-bold text-body text-spec">{displayName}</h4>
+                                  {contact.isArchived && (
+                                    <span className="text-[10px] px-1.5 py-0.5 font-bold rounded bg-slate-100 text-slate-600 border border-slate-300">
+                                      Archived
+                                    </span>
+                                  )}
                                 </div>
                                 <p className="text-xs text-ink-dim font-medium">
                                   {contact.jobTitle || contact.role || "Contact"} {contact.department ? `· ${contact.department}` : ""}
@@ -1528,6 +1642,14 @@ export const CRMAccountsView: React.FC = () => {
                                     <span>{contact.mobile || contact.phone}</span>
                                   )}
                                 </div>
+
+                                {contact.accountHistory && contact.accountHistory.length > 0 && (
+                                  <div className="text-[11px] text-ink-dim flex items-center gap-1 pt-0.5">
+                                    <span className="font-semibold text-body">Previous:</span>
+                                    <span>{contact.accountHistory[contact.accountHistory.length - 1].accountName}</span>
+                                    <span className="text-ink-faint">({contact.accountHistory[contact.accountHistory.length - 1].endDate})</span>
+                                  </div>
+                                )}
 
                                 {hasPersonal && (
                                   <div className="flex items-center gap-2 text-[11px] text-ink-dim flex-wrap pt-1">
@@ -1561,7 +1683,25 @@ export const CRMAccountsView: React.FC = () => {
                                 )}
                               </div>
 
-                              <div className="flex items-center gap-2 shrink-0 self-start sm:self-center" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center gap-1.5 shrink-0 self-start sm:self-center flex-wrap" onClick={(e) => e.stopPropagation()}>
+                                <button
+                                  type="button"
+                                  onClick={() => openCallPrep({ accountId: selectedAccount.id, contactId: contact.id })}
+                                  className="px-2.5 py-1 text-xs bg-brand-wash text-brand-deep border border-brand-edge/60 rounded hover:bg-brand-wash/80 font-bold cursor-pointer shadow-2xs flex items-center gap-1"
+                                  title="Prepare call briefing"
+                                >
+                                  <PhoneCall className="w-3 h-3" />
+                                  <span>Call Prep</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openMoveModal(contact)}
+                                  className="px-2.5 py-1 text-xs border border-line rounded hover:bg-white text-body font-medium cursor-pointer shadow-2xs flex items-center gap-1"
+                                  title="Move to another company"
+                                >
+                                  <ArrowRightLeft className="w-3 h-3 text-ink-dim" />
+                                  <span>Move</span>
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -1572,6 +1712,25 @@ export const CRMAccountsView: React.FC = () => {
                                 >
                                   Edit
                                 </button>
+                                {!contact.isArchived ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => archiveContact(contact.id)}
+                                    className="px-2 py-1 text-xs border border-line rounded hover:bg-red-50 text-ink-dim hover:text-red-700 font-medium cursor-pointer shadow-2xs"
+                                    title="Archive contact without deleting history"
+                                  >
+                                    Archive
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => restoreContact(contact.id)}
+                                    className="px-2 py-1 text-xs border border-green-300 bg-green-50 text-green-800 rounded font-medium cursor-pointer shadow-2xs"
+                                    title="Restore contact"
+                                  >
+                                    Restore
+                                  </button>
+                                )}
                               </div>
                             </div>
                           );
@@ -2122,14 +2281,75 @@ export const CRMAccountsView: React.FC = () => {
                 </div>
               )}
 
+              {/* Account History (Previous Companies / Roles) */}
+              {drawerContact.accountHistory && drawerContact.accountHistory.length > 0 && (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-edge space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 uppercase">
+                    <History className="w-3.5 h-3.5" />
+                    <span>Previous Account History</span>
+                  </div>
+                  <div className="space-y-2 divide-y divide-amber-500/20">
+                    {drawerContact.accountHistory.map((hist) => (
+                      <div key={hist.id} className="pt-1.5 first:pt-0 text-xs text-ink-dim space-y-0.5">
+                        <p className="font-semibold text-body text-ink">
+                          {hist.role ? `${hist.role} at ` : ""}{hist.accountName}
+                        </p>
+                        <p className="text-[11px] text-ink-dim">
+                          {hist.startDate ? `${hist.startDate} – ` : ""}{hist.endDate || "Present"} {hist.movedAt ? `(Moved: ${new Date(hist.movedAt).toLocaleDateString("en-AU")})` : ""}
+                        </p>
+                        {hist.notes && <p className="text-[11px] text-ink-dim italic">{hist.notes}</p>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Accumulated Contact Knowledge */}
+              {(() => {
+                const contactKnowledge = (knowledge || []).filter(
+                  (k) => k.contactIds && k.contactIds.includes(drawerContact.id)
+                );
+                if (contactKnowledge.length === 0) return null;
+                return (
+                  <div className="p-3 bg-paper border border-line rounded-edge space-y-2">
+                    <span className="text-xs font-bold text-ink-dim uppercase block">Accumulated Contact Knowledge</span>
+                    <div className="space-y-1.5 divide-y divide-line">
+                      {contactKnowledge.map((k) => (
+                        <div key={k.id} className="pt-1.5 first:pt-0 space-y-0.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-brand-wash text-brand-deep">
+                              {k.category.replace(/_/g, " ")}
+                            </span>
+                            {k.lastConfirmedAt && (
+                              <span className="text-[10px] text-ink-dim">Confirmed: {k.lastConfirmedAt}</span>
+                            )}
+                          </div>
+                          <p className="text-xs font-medium text-body">{k.statement}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Notable Events */}
               {drawerContact.notableEvents && drawerContact.notableEvents.length > 0 && (
                 <div className="p-3 bg-paper border border-line rounded-edge space-y-2">
                   <span className="text-xs font-bold text-ink-dim uppercase block">Upcoming / Recent Notable Events</span>
                   <div className="space-y-2 divide-y divide-line">
                     {drawerContact.notableEvents.map((ev) => (
-                      <div key={ev.id} className="pt-1.5 first:pt-0 space-y-0.5">
-                        <p className="font-semibold text-body text-spec">{ev.title}</p>
+                      <div key={ev.id} className="pt-1.5 first:pt-0 space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-semibold text-body text-spec">{ev.title}</p>
+                          {ev.status === "candidate" && (
+                            <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
+                              Candidate
+                            </span>
+                          )}
+                        </div>
+                        {ev.description && (
+                          <p className="text-xs text-ink-dim">{ev.description}</p>
+                        )}
                         <div className="flex items-center gap-3 text-xs text-ink-dim flex-wrap">
                           {ev.eventDate && <span>Event: {ev.eventDate}</span>}
                           {ev.followUpDate && (
@@ -2138,6 +2358,36 @@ export const CRMAccountsView: React.FC = () => {
                             </span>
                           )}
                         </div>
+                        {ev.status === "candidate" && (
+                          <div className="flex items-center gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                confirmCandidateNotableEvent(drawerContact.id, ev.id);
+                                setDrawerContact((prev) => prev ? {
+                                  ...prev,
+                                  notableEvents: prev.notableEvents?.map(e => e.id === ev.id ? { ...e, status: "confirmed" } : e)
+                                } : null);
+                              }}
+                              className="px-2 py-0.5 text-xs font-bold bg-brand-deep text-white rounded hover:bg-brand cursor-pointer"
+                            >
+                              Add to Contact
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                dismissCandidateNotableEvent(drawerContact.id, ev.id);
+                                setDrawerContact((prev) => prev ? {
+                                  ...prev,
+                                  notableEvents: prev.notableEvents?.filter(e => e.id !== ev.id)
+                                } : null);
+                              }}
+                              className="px-2 py-0.5 text-xs font-medium text-ink-dim hover:text-red-600 cursor-pointer"
+                            >
+                              Dismiss
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -2145,22 +2395,67 @@ export const CRMAccountsView: React.FC = () => {
               )}
             </div>
 
-            <div className="flex items-center justify-between pt-3 border-t border-line">
-              <button
-                type="button"
-                onClick={() => {
-                  setContactToEdit(drawerContact);
-                  setDrawerContact(null);
-                  setIsContactModalOpen(true);
-                }}
-                className="px-3.5 py-1.5 bg-white hover:bg-raised text-body border border-line font-bold text-spec rounded-edge cursor-pointer"
-              >
-                Edit Contact
-              </button>
+            <div className="flex items-center justify-between pt-3 border-t border-line flex-wrap gap-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const c = drawerContact;
+                    setDrawerContact(null);
+                    openCallPrep({ accountId: c.accountId, contactId: c.id });
+                  }}
+                  className="px-2.5 py-1.5 bg-brand-wash hover:bg-brand-wash/80 text-brand-deep border border-brand-edge font-bold text-xs rounded-edge cursor-pointer flex items-center gap-1"
+                >
+                  <PhoneCall className="w-3.5 h-3.5" />
+                  Call Prep
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const c = drawerContact;
+                    setDrawerContact(null);
+                    openMoveModal(c);
+                  }}
+                  className="px-2.5 py-1.5 bg-white hover:bg-raised text-body border border-line font-medium text-xs rounded-edge cursor-pointer flex items-center gap-1"
+                >
+                  <ArrowRightLeft className="w-3.5 h-3.5" />
+                  Move
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setContactToEdit(drawerContact);
+                    setDrawerContact(null);
+                    setIsContactModalOpen(true);
+                  }}
+                  className="px-2.5 py-1.5 bg-white hover:bg-raised text-body border border-line font-medium text-xs rounded-edge cursor-pointer"
+                >
+                  Edit Contact
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (drawerContact.isArchived) {
+                      restoreContact(drawerContact.id);
+                    } else {
+                      const reason = prompt("Reason for archiving this contact (optional):", "No longer at organisation / inactive");
+                      if (reason !== null) {
+                        archiveContact(drawerContact.id, reason);
+                      }
+                    }
+                    setDrawerContact(null);
+                  }}
+                  className={`px-2.5 py-1.5 border border-line font-medium text-xs rounded-edge cursor-pointer ${
+                    drawerContact.isArchived ? "text-amber-700 hover:bg-amber-50" : "text-ink-dim hover:text-red-600 hover:bg-red-50"
+                  }`}
+                >
+                  {drawerContact.isArchived ? "Restore" : "Archive"}
+                </button>
+              </div>
               <button
                 type="button"
                 onClick={() => setDrawerContact(null)}
-                className="px-4 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge cursor-pointer"
+                className="px-4 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-xs rounded-edge cursor-pointer"
               >
                 Close
               </button>
@@ -2621,6 +2916,145 @@ export const CRMAccountsView: React.FC = () => {
             setContactToEdit(null);
           }}
         />
+      )}
+
+      {/* MOVE CONTACT MODAL */}
+      {contactToMove && (
+        <div className="fixed inset-0 z-50 bg-chrome/70 backdrop-blur-xs p-4 flex items-center justify-center animate-in fade-in duration-150">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="move-contact-title"
+            className="bg-surface rounded-panel max-w-lg w-full p-6 border border-line shadow-2xl space-y-4"
+          >
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded bg-brand-wash text-brand-deep">
+                  <ArrowRightLeft className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 id="move-contact-title" className="font-bold text-body text-base">
+                    Move Contact to Another Account
+                  </h3>
+                  <p className="text-xs text-ink-dim">
+                    Moving <strong>{contactToMove.firstName} {contactToMove.lastName}</strong> from{" "}
+                    <strong>{contactToMove.accountName || "Current Account"}</strong>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setContactToMove(null)}
+                className="text-ink-dim hover:text-body cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleExecuteMoveContact} className="space-y-3.5">
+              <div className="p-3 bg-brand-wash/50 border border-brand-edge/60 rounded-edge text-xs text-brand-deep space-y-1">
+                <p className="font-semibold flex items-center gap-1.5">
+                  <Check className="w-3.5 h-3.5 text-brand" />
+                  Preserves Historical Data &amp; Relationship History
+                </p>
+                <p className="text-ink-dim text-[11px] leading-relaxed">
+                  Historical activities and quotes will remain associated with <strong>{contactToMove.accountName}</strong> at the time they occurred. Future activities will link to the new account.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-spec font-bold mb-1 text-ink">
+                  Destination Account / Company *
+                </label>
+                <select
+                  required
+                  value={targetMoveAccountId}
+                  onChange={(e) => setTargetMoveAccountId(e.target.value)}
+                  className="w-full p-2.5 border border-line rounded-edge bg-white text-spec font-medium"
+                >
+                  <option value="" disabled>Select destination company...</option>
+                  {accounts
+                    .filter((a) => a.id !== contactToMove.accountId)
+                    .map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name} ({a.accountType})
+                      </option>
+                    ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-spec font-bold mb-1 text-ink">
+                  New Job Title / Role
+                </label>
+                <input
+                  type="text"
+                  value={moveNewRole}
+                  onChange={(e) => setMoveNewRole(e.target.value)}
+                  placeholder="e.g. Senior Lighting Engineer, Assets Manager"
+                  className="w-full p-2.5 border border-line rounded-edge bg-white text-spec"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-spec font-bold mb-1 text-ink">
+                    New Work Email
+                  </label>
+                  <input
+                    type="email"
+                    value={moveNewEmail}
+                    onChange={(e) => setMoveNewEmail(e.target.value)}
+                    placeholder="e.g. john@newcouncil.vic.gov.au"
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
+                  />
+                </div>
+                <div>
+                  <label className="block text-spec font-bold mb-1 text-ink">
+                    New Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={moveNewPhone}
+                    onChange={(e) => setMoveNewPhone(e.target.value)}
+                    placeholder="e.g. 0412 345 678"
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-spec font-bold mb-1 text-ink">
+                  Reason / Notes for Move (Optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={moveReason}
+                  onChange={(e) => setMoveReason(e.target.value)}
+                  placeholder="e.g. Promoted to Senior Assets Manager at Hume City Council"
+                  className="w-full p-2 border border-line rounded-edge bg-white text-spec text-xs"
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-line">
+                <button
+                  type="button"
+                  onClick={() => setContactToMove(null)}
+                  className="px-3.5 py-1.5 border border-line rounded-edge text-spec font-medium hover:bg-paper cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!targetMoveAccountId}
+                  className="px-4 py-1.5 bg-brand-deep hover:bg-brand disabled:opacity-50 text-white font-bold text-spec rounded-edge cursor-pointer"
+                >
+                  Move Contact
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
       )}
     </div>
   );

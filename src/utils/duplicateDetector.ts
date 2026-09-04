@@ -156,12 +156,16 @@ export function detectDuplicateContact(
     const cNormEmail = normalizeEmail(c.email);
     const cNormPhone = c.phone || c.mobile ? normalizePhone(c.phone || c.mobile || "") : "";
     const cNormName = fullName.toLowerCase().trim();
+    const isDifferentAccount = Boolean(candidate.accountId && c.accountId && candidate.accountId !== c.accountId);
+    const accountContext = c.accountName ? `at "${c.accountName}"` : "in another account";
 
     // 1. EXACT: Matching normalized email
     if (normEmail && normEmail === cNormEmail) {
       return {
         confidence: "EXACT",
-        matchReason: `Email address "${candidate.email}" is already registered to ${fullName}`,
+        matchReason: isDifferentAccount
+          ? `Email address "${candidate.email}" already belongs to ${fullName} ${accountContext}. Move this contact rather than creating a duplicate?`
+          : `Email address "${candidate.email}" is already registered to ${fullName}`,
         existingRecord: c
       };
     }
@@ -170,16 +174,35 @@ export function detectDuplicateContact(
     if (normPhone && normPhone.length >= 8 && normPhone === cNormPhone) {
       return {
         confidence: "HIGH CONFIDENCE",
-        matchReason: `Phone number matches existing contact ${fullName}`,
+        matchReason: isDifferentAccount
+          ? `Phone number matches existing contact ${fullName} ${accountContext}. Did this person change companies?`
+          : `Phone number matches existing contact ${fullName}`,
         existingRecord: c
       };
     }
 
-    // 3. POSSIBLE: Same full name within the same account
-    if (normName && normName === cNormName && candidate.accountId && candidate.accountId === c.accountId) {
+    // 3. HIGH CONFIDENCE / POSSIBLE: Same full name
+    if (normName && normName === cNormName) {
+      if (isDifferentAccount) {
+        return {
+          confidence: "HIGH CONFIDENCE",
+          matchReason: `Contact "${fullName}" is already in the CRM ${accountContext}. If they moved employers, move the contact to preserve relationship history.`,
+          existingRecord: c
+        };
+      } else {
+        return {
+          confidence: "POSSIBLE",
+          matchReason: `Contact with the name "${fullName}" already exists in this account`,
+          existingRecord: c
+        };
+      }
+    }
+
+    // 4. Check archived contact match
+    if (c.isArchived && (normEmail === cNormEmail || normName === cNormName)) {
       return {
         confidence: "POSSIBLE",
-        matchReason: `Contact with the name "${fullName}" already exists in this account`,
+        matchReason: `A matching contact "${fullName}" was previously archived ${accountContext}. Restore or move this record instead?`,
         existingRecord: c
       };
     }

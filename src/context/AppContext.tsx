@@ -15,8 +15,17 @@ import {
   AuditLogRecord,
   AuditActionType,
   AuditEntityType,
-  Opportunity
+  Opportunity,
+  CRMKnowledgeItem,
+  ContactAccountHistoryItem,
+  ActivityParticipant,
+  ContactNotableEvent
 } from "../types/crm";
+import {
+  extractCandidateNotableEvents,
+  extractCrmKnowledge,
+  deduplicateOrMergeKnowledge
+} from "../utils/crmKnowledgeEngine";
 import {
   DEFAULT_PIPELINES,
   INITIAL_ACCOUNTS,
@@ -210,6 +219,23 @@ interface AppContextType {
   addContact: (contact: CRMContact) => void;
   updateContact: (id: string, updates: Partial<CRMContact>) => void;
   deleteContact: (id: string) => void;
+  moveContact: (
+    contactId: string,
+    destinationAccountId: string,
+    reason?: string,
+    updates?: { role?: string; email?: string; phone?: string }
+  ) => void;
+  archiveContact: (contactId: string, reason?: string) => void;
+  restoreContact: (contactId: string) => void;
+  confirmCandidateNotableEvent: (contactId: string, eventId: string) => void;
+  dismissCandidateNotableEvent: (contactId: string, eventId: string) => void;
+
+  knowledge: CRMKnowledgeItem[];
+  setKnowledge: React.Dispatch<React.SetStateAction<CRMKnowledgeItem[]>>;
+  addKnowledgeItem: (item: CRMKnowledgeItem) => void;
+  updateKnowledgeItem: (id: string, updates: Partial<CRMKnowledgeItem>) => void;
+  archiveKnowledgeItem: (id: string) => void;
+  deleteKnowledgeItem: (id: string) => void;
 
   leads: CRMLead[];
   setLeads: React.Dispatch<React.SetStateAction<CRMLead[]>>;
@@ -226,7 +252,11 @@ interface AppContextType {
   setSelectedCrmOpportunityId: (id: string | null) => void;
 
   activities: CRMActivity[];
-  logActivity: (activity: Omit<CRMActivity, "id" | "timestamp">) => void;
+  logActivity: (activity: Omit<CRMActivity, "id" | "timestamp">) => {
+    activity: CRMActivity;
+    candidateNotableEvents: ContactNotableEvent[];
+    extractedKnowledge: CRMKnowledgeItem[];
+  };
 
   // Audit Logs & Workspace History (Append-Only)
   auditLogs: AuditLogRecord[];
@@ -689,6 +719,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return Array.isArray(parsed) ? parsed.filter((t: any) => !isSampleRecord(t)) : [];
   });
 
+  const [knowledge, setKnowledge] = useState<CRMKnowledgeItem[]>(() => {
+    const saved = localStorage.getItem("plasgain_crm_knowledge");
+    const parsed = saved ? JSON.parse(saved) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  });
+
   const [pipelines] = useState<PipelineConfig[]>(DEFAULT_PIPELINES);
   const [activePipelineId, setActivePipelineId] = useState<string>("pipe-major-projects");
 
@@ -1044,6 +1080,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem("plasgain_crm_tasks", JSON.stringify(tasks));
   }, [tasks]);
+
+  useEffect(() => {
+    localStorage.setItem("plasgain_crm_knowledge", JSON.stringify(knowledge));
+  }, [knowledge]);
 
   useEffect(() => {
     localStorage.setItem("plasgain_opportunities", JSON.stringify(opportunities));
@@ -1550,6 +1590,170 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast("Contact removed", "info");
   };
 
+  const moveContact = (
+    contactId: string,
+    destinationAccountId: string,
+    reason?: string,
+    updates?: { role?: string; email?: string; phone?: string }
+  ) => {
+    const contact = contacts.find((c) => c.id === contactId);
+    if (!contact) return;
+    const destAccount = accounts.find((a) => a.id === destinationAccountId);
+    if (!destAccount) return;
+
+    const previousAccountName = contact.accountName;
+    const previousAccountId = contact.accountId;
+    const historyItem: ContactAccountHistoryItem = {
+      id: `hist-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      accountId: previousAccountId,
+      accountName: previousAccountName,
+      role: contact.jobTitle || contact.role,
+      email: contact.email,
+      phone: contact.phone || contact.mobile,
+      endDate: new Date().toISOString().split("T")[0],
+      movedAt: new Date().toISOString(),
+      movedBy: currentUser.name,
+      notes: reason || `Moved from "${previousAccountName}" to "${destAccount.name}"`
+    };
+
+    const updatedContact: CRMContact = {
+      ...contact,
+      accountId: destAccount.id,
+      accountName: destAccount.name,
+      role: updates?.role !== undefined ? updates.role : contact.role,
+      jobTitle: updates?.role !== undefined ? updates.role : (contact.jobTitle || contact.role),
+      email: updates?.email !== undefined ? updates.email : contact.email,
+      phone: updates?.phone !== undefined ? updates.phone : contact.phone,
+      accountHistory: [...(contact.accountHistory || []), historyItem]
+    };
+
+    setContacts((prev) => prev.map((c) => (c.id === contactId ? updatedContact : c)));
+    saveDocToCloud("crm_contacts", contactId, updatedContact);
+
+    const fullName = `${contact.firstName || ""} ${contact.lastName || ""}`.trim() || "Contact";
+    recordAuditLog(
+      "MOVE",
+      "Contact",
+      contactId,
+      fullName,
+      `Moved contact ${fullName} from "${previousAccountName}" to "${destAccount.name}"${reason ? ` (${reason})` : ""}`
+    );
+    showToast(`Contact "${fullName}" moved to ${destAccount.name}`, "success");
+  };
+
+  const archiveContact = (contactId: string, reason?: string) => {
+    const contact = contacts.find((c) => c.id === contactId);
+    if (!contact) return;
+    const fullName = `${contact.firstName || ""} ${contact.lastName || ""}`.trim() || "Contact";
+
+    const updatedContact: CRMContact = {
+      ...contact,
+      isArchived: true,
+      archivedAt: new Date().toISOString(),
+      archivedReason: reason || "Archived from active contacts"
+    };
+
+    setContacts((prev) => prev.map((c) => (c.id === contactId ? updatedContact : c)));
+    saveDocToCloud("crm_contacts", contactId, updatedContact);
+
+    recordAuditLog("ARCHIVE", "Contact", contactId, fullName, `Archived contact ${fullName}${reason ? `: ${reason}` : ""}`);
+    showToast(`Contact "${fullName}" archived`, "info");
+  };
+
+  const restoreContact = (contactId: string) => {
+    const contact = contacts.find((c) => c.id === contactId);
+    if (!contact) return;
+    const fullName = `${contact.firstName || ""} ${contact.lastName || ""}`.trim() || "Contact";
+
+    const updatedContact: CRMContact = {
+      ...contact,
+      isArchived: false,
+      archivedAt: undefined,
+      archivedReason: undefined
+    };
+
+    setContacts((prev) => prev.map((c) => (c.id === contactId ? updatedContact : c)));
+    saveDocToCloud("crm_contacts", contactId, updatedContact);
+
+    recordAuditLog("RESTORE", "Contact", contactId, fullName, `Restored archived contact ${fullName}`);
+    showToast(`Contact "${fullName}" restored`, "success");
+  };
+
+  const confirmCandidateNotableEvent = (contactId: string, eventId: string) => {
+    const contact = contacts.find((c) => c.id === contactId);
+    if (!contact) return;
+    const fullName = `${contact.firstName || ""} ${contact.lastName || ""}`.trim() || "Contact";
+
+    let confirmedTitle = "";
+    const updatedEvents = (contact.notableEvents || []).map((ev) => {
+      if (ev.id === eventId) {
+        confirmedTitle = ev.title;
+        return { ...ev, status: "confirmed" as const };
+      }
+      return ev;
+    });
+
+    const updatedContact = { ...contact, notableEvents: updatedEvents };
+    setContacts((prev) => prev.map((c) => (c.id === contactId ? updatedContact : c)));
+    saveDocToCloud("crm_contacts", contactId, updatedContact);
+
+    recordAuditLog("UPDATE", "NotableEvent", eventId, confirmedTitle || "Notable Event", `Confirmed notable event for ${fullName}: "${confirmedTitle}"`);
+    showToast(`Notable event confirmed for ${fullName}`, "success");
+  };
+
+  const dismissCandidateNotableEvent = (contactId: string, eventId: string) => {
+    const contact = contacts.find((c) => c.id === contactId);
+    if (!contact) return;
+    const updatedEvents = (contact.notableEvents || []).filter((ev) => ev.id !== eventId);
+    const updatedContact = { ...contact, notableEvents: updatedEvents };
+    setContacts((prev) => prev.map((c) => (c.id === contactId ? updatedContact : c)));
+    saveDocToCloud("crm_contacts", contactId, updatedContact);
+  };
+
+  const addKnowledgeItem = (item: CRMKnowledgeItem) => {
+    setKnowledge((prev) => [item, ...prev]);
+    saveDocToCloud("crm_knowledge", item.id, item);
+    recordAuditLog("CREATE", "Knowledge", item.id, item.category, `Added knowledge (${item.category}): "${item.statement}" for ${item.accountName || item.accountId}`);
+    showToast("Knowledge item recorded", "success");
+  };
+
+  const updateKnowledgeItem = (id: string, updates: Partial<CRMKnowledgeItem>) => {
+    setKnowledge((prev) =>
+      prev.map((k) => {
+        if (k.id === id) {
+          const updated = { ...k, ...updates };
+          saveDocToCloud("crm_knowledge", id, updated);
+          return updated;
+        }
+        return k;
+      })
+    );
+    recordAuditLog("UPDATE", "Knowledge", id, "CRM Knowledge", `Updated knowledge item ${id}`);
+    showToast("Knowledge updated", "success");
+  };
+
+  const archiveKnowledgeItem = (id: string) => {
+    setKnowledge((prev) =>
+      prev.map((k) => {
+        if (k.id === id) {
+          const updated = { ...k, status: "archived" as const };
+          saveDocToCloud("crm_knowledge", id, updated);
+          return updated;
+        }
+        return k;
+      })
+    );
+    recordAuditLog("ARCHIVE", "Knowledge", id, "CRM Knowledge", `Archived knowledge item ${id}`);
+    showToast("Knowledge item archived", "info");
+  };
+
+  const deleteKnowledgeItem = (id: string) => {
+    setKnowledge((prev) => prev.filter((k) => k.id !== id));
+    deleteDocFromCloud("crm_knowledge", id);
+    recordAuditLog("DELETE", "Knowledge", id, "CRM Knowledge", `Removed knowledge item ${id}`);
+    showToast("Knowledge item removed", "info");
+  };
+
   const addLead = (lead: CRMLead) => {
     setLeads((prev) => [lead, ...prev]);
     saveDocToCloud("crm_leads", lead.id, lead);
@@ -1793,13 +1997,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return matchesTitle && timeDiff < 10 * 60 * 1000;
       });
       if (existingRecent) {
-        return; // Suppress duplicate spam
+        return {
+          activity: existingRecent,
+          candidateNotableEvents: [],
+          extractedKnowledge: []
+        };
       }
     }
+
+    const resolvedContactIds = activityData.contactIds && activityData.contactIds.length > 0
+      ? activityData.contactIds
+      : activityData.contactId
+      ? [activityData.contactId]
+      : [];
+
+    const primaryContactId = activityData.contactId || resolvedContactIds[0];
+    const targetContact = contacts.find((c) => c.id === primaryContactId);
+    const primaryContactName = activityData.contactName || (targetContact ? `${targetContact.firstName} ${targetContact.lastName}`.trim() : undefined);
+
+    const resolvedParticipants: ActivityParticipant[] = activityData.participants && activityData.participants.length > 0
+      ? activityData.participants
+      : resolvedContactIds.map((cid) => {
+          const con = contacts.find((c) => c.id === cid);
+          return {
+            contactId: cid,
+            contactName: con ? `${con.firstName} ${con.lastName}`.trim() : "Participant",
+            jobTitle: con?.jobTitle || con?.role,
+            accountName: activityData.accountName || con?.accountName,
+            email: con?.email,
+            role: "participant"
+          };
+        });
 
     const newAct: CRMActivity = {
       ...activityData,
       id: `act-${Date.now()}`,
+      contactId: primaryContactId,
+      contactName: primaryContactName,
+      contactIds: resolvedContactIds,
+      participants: resolvedParticipants,
       performedBy: currentUser.name,
       authorId: currentUser.id,
       isImmutable: true,
@@ -1849,7 +2085,61 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     }
 
+    // AI Analysis: Candidate Notable Events & CRM Knowledge
+    const candidateNotableEvents = extractCandidateNotableEvents(newAct, contacts);
+    const extractedKnowledge = extractCrmKnowledge(newAct);
+
+    // If candidate notable events were discovered, stage them against the target contact
+    if (candidateNotableEvents.length > 0) {
+      for (const cne of candidateNotableEvents) {
+        if (cne.contactId) {
+          setContacts((prev) =>
+            prev.map((c) => {
+              if (c.id === cne.contactId) {
+                const existingEvents = c.notableEvents || [];
+                const updated = {
+                  ...c,
+                  notableEvents: [cne, ...existingEvents]
+                };
+                saveDocToCloud("crm_contacts", c.id, updated);
+                return updated;
+              }
+              return c;
+            })
+          );
+        }
+      }
+    }
+
+    // Deduplicate and merge extracted knowledge items
+    if (extractedKnowledge.length > 0) {
+      const { toAdd, toUpdate } = deduplicateOrMergeKnowledge(knowledge, extractedKnowledge);
+      if (toAdd.length > 0 || toUpdate.length > 0) {
+        setKnowledge((prev) => {
+          let next = [...prev];
+          for (const u of toUpdate) {
+            next = next.map((item) =>
+              item.id === u.id
+                ? { ...item, lastConfirmedAt: u.lastConfirmedAt, sourceActivityId: u.sourceActivityId }
+                : item
+            );
+          }
+          next = [...toAdd, ...next];
+          return next;
+        });
+        for (const item of toAdd) {
+          saveDocToCloud("crm_knowledge", item.id, item);
+        }
+      }
+    }
+
     showToast(`Activity logged: ${activityData.title}`, "success");
+
+    return {
+      activity: newAct,
+      candidateNotableEvents,
+      extractedKnowledge
+    };
   };
 
   const addTask = (taskData: Omit<CRMTask, "id">) => {
@@ -1996,6 +2286,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addContact,
         updateContact,
         deleteContact,
+        moveContact,
+        archiveContact,
+        restoreContact,
+        confirmCandidateNotableEvent,
+        dismissCandidateNotableEvent,
+        knowledge,
+        setKnowledge,
+        addKnowledgeItem,
+        updateKnowledgeItem,
+        archiveKnowledgeItem,
+        deleteKnowledgeItem,
         leads,
         setLeads,
         addLead,

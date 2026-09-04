@@ -5,13 +5,17 @@ import {
   PhoneCall,
   Mail,
   Building2,
-  HelpCircle,
   Clock,
-  ExternalLink,
   Sparkles,
+  Copy,
+  Check,
+  Calendar,
+  AlertCircle,
+  Lightbulb,
   FileText
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
+import { generateCallPreparationBriefing } from "../../utils/crmCallPreparation";
 
 export const CRMCallPrepModal: React.FC = () => {
   const {
@@ -21,10 +25,14 @@ export const CRMCallPrepModal: React.FC = () => {
     accounts,
     crmOpportunities,
     contacts,
-    activities
+    activities,
+    knowledge,
+    tasks,
+    showToast
   } = useApp();
 
   const [callNotes, setCallNotes] = useState("");
+  const [copied, setCopied] = useState(false);
 
   // Resolve target account, deal, contact
   const targetAccount = useMemo(() => {
@@ -44,6 +52,10 @@ export const CRMCallPrepModal: React.FC = () => {
     if (callPrepModal?.contactId) {
       return contacts.find((c) => c.id === callPrepModal.contactId) || null;
     }
+    if (targetOpp?.primaryContactId) {
+      const byId = contacts.find((c) => c.id === targetOpp.primaryContactId);
+      if (byId) return byId;
+    }
     if (targetOpp?.primaryContactName) {
       const matched = contacts.find(
         (c) =>
@@ -53,25 +65,27 @@ export const CRMCallPrepModal: React.FC = () => {
       if (matched) return matched;
     }
     if (targetAccount) {
-      return contacts.find((c) => c.accountId === targetAccount.id) || null;
+      return contacts.find((c) => c.accountId === targetAccount.id && !c.isArchived) || null;
     }
     return null;
   }, [contacts, callPrepModal?.contactId, targetOpp, targetAccount]);
 
-  // Recent interaction history
-  const recentActivities = useMemo(() => {
-    if (!targetAccount && !targetOpp) return [];
-    return activities
-      .filter((a) => (targetAccount && a.accountId === targetAccount.id) || (targetOpp && a.opportunityId === targetOpp.id))
-      .slice(0, 3);
-  }, [activities, targetAccount, targetOpp]);
+  // Generate dynamic, grounded natural language briefing
+  const briefing = useMemo(() => {
+    return generateCallPreparationBriefing({
+      account: targetAccount,
+      contact: targetContact,
+      opportunity: targetOpp,
+      activities,
+      knowledge,
+      tasks
+    });
+  }, [targetAccount, targetContact, targetOpp, activities, knowledge, tasks]);
 
   if (!callPrepModal || !callPrepModal.isOpen) return null;
 
   const handleStartCallAndLog = () => {
     closeCallPrep();
-    // Carry the call plan through. This textarea used to be write-only state:
-    // whatever the rep planned was discarded the moment the log opened.
     openQuickLog({
       type: "call",
       accountId: targetAccount?.id,
@@ -82,6 +96,15 @@ export const CRMCallPrepModal: React.FC = () => {
     setCallNotes("");
   };
 
+  const handleCopyBriefing = () => {
+    const fullText = `=== CALL PREPARATION BRIEFING ===\nContact: ${briefing.contactName} (${briefing.contactRole || "Key Contact"})\nAccount: ${briefing.accountName}\n\n${briefing.executiveBriefing}\n\nTALKING POINTS:\n${briefing.talkingPoints.map((tp) => `• [${tp.category}] ${tp.text}`).join("\n")}\n\n${callNotes ? `Private Notes:\n${callNotes}` : ""}`;
+    navigator.clipboard.writeText(fullText).then(() => {
+      setCopied(true);
+      showToast("Call briefing copied to clipboard", "success");
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
   return (
     <div
       role="dialog"
@@ -89,7 +112,7 @@ export const CRMCallPrepModal: React.FC = () => {
       aria-labelledby="call-prep-title"
       className="fixed inset-0 bg-chrome/60 backdrop-blur-xs z-50 flex items-center justify-center p-4"
     >
-      <div className="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl max-w-xl w-full p-5 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
         {/* Modal Header */}
         <div className="flex items-center justify-between border-b border-line pb-3">
           <div className="flex items-center gap-2">
@@ -98,87 +121,122 @@ export const CRMCallPrepModal: React.FC = () => {
             </div>
             <div>
               <h3 id="call-prep-title" className="text-base font-bold text-body">
-                Call Briefing
+                Call Briefing: {briefing.contactName}
               </h3>
               <p className="text-spec text-ink-dim">
-                Customer context, project status &amp; talking points
+                {briefing.accountName} {briefing.contactRole ? `· ${briefing.contactRole}` : ""}
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={closeCallPrep}
-            aria-label="Close call briefing"
-            className="text-ink-faint hover:text-ink-dim p-1 rounded-edge cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Account & Opportunity Snapshot */}
-        <div className="p-3.5 bg-brand-wash/40 border border-brand-edge rounded-edge space-y-2">
-          <div className="flex items-center justify-between flex-wrap gap-1">
-            <span className="font-bold text-body text-meta flex items-center gap-1.5">
-              <Building2 className="w-4 h-4 text-brand-deep shrink-0" />
-              {targetAccount?.name || "General Touchpoint"}
-            </span>
-            {(targetAccount?.accountType || targetAccount?.customerSegment) && (
-              <span className="text-spec font-semibold px-2 py-0.5 rounded bg-white border border-brand-edge text-brand-deep">
-                {targetAccount.accountType || targetAccount.customerSegment} · {targetAccount.territory || "AU"}
-              </span>
-            )}
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleCopyBriefing}
+              className="p-1.5 text-ink-dim hover:text-body rounded hover:bg-line cursor-pointer flex items-center gap-1 text-xs font-semibold"
+              title="Copy briefing to clipboard"
+            >
+              {copied ? <Check className="w-4 h-4 text-green-700" /> : <Copy className="w-4 h-4" />}
+              <span className="hidden sm:inline">{copied ? "Copied" : "Copy"}</span>
+            </button>
+            <button
+              type="button"
+              onClick={closeCallPrep}
+              aria-label="Close call briefing"
+              className="text-ink-faint hover:text-ink-dim p-1 rounded-edge cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-
-          {targetOpp ? (
-            <div className="text-spec text-ink-dim border-t border-brand-edge/30 pt-2 space-y-1">
-              <div className="flex items-center justify-between">
-                <div>
-                  <strong>Active Deal:</strong> {targetOpp.name}
-                </div>
-                <span className="font-bold text-body text-brand-deep">
-                  ${(targetOpp.dealValue || 0).toLocaleString()}
-                </span>
-              </div>
-              <div className="flex items-center gap-3 text-spec">
-                <span>
-                  <strong>Stage:</strong> {targetOpp.stageName}
-                </span>
-                <span>
-                  <strong>Probability:</strong> {targetOpp.probability}%
-                </span>
-              </div>
-              {targetOpp.quoteNumber && (
-                <div>
-                  <strong>Quote Ref:</strong> {targetOpp.quoteNumber}
-                  {targetOpp.quoteExpiryDate && ` (Valid to: ${targetOpp.quoteExpiryDate})`}
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-spec text-ink-dim italic">
-              No active pipeline deal linked. General relationship touchpoint.
-            </p>
-          )}
         </div>
 
-        {/* Primary Contact Details */}
-        {targetContact ? (
-          <div className="p-3 bg-paper border border-line rounded-edge space-y-2">
+        {/* 1. EXECUTIVE NATURAL-LANGUAGE BRIEFING */}
+        <div className="p-4 bg-brand-wash/40 border border-brand-edge/60 rounded-edge space-y-2 text-spec">
+          <div className="flex items-center gap-1.5 font-bold text-brand-deep uppercase text-xs tracking-wider">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>Colleague Briefing</span>
+          </div>
+          <div className="text-body leading-relaxed space-y-2 whitespace-pre-line font-medium text-spec">
+            {briefing.executiveBriefing}
+          </div>
+        </div>
+
+        {/* 2. RECOMMENDED CALL OBJECTIVES & ACTIONABLE TALKING POINTS */}
+        <div className="p-3.5 bg-paper border border-line rounded-edge space-y-2">
+          <div className="text-xs font-bold uppercase text-ink-dim tracking-wider flex items-center gap-1.5">
+            <Lightbulb className="w-3.5 h-3.5 text-brand-deep" />
+            <span>Recommended Call Objectives &amp; Talking Points</span>
+          </div>
+          {briefing.talkingPoints.length > 0 && (
+            <div className="space-y-2 pt-0.5">
+              {briefing.talkingPoints.map((tp, idx) => (
+                <div key={idx} className="flex items-start gap-2 text-spec">
+                  <span
+                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase shrink-0 mt-0.5 ${
+                      tp.category === "Commercial"
+                        ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                        : tp.category === "Commitment"
+                        ? "bg-amber-100 text-amber-900 border border-amber-300"
+                        : tp.category === "Technical"
+                        ? "bg-sky-100 text-sky-900 border border-sky-300"
+                        : tp.category === "Question"
+                        ? "bg-purple-100 text-purple-900 border border-purple-300"
+                        : "bg-slate-100 text-slate-800 border border-slate-300"
+                    }`}
+                  >
+                    {tp.category}
+                  </span>
+                  <span className="text-body leading-normal text-spec font-medium">
+                    {tp.text}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="pt-2 border-t border-line/60">
+            <span className="text-[11px] font-bold uppercase text-ink-dim block mb-1">Standard Lighting Specification Verification</span>
+            <ul className="list-disc pl-4 space-y-1 text-spec text-body">
+              <li>Verify required AS/NZS 1158 Category (e.g. P4 pathway vs V3 roadway).</li>
+              <li>Confirm site soil conditions or rag-bolt vs in-ground footing preference.</li>
+              <li>Check battery autonomy expectation (standard 4–5 nights vs shaded location).</li>
+              <li>Confirm decision-making timeline and council tender committee dates.</li>
+            </ul>
+          </div>
+        </div>
+
+        {/* 3. RELEVANT CRM KNOWLEDGE BASE ITEMS */}
+        {briefing.relevantKnowledge.length > 0 && (
+          <div className="p-3 bg-white border border-line rounded-edge space-y-2 text-spec">
+            <div className="text-xs font-bold uppercase text-ink-dim tracking-wider flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5 text-brand-deep" />
+              <span>Accumulated CRM Knowledge ({briefing.relevantKnowledge.length})</span>
+            </div>
+            <div className="space-y-1.5 max-h-36 overflow-y-auto">
+              {briefing.relevantKnowledge.map((k) => (
+                <div key={k.id} className="p-2 bg-paper rounded border border-line text-xs space-y-0.5">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="font-bold text-body">{k.category}</span>
+                    <span className="text-[10px] text-ink-dim">Confirmed: {k.lastConfirmedAt}</span>
+                  </div>
+                  <p className="text-body font-medium">{k.statement}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 4. PRIMARY CONTACT CONTACT DETAILS & CONTEXT */}
+        {targetContact && (
+          <div className="p-3 bg-paper border border-line rounded-edge space-y-2 text-spec">
             <div className="flex items-center justify-between">
-              <div className="text-spec font-bold uppercase text-ink-dim">Primary Contact</div>
-              {targetContact.preferredName && (
-                <span className="text-xs font-semibold text-brand-deep bg-brand-wash px-2 py-0.5 rounded border border-brand-edge/40">
-                  Goes by "{targetContact.preferredName}"
+              <span className="text-xs font-bold uppercase text-ink-dim">Contact Details</span>
+              {targetContact.preferredContactMethod && (
+                <span className="text-[11px] font-semibold text-brand-deep">
+                  Prefers: {targetContact.preferredContactMethod}
                 </span>
               )}
             </div>
-            <div className="flex items-center justify-between">
-              <span className="font-bold text-body text-meta">
-                {targetContact.firstName} {targetContact.lastName}
-                {targetContact.jobTitle ? ` (${targetContact.jobTitle})` : ""}
-              </span>
-            </div>
-            <div className="flex items-center gap-4 text-spec text-ink-dim flex-wrap pt-0.5">
+
+            <div className="flex items-center gap-4 text-spec text-ink-dim flex-wrap">
               {targetContact.mobile && (
                 <a
                   href={`tel:${targetContact.mobile}`}
@@ -199,107 +257,42 @@ export const CRMCallPrepModal: React.FC = () => {
               )}
             </div>
 
-            {/* Personal Context */}
-            {(targetContact.hobbies || targetContact.partnerName || (targetContact.childrenNames && targetContact.childrenNames.length > 0) || targetContact.birthday) && (
-              <div className="pt-2 border-t border-line/60 space-y-1 text-xs">
-                <span className="font-bold text-ink-dim uppercase block">Personal Context</span>
-                <div className="flex flex-wrap gap-2 text-body">
-                  {targetContact.hobbies && (
-                    <span className="bg-white px-2 py-0.5 rounded border border-line">
-                      🎯 {targetContact.hobbies}
+            {/* Employment / Account History if moved */}
+            {targetContact.accountHistory && targetContact.accountHistory.length > 0 && (
+              <div className="pt-1.5 border-t border-line text-xs space-y-1">
+                <span className="font-bold text-ink-dim uppercase block">Account History</span>
+                {targetContact.accountHistory.map((hist) => (
+                  <div key={hist.id} className="text-body flex items-center justify-between text-xs">
+                    <span>
+                      Previously at <strong>{hist.accountName}</strong> ({hist.role || "Contact"})
                     </span>
-                  )}
-                  {targetContact.partnerName && (
-                    <span className="bg-white px-2 py-0.5 rounded border border-line">
-                      Partner: {targetContact.partnerName}
-                    </span>
-                  )}
-                  {targetContact.childrenNames && targetContact.childrenNames.length > 0 && (
-                    <span className="bg-white px-2 py-0.5 rounded border border-line">
-                      Children: {targetContact.childrenNames.join(", ")}
-                    </span>
-                  )}
-                  {targetContact.birthday && (
-                    <span className="bg-white px-2 py-0.5 rounded border border-line">
-                      🎂 Birthday: {targetContact.birthday}
-                    </span>
-                  )}
-                </div>
+                    <span className="text-ink-dim text-[11px]">{hist.endDate}</span>
+                  </div>
+                ))}
               </div>
             )}
 
-            {/* Things to Remember */}
+            {/* Things to remember */}
             {(targetContact.thingsToRemember || targetContact.notes) && (
-              <div className="pt-2 border-t border-line/60 space-y-0.5">
-                <span className="text-xs font-bold text-brand-deep uppercase block">Things to Remember</span>
-                <p className="text-xs text-body bg-brand-wash/40 p-2 rounded border border-brand-edge/30 leading-relaxed whitespace-pre-wrap">
+              <div className="pt-1.5 border-t border-line text-xs">
+                <span className="font-bold text-brand-deep uppercase block mb-0.5">Things to Remember</span>
+                <p className="text-body whitespace-pre-line leading-relaxed">
                   {targetContact.thingsToRemember || targetContact.notes}
                 </p>
               </div>
             )}
-
-            {/* Notable Events / Conversation Opportunity */}
-            {targetContact.notableEvents && targetContact.notableEvents.length > 0 && (
-              <div className="pt-2 border-t border-line/60 space-y-1.5">
-                <span className="text-xs font-bold text-amber-900 uppercase block">Conversation Opportunity / Notable Events</span>
-                <div className="space-y-1">
-                  {targetContact.notableEvents.map((ev) => (
-                    <div key={ev.id} className="p-2 bg-amber-50/80 border border-amber-200/80 rounded text-xs space-y-0.5">
-                      <p className="font-bold text-amber-950">{ev.title}</p>
-                      <div className="flex items-center gap-3 text-amber-800 text-[11px]">
-                        {ev.eventDate && <span>Event: {ev.eventDate}</span>}
-                        {ev.followUpDate && <span className="font-semibold">Follow-up: {ev.followUpDate}</span>}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : null}
-
-        {/* Recent Touchpoints */}
-        {recentActivities.length > 0 && (
-          <div className="p-3 bg-paper border border-line rounded-edge space-y-1.5">
-            <div className="text-spec font-bold uppercase text-ink-dim flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5" /> Recent Touchpoints
-            </div>
-            <div className="space-y-1 text-spec">
-              {recentActivities.map((act) => (
-                <div key={act.id} className="text-ink-dim flex items-start gap-1.5">
-                  <span className="text-ink-faint">·</span>
-                  <span>
-                    <strong className="capitalize text-body">{act.type}:</strong> {act.title}{" "}
-                    {act.timestamp && <span className="text-ink-faint">({new Date(act.timestamp).toLocaleDateString("en-AU", { day: "numeric", month: "short" })})</span>}
-                  </span>
-                </div>
-              ))}
-            </div>
           </div>
         )}
-
-        {/* Recommended Call Objectives */}
-        <div className="p-3.5 bg-raised border border-line rounded-edge space-y-2">
-          <div className="text-spec font-bold uppercase text-ink-dim flex items-center gap-1.5">
-            <HelpCircle className="w-3.5 h-3.5 text-brand-deep" /> Recommended Call Objectives
-          </div>
-          <ul className="list-disc pl-4 space-y-1 text-spec text-body">
-            <li>Verify required AS/NZS 1158 Category (e.g. P4 pathway vs V3 roadway).</li>
-            <li>Confirm site soil conditions or rag-bolt vs in-ground footing preference.</li>
-            <li>Check battery autonomy expectation (standard 4–5 nights vs shaded location).</li>
-            <li>Confirm decision-making timeline and council tender committee dates.</li>
-          </ul>
-        </div>
 
         {/* Private Call Scratchpad */}
         <div>
           <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
-            Call Plan Notes (Private)
+            Private Call Notes
           </label>
           <textarea
             value={callNotes}
             onChange={(e) => setCallNotes(e.target.value)}
-            placeholder="Jot down talking points or questions before dialling..."
+            placeholder="Jot down quick thoughts before dialling (carried into activity log)..."
             rows={2}
             className="w-full p-2.5 text-spec rounded-edge border border-line focus:outline-none focus:border-brand-deep font-sans"
           />

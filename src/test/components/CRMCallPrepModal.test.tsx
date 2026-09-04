@@ -91,10 +91,10 @@ describe('CRMCallPrepModal Component', () => {
     fireEvent.click(screen.getByTestId('open-prep-btn'));
 
     expect(screen.getByText(/Call Briefing/i)).toBeInTheDocument();
-    expect(screen.getByText(/Moreton Regional Council/i)).toBeInTheDocument();
-    expect(screen.getByText(/Bribie Island Foreshore Solar Lighting/i)).toBeInTheDocument();
-    expect(screen.getByText(/\$74,500/i)).toBeInTheDocument();
-    expect(screen.getByText(/David Walker/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Moreton Regional Council/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Bribie Island Foreshore Solar Lighting/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/\$74,500/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/David Walker/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/0412 345 678/i)).toBeInTheDocument();
     expect(screen.getByText(/dwalker@moreton.qld.gov.au/i)).toBeInTheDocument();
 

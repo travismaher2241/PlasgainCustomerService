@@ -160,8 +160,30 @@ export interface Account {
 export interface ContactNotableEvent {
   id: string;
   title: string;
+  description?: string;
   eventDate?: string;
   followUpDate?: string;
+  sourceActivityId?: string;
+  sourceActivityDate?: string;
+  recordedBy?: string;
+  isAiGenerated?: boolean;
+  status?: "candidate" | "confirmed";
+  contactId?: string;
+  contactName?: string;
+}
+
+export interface ContactAccountHistoryItem {
+  id: string;
+  accountId: string;
+  accountName: string;
+  role?: string;
+  email?: string;
+  phone?: string;
+  startDate?: string;
+  endDate: string;
+  movedAt: string;
+  movedBy: string;
+  notes?: string;
 }
 
 export interface CRMContact {
@@ -195,6 +217,14 @@ export interface CRMContact {
 
   // Notable Events
   notableEvents?: ContactNotableEvent[];
+
+  // Account / Employment History
+  accountHistory?: ContactAccountHistoryItem[];
+
+  // Archival Status (Soft-delete with complete historical preservation)
+  isArchived?: boolean;
+  archivedAt?: string;
+  archivedReason?: string;
 
   // Legacy / optional CRM fields
   roleInBuyingProcess?: ContactRole;
@@ -340,6 +370,15 @@ export interface CRMOpportunity {
   lostReasonNotes?: string;
 }
 
+export interface ActivityParticipant {
+  contactId: string;
+  contactName: string;
+  jobTitle?: string;
+  accountName?: string;
+  email?: string;
+  role?: "participant" | "caller" | "attendee" | "recipient";
+}
+
 export interface CRMActivity {
   id: string;
   type: ActivityType;
@@ -349,6 +388,8 @@ export interface CRMActivity {
   accountName?: string;
   contactId?: string;
   contactName?: string;
+  contactIds?: string[];
+  participants?: ActivityParticipant[];
   opportunityId?: string;
   opportunityName?: string;
   performedBy: string;
@@ -369,6 +410,34 @@ export interface CRMActivity {
     emailSubject?: string;
     sentiment?: "Positive" | "Neutral" | "Negative" | "Concerned";
   };
+}
+
+export type CRMKnowledgeCategory =
+  | "Technical & Specification"
+  | "Product & Pole Preference"
+  | "Decision & Criteria"
+  | "Commercial & Budget"
+  | "Commitment"
+  | "Competitor Intelligence"
+  | "Project Context"
+  | "Unresolved Question";
+
+export interface CRMKnowledgeItem {
+  id: string;
+  accountId: string;
+  accountName?: string;
+  contactIds?: string[];
+  opportunityId?: string;
+  category: CRMKnowledgeCategory;
+  statement: string;
+  sourceActivityId: string;
+  sourceActivityDate: string;
+  sourceActivityType?: ActivityType;
+  createdAt: string;
+  lastConfirmedAt: string;
+  confirmedBy?: string;
+  status: "active" | "archived";
+  tags?: string[];
 }
 
 export interface CRMTask {
@@ -585,6 +654,9 @@ export type AuditActionType =
   | "STATUS_CHANGE"
   | "CONVERT"
   | "USER_AUTH"
+  | "MOVE"
+  | "ARCHIVE"
+  | "RESTORE"
   | "OTHER";
 
 export type AuditEntityType =
@@ -597,6 +669,8 @@ export type AuditEntityType =
   | "Document"
   | "Settings"
   | "User"
+  | "Knowledge"
+  | "NotableEvent"
   | "Other";
 
 export interface AuditLogRecord {
