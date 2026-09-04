@@ -60,9 +60,7 @@ export const CRMPipelineView: React.FC = () => {
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [stageFilter, setStageFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<"active" | "closed" | "all">("active");
-  const [showWeightedValue, setShowWeightedValue] = useState(false);
   const [activeMenuDealId, setActiveMenuDealId] = useState<string | null>(null);
   const [followUpModalProps, setFollowUpModalProps] = useState<{
     isOpen: boolean;
@@ -132,13 +130,10 @@ export const CRMPipelineView: React.FC = () => {
       (deal.nextAction && deal.nextAction.toLowerCase().includes(searchQuery.toLowerCase())) ||
       deal.projectApplication?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesStage = stageFilter === "all" || deal.stageName === stageFilter || deal.stageId === stageFilter;
-
-    return matchesSearch && matchesStage;
+    return matchesSearch;
   });
 
   const totalValue = filteredDeals.reduce((sum, d) => sum + (d.dealValue || 0), 0);
-  const totalWeightedValue = filteredDeals.reduce((sum, d) => sum + (d.weightedValue || ((d.dealValue || 0) * (d.probability || 25)) / 100), 0);
 
   const handleCreateDeal = (e: React.FormEvent) => {
     e.preventDefault();
@@ -209,7 +204,6 @@ export const CRMPipelineView: React.FC = () => {
           <h1 className="text-xl sm:text-2xl font-bold text-body tracking-tight">Outstanding Quotes</h1>
           <p className="text-spec text-ink-dim mt-0.5">
             {filteredDeals.length} {filteredDeals.length === 1 ? "quote" : "quotes"} requiring follow-up · Total pipeline: <strong>${totalValue.toLocaleString()} (Ex GST)</strong>
-            {showWeightedValue && <span> · Weighted: ${totalWeightedValue.toLocaleString()}</span>}
           </p>
         </div>
 
@@ -268,32 +262,7 @@ export const CRMPipelineView: React.FC = () => {
               All
             </button>
           </div>
-
-          {/* STAGE FILTER */}
-          <select
-            aria-label="Filter by stage"
-            value={stageFilter}
-            onChange={(e) => setStageFilter(e.target.value)}
-            className="p-1.5 text-xs border border-line rounded-edge bg-white text-body font-medium"
-          >
-            <option value="all">All Stages</option>
-            <option value="Discovery & Qualification">Discovery</option>
-            <option value="Design & Compliance">Design</option>
-            <option value="Proposal & Quoting">Proposal</option>
-            <option value="Negotiation & Review">Negotiation</option>
-            <option value="Closed Won">Closed Won</option>
-            <option value="Closed Lost">Closed Lost</option>
-          </select>
         </div>
-
-        {/* OPTIONAL WEIGHTED VALUE TOGGLE */}
-        <button
-          type="button"
-          onClick={() => setShowWeightedValue(!showWeightedValue)}
-          className="text-xs text-ink-dim hover:text-body font-medium underline self-end sm:self-auto cursor-pointer"
-        >
-          {showWeightedValue ? "Hide weighted value" : "Show weighted value"}
-        </button>
       </div>
 
       {/* COMPACT DEALS TABLE (PART C) */}
@@ -303,7 +272,7 @@ export const CRMPipelineView: React.FC = () => {
           <h2 className="text-base font-bold text-body">No outstanding quotes found</h2>
           <p className="text-spec text-ink-dim max-w-md mx-auto">
             {statusFilter === "active"
-              ? "All active quotes have been followed up, or try adjusting your search or stage filters."
+              ? "All active quotes have been followed up, or try adjusting your search."
               : "No quotes match the current filters."}
           </p>
         </div>
@@ -355,11 +324,6 @@ export const CRMPipelineView: React.FC = () => {
                     {/* VALUE */}
                     <td className="py-3 px-4 whitespace-nowrap font-mono font-bold text-body">
                       <div>${(deal.dealValue || 0).toLocaleString()}</div>
-                      {showWeightedValue && (
-                        <div className="text-[11px] text-ink-dim font-normal">
-                          w: ${(deal.weightedValue || ((deal.dealValue || 0) * (deal.probability || 25)) / 100).toLocaleString()}
-                        </div>
-                      )}
                     </td>
 
                     {/* FOLLOW-UP & DUE DATE */}
