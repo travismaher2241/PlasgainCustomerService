@@ -72,10 +72,10 @@ export const GlobalSearchModal: React.FC = () => {
     },
     {
       id: "cmd-deal",
-      title: "Open Pipeline Deals",
-      subtitle: "Jump to Deals & Quotations pipeline",
+      title: "Open Outstanding Quotes",
+      subtitle: "Jump to quotes requiring follow up",
       icon: KanbanSquare,
-      keywords: ["deal", "quote", "opportunity", "pipeline", "new deal"],
+      keywords: ["deal", "quote", "opportunity", "pipeline", "outstanding quotes", "new deal"],
       action: () => navigateToCRM("pipeline")
     },
     {

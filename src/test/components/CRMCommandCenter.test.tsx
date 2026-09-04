@@ -29,7 +29,7 @@ describe('CRM Command Center Navigation Suite (Step 6)', () => {
       // Navigation tabs for Today, Accounts, Deals
       expect(screen.getByRole('tab', { name: /today/i })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: /accounts/i })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: /deals/i })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: /outstanding quotes|deals/i })).toBeInTheDocument();
 
       // Quick Log action is present
       expect(screen.getByRole('button', { name: /quick log/i })).toBeInTheDocument();
@@ -60,7 +60,7 @@ describe('CRM Command Center Navigation Suite (Step 6)', () => {
 
     expect(screen.getByRole('tab', { name: /today/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /accounts/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /deals/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /outstanding quotes|deals/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /leads/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /tasks/i })).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /competitors/i })).toBeInTheDocument();

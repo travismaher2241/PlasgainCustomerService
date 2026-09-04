@@ -36,7 +36,7 @@ describe('CRM Deals Global Table Suite (Step 6)', () => {
     localStorage.clear();
   });
 
-  it('Test 1 — Renders Deals header and table with account beneath deal name', () => {
+  it('Test 1 — Renders Outstanding Quotes header and table with account beneath quote name', () => {
     render(
       <AppProvider>
         <PipelineTestWrapper />
@@ -44,7 +44,7 @@ describe('CRM Deals Global Table Suite (Step 6)', () => {
     );
 
     // Header & Actions
-    expect(screen.getByRole('heading', { level: 1, name: "Deals" })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /Outstanding Quotes|Deals/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /New quote/i })).toBeInTheDocument();
 
     // Table should be rendered directly
@@ -80,13 +80,28 @@ describe('CRM Deals Global Table Suite (Step 6)', () => {
     );
 
     // Search filter
-    const searchInput = screen.getByPlaceholderText(/Search deals or accounts/i);
+    const searchInput = screen.getByPlaceholderText(/Search (deals|quotes) or accounts/i);
     fireEvent.change(searchInput, { target: { value: "Coastal Pathway" } });
     expect(screen.getByText("Coastal Pathway Solar Lighting")).toBeInTheDocument();
 
     // Search with non-matching term
     fireEvent.change(searchInput, { target: { value: "NonExistentDealXYZ" } });
     expect(screen.queryByText("Coastal Pathway Solar Lighting")).not.toBeInTheDocument();
-    expect(screen.getByText(/No deals found/i)).toBeInTheDocument();
+    expect(screen.getByText(/No (deals|outstanding quotes) found/i)).toBeInTheDocument();
+  });
+
+  it('Test 4 — Renders Follow Up button and opens follow up modal', () => {
+    render(
+      <AppProvider>
+        <PipelineTestWrapper />
+      </AppProvider>
+    );
+
+    const followUpBtn = screen.getByRole('button', { name: /Follow Up/i });
+    expect(followUpBtn).toBeInTheDocument();
+    fireEvent.click(followUpBtn);
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText(/Customer Follow-Up Generator/i)).toBeInTheDocument();
   });
 });

@@ -76,6 +76,18 @@ export const CRMCommandCenter: React.FC = () => {
       l.leadScore >= 70
   ).length;
 
+  const outstandingQuotesCount = crmOpportunities.filter((d) => {
+    const isClosed =
+      d.stageName.includes("Won") ||
+      d.stageName.includes("Lost") ||
+      d.stageId === "stage-won" ||
+      d.stageId === "stage-lost" ||
+      d.quoteStatus === "Accepted" ||
+      d.quoteStatus === "Declined" ||
+      d.quoteStatus === "PO Received";
+    return !isClosed;
+  }).length;
+
   const isMoreTabActive =
     activeCRMTab === "leads" ||
     activeCRMTab === "tasks" ||
@@ -141,7 +153,7 @@ export const CRMCommandCenter: React.FC = () => {
                 <span>Accounts</span>
               </button>
 
-              {/* 3. Deals */}
+              {/* 3. Outstanding Quotes */}
               <button
                 type="button"
                 role="tab"
@@ -157,7 +169,18 @@ export const CRMCommandCenter: React.FC = () => {
                 }`}
               >
                 <Kanban className="w-3.5 h-3.5 shrink-0" />
-                <span>Deals</span>
+                <span>Outstanding Quotes</span>
+                {outstandingQuotesCount > 0 && (
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                      activeCRMTab === "pipeline"
+                        ? "bg-chrome text-white font-semibold"
+                        : "bg-line text-ink font-semibold"
+                    }`}
+                  >
+                    {outstandingQuotesCount}
+                  </span>
+                )}
               </button>
 
               {/* 4. Leads (Desktop) */}

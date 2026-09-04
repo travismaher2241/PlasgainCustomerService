@@ -65,6 +65,17 @@ export const CRMPipelineView: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<"active" | "closed" | "all">("active");
   const [showWeightedValue, setShowWeightedValue] = useState(false);
   const [activeMenuDealId, setActiveMenuDealId] = useState<string | null>(null);
+  const [followUpModalProps, setFollowUpModalProps] = useState<{
+    isOpen: boolean;
+    dealId?: string;
+    accountId?: string;
+    initialContactName?: string;
+    initialCompanyName?: string;
+    initialProjectName?: string;
+    initialQuoteRef?: string;
+    initialProducts?: string[];
+    initialContactEmail?: string;
+  }>({ isOpen: false });
 
   // New Deal Modal State
   const [isNewDealModalOpen, setIsNewDealModalOpen] = useState(false);
@@ -99,15 +110,27 @@ export const CRMPipelineView: React.FC = () => {
     return <CRMDealDetailsWorkspace deal={selectedDeal} onClose={() => setSelectedCrmOpportunityId(null)} />;
   }
 
-  // Filter deals
+  // Filter quotes requiring follow-up
   const filteredDeals = crmOpportunities.filter((deal) => {
-    const isClosed = deal.stageName.includes("Won") || deal.stageName.includes("Lost") || deal.stageId === "stage-won" || deal.stageId === "stage-lost";
+    const isClosed =
+      deal.stageName.includes("Won") ||
+      deal.stageName.includes("Lost") ||
+      deal.stageId === "stage-won" ||
+      deal.stageId === "stage-lost" ||
+      deal.quoteStatus === "Accepted" ||
+      deal.quoteStatus === "Declined" ||
+      deal.quoteStatus === "PO Received";
+
+    // Default "active" status filter only shows quotes that are outstanding and require follow up
     if (statusFilter === "active" && isClosed) return false;
     if (statusFilter === "closed" && !isClosed) return false;
 
     const matchesSearch =
       deal.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (deal.accountName && deal.accountName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (deal.quoteNumber && deal.quoteNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (deal.ostendoQuoteRef && deal.ostendoQuoteRef.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (deal.nextAction && deal.nextAction.toLowerCase().includes(searchQuery.toLowerCase())) ||
       deal.projectApplication?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStage = stageFilter === "all" || deal.stageName === stageFilter || deal.stageId === stageFilter;
@@ -185,9 +208,9 @@ export const CRMPipelineView: React.FC = () => {
       {/* HEADER & PIPELINE ACTIONS */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-3">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-body tracking-tight">Deals</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-body tracking-tight">Outstanding Quotes</h1>
           <p className="text-spec text-ink-dim mt-0.5">
-            {filteredDeals.length} deals · Total pipeline: <strong>${totalValue.toLocaleString()} (Ex GST)</strong>
+            {filteredDeals.length} {filteredDeals.length === 1 ? "quote" : "quotes"} requiring follow-up · Total pipeline: <strong>${totalValue.toLocaleString()} (Ex GST)</strong>
             {showWeightedValue && <span> · Weighted: ${totalWeightedValue.toLocaleString()}</span>}
           </p>
         </div>
@@ -210,7 +233,7 @@ export const CRMPipelineView: React.FC = () => {
             <Search className="w-3.5 h-3.5 text-ink-dim absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search deals or accounts..."
+              placeholder="Search quotes or accounts..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-8 pr-3 py-1.5 text-spec border border-line rounded-edge bg-white placeholder:text-ink-dim/60 focus:border-brand-deep focus:ring-1 focus:ring-brand-deep"
@@ -226,7 +249,7 @@ export const CRMPipelineView: React.FC = () => {
                 statusFilter === "active" ? "bg-chrome text-white font-bold" : "text-ink-dim hover:text-body"
               }`}
             >
-              Active
+              Requires Follow-Up
             </button>
             <button
               type="button"
@@ -292,9 +315,11 @@ export const CRMPipelineView: React.FC = () => {
       {filteredDeals.length === 0 ? (
         <div className="p-12 text-center space-y-2 bg-white rounded-panel border border-line shadow-2xs">
           <Kanban className="w-10 h-10 text-ink-faint mx-auto" />
-          <h2 className="text-base font-bold text-body">No deals found</h2>
+          <h2 className="text-base font-bold text-body">No outstanding quotes found</h2>
           <p className="text-spec text-ink-dim max-w-md mx-auto">
-            Try adjusting your search or stage filters, or create a new deal.
+            {statusFilter === "active"
+              ? "All active quotes have been followed up, or try adjusting your search or stage filters."
+              : "No quotes match the current filters."}
           </p>
         </div>
       ) : (
@@ -303,10 +328,10 @@ export const CRMPipelineView: React.FC = () => {
             <table className="w-full text-left border-collapse text-spec">
               <thead>
                 <tr className="border-b border-line bg-paper/60 text-ink-dim text-xs font-bold uppercase tracking-wider">
-                  <th className="py-2.5 px-4">Deal / Customer</th>
+                  <th className="py-2.5 px-4">Quote / Customer</th>
                   <th className="py-2.5 px-4">Stage</th>
                   <th className="py-2.5 px-4">Value (Ex GST)</th>
-                  <th className="py-2.5 px-4">Next Action &amp; Due</th>
+                  <th className="py-2.5 px-4">Follow-Up &amp; Due</th>
                   <th className="py-2.5 px-4">Health</th>
                   <th className="py-2.5 px-4 text-right">Actions</th>
                 </tr>
@@ -318,10 +343,17 @@ export const CRMPipelineView: React.FC = () => {
                     onClick={() => setSelectedCrmOpportunityId(deal.id)}
                     className="hover:bg-raised/60 transition-colors cursor-pointer"
                   >
-                    {/* DEAL NAME & ACCOUNT BENEATH (PART C) */}
+                    {/* QUOTE NAME & ACCOUNT BENEATH (PART C) */}
                     <td className="py-3 px-4 min-w-[220px]">
-                      <div className="font-bold text-body text-spec hover:text-brand-deep transition-colors">
-                        {deal.name}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-body text-spec hover:text-brand-deep transition-colors">
+                          {deal.name}
+                        </span>
+                        {(deal.quoteNumber || deal.ostendoQuoteRef) && (
+                          <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-paper border border-line text-ink-dim">
+                            {deal.quoteNumber || deal.ostendoQuoteRef}
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-ink-dim mt-0.5">
                         {deal.accountName || "Direct Customer"}
@@ -345,14 +377,21 @@ export const CRMPipelineView: React.FC = () => {
                       )}
                     </td>
 
-                    {/* NEXT ACTION & DUE DATE */}
+                    {/* FOLLOW-UP & DUE DATE */}
                     <td className="py-3 px-4 min-w-[220px]">
-                      <div className="text-xs font-medium text-body line-clamp-1">
-                        {deal.nextAction || "Follow up quotation"}
+                      <div className="text-xs font-medium text-body line-clamp-1 flex items-center gap-1.5">
+                        <Mail className="w-3.5 h-3.5 text-brand-deep shrink-0" />
+                        <span>{deal.nextAction || "Follow up quotation"}</span>
                       </div>
                       <div className="text-[11px] text-ink-dim mt-0.5 flex items-center gap-1 font-mono">
                         <Clock className="w-3 h-3 text-ink-dim" />
-                        <span>Target Close: {deal.expectedCloseDate || "Not set"}</span>
+                        <span>
+                          {deal.nextActionDate
+                            ? `Follow-up: ${deal.nextActionDate}`
+                            : deal.expectedCloseDate
+                            ? `Target Close: ${deal.expectedCloseDate}`
+                            : "Follow-up required"}
+                        </span>
                       </div>
                     </td>
 
@@ -361,45 +400,69 @@ export const CRMPipelineView: React.FC = () => {
                       {getHealthBadge(deal.dealHealth)}
                     </td>
 
-                    {/* ROW MENU */}
+                    {/* ROW ACTIONS */}
                     <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                      <div className="relative inline-block">
+                      <div className="inline-flex items-center gap-1.5 justify-end">
                         <button
                           type="button"
-                          aria-label={`Actions for ${deal.name}`}
-                          onClick={() => setActiveMenuDealId(activeMenuDealId === deal.id ? null : deal.id)}
-                          className="p-1 rounded hover:bg-line text-ink-dim hover:text-body transition-colors cursor-pointer"
+                          onClick={() => {
+                            setFollowUpModalProps({
+                              isOpen: true,
+                              dealId: deal.id,
+                              accountId: deal.accountId,
+                              initialContactName: deal.primaryContactName,
+                              initialCompanyName: deal.accountName,
+                              initialProjectName: deal.name,
+                              initialQuoteRef: deal.ostendoQuoteRef || deal.quoteNumber || "",
+                              initialProducts: (deal.products || []).map((p) => p.productName || p.productCode),
+                              initialContactEmail: deal.primaryContactEmail
+                            });
+                          }}
+                          className="px-2.5 py-1 text-xs font-bold text-brand-deep bg-brand-wash hover:bg-brand-edge/30 rounded border border-brand-edge flex items-center gap-1 transition-colors cursor-pointer"
+                          title="Generate follow-up email and schedule task"
                         >
-                          <MoreVertical className="w-4 h-4" />
+                          <Mail className="w-3 h-3" />
+                          <span>Follow Up</span>
                         </button>
 
-                        {activeMenuDealId === deal.id && (
-                          <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-line rounded-panel shadow-lg py-1 z-30 text-spec text-left animate-in fade-in zoom-in-95 duration-100">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveMenuDealId(null);
-                                setSelectedCrmOpportunityId(deal.id);
-                              }}
-                              className="w-full px-3 py-1.5 hover:bg-raised flex items-center gap-2 text-body"
-                            >
-                              <FileText className="w-3.5 h-3.5 text-ink-dim" />
-                              <span>View Details</span>
-                            </button>
+                        <div className="relative inline-block">
+                          <button
+                            type="button"
+                            aria-label={`Actions for ${deal.name}`}
+                            onClick={() => setActiveMenuDealId(activeMenuDealId === deal.id ? null : deal.id)}
+                            className="p-1 rounded hover:bg-line text-ink-dim hover:text-body transition-colors cursor-pointer"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </button>
 
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveMenuDealId(null);
-                                openQuickLog({ type: "call", accountId: deal.accountId, opportunityId: deal.id });
-                              }}
-                              className="w-full px-3 py-1.5 hover:bg-raised flex items-center gap-2 text-body"
-                            >
-                              <Phone className="w-3.5 h-3.5 text-ink-dim" />
-                              <span>Log Activity</span>
-                            </button>
-                          </div>
-                        )}
+                          {activeMenuDealId === deal.id && (
+                            <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-line rounded-panel shadow-lg py-1 z-30 text-spec text-left animate-in fade-in zoom-in-95 duration-100">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveMenuDealId(null);
+                                  setSelectedCrmOpportunityId(deal.id);
+                                }}
+                                className="w-full px-3 py-1.5 hover:bg-raised flex items-center gap-2 text-body"
+                              >
+                                <FileText className="w-3.5 h-3.5 text-ink-dim" />
+                                <span>View Details</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveMenuDealId(null);
+                                  openQuickLog({ type: "call", accountId: deal.accountId, opportunityId: deal.id });
+                                }}
+                                className="w-full px-3 py-1.5 hover:bg-raised flex items-center gap-2 text-body"
+                              >
+                                <Phone className="w-3.5 h-3.5 text-ink-dim" />
+                                <span>Log Activity</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -564,6 +627,22 @@ export const CRMPipelineView: React.FC = () => {
             </form>
           </section>
         </div>
+      )}
+
+      {/* Customer Follow Up Modal */}
+      {followUpModalProps.isOpen && (
+        <CustomerFollowUpModal
+          isOpen={followUpModalProps.isOpen}
+          onClose={() => setFollowUpModalProps((prev) => ({ ...prev, isOpen: false }))}
+          dealId={followUpModalProps.dealId}
+          accountId={followUpModalProps.accountId}
+          initialContactName={followUpModalProps.initialContactName}
+          initialCompanyName={followUpModalProps.initialCompanyName}
+          initialProjectName={followUpModalProps.initialProjectName}
+          initialQuoteRef={followUpModalProps.initialQuoteRef}
+          initialProducts={followUpModalProps.initialProducts}
+          initialContactEmail={followUpModalProps.initialContactEmail}
+        />
       )}
     </div>
   );

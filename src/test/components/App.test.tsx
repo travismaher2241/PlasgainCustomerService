@@ -19,7 +19,7 @@ describe('App Component Layout and Navigation', () => {
     const crmNav = screen.getByRole('button', { name: /CRM Command Centre/i });
     fireEvent.click(crmNav);
 
-    expect(await screen.findByRole('tab', { name: /^Deals$/i }, { timeout: 10000 })).toBeInTheDocument();
+    expect(await screen.findByRole('tab', { name: /Outstanding Quotes|Deals/i }, { timeout: 10000 })).toBeInTheDocument();
 
     // Click Settings
     const settingsNav = screen.getByRole('button', { name: /^Settings$/i });
