@@ -13,6 +13,7 @@ import {
   ReplenishmentTimeline,
   ParsedSupplyCycle
 } from "./crmKnowledgeEngine";
+import { formatAuDate } from "./dateUtils";
 import { CallTalkingPoint } from "./crmCallPreparation";
 
 /**
@@ -190,11 +191,38 @@ export function generateMeetingPreparationPlan(
       opportunity.quoteStatus === "PO Received"
     );
 
-    let responseDetail = "The CRM does not currently show whether the customer has responded to this quote.";
-    if (opportunity.quoteStatus === "Accepted" || opportunity.quoteStatus === "PO Received") {
-      responseDetail = "Quote has been accepted (awaiting PO or delivery schedule).";
-    } else if (opportunity.quoteStatus === "Declined") {
-      responseDetail = `Quote declined: ${opportunity.lostReason || "No reason given"}.`;
+    // Report the status actually held. This previously said the system had no
+    // information for every state except Accepted/Declined/PO Received —
+    // including Sent, which is the normal state of an outstanding quote.
+    let responseDetail: string;
+    switch (opportunity.quoteStatus) {
+      case "Accepted":
+      case "PO Received":
+        responseDetail = "Accepted — awaiting the purchase order or a delivery schedule.";
+        break;
+      case "Declined":
+        responseDetail = `Declined: ${opportunity.lostReason || "no reason recorded"}.`;
+        break;
+      case "Sent":
+      case "Issued":
+        responseDetail = opportunity.quoteSentDate
+          ? `Issued ${formatAuDate(opportunity.quoteSentDate)}. No response recorded yet.`
+          : "Issued. No response recorded yet.";
+        break;
+      case "Viewed":
+        responseDetail = "The customer has opened it but has not responded yet.";
+        break;
+      case "Client Review":
+        responseDetail = "With the customer for review.";
+        break;
+      case "Revising":
+        responseDetail = "Being revised.";
+        break;
+      case "Expired":
+        responseDetail = "Expired — it will need to be reissued.";
+        break;
+      default:
+        responseDetail = "No quote status has been recorded against this yet.";
     }
 
     openQuotes.push({

@@ -80,6 +80,8 @@ export const CRMAccountsView: React.FC = () => {
     setSelectedAccountId,
     contacts,
     crmOpportunities,
+    pendingCreateIntent,
+    consumeCreateIntent,
     activities,
     tasks,
     updateAccount,
@@ -496,6 +498,14 @@ export const CRMAccountsView: React.FC = () => {
     );
   };
 
+  // A shortcut asked for the Add Account form, not the list behind it.
+  useEffect(() => {
+    if (pendingCreateIntent === "accounts") {
+      setIsNewAccountModalOpen(true);
+      consumeCreateIntent();
+    }
+  }, [pendingCreateIntent]);
+
   // Handle Delete Account
   const handleDeleteAccount = async (accountToDelete: Account) => {
     // deleteAccount cascades. The confirmation used to promise only "the
@@ -558,6 +568,9 @@ export const CRMAccountsView: React.FC = () => {
 
     addAccount(newAcc);
     setSelectedAccountId(newAcc.id);
+    // Open the record rather than dropping back to the list, which made the rep
+    // re-select the account the app had just created.
+    setMobileShowDetail(true);
     setIsNewAccountModalOpen(false);
     showToast(`Added "${newAcc.name}".`, "success");
   };
@@ -795,7 +808,7 @@ export const CRMAccountsView: React.FC = () => {
           <Building2 className="w-10 h-10 text-ink-faint mx-auto" />
           <h2 className="text-base font-bold text-body">No accounts yet</h2>
           <p className="text-spec text-ink-dim max-w-md mx-auto">
-            Create an account to track customer organisations, key stakeholders, opportunities, and interactions.
+            Add an account to keep its people, quotes and call history in one place.
           </p>
           <button
             onClick={() => setIsNewAccountModalOpen(true)}
@@ -893,7 +906,7 @@ export const CRMAccountsView: React.FC = () => {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-body tracking-tight">Accounts</h1>
           <p className="text-spec text-ink-dim mt-0.5">
-            Manage customer organisations, buying committees, active opportunities, and interaction history.
+            Customers and prospects, the people at them, their quotes and what has been discussed.
           </p>
         </div>
         <button
@@ -1403,8 +1416,8 @@ export const CRMAccountsView: React.FC = () => {
                             href={`mailto:${selectedAccount.generalEmail}`}
                             className="flex items-center gap-1.5 text-body font-medium hover:text-brand-deep transition-colors"
                           >
-                            <Mail className="w-3.5 h-3.5 text-brand-deep" />
-                            <span>{selectedAccount.generalEmail}</span>
+                            <Mail className="w-3.5 h-3.5 text-brand-deep shrink-0" />
+                            <span className="break-all">{selectedAccount.generalEmail}</span>
                           </a>
                         )}
 
@@ -1594,7 +1607,7 @@ export const CRMAccountsView: React.FC = () => {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div>
                         <h3 className="text-base font-bold text-body">Contacts</h3>
-                        <p className="text-spec text-ink-dim">Direct customer stakeholders, procurement leads, and engineers.</p>
+                        <p className="text-spec text-ink-dim">The people you deal with at this customer.</p>
                       </div>
                       <div className="flex items-center gap-2">
                         {archivedContactsCount > 0 && (
@@ -1652,11 +1665,29 @@ export const CRMAccountsView: React.FC = () => {
                                   {contact.jobTitle || contact.role || "Contact"} {contact.department ? `· ${contact.department}` : ""}
                                 </p>
                                 <div className="flex items-center gap-3 text-xs text-ink-dim flex-wrap pt-0.5">
+                                  {/*
+                                    Tappable, and allowed to wrap. These were
+                                    plain spans, so a rep could not ring or
+                                    email from the row, and a long address was
+                                    clipped mid-word with no ellipsis.
+                                  */}
                                   {contact.email && (
-                                    <span className="text-body font-mono">{contact.email}</span>
+                                    <a
+                                      href={`mailto:${contact.email}`}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="text-brand-deep hover:underline break-all"
+                                    >
+                                      {contact.email}
+                                    </a>
                                   )}
                                   {(contact.mobile || contact.phone) && (
-                                    <span>{contact.mobile || contact.phone}</span>
+                                    <a
+                                      href={`tel:${(contact.mobile || contact.phone || "").replace(/\s+/g, "")}`}
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="text-brand-deep hover:underline whitespace-nowrap"
+                                    >
+                                      {contact.mobile || contact.phone}
+                                    </a>
                                   )}
                                 </div>
 
@@ -1762,7 +1793,7 @@ export const CRMAccountsView: React.FC = () => {
                   <div className="space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
-                        <h3 className="text-base font-bold text-body">Account Deals &amp; Quotations</h3>
+                        <h3 className="text-base font-bold text-body">Quotes</h3>
                         <p className="text-spec text-ink-dim">Commercial opportunities and tenders for {selectedAccount.name}.</p>
                       </div>
 
@@ -2013,7 +2044,7 @@ export const CRMAccountsView: React.FC = () => {
                     {isAiLoading ? (
                       <div className="p-10 text-center space-y-2">
                         <div className="w-6 h-6 border-2 border-brand-deep border-t-transparent rounded-full animate-spin mx-auto"></div>
-                        <p className="text-spec text-ink-dim">Synthesizing account intelligence...</p>
+                        <p className="text-spec text-ink-dim">Putting the account brief together…</p>
                       </div>
                     ) : aiError ? (
                       <div className="p-4 bg-red-50 text-red-800 rounded-panel border border-red-200 text-spec">
@@ -2212,7 +2243,7 @@ export const CRMAccountsView: React.FC = () => {
                   {drawerContact.email && (
                     <p className="flex items-center gap-2">
                       <span className="text-ink-dim font-medium">Email:</span>
-                      <a href={`mailto:${drawerContact.email}`} className="text-brand-deep hover:underline">
+                      <a href={`mailto:${drawerContact.email}`} className="text-brand-deep hover:underline break-all">
                         {drawerContact.email}
                       </a>
                     </p>
@@ -2220,7 +2251,7 @@ export const CRMAccountsView: React.FC = () => {
                   {drawerContact.mobile && (
                     <p className="flex items-center gap-2">
                       <span className="text-ink-dim font-medium">Mobile:</span>
-                      <a href={`tel:${drawerContact.mobile}`} className="text-body hover:underline">
+                      <a href={`tel:${(drawerContact.mobile || "").replace(/\s+/g, "")}`} className="text-brand-deep hover:underline">
                         {drawerContact.mobile}
                       </a>
                     </p>

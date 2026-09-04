@@ -18,6 +18,7 @@ import { addDaysLocal, formatAuDate } from "../utils/dateUtils";
 export const HomeDashboard: React.FC = () => {
   const {
     navigateToCRM,
+    requestCreateOn,
     crmOpportunities,
     addCrmOpportunity,
     accounts,
@@ -268,7 +269,7 @@ export const HomeDashboard: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => navigateToCRM("accounts")}
+          onClick={() => requestCreateOn("accounts")}
           className="p-3 rounded-edge bg-white hover:bg-raised border border-line hover:border-brand-deep transition-all cursor-pointer shadow-2xs flex items-center gap-2.5"
         >
           <div className="p-1.5 rounded bg-paper text-ink-dim shrink-0">

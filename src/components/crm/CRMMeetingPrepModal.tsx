@@ -18,6 +18,7 @@ import {
   Video
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
+import { useDialogDismiss } from "../../utils/useDialogDismiss";
 import { formatAuDateTime } from "../../utils/dateUtils";
 import { generateMeetingPreparationPlan } from "../../utils/crmMeetingPreparation";
 
@@ -34,6 +35,8 @@ export const CRMMeetingPrepModal: React.FC = () => {
     knowledge,
     showToast
   } = useApp();
+
+  useDialogDismiss(Boolean(meetingPrepModal?.isOpen), closeMeetingPrep);
 
   const [copied, setCopied] = useState(false);
   const [meetingNotes, setMeetingNotes] = useState("");

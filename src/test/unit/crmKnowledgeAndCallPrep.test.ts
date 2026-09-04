@@ -176,8 +176,11 @@ He mentioned he was recently promoted to Head of Asset Maintenance.`,
     expect(briefing.executiveBriefing).toContain("Q-2026-8821");
     expect(briefing.executiveBriefing).toContain("74,500");
 
-    // Honest uncertainty requirement: clearly states when CRM does not have confirmation
-    expect(briefing.executiveBriefing.toLowerCase()).toContain("does not currently show whether david walker has confirmed or responded");
+    // Honest uncertainty requirement: the briefing must say plainly that no
+    // response has been recorded, without describing the software to the rep.
+    const lower = briefing.executiveBriefing.toLowerCase();
+    expect(lower).toContain("nothing has been recorded back from david walker");
+    expect(lower).not.toContain("the crm");
 
     // Validates talking points and accumulated knowledge inclusion
     expect(briefing.talkingPoints.length).toBeGreaterThan(0);

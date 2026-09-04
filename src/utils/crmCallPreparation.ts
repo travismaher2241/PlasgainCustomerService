@@ -13,6 +13,7 @@ import {
   ReplenishmentTimeline,
   ParsedSupplyCycle
 } from "./crmKnowledgeEngine";
+import { formatAuDate } from "./dateUtils";
 
 export interface CallTalkingPoint {
   category: "Follow-up" | "Question" | "Commitment" | "Commercial" | "Technical" | "Context";
@@ -140,11 +141,36 @@ export function generateCallPreparationBriefing(params: {
       opportunity.quoteStatus === "PO Received"
     );
 
-    let responseDetail = "The CRM does not currently show whether the customer has responded to this quote.";
-    if (opportunity.quoteStatus === "Accepted" || opportunity.quoteStatus === "PO Received") {
-      responseDetail = "Quote has been accepted (awaiting PO or final delivery schedule).";
-    } else if (opportunity.quoteStatus === "Declined") {
-      responseDetail = `Quote declined: ${opportunity.lostReason || "No details provided"}.`;
+    // Report the status actually held rather than claiming no information for
+    // every state except Accepted/Declined/PO Received — Sent, the normal state
+    // of an outstanding quote, previously fell through to "we don't know".
+    let responseDetail: string;
+    switch (opportunity.quoteStatus) {
+      case "Accepted":
+      case "PO Received":
+        responseDetail = "Accepted — awaiting the purchase order or a delivery schedule.";
+        break;
+      case "Declined":
+        responseDetail = `Declined: ${opportunity.lostReason || "no reason recorded"}.`;
+        break;
+      case "Sent":
+      case "Issued":
+        responseDetail = "Issued, with no response recorded yet.";
+        break;
+      case "Viewed":
+        responseDetail = "Opened by the customer, with no response recorded yet.";
+        break;
+      case "Client Review":
+        responseDetail = "With the customer for review.";
+        break;
+      case "Revising":
+        responseDetail = "Being revised.";
+        break;
+      case "Expired":
+        responseDetail = "Expired — it will need to be reissued.";
+        break;
+      default:
+        responseDetail = "No quote status has been recorded against this yet.";
     }
 
     openQuotes.push({
@@ -354,11 +380,11 @@ export function generateCallPreparationBriefing(params: {
     const q = openQuotes[0];
     if (!q.hasRecordedResponse) {
       narrativeParagraphs.push(
-        `Plasgain submitted quote ${q.quoteNumber} for $${q.dealValue.toLocaleString()} (${q.dealName})${q.sentDate ? ` on ${q.sentDate}` : ""}. The CRM does not currently show whether ${contactName} has confirmed or responded to this quote.`
+        `Quote ${q.quoteNumber} for $${q.dealValue.toLocaleString()} (${q.dealName}) went out${q.sentDate ? ` on ${formatAuDate(q.sentDate)}` : ""}. Nothing has been recorded back from ${contactName} yet, so it is worth asking where it sits.`
       );
     } else {
       narrativeParagraphs.push(
-        `Quote ${q.quoteNumber} ($${q.dealValue.toLocaleString()}) is marked as ${q.quoteStatus}. Verify next operational milestones or delivery timing.`
+        `Quote ${q.quoteNumber} ($${q.dealValue.toLocaleString()}) is marked ${q.quoteStatus}. Confirm delivery timing and what happens next.`
       );
     }
   } else if (opportunity) {

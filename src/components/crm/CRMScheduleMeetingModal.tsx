@@ -14,6 +14,7 @@ import {
   Briefcase
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
+import { useDialogDismiss } from "../../utils/useDialogDismiss";
 import { getLocalDateInputValue, formatAuTime } from "../../utils/dateUtils";
 import { getTomorrowDateString } from "../../utils/crmMeetingPreparation";
 
@@ -27,6 +28,8 @@ export const CRMScheduleMeetingModal: React.FC = () => {
     contacts,
     crmOpportunities
   } = useApp();
+
+  useDialogDismiss(Boolean(scheduleMeetingModal?.isOpen), closeScheduleMeeting);
 
   const [accountId, setAccountId] = useState("");
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);

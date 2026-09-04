@@ -90,7 +90,7 @@ describe('CRMCallPrepModal Component', () => {
     // Open Prep Call
     fireEvent.click(screen.getByTestId('open-prep-btn'));
 
-    expect(screen.getByText(/Call Briefing/i)).toBeInTheDocument();
+    expect(screen.getByText(/Before you ring/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Moreton Regional Council/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Bribie Island Foreshore Solar Lighting/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/\$74,500/i).length).toBeGreaterThan(0);
@@ -99,8 +99,8 @@ describe('CRMCallPrepModal Component', () => {
     expect(screen.getByText(/dwalker@moreton.qld.gov.au/i)).toBeInTheDocument();
 
     // Recommended objectives & Horizon selector
-    expect(screen.getByText(/Recommended Call Objectives/i)).toBeInTheDocument();
-    expect(screen.getByText(/Preparation Horizon/i)).toBeInTheDocument();
+    expect(screen.getByText(/What to cover/i)).toBeInTheDocument();
+    expect(screen.getByText(/Looking ahead/i)).toBeInTheDocument();
     expect(screen.queryByText(/Verify required AS\/NZS 1158 Category/i)).not.toBeInTheDocument();
   });
 
@@ -114,11 +114,11 @@ describe('CRMCallPrepModal Component', () => {
     expect(screen.getByTestId('activities-count')).toHaveTextContent('0');
 
     fireEvent.click(screen.getByTestId('open-prep-btn'));
-    expect(screen.getByText(/Call Briefing/i)).toBeInTheDocument();
+    expect(screen.getByText(/Before you ring/i)).toBeInTheDocument();
 
     // Close briefing
     fireEvent.click(screen.getByRole('button', { name: /^close$/i }));
-    expect(screen.queryByText(/Call Briefing/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Before you ring/i)).not.toBeInTheDocument();
 
     // Activities remain 0
     expect(screen.getByTestId('activities-count')).toHaveTextContent('0');
@@ -132,13 +132,13 @@ describe('CRMCallPrepModal Component', () => {
     );
 
     fireEvent.click(screen.getByTestId('open-prep-btn'));
-    expect(screen.getByText(/Call Briefing/i)).toBeInTheDocument();
+    expect(screen.getByText(/Before you ring/i)).toBeInTheDocument();
 
     // Click Log Call
     fireEvent.click(screen.getByRole('button', { name: /Log Call/i }));
 
     // Call Briefing closes, Quick Log opens
-    expect(screen.queryByText(/Call Briefing/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Before you ring/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Quick Log Activity/i)).toBeInTheDocument();
 
     // Quick Log does NOT have mode/tab switcher

@@ -16,6 +16,7 @@ import {
   Package
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
+import { useDialogDismiss } from "../../utils/useDialogDismiss";
 import { generateCallPreparationBriefing } from "../../utils/crmCallPreparation";
 
 export const CRMCallPrepModal: React.FC = () => {
@@ -31,6 +32,8 @@ export const CRMCallPrepModal: React.FC = () => {
     tasks,
     showToast
   } = useApp();
+
+  useDialogDismiss(Boolean(callPrepModal?.isOpen), closeCallPrep);
 
   const [callNotes, setCallNotes] = useState("");
   const [copied, setCopied] = useState(false);
@@ -133,7 +136,7 @@ export const CRMCallPrepModal: React.FC = () => {
             </div>
             <div>
               <h3 id="call-prep-title" className="text-base font-bold text-body">
-                Call Briefing: {briefing.contactName}
+                Before you ring {briefing.contactName}
               </h3>
               <p className="text-spec text-ink-dim">
                 {briefing.accountName} {briefing.contactRole ? `· ${briefing.contactRole}` : ""}
@@ -165,7 +168,7 @@ export const CRMCallPrepModal: React.FC = () => {
         <div className="flex items-center justify-between bg-paper p-2.5 rounded-edge border border-line text-xs">
           <div className="flex items-center gap-1.5 font-bold text-ink-dim uppercase tracking-wider">
             <Calendar className="w-3.5 h-3.5 text-brand-deep" />
-            <span>Preparation Horizon:</span>
+            <span>Looking ahead:</span>
           </div>
           <div className="flex items-center gap-1">
             {[
@@ -194,7 +197,7 @@ export const CRMCallPrepModal: React.FC = () => {
         <div className="p-4 bg-brand-wash/40 border border-brand-edge/60 rounded-edge space-y-2 text-spec">
           <div className="flex items-center gap-1.5 font-bold text-brand-deep uppercase text-xs tracking-wider">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Colleague Briefing</span>
+            <span>Briefing</span>
           </div>
           <div className="text-body leading-relaxed space-y-2 whitespace-pre-line font-medium text-spec">
             {briefing.executiveBriefing}
@@ -266,7 +269,7 @@ export const CRMCallPrepModal: React.FC = () => {
         <div className="p-3.5 bg-paper border border-line rounded-edge space-y-2">
           <div className="text-xs font-bold uppercase text-ink-dim tracking-wider flex items-center gap-1.5">
             <Lightbulb className="w-3.5 h-3.5 text-brand-deep" />
-            <span>Recommended Call Objectives &amp; Talking Points</span>
+            <span>What to cover</span>
           </div>
           {briefing.talkingPoints.length > 0 && (
             <div className="space-y-2 pt-0.5">
@@ -382,7 +385,7 @@ export const CRMCallPrepModal: React.FC = () => {
         {/* Private Call Scratchpad */}
         <div>
           <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
-            Private Call Notes
+            Your notes
           </label>
           <textarea
             value={callNotes}

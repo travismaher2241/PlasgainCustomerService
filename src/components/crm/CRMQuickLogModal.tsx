@@ -14,6 +14,7 @@ import {
   Check
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
+import { useDialogDismiss } from "../../utils/useDialogDismiss";
 import { ActivityType, Account, CRMContact, CRMOpportunity, ActivityParticipant, ContactNotableEvent } from "../../types/crm";
 import { addDaysLocal } from "../../utils/dateUtils";
 import { detectDuplicateContact, DuplicateMatchResult } from "../../utils/duplicateDetector";
@@ -39,6 +40,8 @@ export const CRMQuickLogModal: React.FC = () => {
     dismissCandidateNotableEvent,
     currentUser
   } = useApp();
+
+  useDialogDismiss(Boolean(quickLogModal?.isOpen), closeQuickLog);
 
   const [type, setType] = useState<ActivityType>("call");
   const [selectedAccountId, setSelectedAccountId] = useState("");

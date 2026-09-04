@@ -406,6 +406,14 @@ interface AppContextType {
   // Navigate helper
   navigateToWorkflow: (tab: NavTab, toolSub?: string, oppId?: string) => void;
   navigateToCRM: (subTab: CRMSubTab, entityId?: string) => void;
+  /**
+   * Set when a shortcut wants a screen to open its own create form on arrival,
+   * so "Add account" does not land on a list and ask for the same action again.
+   * The screen clears it once consumed.
+   */
+  pendingCreateIntent: CRMSubTab | null;
+  requestCreateOn: (subTab: CRMSubTab) => void;
+  consumeCreateIntent: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -2343,6 +2351,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const [pendingCreateIntent, setPendingCreateIntent] = useState<CRMSubTab | null>(null);
+
+  const requestCreateOn = (subTab: CRMSubTab) => {
+    setPendingCreateIntent(subTab);
+    navigateToCRM(subTab);
+  };
+
+  const consumeCreateIntent = () => setPendingCreateIntent(null);
+
   const navigateToCRM = (subTab: CRMSubTab, entityId?: string) => {
     setActiveTab("crm");
     setActiveCRMTab(subTab);
@@ -2482,7 +2499,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toast,
         showToast,
         navigateToWorkflow,
-        navigateToCRM
+        navigateToCRM,
+        pendingCreateIntent,
+        requestCreateOn,
+        consumeCreateIntent
       }}
     >
       {children}

@@ -95,7 +95,12 @@ export const CRMCommandCenter: React.FC = () => {
 
   const tomorrowMeetingsCount = getNextDayMeetings(tasks).length;
 
+  // Every destination the More menu offers must also drive its active state,
+  // otherwise selecting Calendar left the button reading "More", unhighlighted,
+  // while the Calendar tab itself was scrolled off screen — nothing in the bar
+  // showed where the rep was.
   const isMoreTabActive =
+    activeCRMTab === "calendar" ||
     activeCRMTab === "leads" ||
     activeCRMTab === "tasks" ||
     activeCRMTab === "competitor-pricing";
@@ -105,11 +110,11 @@ export const CRMCommandCenter: React.FC = () => {
       {/* Top CRM Navigation Bar */}
       <div className="bg-white border-b border-line sticky top-0 z-20 shadow-2xs w-full min-w-0">
         <div className="max-w-7xl mx-auto px-2.5 sm:px-6 w-full min-w-0">
-          <div className="flex items-center justify-between h-11 w-full min-w-0 gap-1.5 sm:gap-2">
+          <div className="flex items-center justify-between h-14 w-full min-w-0 gap-1.5 sm:gap-2">
             {/* Unified Standardised CRM Navigation */}
             <nav
               aria-label="CRM Navigation"
-              className="flex-1 flex items-center gap-1 sm:gap-1.5 py-1 min-w-0 overflow-x-auto scrollbar-none no-scrollbar flex-nowrap"
+              className="flex-1 flex items-center gap-1 sm:gap-1.5 py-1 min-w-0 overflow-x-auto scrollbar-none no-scrollbar flex-nowrap [mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)] md:[mask-image:none]"
             >
               {/* 1. Today */}
               <button
@@ -120,7 +125,7 @@ export const CRMCommandCenter: React.FC = () => {
                   setActiveCRMTab("today");
                   setIsMoreMenuOpen(false);
                 }}
-                className={`h-8 px-2 sm:px-2.5 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                className={`h-11 px-2 sm:px-2.5 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
                   activeCRMTab === "today"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
@@ -150,7 +155,7 @@ export const CRMCommandCenter: React.FC = () => {
                   setActiveCRMTab("accounts");
                   setIsMoreMenuOpen(false);
                 }}
-                className={`h-8 px-2 sm:px-2.5 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                className={`h-11 px-2 sm:px-2.5 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
                   activeCRMTab === "accounts"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
@@ -170,7 +175,7 @@ export const CRMCommandCenter: React.FC = () => {
                   setActiveCRMTab("pipeline");
                   setIsMoreMenuOpen(false);
                 }}
-                className={`h-8 px-2 sm:px-2.5 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                className={`h-11 px-2 sm:px-2.5 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
                   activeCRMTab === "pipeline"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
@@ -203,7 +208,7 @@ export const CRMCommandCenter: React.FC = () => {
                   setActiveCRMTab("calendar");
                   setIsMoreMenuOpen(false);
                 }}
-                className={`h-8 px-2 sm:px-2.5 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                className={`h-11 px-2 sm:px-2.5 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
                   activeCRMTab === "calendar"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
@@ -231,7 +236,7 @@ export const CRMCommandCenter: React.FC = () => {
                 role="tab"
                 aria-selected={activeCRMTab === "leads"}
                 onClick={() => setActiveCRMTab("leads")}
-                className={`hidden md:flex h-8 px-2.5 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                className={`hidden md:flex h-11 px-2.5 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
                   activeCRMTab === "leads"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
@@ -258,7 +263,7 @@ export const CRMCommandCenter: React.FC = () => {
                 role="tab"
                 aria-selected={activeCRMTab === "tasks"}
                 onClick={() => setActiveCRMTab("tasks")}
-                className={`hidden md:flex h-8 px-2.5 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                className={`hidden md:flex h-11 px-2.5 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
                   activeCRMTab === "tasks"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
@@ -285,7 +290,7 @@ export const CRMCommandCenter: React.FC = () => {
                 role="tab"
                 aria-selected={activeCRMTab === "competitor-pricing"}
                 onClick={() => setActiveCRMTab("competitor-pricing")}
-                className={`hidden md:flex h-8 px-2.5 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                className={`hidden md:flex h-11 px-2.5 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
                   activeCRMTab === "competitor-pricing"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
@@ -306,7 +311,7 @@ export const CRMCommandCenter: React.FC = () => {
                     e.stopPropagation();
                     setIsMoreMenuOpen((prev) => !prev);
                   }}
-                  className={`h-8 px-2 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap shrink-0 ${
+                  className={`h-11 px-2 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap shrink-0 ${
                     isMoreTabActive
                       ? "bg-brand-deep text-white shadow-xs"
                       : "text-ink-dim hover:text-ink hover:bg-paper border border-line"
@@ -315,7 +320,9 @@ export const CRMCommandCenter: React.FC = () => {
                   aria-label="More CRM destinations"
                 >
                   <span>
-                    {activeCRMTab === "leads"
+                    {activeCRMTab === "calendar"
+                      ? "Calendar"
+                      : activeCRMTab === "leads"
                       ? "Leads"
                       : activeCRMTab === "tasks"
                       ? "Tasks"
@@ -331,13 +338,42 @@ export const CRMCommandCenter: React.FC = () => {
                     onClick={(e) => e.stopPropagation()}
                     className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-edge border border-line shadow-xl py-1 z-50 text-spec animate-in fade-in zoom-in-95 duration-100"
                   >
+                    {/*
+                      Outstanding Quotes belongs here too. The tab strip scrolls
+                      with no scrollbar, and at 320–360px only Today and Accounts
+                      fit — so the app's main quotes list could only be found by
+                      discovering an invisible sideways scroll.
+                    */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveCRMTab("pipeline");
+                        setIsMoreMenuOpen(false);
+                      }}
+                      className={`w-full min-h-[44px] px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
+                        activeCRMTab === "pipeline"
+                          ? "bg-brand-wash text-brand-deep font-bold"
+                          : "text-ink hover:bg-hover"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Kanban className="w-3.5 h-3.5 text-brand-deep shrink-0" />
+                        <span>Outstanding Quotes</span>
+                      </div>
+                      {outstandingQuotesCount > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-brand-deep text-white font-bold">
+                          {outstandingQuotesCount}
+                        </span>
+                      )}
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => {
                         setActiveCRMTab("calendar");
                         setIsMoreMenuOpen(false);
                       }}
-                      className={`w-full px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
+                      className={`w-full min-h-[44px] px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
                         activeCRMTab === "calendar"
                           ? "bg-brand-wash text-brand-deep font-bold"
                           : "text-ink hover:bg-hover"
@@ -360,7 +396,7 @@ export const CRMCommandCenter: React.FC = () => {
                         setActiveCRMTab("leads");
                         setIsMoreMenuOpen(false);
                       }}
-                      className={`w-full px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
+                      className={`w-full min-h-[44px] px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
                         activeCRMTab === "leads"
                           ? "bg-brand-wash text-brand-deep font-bold"
                           : "text-ink hover:bg-hover"
@@ -383,7 +419,7 @@ export const CRMCommandCenter: React.FC = () => {
                         setActiveCRMTab("tasks");
                         setIsMoreMenuOpen(false);
                       }}
-                      className={`w-full px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
+                      className={`w-full min-h-[44px] px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
                         activeCRMTab === "tasks"
                           ? "bg-brand-wash text-brand-deep font-bold"
                           : "text-ink hover:bg-hover"
@@ -406,7 +442,7 @@ export const CRMCommandCenter: React.FC = () => {
                         setActiveCRMTab("competitor-pricing");
                         setIsMoreMenuOpen(false);
                       }}
-                      className={`w-full px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
+                      className={`w-full min-h-[44px] px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
                         activeCRMTab === "competitor-pricing"
                           ? "bg-brand-wash text-brand-deep font-bold"
                           : "text-ink hover:bg-hover"
@@ -425,7 +461,7 @@ export const CRMCommandCenter: React.FC = () => {
               <button
                 type="button"
                 onClick={() => openQuickLog({ type: "call" })}
-                className="h-8 px-2.5 sm:px-3 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-xs sm:text-spec transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                className="h-11 min-w-[44px] px-2.5 sm:px-3 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-xs sm:text-spec transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
                 title="Quick Log Call, Email, Meeting, or Note"
                 aria-label="Quick Log"
               >
