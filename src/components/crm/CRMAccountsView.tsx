@@ -1308,14 +1308,17 @@ export const CRMAccountsView: React.FC = () => {
               </div>
 
               {/* TABS NAVIGATION */}
-              <div className="border-b border-line flex items-center gap-1 overflow-x-auto px-4 bg-white scrollbar-none" role="tablist">
+              {/* Wraps on narrow screens rather than scrolling behind a hidden edge —
+                  Account brief and Competitor pricing were simply invisible on a
+                  phone, with nothing to suggest they existed. */}
+              <div className="border-b border-line flex flex-wrap md:flex-nowrap items-center gap-1 md:overflow-x-auto px-4 bg-white scrollbar-none" role="tablist">
                 <button
                   type="button"
                   role="tab"
                   aria-label="Overview Tab"
                   aria-selected={activeAccountTab === "overview"}
                   onClick={() => setActiveAccountTab("overview")}
-                  className={`px-3 py-2.5 text-spec font-bold border-b-2 cursor-pointer transition-colors whitespace-nowrap ${
+                  className={`px-3 min-h-[44px] text-spec font-bold border-b-2 cursor-pointer transition-colors whitespace-nowrap ${
                     activeAccountTab === "overview"
                       ? "border-brand-deep text-brand-deep"
                       : "border-transparent text-ink-dim hover:text-body"
@@ -1330,7 +1333,7 @@ export const CRMAccountsView: React.FC = () => {
                   aria-label="Contacts Tab"
                   aria-selected={activeAccountTab === "contacts"}
                   onClick={() => setActiveAccountTab("contacts")}
-                  className={`px-3 py-2.5 text-spec font-bold border-b-2 cursor-pointer transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                  className={`px-3 min-h-[44px] text-spec font-bold border-b-2 cursor-pointer transition-colors whitespace-nowrap flex items-center gap-1.5 ${
                     activeAccountTab === "contacts"
                       ? "border-brand-deep text-brand-deep"
                       : "border-transparent text-ink-dim hover:text-body"
@@ -1348,7 +1351,7 @@ export const CRMAccountsView: React.FC = () => {
                   aria-label="Deals Tab"
                   aria-selected={activeAccountTab === "deals"}
                   onClick={() => setActiveAccountTab("deals")}
-                  className={`px-3 py-2.5 text-spec font-bold border-b-2 cursor-pointer transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                  className={`px-3 min-h-[44px] text-spec font-bold border-b-2 cursor-pointer transition-colors whitespace-nowrap flex items-center gap-1.5 ${
                     activeAccountTab === "deals"
                       ? "border-brand-deep text-brand-deep"
                       : "border-transparent text-ink-dim hover:text-body"
@@ -1366,7 +1369,7 @@ export const CRMAccountsView: React.FC = () => {
                   aria-label="Activity Tab"
                   aria-selected={activeAccountTab === "activity"}
                   onClick={() => setActiveAccountTab("activity")}
-                  className={`px-3 py-2.5 text-spec font-bold border-b-2 cursor-pointer transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                  className={`px-3 min-h-[44px] text-spec font-bold border-b-2 cursor-pointer transition-colors whitespace-nowrap flex items-center gap-1.5 ${
                     activeAccountTab === "activity"
                       ? "border-brand-deep text-brand-deep"
                       : "border-transparent text-ink-dim hover:text-body"
@@ -1384,7 +1387,7 @@ export const CRMAccountsView: React.FC = () => {
                   aria-label="Account Brief Tab"
                   aria-selected={activeAccountTab === "brief"}
                   onClick={() => setActiveAccountTab("brief")}
-                  className={`px-3 py-2.5 text-spec font-bold border-b-2 cursor-pointer transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                  className={`px-3 min-h-[44px] text-spec font-bold border-b-2 cursor-pointer transition-colors whitespace-nowrap flex items-center gap-1.5 ${
                     activeAccountTab === "brief"
                       ? "border-brand-deep text-brand-deep"
                       : "border-transparent text-ink-dim hover:text-body"
@@ -1400,7 +1403,7 @@ export const CRMAccountsView: React.FC = () => {
                   aria-label="Competitor Pricing Tab"
                   aria-selected={activeAccountTab === "competitors"}
                   onClick={() => setActiveAccountTab("competitors")}
-                  className={`px-3 py-2.5 text-spec font-bold border-b-2 cursor-pointer transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                  className={`px-3 min-h-[44px] text-spec font-bold border-b-2 cursor-pointer transition-colors whitespace-nowrap flex items-center gap-1.5 ${
                     activeAccountTab === "competitors"
                       ? "border-brand-deep text-brand-deep"
                       : "border-transparent text-ink-dim hover:text-body"
