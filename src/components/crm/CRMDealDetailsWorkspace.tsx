@@ -1233,7 +1233,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
               <div className="p-8 text-center bg-paper rounded-panel border border-dashed border-line text-ink-dim">
                 <Package className="w-8 h-8 mx-auto text-ink-faint mb-2" />
                 <div className="font-semibold text-body">No line items in this deal BOM</div>
-                <p className="text-spec mt-1">Click "+ Add Item" above or run a Plan Take-off to import quantities.</p>
+                <p className="text-spec mt-1">Click "+ Add Item" above to add line items to this deal.</p>
               </div>
             ) : (
               <div className="overflow-x-auto rounded-panel border border-line">

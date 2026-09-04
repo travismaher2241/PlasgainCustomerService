@@ -35,14 +35,10 @@ test.beforeEach(async ({ page }) => {
 
 test.describe("Plasgain Sales Copilot", () => {
   test("navigates every workspace without unmounting the app", async ({ page }) => {
-    // A white screen was the failure mode that made the enquiry workspace
-    // unusable, so every screen is checked for surviving content.
+    // A white screen was the failure mode that made a workspace unusable, so
+    // every screen is checked for surviving content.
     for (const workspace of [
       "CRM Command Centre",
-      "New Enquiry",
-      "Product Finder",
-      "Product Catalogues",
-      "Tools",
       "Settings",
       "Home"
     ]) {
@@ -100,42 +96,11 @@ test.describe("Plasgain Sales Copilot", () => {
     await page.getByRole("button", { name: /^Cancel$/ }).click();
   });
 
-  test("product finder exposes the standards wizard", async ({ page }) => {
-    await openWorkspace(page, "Product Finder");
-
-    await expect(page.getByText(/What application are you lighting/i)).toBeVisible();
-    await expect(page.getByRole("button", { name: /Find Best Product Candidates/i })).toBeVisible();
-
-    // Car park classes were absent from the class list even though the app
-    // offers a Commercial Car Park application.
-    const classSelect = page.locator("select").filter({ hasText: /Standard Shared Cycleway/ }).first();
-    await expect(classSelect).toContainText("P11a");
-    await expect(classSelect).toContainText("P12");
-  });
-
-  test("enquiry workspace refuses to analyse an empty enquiry", async ({ page }) => {
-    await openWorkspace(page, "New Enquiry");
-    await page.getByRole("button", { name: /Analyse Enquiry/i }).click();
-    await expect(page.getByText(/Please enter customer enquiry text/i)).toBeVisible();
-  });
-
   test("settings reports real AI status", async ({ page }) => {
     // The README documented this panel long before it existed.
     await openWorkspace(page, "Settings");
     await expect(page.getByText("Copilot Diagnostics")).toBeVisible();
     await expect(page.getByRole("button", { name: /Re-check/i })).toBeVisible();
-  });
-
-  test("document library does not offer approval to a sales rep", async ({ page }) => {
-    // Approval publishes AS/NZS compliance evidence; it is an engineering
-    // action. The default profile is Internal Sales.
-    await openWorkspace(page, "Product Catalogues");
-    await expect(page.getByText(/Governed Document & Catalogue Library/i)).toBeVisible();
-
-    const drafts = page.getByText("Awaiting engineering approval");
-    if ((await drafts.count()) > 0) {
-      await expect(drafts.first()).toBeVisible();
-    }
   });
 
   test("global search finds records across entities", async ({ page }) => {

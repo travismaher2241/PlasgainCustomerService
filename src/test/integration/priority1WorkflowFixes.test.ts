@@ -153,7 +153,7 @@ describe('PRIORITY 1 CORE SALES WORKFLOW VERIFICATION (P1-01 to P1-16)', () => {
 
       const navigateToTab = (tab: string) => {
         if (!isCopilotContextPinned) {
-          if (tab === 'settings' || tab === 'home' || tab === 'tools' || tab === 'new-enquiry') {
+          if (tab === 'settings' || tab === 'home') {
             selectedOppId = null;
           }
         }

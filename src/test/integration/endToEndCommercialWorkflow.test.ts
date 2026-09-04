@@ -4,9 +4,9 @@ import { formatOstendoCSV, validateOstendoItems } from "../../utils/ostendoExpor
 describe("End-to-End Commercial Sales Workflow Acceptance Test", () => {
 
   // ==========================================
-  // STAGE 3: CAD Plan Take-Off & BOM Schedule Validation
+  // STAGE 3: Deal BOM Schedule Validation
   // ==========================================
-  describe("Stage 3: CAD Plan Take-Off & Ostendo BOM Schedule Export", () => {
+  describe("Stage 3: Ostendo BOM Schedule Export", () => {
     it("validates and formats itemized BOM for Ostendo ERP", () => {
       const bomItems = [
         {
