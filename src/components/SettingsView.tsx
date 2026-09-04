@@ -1,12 +1,8 @@
 import React, { useEffect, useState } from "react";
 import {
-  ShieldCheck,
   LogIn,
-  User,
-  ChevronDown,
-  ChevronUp
+  User
 } from "lucide-react";
-import { apiGet } from "../utils/apiClient";
 import { useApp } from "../context/AppContext";
 import { initialsOf } from "../context/AppContext";
 import { AdminAuditLogView } from "./AdminAuditLogView";
@@ -26,50 +22,6 @@ export const SettingsView: React.FC = () => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [savedDraft, setDraftState] = useState(currentUser);
   const [savedAt, setSavedAt] = useState<string | null>(null);
-
-  // Diagnostics Toggle
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
-
-  // AI Health Check
-  const [aiHealth, setAiHealth] = useState<{
-    state: "checking" | "reachable" | "unreachable" | "unconfigured";
-    detail: string;
-    model?: string;
-  }>({ state: "checking", detail: "Checking AI service connectivity..." });
-
-  const runAiDiagnostics = async () => {
-    setAiHealth({ state: "checking", detail: "Checking AI service connectivity..." });
-    try {
-      const res: any = await apiGet("/api/health/ai");
-      if (!res?.configured) {
-        setAiHealth({
-          state: "unconfigured",
-          detail: "No GEMINI_API_KEY is configured on the server. AI features will use deterministic local fallbacks."
-        });
-      } else if (res?.reachable) {
-        setAiHealth({
-          state: "reachable",
-          detail: res.state || "AI service is reachable and responsive.",
-          model: res.model
-        });
-      } else {
-        setAiHealth({
-          state: "unreachable",
-          detail: res?.detail || "AI service is currently unreachable.",
-          model: res?.model
-        });
-      }
-    } catch (err: any) {
-      setAiHealth({
-        state: "unreachable",
-        detail: err?.message || "Could not reach server health endpoint."
-      });
-    }
-  };
-
-  useEffect(() => {
-    runAiDiagnostics();
-  }, []);
 
   useEffect(() => {
     setDraftState(currentUser);
@@ -102,7 +54,7 @@ export const SettingsView: React.FC = () => {
           </h1>
           <p className="text-spec text-ink-dim mt-0.5">
             {subTab === "general"
-              ? "User profile and workspace administration."
+              ? "User profile and account preferences."
               : "Track all customer calls, record changes, stage moves, and user actions across the shared database."}
           </p>
         </div>
@@ -212,8 +164,9 @@ export const SettingsView: React.FC = () => {
           <form onSubmit={handleSaveProfile} className="space-y-4 pt-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-spec font-bold mb-1">Full Name *</label>
+                <label htmlFor="profile-full-name" className="block text-spec font-bold mb-1">Full Name *</label>
                 <input
+                  id="profile-full-name"
                   type="text"
                   value={savedDraft.name}
                   onChange={(e) => setDraftState({ ...savedDraft, name: e.target.value })}
@@ -223,8 +176,9 @@ export const SettingsView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-spec font-bold mb-1">Role / Job Title</label>
+                <label htmlFor="profile-role" className="block text-spec font-bold mb-1">Role / Job Title</label>
                 <input
+                  id="profile-role"
                   type="text"
                   value={savedDraft.role}
                   onChange={(e) => setDraftState({ ...savedDraft, role: e.target.value })}
@@ -233,8 +187,9 @@ export const SettingsView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-spec font-bold mb-1">Email</label>
+                <label htmlFor="profile-email" className="block text-spec font-bold mb-1">Email</label>
                 <input
+                  id="profile-email"
                   type="email"
                   value={savedDraft.email}
                   onChange={(e) => setDraftState({ ...savedDraft, email: e.target.value })}
@@ -243,8 +198,9 @@ export const SettingsView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-spec font-bold mb-1">Phone</label>
+                <label htmlFor="profile-phone" className="block text-spec font-bold mb-1">Phone</label>
                 <input
+                  id="profile-phone"
                   type="tel"
                   value={savedDraft.phone || ""}
                   onChange={(e) => setDraftState({ ...savedDraft, phone: e.target.value })}
@@ -254,8 +210,9 @@ export const SettingsView: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-spec font-bold mb-1">Location</label>
+                <label htmlFor="profile-location" className="block text-spec font-bold mb-1">Location</label>
                 <input
+                  id="profile-location"
                   type="text"
                   value={savedDraft.location}
                   onChange={(e) => setDraftState({ ...savedDraft, location: e.target.value })}
@@ -284,37 +241,6 @@ export const SettingsView: React.FC = () => {
             </div>
           </form>
         )}
-      </section>
-
-      {/* 2. ADMINISTRATION */}
-      <section className="bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
-        <div className="flex items-center justify-between border-b border-line pb-3">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-brand-deep" />
-            <h2 className="text-base font-bold text-body">Administration</h2>
-          </div>
-        </div>
-
-        {/* Collapsible Diagnostics */}
-        <div className="pt-1">
-          <button
-            type="button"
-            onClick={() => setShowDiagnostics(!showDiagnostics)}
-            className="text-spec font-bold text-brand-deep hover:underline flex items-center gap-1 cursor-pointer"
-          >
-            <span>{showDiagnostics ? "Hide system diagnostics" : "View technical diagnostics & logs"}</span>
-            {showDiagnostics ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-          </button>
-
-          {showDiagnostics && (
-            <div className="p-3.5 bg-paper rounded-edge border border-line space-y-2 mt-3 text-xs font-mono animate-in fade-in duration-100">
-              <div><strong>App Version:</strong> 2.0.0 (Production Release)</div>
-              <div><strong>Active User ID:</strong> {currentUser.id || "local-default"}</div>
-              <div><strong>AI Model Target:</strong> {aiHealth.model || "gemini-2.5-flash"}</div>
-              <div><strong>Offline Storage Engine:</strong> IndexedDB / localStorage</div>
-            </div>
-          )}
-        </div>
       </section>
     </>
   )}
