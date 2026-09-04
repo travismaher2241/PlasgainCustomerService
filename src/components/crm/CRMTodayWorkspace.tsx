@@ -307,7 +307,7 @@ export const CRMTodayWorkspace: React.FC = () => {
     }
 
     if (item.primaryActionType === "call") {
-      openQuickLog("call", item.accountId, item.dealId);
+      openQuickLog({ type: "call", accountId: item.accountId, opportunityId: item.dealId });
     }
   };
 

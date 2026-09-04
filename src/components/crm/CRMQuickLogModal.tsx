@@ -125,8 +125,14 @@ export const CRMQuickLogModal: React.FC = () => {
   useEffect(() => {
     if (quickLogModal?.isOpen) {
       const initialType = quickLogModal.type === "task" ? "call" : (quickLogModal.type as ActivityType) || "call";
-      const accId = quickLogModal.accountId || accounts[0]?.id || "";
-      const oppId = quickLogModal.opportunityId || "";
+      const accId = quickLogModal.accountId || "";
+      let oppId = quickLogModal.opportunityId || "";
+      if (accId && oppId) {
+        const opp = crmOpportunities.find((d) => d.id === oppId);
+        if (opp && opp.accountId && opp.accountId !== accId) {
+          oppId = "";
+        }
+      }
       const contId = quickLogModal.contactId || "";
 
       setType(initialType);
@@ -284,9 +290,14 @@ export const CRMQuickLogModal: React.FC = () => {
                 <select
                   value={selectedAccountId}
                   onChange={(e) => {
-                    setSelectedAccountId(e.target.value);
-                    const matchedOpp = crmOpportunities.find((d) => d.accountId === e.target.value);
-                    if (matchedOpp) setSelectedOppId(matchedOpp.id);
+                    const newAccId = e.target.value;
+                    setSelectedAccountId(newAccId);
+                    if (selectedOppId) {
+                      const opp = crmOpportunities.find((d) => d.id === selectedOppId);
+                      if (!opp || opp.accountId !== newAccId) {
+                        setSelectedOppId("");
+                      }
+                    }
                   }}
                   aria-label="Select Customer Account"
                   className="w-full p-1.5 rounded-edge border border-line bg-surface text-spec focus:outline-none focus:border-brand-deep"

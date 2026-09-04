@@ -67,7 +67,7 @@ describe('CRM Deals Global Table Suite (Step 6)', () => {
     fireEvent.click(dealTitle);
 
     // Step 2 Deal Details workspace opens
-    expect(screen.getByRole('button', { name: /Close deal details/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Back to deals/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Overview$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Products & Pricing/i })).toBeInTheDocument();
   });

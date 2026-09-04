@@ -223,7 +223,7 @@ describe("CRMAccountsView Component (Step 5)", () => {
     // Assert the 4 requested fields are present
     expect(screen.getByLabelText(/\$ Value/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Quote Number/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Follow Up Date/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Target Close Date/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Contact Name/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Create Quote/i })).toBeInTheDocument();
   });

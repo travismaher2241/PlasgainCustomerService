@@ -124,14 +124,23 @@ export const CRMAccountsView: React.FC = () => {
 
   // New Deal Modal State (Pre-fills current account!)
   const [isNewDealModalOpen, setIsNewDealModalOpen] = useState(false);
-  const [newDealForm, setNewDealForm] = useState({
+  const [newDealForm, setNewDealForm] = useState<{
+    name: string;
+    quoteNumber: string;
+    dealValue: number | "";
+    stageName: string;
+    expectedCloseDate: string;
+    primaryContactId: string;
+    projectApplication: string;
+    notes: string;
+  }>({
     name: "",
     quoteNumber: "",
-    dealValue: 25000,
-    stageName: "Proposal & Quoting" as const,
+    dealValue: "",
+    stageName: "Proposal & Quoting",
     expectedCloseDate: new Date(Date.now() + 45 * 86400000).toISOString().split("T")[0],
     primaryContactId: "",
-    projectApplication: "Solar Public Lighting",
+    projectApplication: "",
     notes: ""
   });
 
@@ -239,12 +248,19 @@ export const CRMAccountsView: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleOutside);
   }, []);
 
-  // Visual badge for Account Type (Prospect, Account, Council)
+  // Visual badge for Account Type (Prospect, Customer, Account, Council)
   const getAccountTypeBadge = (type?: AccountType, size: "sm" | "md" = "md") => {
-    const normalized: AccountType = type || "Prospect";
     const sizeClasses = size === "sm" ? "px-1.5 py-0.5 text-[10px]" : "px-2.5 py-0.5 text-xs";
 
-    if (normalized === "Council") {
+    if (type === "Customer") {
+      return (
+        <span className={`font-bold rounded-full border border-emerald-300 bg-emerald-50 text-emerald-800 inline-flex items-center gap-1 shadow-2xs ${sizeClasses}`}>
+          <span>⭐</span>
+          <span>Customer</span>
+        </span>
+      );
+    }
+    if (type === "Council") {
       return (
         <span className={`font-bold rounded-full border border-blue-300 bg-blue-50 text-blue-800 inline-flex items-center gap-1 shadow-2xs ${sizeClasses}`}>
           <span>🏛️</span>
@@ -252,7 +268,7 @@ export const CRMAccountsView: React.FC = () => {
         </span>
       );
     }
-    if (normalized === "Account") {
+    if (type === "Account") {
       return (
         <span className={`font-bold rounded-full border border-emerald-300 bg-emerald-50 text-emerald-800 inline-flex items-center gap-1 shadow-2xs ${sizeClasses}`}>
           <span>🏢</span>
@@ -260,10 +276,17 @@ export const CRMAccountsView: React.FC = () => {
         </span>
       );
     }
+    if (type === "Prospect") {
+      return (
+        <span className={`font-bold rounded-full border border-amber-300 bg-amber-50 text-amber-900 inline-flex items-center gap-1 shadow-2xs ${sizeClasses}`}>
+          <span>🎯</span>
+          <span>Prospect</span>
+        </span>
+      );
+    }
     return (
-      <span className={`font-bold rounded-full border border-amber-300 bg-amber-50 text-amber-900 inline-flex items-center gap-1 shadow-2xs ${sizeClasses}`}>
-        <span>🎯</span>
-        <span>Prospect</span>
+      <span className={`font-medium rounded-full border border-line bg-paper text-ink-dim inline-flex items-center gap-1 shadow-2xs ${sizeClasses}`}>
+        <span>{type || "Unknown"}</span>
       </span>
     );
   };
@@ -516,13 +539,13 @@ export const CRMAccountsView: React.FC = () => {
   // Handle New Deal Creation (Context preselected!)
   const handleCreateDealFromAccount = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedAccount || !newDealForm.name.trim()) return;
+    if (!selectedAccount || !newDealForm.name.trim() || newDealForm.dealValue === "" || isNaN(Number(newDealForm.dealValue))) return;
 
     const matchedContact = accountContacts.find((c) => c.id === newDealForm.primaryContactId) || accountContacts[0];
 
     const newDeal: CRMOpportunity = {
       id: `opp-${Date.now()}`,
-      name: newDealForm.name,
+      name: newDealForm.name.trim(),
       quoteNumber: newDealForm.quoteNumber ? newDealForm.quoteNumber.trim() : undefined,
       accountId: selectedAccount.id,
       accountName: selectedAccount.name,
@@ -539,24 +562,16 @@ export const CRMAccountsView: React.FC = () => {
       probability: 50,
       forecastCategory: "Pipeline",
       expectedCloseDate: newDealForm.expectedCloseDate,
-      products: [
-        {
-          id: `prod-0`,
-          productCode: "PB-75W-3K",
-          productName: "Plasgain Pro Blade 75 Solar Luminaire",
-          category: "Solar Public Lighting",
-          quantity: 1
-        }
-      ],
-      projectApplication: newDealForm.projectApplication,
-      location: selectedAccount.territory,
-      customerNeed: newDealForm.notes,
-      keyRequirements: ["Verify AS/NZS 1158 compliance"],
+      products: [],
+      projectApplication: newDealForm.projectApplication || "",
+      location: selectedAccount.territory || "",
+      customerNeed: newDealForm.notes || "",
+      keyRequirements: [],
       source: "Account Rep Engagement",
       latestActivity: `Quote created for ${selectedAccount.name} by ${currentUser.name}`,
       latestActivityDate: new Date().toISOString().split("T")[0],
-      nextAction: "Issue quotation package and schedule follow-up",
-      nextActionDate: newDealForm.expectedCloseDate,
+      nextAction: "",
+      nextActionDate: undefined,
       daysInCurrentStage: 0,
       totalDealAgeDays: 0,
       dealHealth: "Healthy",
@@ -1058,7 +1073,7 @@ export const CRMAccountsView: React.FC = () => {
 
                     <button
                       type="button"
-                      onClick={() => openQuickLog("call", selectedAccount.id)}
+                      onClick={() => openQuickLog({ type: "call", accountId: selectedAccount.id })}
                       className="px-3 py-1.5 rounded-edge bg-white hover:bg-raised text-brand-deep border border-brand-edge font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
                       title="Log a phone call, meeting, or customer note"
                     >
@@ -1070,13 +1085,13 @@ export const CRMAccountsView: React.FC = () => {
                       type="button"
                       onClick={() => {
                         setNewDealForm({
-                          name: `${selectedAccount.name} - Public Lighting Tender`,
+                          name: "",
                           quoteNumber: "",
-                          dealValue: 35000,
+                          dealValue: "",
                           stageName: "Proposal & Quoting",
                           expectedCloseDate: new Date(Date.now() + 45 * 86400000).toISOString().split("T")[0],
                           primaryContactId: accountContacts[0]?.id || "",
-                          projectApplication: "Solar Public Lighting",
+                          projectApplication: "",
                           notes: ""
                         });
                         setIsNewDealModalOpen(true);
@@ -1590,13 +1605,13 @@ export const CRMAccountsView: React.FC = () => {
                           type="button"
                           onClick={() => {
                             setNewDealForm({
-                              name: `${selectedAccount.name} - Public Lighting Tender`,
+                              name: "",
                               quoteNumber: "",
-                              dealValue: 35000,
+                              dealValue: "",
                               stageName: "Proposal & Quoting",
                               expectedCloseDate: new Date(Date.now() + 45 * 86400000).toISOString().split("T")[0],
                               primaryContactId: accountContacts[0]?.id || "",
-                              projectApplication: "Solar Public Lighting",
+                              projectApplication: "",
                               notes: ""
                             });
                             setIsNewDealModalOpen(true);
@@ -1697,7 +1712,7 @@ export const CRMAccountsView: React.FC = () => {
 
                         <button
                           type="button"
-                          onClick={() => openQuickLog("call", selectedAccount.id)}
+                          onClick={() => openQuickLog({ type: "call", accountId: selectedAccount.id })}
                           className="px-3 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -2198,7 +2213,8 @@ export const CRMAccountsView: React.FC = () => {
                     required
                     min={0}
                     value={newDealForm.dealValue}
-                    onChange={(e) => setNewDealForm({ ...newDealForm, dealValue: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => setNewDealForm({ ...newDealForm, dealValue: e.target.value === "" ? "" : parseFloat(e.target.value) || 0 })}
+                    placeholder="e.g. 25000"
                     className="w-full p-2 border border-line rounded-edge bg-white text-spec font-mono"
                   />
                 </div>
@@ -2218,9 +2234,9 @@ export const CRMAccountsView: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="quote-follow-up-date" className="block text-spec font-bold mb-1">Follow Up Date</label>
+                  <label htmlFor="quote-target-close-date" className="block text-spec font-bold mb-1">Target Close Date</label>
                   <input
-                    id="quote-follow-up-date"
+                    id="quote-target-close-date"
                     type="date"
                     value={newDealForm.expectedCloseDate}
                     onChange={(e) => setNewDealForm({ ...newDealForm, expectedCloseDate: e.target.value })}

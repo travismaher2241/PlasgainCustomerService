@@ -76,7 +76,7 @@ describe('HomeDashboard Step 8 Suite', () => {
     expect(screen.getByLabelText(/Customer \/ Account/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/\$ Value/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Quote Number/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Follow Up Date/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Target Close Date/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Contact Name/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Create Quote/i })).toBeInTheDocument();
   });

@@ -183,6 +183,15 @@ export function initialsOf(name: string): string {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+export interface OpenQuickLogOptions {
+  type?: "call" | "note" | "meeting" | "email" | "task" | "follow_up";
+  accountId?: string;
+  oppId?: string;
+  opportunityId?: string;
+  contactId?: string;
+  prefillNotes?: string;
+}
+
 interface AppContextType {
   /** The signed-in user. Stamped on records this person creates. */
   currentUser: UserProfile;
@@ -354,7 +363,16 @@ interface AppContextType {
     /** Carried over from the call briefing so the rep does not retype it. */
     prefillNotes?: string;
   } | null;
-  openQuickLog: (type: "call" | "note" | "meeting" | "email" | "task" | "follow_up", accountId?: string, oppId?: string, contactId?: string, prefillNotes?: string) => void;
+  openQuickLog: {
+    (options?: OpenQuickLogOptions): void;
+    (
+      type: "call" | "note" | "meeting" | "email" | "task" | "follow_up",
+      accountId?: string,
+      oppId?: string,
+      contactId?: string,
+      prefillNotes?: string
+    ): void;
+  };
   closeQuickLog: () => void;
 
   // Call Preparation & Briefing Modal State
@@ -746,7 +764,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activePipelineId, setActivePipelineId] = useState<string>("pipe-major-projects");
 
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(() => rawAccounts[0]?.id || null);
-  const [selectedCrmOpportunityId, setSelectedCrmOpportunityId] = useState<string | null>(() => crmOpportunities[0]?.id || null);
+  const [selectedCrmOpportunityId, setSelectedCrmOpportunityId] = useState<string | null>(null);
 
   // Unified opportunities derived dynamically from single CRM source of truth
   const opportunities = useMemo(() => {
@@ -757,7 +775,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Compatibility stub - mutations must go through crmOpportunities
   };
 
-  const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(() => crmOpportunities[0]?.id || null);
+  const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(null);
 
   const [documents, setDocuments] = useState<KnowledgeDocument[]>(() => {
     const saved = localStorage.getItem("plasgain_documents");
@@ -1448,19 +1466,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const openQuickLog = (
-    type: "call" | "note" | "meeting" | "email" | "task" | "follow_up",
+    optionsOrType?: OpenQuickLogOptions | "call" | "note" | "meeting" | "email" | "task" | "follow_up",
     accountId?: string,
     oppId?: string,
     contactId?: string,
     prefillNotes?: string
   ) => {
+    let opts: OpenQuickLogOptions = {};
+    if (typeof optionsOrType === "object" && optionsOrType !== null) {
+      opts = optionsOrType;
+    } else if (typeof optionsOrType === "string") {
+      opts = {
+        type: optionsOrType,
+        accountId,
+        oppId,
+        contactId,
+        prefillNotes
+      };
+    }
+
+    const type = opts.type || "call";
+    const targetAccountId = opts.accountId;
+    let targetOppId = opts.opportunityId || opts.oppId;
+
+    if (targetAccountId) {
+      // If accountId is provided and oppId is not, do not fall back to selectedCrmOpportunityId.
+      // If both are provided, verify the deal belongs to the account before attaching it; if it doesn't, drop the deal and log a warning.
+      if (targetOppId) {
+        const deal = crmOpportunities.find((o) => o.id === targetOppId);
+        if (deal && deal.accountId && deal.accountId !== targetAccountId) {
+          console.warn(`[openQuickLog] Dropping opportunity ${targetOppId} because it belongs to account ${deal.accountId}, not ${targetAccountId}`);
+          targetOppId = undefined;
+        }
+      }
+    } else if (targetOppId) {
+      // If oppId was provided without accountId, infer the account from the deal if possible
+      const deal = crmOpportunities.find((o) => o.id === targetOppId);
+      if (deal?.accountId) {
+        // We can leave targetAccountId as deal.accountId or undefined
+      }
+    }
+
     setQuickLogModal({
       isOpen: true,
       type,
-      accountId: accountId || selectedAccountId || undefined,
-      opportunityId: oppId || selectedCrmOpportunityId || undefined,
-      contactId,
-      prefillNotes
+      accountId: targetAccountId,
+      opportunityId: targetOppId,
+      contactId: opts.contactId,
+      prefillNotes: opts.prefillNotes
     });
   };
 

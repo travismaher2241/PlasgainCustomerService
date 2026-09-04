@@ -38,7 +38,6 @@ export const CRMLeadsView: React.FC = () => {
     convertLead,
     accounts,
     contacts,
-    openQuickLog,
     openEmailComposer,
     navigateToCRM,
     currentUser,

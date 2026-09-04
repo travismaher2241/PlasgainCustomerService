@@ -371,20 +371,20 @@ export const NewEnquiryWorkspace: React.FC = () => {
       status: "Prospect",
       industry: "Civil Contractor / Lighting",
       territory: "VIC/TAS",
-      accountOwner: currentUser?.name || "Travis Maher",
+      accountOwner: currentUser?.name || "",
       leadSource: "New Enquiry Ingestion",
       createdDate: new Date().toISOString(),
       lastInteractionDate: new Date().toISOString(),
       customerRelationshipStatus: "Developing",
       prospectStage: "Identified",
       tags: ["Created from New Enquiry Ingestion"],
-      mainPhone: !rawEnquiryInput.contact?.includes("@") ? rawEnquiryInput.contact : "1300 PLASGAIN",
-      generalEmail: rawEnquiryInput.contact?.includes("@") ? rawEnquiryInput.contact : "enquiries@" + rawEnquiryInput.company.toLowerCase().replace(/[^a-z0-9]/g, "") + ".com.au",
+      mainPhone: !rawEnquiryInput.contact?.includes("@") ? rawEnquiryInput.contact : "",
+      generalEmail: rawEnquiryInput.contact?.includes("@") ? rawEnquiryInput.contact : "",
       billingAddress: {
         street: "",
-        city: "Melbourne",
-        state: "VIC",
-        postcode: "3000",
+        city: "",
+        state: "",
+        postcode: "",
         country: "Australia"
       }
     };

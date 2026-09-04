@@ -354,10 +354,10 @@ export const PlanTakeoffWorkspace: React.FC = () => {
       status: "Customer",
       customerRelationshipStatus: "Active",
       billingAddress: {
-        street: "1 Main Street",
-        city: "Central",
-        state: "VIC",
-        postcode: "3000",
+        street: "",
+        city: "",
+        state: "",
+        postcode: "",
         country: "Australia"
       },
       territory: "VIC/TAS",

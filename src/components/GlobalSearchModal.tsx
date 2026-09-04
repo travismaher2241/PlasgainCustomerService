@@ -75,7 +75,7 @@ export const GlobalSearchModal: React.FC = () => {
       subtitle: "Open the Quick Call Logger modal",
       icon: Phone,
       keywords: ["call", "phone", "log", "touchpoint"],
-      action: () => openQuickLog("call")
+      action: () => openQuickLog({ type: "call" })
     },
     {
       id: "cmd-task",
@@ -83,7 +83,7 @@ export const GlobalSearchModal: React.FC = () => {
       subtitle: "Add a new task to your follow-up cadence",
       icon: CheckCircle2,
       keywords: ["task", "todo", "followup", "reminder"],
-      action: () => openQuickLog("task")
+      action: () => openQuickLog({ type: "task" })
     },
     {
       id: "cmd-deal",
@@ -293,7 +293,7 @@ export const GlobalSearchModal: React.FC = () => {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <button
-                  onClick={() => handleSelect(() => openQuickLog("call"))}
+                  onClick={() => handleSelect(() => openQuickLog({ type: "call" }))}
                   className="flex items-center gap-2.5 p-3 rounded-edge bg-raised hover:bg-brand-wash hover:text-brand-deep text-body transition-colors text-left cursor-pointer border border-line"
                 >
                   <Phone className="w-4 h-4 text-brand-deep" />

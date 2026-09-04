@@ -383,7 +383,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
       `"${deal.accountName.replace(/"/g, '""')}"`,
       `"${deal.stageName}"`,
       deal.dealValue,
-      deal.grossMarginPercent || 36,
+      deal.grossMarginPercent !== undefined ? deal.grossMarginPercent : "",
       `"${deal.expectedCloseDate}"`,
       `"${deal.ostendoQuoteRef || deal.quoteNumber || ""}"`,
       `"${deal.quoteStatus || "Draft"}"`,
@@ -489,11 +489,11 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1.5 text-ink-dim hover:text-ink hover:bg-hover rounded-edge border border-line cursor-pointer ml-1"
+                className="px-2.5 py-1 text-xs font-bold text-ink-dim hover:text-ink hover:bg-hover rounded-edge border border-line cursor-pointer flex items-center gap-1.5 ml-1"
                 title="Close deal details"
-                aria-label="Close deal details"
+                aria-label="Back to deals"
               >
-                <X className="w-4 h-4" />
+                <span>← Back to deals</span>
               </button>
             )}
           </div>
@@ -529,7 +529,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
             {/* 1. Frequent Primary Action: Log Activity */}
             <button
               type="button"
-              onClick={() => openQuickLog("call", deal.accountId, deal.id)}
+              onClick={() => openQuickLog({ type: "call", accountId: deal.accountId, opportunityId: deal.id })}
               className="px-3.5 py-1.5 text-meta font-bold bg-brand hover:bg-brand-deep text-white rounded-edge shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
             >
               <Phone className="w-3.5 h-3.5" />
@@ -859,14 +859,14 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
               <div className="flex items-center gap-2 shrink-0">
                 <button
                   type="button"
-                  onClick={() => openQuickLog("call", deal.accountId, deal.id)}
+                  onClick={() => openQuickLog({ type: "call", accountId: deal.accountId, opportunityId: deal.id })}
                   className="px-3 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge shadow-xs cursor-pointer transition-colors"
                 >
                   Log activity
                 </button>
                 <button
                   type="button"
-                  onClick={() => openQuickLog("task", deal.accountId, deal.id)}
+                  onClick={() => openQuickLog({ type: "task", accountId: deal.accountId, opportunityId: deal.id })}
                   className="px-3 py-1.5 bg-white hover:bg-raised text-body border border-line font-bold text-spec rounded-edge shadow-2xs cursor-pointer transition-colors"
                 >
                   Reschedule / Task
@@ -900,46 +900,66 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
             )}
 
             {/* Commercial Summary Strip */}
-            <div className="bg-raised/70 p-4 rounded-panel border border-line space-y-2">
-              <div className="flex items-center justify-between pb-2 border-b border-line">
-                <span className="text-spec font-bold text-ink-dim uppercase tracking-wider">
-                  Commercial Snapshot
-                </span>
-                <span className="text-spec font-bold text-brand-deep">
-                  {deal.grossMarginPercent || 36}% Target Gross Margin
-                </span>
-              </div>
+            {(() => {
+              const costedProducts = (deal.products || []).filter((p) => typeof p.costPrice === "number" && p.costPrice > 0);
+              const hasCostedProducts = costedProducts.length > 0 || (typeof deal.totalCostValue === "number" && deal.totalCostValue > 0);
+              const totalCost = typeof deal.totalCostValue === "number" && deal.totalCostValue > 0
+                ? deal.totalCostValue
+                : costedProducts.reduce((sum, p) => sum + ((p.costPrice || 0) * p.quantity), 0);
+              const computedMargin = hasCostedProducts && deal.dealValue > 0
+                ? Math.round(((deal.dealValue - totalCost) / deal.dealValue) * 100)
+                : null;
+              const displayMargin = deal.grossMarginPercent !== undefined && deal.grossMarginPercent !== null
+                ? deal.grossMarginPercent
+                : computedMargin;
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-meta pt-1">
-                <div>
-                  <span className="text-spec text-ink-dim block">Deal Value (ex GST)</span>
-                  <span className="font-bold text-body font-mono text-base">
-                    ${deal.dealValue.toLocaleString()}
-                  </span>
-                </div>
+              return (
+                <div className="bg-raised/70 p-4 rounded-panel border border-line space-y-2">
+                  <div className="flex items-center justify-between pb-2 border-b border-line">
+                    <span className="text-spec font-bold text-ink-dim uppercase tracking-wider">
+                      Commercial Snapshot
+                    </span>
+                    <span className="text-spec font-bold text-brand-deep">
+                      {hasCostedProducts && displayMargin !== null
+                        ? `${displayMargin}% Target Gross Margin`
+                        : "Not costed"}
+                    </span>
+                  </div>
 
-                <div>
-                  <span className="text-spec text-ink-dim block">Inc. 10% GST</span>
-                  <span className="font-semibold text-body font-mono">
-                    ${Math.round(deal.dealValue * 1.1).toLocaleString()}
-                  </span>
-                </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-meta pt-1">
+                    <div>
+                      <span className="text-spec text-ink-dim block">Deal Value (ex GST)</span>
+                      <span className="font-bold text-body font-mono text-base">
+                        ${deal.dealValue.toLocaleString()}
+                      </span>
+                    </div>
 
-                <div>
-                  <span className="text-spec text-ink-dim block">Est. COGS (Cost)</span>
-                  <span className="font-medium text-ink-dim font-mono">
-                    ${(deal.totalCostValue || Math.round(deal.dealValue * 0.64)).toLocaleString()}
-                  </span>
-                </div>
+                    <div>
+                      <span className="text-spec text-ink-dim block">Inc. 10% GST</span>
+                      <span className="font-semibold text-body font-mono">
+                        ${Math.round(deal.dealValue * 1.1).toLocaleString()}
+                      </span>
+                    </div>
 
-                <div>
-                  <span className="text-spec text-ink-dim block">Weighted Pipeline</span>
-                  <span className="font-bold text-brand-deep font-mono">
-                    ${Math.round(deal.weightedValue !== undefined ? deal.weightedValue : (deal.dealValue * (deal.probability || 0)) / 100).toLocaleString()}
-                  </span>
+                    <div>
+                      <span className="text-spec text-ink-dim block">Est. COGS (Cost)</span>
+                      <span className="font-medium text-ink-dim font-mono">
+                        {hasCostedProducts ? `$${totalCost.toLocaleString()}` : "Not costed"}
+                      </span>
+                    </div>
+
+                    <div>
+                      <span className="text-spec text-ink-dim block">Weighted Pipeline</span>
+                      <span className="font-bold text-brand-deep font-mono">
+                        {hasCostedProducts
+                          ? `$${Math.round(deal.weightedValue !== undefined ? deal.weightedValue : (deal.dealValue * (deal.probability || 0)) / 100).toLocaleString()}`
+                          : "Not costed"}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Project & Technical Context */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -950,11 +970,11 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                 <div className="space-y-1.5 text-spec">
                   <div>
                     <span className="text-ink-dim font-semibold">Application: </span>
-                    <span className="text-body font-medium">{deal.projectApplication || "Standard Pathway Lighting"}</span>
+                    <span className="text-body font-medium">{deal.projectApplication || "Not specified"}</span>
                   </div>
                   <div>
                     <span className="text-ink-dim font-semibold">Location: </span>
-                    <span className="text-body font-medium">{deal.location || "Australia"}</span>
+                    <span className="text-body font-medium">{deal.location || "Not specified"}</span>
                   </div>
                   {deal.windRegion && (
                     <div>
@@ -969,7 +989,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                     </div>
                   )}
                   <div>
-                    <span className="text-ink-dim font-semibold">Expected Decision: </span>
+                    <span className="text-ink-dim font-semibold">Target Close Date: </span>
                     <span className="text-body font-semibold">{deal.expectedCloseDate || "TBD"}</span>
                   </div>
                 </div>
@@ -1279,9 +1299,10 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                   </thead>
                   <tbody className="divide-y divide-line">
                     {(deal.products || []).map((p, idx) => {
-                      const cost = p.costPrice || (p.unitPrice ? Math.round(p.unitPrice * 0.64) : 0);
+                      const hasUnitCost = typeof p.costPrice === "number" && p.costPrice > 0;
+                      const cost = hasUnitCost ? p.costPrice! : 0;
                       const sell = p.unitPrice || 0;
-                      const lineMargin = sell > 0 ? Math.round(((sell - cost) / sell) * 100) : 0;
+                      const lineMargin = (hasUnitCost && sell > 0) ? Math.round(((sell - cost) / sell) * 100) : null;
                       const lineTotal = p.totalPrice !== undefined ? p.totalPrice : sell * p.quantity;
 
                       return (
@@ -1320,7 +1341,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
 
                           {/* Unit Cost */}
                           <td className="py-2.5 px-3 text-right text-ink-dim text-spec font-mono">
-                            ${cost.toLocaleString()}
+                            {hasUnitCost ? `$${cost.toLocaleString()}` : <span className="text-ink-faint italic">Not costed</span>}
                           </td>
 
                           {/* Unit Sell */}
@@ -1330,15 +1351,19 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
 
                           {/* Margin */}
                           <td className="py-2.5 px-3 text-right text-spec">
-                            <span className={`px-1.5 py-0.5 rounded font-bold text-[11px] ${
-                              lineMargin >= 35
-                                ? "bg-emerald-50 text-emerald-800"
-                                : lineMargin >= 20
-                                ? "bg-amber-50 text-amber-800"
-                                : "bg-red-50 text-red-800"
-                            }`}>
-                              {lineMargin}%
-                            </span>
+                            {lineMargin !== null ? (
+                              <span className={`px-1.5 py-0.5 rounded font-bold text-[11px] ${
+                                lineMargin >= 35
+                                  ? "bg-emerald-50 text-emerald-800"
+                                  : lineMargin >= 20
+                                  ? "bg-amber-50 text-amber-800"
+                                  : "bg-red-50 text-red-800"
+                              }`}>
+                                {lineMargin}%
+                              </span>
+                            ) : (
+                              <span className="text-ink-faint italic text-spec">Not costed</span>
+                            )}
                           </td>
 
                           {/* Line Total */}
@@ -1353,8 +1378,10 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                               onClick={() => {
                                 const updatedProducts = (deal.products || []).filter((_, i) => i !== idx);
                                 const newTotal = updatedProducts.reduce((sum, item) => sum + (item.totalPrice || (item.unitPrice ? item.unitPrice * item.quantity : 0)), 0);
-                                const newTotalCost = updatedProducts.reduce((sum, item) => sum + ((item.costPrice || 0) * item.quantity), 0);
-                                const overallMargin = newTotal > 0 ? Math.round(((newTotal - newTotalCost) / newTotal) * 100) : 35;
+                                const costedItems = updatedProducts.filter((item) => typeof item.costPrice === "number" && item.costPrice > 0);
+                                const hasCost = costedItems.length > 0;
+                                const newTotalCost = hasCost ? costedItems.reduce((sum, item) => sum + ((item.costPrice || 0) * item.quantity), 0) : undefined;
+                                const overallMargin = hasCost && newTotal > 0 && newTotalCost !== undefined ? Math.round(((newTotal - newTotalCost) / newTotal) * 100) : undefined;
 
                                 updateCrmOpportunity(deal.id, {
                                   products: updatedProducts,
@@ -1383,15 +1410,28 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                       <td className="py-2.5 px-3 text-right text-spec">
                         {(deal.products || []).reduce((sum, p) => sum + p.quantity, 0)} Units
                       </td>
-                      <td className="py-2.5 px-3 text-right text-ink-dim text-spec font-mono">
-                        ${(deal.totalCostValue || (deal.products || []).reduce((sum, p) => sum + ((p.costPrice || Math.round((p.unitPrice || 0) * 0.64)) * p.quantity), 0)).toLocaleString()}
-                      </td>
-                      <td className="py-2.5 px-3 text-right text-spec font-mono">
-                        ${deal.dealValue.toLocaleString()}
-                      </td>
-                      <td className="py-2.5 px-3 text-right text-brand-deep text-spec">
-                        {deal.grossMarginPercent || 36}%
-                      </td>
+                      {(() => {
+                        const costedProducts = (deal.products || []).filter((p) => typeof p.costPrice === "number" && p.costPrice > 0);
+                        const hasCosted = costedProducts.length > 0 || (typeof deal.totalCostValue === "number" && deal.totalCostValue > 0);
+                        const totalCost = typeof deal.totalCostValue === "number" && deal.totalCostValue > 0
+                          ? deal.totalCostValue
+                          : costedProducts.reduce((sum, p) => sum + ((p.costPrice || 0) * p.quantity), 0);
+                        const margin = hasCosted && deal.dealValue > 0 ? Math.round(((deal.dealValue - totalCost) / deal.dealValue) * 100) : (deal.grossMarginPercent ?? null);
+
+                        return (
+                          <>
+                            <td className="py-2.5 px-3 text-right text-ink-dim text-spec font-mono">
+                              {hasCosted ? `$${totalCost.toLocaleString()}` : <span className="text-ink-faint italic">Not costed</span>}
+                            </td>
+                            <td className="py-2.5 px-3 text-right text-spec font-mono">
+                              ${deal.dealValue.toLocaleString()}
+                            </td>
+                            <td className="py-2.5 px-3 text-right text-brand-deep text-spec">
+                              {hasCosted && margin !== null ? `${margin}%` : <span className="text-ink-faint italic">Not costed</span>}
+                            </td>
+                          </>
+                        );
+                      })()}
                       <td className="py-2.5 px-3 text-right text-brand-deep text-base font-mono">
                         ${deal.dealValue.toLocaleString()}
                       </td>
@@ -1659,7 +1699,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => openQuickLog("call", deal.accountId, deal.id)}
+                  onClick={() => openQuickLog({ type: "call", accountId: deal.accountId, opportunityId: deal.id })}
                   className="px-3 py-1 bg-brand hover:bg-brand-deep text-white font-bold text-spec rounded-edge shadow-2xs flex items-center gap-1 cursor-pointer transition-colors"
                 >
                   <Phone className="w-3 h-3" />

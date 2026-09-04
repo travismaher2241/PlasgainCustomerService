@@ -335,7 +335,7 @@ export const CRMCommandCenter: React.FC = () => {
             <div className="shrink-0">
               <button
                 type="button"
-                onClick={() => openQuickLog("call")}
+                onClick={() => openQuickLog({ type: "call" })}
                 className="h-8 px-2.5 sm:px-3 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-xs sm:text-spec transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                 title="Quick Log Call, Email, Meeting, or Note"
               >

@@ -29,11 +29,19 @@ export const HomeDashboard: React.FC = () => {
   } = useApp();
 
   const [isNewQuoteModalOpen, setIsNewQuoteModalOpen] = useState(false);
-  const [newQuoteForm, setNewQuoteForm] = useState({
+  const [newQuoteForm, setNewQuoteForm] = useState<{
+    accountId: string;
+    name: string;
+    quoteNumber: string;
+    dealValue: number | "";
+    expectedCloseDate: string;
+    primaryContactId: string;
+    notes: string;
+  }>({
     accountId: accounts[0]?.id || "",
     name: "",
     quoteNumber: "",
-    dealValue: 25000,
+    dealValue: "",
     expectedCloseDate: new Date(Date.now() + 45 * 86400000).toISOString().split("T")[0],
     primaryContactId: "",
     notes: ""
@@ -63,9 +71,9 @@ export const HomeDashboard: React.FC = () => {
       : [];
     setNewQuoteForm({
       accountId: acc?.id || "",
-      name: acc ? `${acc.name} - Solar Public Lighting` : "",
+      name: "",
       quoteNumber: "",
-      dealValue: 25000,
+      dealValue: "",
       expectedCloseDate: new Date(Date.now() + 45 * 86400000).toISOString().split("T")[0],
       primaryContactId: initialContacts[0]?.id || "",
       notes: ""
@@ -76,7 +84,7 @@ export const HomeDashboard: React.FC = () => {
   const handleCreateQuote = (e: React.FormEvent) => {
     e.preventDefault();
     const acc = accounts.find((a) => a.id === newQuoteForm.accountId) || accounts[0];
-    if (!acc || !newQuoteForm.name.trim()) return;
+    if (!acc || !newQuoteForm.name.trim() || newQuoteForm.dealValue === "" || isNaN(Number(newQuoteForm.dealValue))) return;
 
     const matchedContact = quoteAccountContacts.find((c) => c.id === newQuoteForm.primaryContactId) || quoteAccountContacts[0];
 
@@ -99,24 +107,16 @@ export const HomeDashboard: React.FC = () => {
       probability: 50,
       forecastCategory: "Pipeline",
       expectedCloseDate: newQuoteForm.expectedCloseDate,
-      products: [
-        {
-          id: `prod-0`,
-          productCode: "PB-75W-3K",
-          productName: "Plasgain Pro Blade 75 Solar Luminaire",
-          category: "Solar Public Lighting",
-          quantity: 1
-        }
-      ],
-      projectApplication: "Solar Public Lighting",
-      location: acc.territory || "VIC/TAS",
-      customerNeed: newQuoteForm.notes,
-      keyRequirements: ["Verify AS/NZS 1158 compliance"],
+      products: [],
+      projectApplication: "",
+      location: acc.territory || "",
+      customerNeed: newQuoteForm.notes || "",
+      keyRequirements: [],
       source: "Dashboard Quick Action",
       latestActivity: `Quote created for ${acc.name} by ${currentUser.name}`,
       latestActivityDate: new Date().toISOString().split("T")[0],
-      nextAction: "Issue quotation package and schedule follow-up",
-      nextActionDate: newQuoteForm.expectedCloseDate,
+      nextAction: "",
+      nextActionDate: undefined,
       daysInCurrentStage: 0,
       totalDealAgeDays: 0,
       dealHealth: "Healthy",
@@ -283,7 +283,7 @@ export const HomeDashboard: React.FC = () => {
 
         <button
           type="button"
-          onClick={() => openQuickLog("call")}
+          onClick={() => openQuickLog({ type: "call" })}
           className="p-3 rounded-edge bg-white hover:bg-raised border border-line hover:border-brand-deep transition-all cursor-pointer shadow-2xs flex items-center gap-2.5"
         >
           <div className="p-1.5 rounded bg-paper text-ink-dim shrink-0">
@@ -506,8 +506,9 @@ export const HomeDashboard: React.FC = () => {
                     min={0}
                     value={newQuoteForm.dealValue}
                     onChange={(e) =>
-                      setNewQuoteForm({ ...newQuoteForm, dealValue: parseFloat(e.target.value) || 0 })
+                      setNewQuoteForm({ ...newQuoteForm, dealValue: e.target.value === "" ? "" : parseFloat(e.target.value) || 0 })
                     }
+                    placeholder="e.g. 25000"
                     className="w-full p-2 border border-line rounded-edge bg-white text-spec font-mono"
                   />
                 </div>
@@ -529,11 +530,11 @@ export const HomeDashboard: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label htmlFor="dashboard-quote-followup" className="block text-spec font-bold mb-1">
-                    Follow Up Date
+                  <label htmlFor="dashboard-quote-target-close" className="block text-spec font-bold mb-1">
+                    Target Close Date
                   </label>
                   <input
-                    id="dashboard-quote-followup"
+                    id="dashboard-quote-target-close"
                     type="date"
                     value={newQuoteForm.expectedCloseDate}
                     onChange={(e) =>

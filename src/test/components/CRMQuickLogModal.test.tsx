@@ -32,7 +32,7 @@ const QuickLogTestWrapper: React.FC = () => {
     <div>
       <button
         data-testid="open-log-btn"
-        onClick={() => openQuickLog("call", "acc-custom-123")}
+        onClick={() => openQuickLog({ type: "call", accountId: "acc-custom-123" })}
       >
         Open Log
       </button>

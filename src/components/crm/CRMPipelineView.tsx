@@ -352,7 +352,7 @@ export const CRMPipelineView: React.FC = () => {
                       </div>
                       <div className="text-[11px] text-ink-dim mt-0.5 flex items-center gap-1 font-mono">
                         <Clock className="w-3 h-3 text-ink-dim" />
-                        <span>Target Close: {deal.expectedCloseDate || "2026-10-30"}</span>
+                        <span>Target Close: {deal.expectedCloseDate || "Not set"}</span>
                       </div>
                     </td>
 
@@ -391,7 +391,7 @@ export const CRMPipelineView: React.FC = () => {
                               type="button"
                               onClick={() => {
                                 setActiveMenuDealId(null);
-                                openQuickLog("call", deal.accountId, deal.id);
+                                openQuickLog({ type: "call", accountId: deal.accountId, opportunityId: deal.id });
                               }}
                               className="w-full px-3 py-1.5 hover:bg-raised flex items-center gap-2 text-body"
                             >
