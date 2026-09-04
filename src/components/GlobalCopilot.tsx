@@ -13,8 +13,6 @@ import {
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { apiStreamPost, apiGet } from "../utils/apiClient";
-import { PDFViewerModal } from "./PDFViewerModal";
-import type { ControlledDocument } from "../types/knowledge";
 
 export interface CopilotCitation {
   sourceId: string;
@@ -151,31 +149,13 @@ export const GlobalCopilot: React.FC = () => {
 
   const [copilotState, setCopilotState] = useState<"ready" | "working" | "offline" | "failed">("ready");
   const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
-  const [citationPage, setCitationPage] = useState(1);
-  const [viewingDoc, setViewingDoc] = useState<ControlledDocument | null>(null);
 
   // Derive Context
   const currentAccount = accounts.find((a) => a.id === selectedAccountId);
   const currentDeal = crmOpportunities.find((d) => d.id === selectedCrmOpportunityId);
 
   const handleOpenCitation = (cit: CopilotCitation) => {
-    if (cit.documentId || cit.sourceType === "document") {
-      const docId = cit.documentId || cit.sourceId;
-      apiGet(`/api/documents/${docId}`)
-        .then((docData: any) => {
-          if (docData?.document) {
-            setViewingDoc(docData.document);
-            setCitationPage(cit.page || 1);
-          } else {
-            navigateToWorkflow("documents");
-            showToast(`Navigated to documents for "${cit.title}"`, "info");
-          }
-        })
-        .catch(() => {
-          navigateToWorkflow("documents");
-          showToast(`Opened document library for "${cit.title}"`, "info");
-        });
-    } else if (cit.sourceType === "standard") {
+    if (cit.sourceType === "standard") {
       showToast(`Standards Citation: ${cit.title} ${cit.clause || ""}`, "info");
     } else {
       showToast(`Referenced source: ${cit.title}`, "info");
@@ -454,16 +434,6 @@ export const GlobalCopilot: React.FC = () => {
           </button>
         </form>
       </div>
-
-      {/* Citation Document Viewer */}
-      {viewingDoc && (
-        <PDFViewerModal
-          isOpen={Boolean(viewingDoc)}
-          onClose={() => setViewingDoc(null)}
-          document={viewingDoc}
-          initialPage={citationPage}
-        />
-      )}
     </>
   );
 };

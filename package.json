@@ -7,7 +7,7 @@
   "overrides": { "gaxios@^6.0.0": { "uuid": "^11.1.1" } },
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=dist/server.js && esbuild src/server/pdfExtractionWorker.mjs --bundle --platform=node --format=esm --packages=external --outfile=dist/pdfExtractionWorker.mjs",
+    "build": "vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=dist/server.js",
     "start": "node dist/server.js",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
@@ -29,7 +29,6 @@
     "firebase": "^12.18.0",
     "lucide-react": "^0.546.0",
     "motion": "^12.23.24",
-    "pdfjs-dist": "^6.3.289",
     "react": "^19.0.1",
     "react-dom": "^19.0.1",
     "vite": "^6.2.3"

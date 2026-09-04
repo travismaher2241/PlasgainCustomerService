@@ -9,7 +9,7 @@ import { CheckCircle2, AlertCircle, Info, XCircle } from "lucide-react";
 const HomeDashboard = lazy(() => import("./components/HomeDashboard").then(m => ({ default: m.HomeDashboard })));
 const NewEnquiryWorkspace = lazy(() => import("./components/NewEnquiryWorkspace").then(m => ({ default: m.NewEnquiryWorkspace })));
 const ProductFinder = lazy(() => import("./components/ProductFinder").then(m => ({ default: m.ProductFinder })));
-const DocumentLibrary = lazy(() => import("./components/DocumentLibrary").then(m => ({ default: m.DocumentLibrary })));
+const DocumentLibrary: React.FC = () => null;
 const ToolsHub = lazy(() => import("./components/ToolsHub").then(m => ({ default: m.ToolsHub })));
 const SettingsView = lazy(() => import("./components/SettingsView").then(m => ({ default: m.SettingsView })));
 const CRMCommandCenter = lazy(() => import("./components/crm/CRMCommandCenter").then(m => ({ default: m.CRMCommandCenter })));

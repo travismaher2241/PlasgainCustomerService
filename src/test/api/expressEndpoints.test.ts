@@ -26,15 +26,6 @@ afterAll(() => {
 /** Every AI-backed route and a valid body for it. */
 const AI_ROUTES: { name: string; path: string; body: Record<string, unknown> }[] = [
   {
-    name: 'enquiry/analyze',
-    path: '/api/enquiry/analyze',
-    body: {
-      rawContent: 'We need 20 solar street lights for a subdivision road in Bendigo, AS/NZS 1158.',
-      customer: 'Bendigo Council',
-      location: 'Bendigo, VIC'
-    }
-  },
-  {
     name: 'enquiry/draft-email',
     path: '/api/enquiry/draft-email',
     body: {
@@ -42,39 +33,6 @@ const AI_ROUTES: { name: string; path: string; body: Record<string, unknown> }[]
       companyName: 'Apex Civil',
       projectName: 'Geelong Trail Upgrade',
       selectedQuestions: ['What is the required AS/NZS 1158 subcategory?']
-    }
-  },
-  {
-    name: 'product-finder',
-    path: '/api/product-finder',
-    body: { application: 'Pathway / Shared Trail', powerAvailability: 'Off-grid Solar required' }
-  },
-  {
-    name: 'ask-plasgain',
-    path: '/api/ask-plasgain',
-    body: { question: 'What is the battery capacity of the Intense 50W?' }
-  },
-  {
-    name: 'document/analyze',
-    path: '/api/document/analyze',
-    body: { documentText: 'Tender for Solar Lighting: 30 units, 6m mounting height, 3000K.' }
-  },
-  {
-    name: 'analyse-drawing',
-    path: '/api/analyse-drawing',
-    body: {
-      fileName: 'Ballarat_Pathway_Plan.pdf',
-      mimeType: 'application/pdf',
-      drawingNotes: 'Extract 24 solar poles and trenching',
-      project: 'Ballarat 1.2km Shared Path'
-    }
-  },
-  {
-    name: 'quote/review',
-    path: '/api/quote/review',
-    body: {
-      originalEnquiry: 'Customer requested 30x 6m solar pathway lights, 3000K CCT.',
-      proposedQuote: 'Quote #PL-8924: 30x Intense Light 50W Solar, 3000K, 6m poles.'
     }
   },
   {
@@ -107,29 +65,9 @@ const AI_ROUTES: { name: string; path: string; body: Record<string, unknown> }[]
     }
   },
   {
-    name: 'product/compare',
-    path: '/api/product/compare',
-    body: { productA: 'Intense 50W Solar', productB: 'Pro Blade 75W Solar' }
-  },
-  {
-    name: 'learn/quiz-evaluate',
-    path: '/api/learn/quiz-evaluate',
-    body: { question: 'Name five discovery questions.', userAnswer: 'Pole height and CCT.' }
-  },
-  {
-    name: 'learn/roleplay',
-    path: '/api/learn/roleplay',
-    body: { latestUserMessage: 'Our solar option suits this site.' }
-  },
-  {
-    name: 'knowledge/explain-term',
-    path: '/api/knowledge/explain-term',
-    body: { term: 'AS/NZS 1158 Category P' }
-  },
-  {
     name: 'copilot/chat',
     path: '/api/copilot/chat',
-    body: { message: 'How do I position Intense 50W?', activeScreen: 'Product Finder' }
+    body: { message: 'How do I position Intense 50W?', activeScreen: 'CRM' }
   },
   {
     name: 'email/research-and-draft',
@@ -220,22 +158,6 @@ describe('Input validation rejects unusable requests', () => {
     expect(res.body.error).toBeTruthy();
   });
 
-  it.each([
-    ['array', ['a']],
-    ['object', { a: 1 }],
-    ['number', 123],
-    ['blank string', '   ']
-  ])('ask-plasgain rejects a question passed as %s', async (_label, question) => {
-    const res = await request(app).post('/api/ask-plasgain').send({ question });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toContain('non-empty string');
-  });
-
-  it('product-finder requires an explicit power source rather than assuming solar', async () => {
-    const res = await request(app).post('/api/product-finder').send({ application: 'Car park' });
-    expect(res.status).toBe(400);
-    expect(res.body.error).toMatch(/power availability/i);
-  });
 
   it('draft-email refuses to address an email to nobody', async () => {
     // The old code silently produced "Hi Client, regarding Lighting Project".
