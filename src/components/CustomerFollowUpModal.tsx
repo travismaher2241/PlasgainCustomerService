@@ -17,7 +17,7 @@ import {
   RotateCcw
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
-import { generateCustomerFollowUpEmail } from "../utils/datasheetExporter";
+import { generateCustomerFollowUpEmail } from "../utils/ostendoExporter";
 import { getLocalDateInputValue, addBusinessDaysLocal } from "../utils/dateUtils";
 
 export interface CustomerFollowUpModalProps {

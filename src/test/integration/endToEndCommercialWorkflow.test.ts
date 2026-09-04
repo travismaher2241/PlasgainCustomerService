@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatOstendoCSV, validateOstendoItems } from "../../utils/datasheetExporter";
-import { getLightingCategory } from "../../data/lightingStandards";
+import { formatOstendoCSV, validateOstendoItems } from "../../utils/ostendoExporter";
 
 describe("End-to-End Commercial Sales Workflow Acceptance Test", () => {
 
@@ -64,13 +63,6 @@ describe("End-to-End Commercial Sales Workflow Acceptance Test", () => {
       expect(polyWeightKg).toBe(2160);
       expect(weightSavedKg).toBe(41040);
       expect(reductionPercent).toBe(95);
-    });
-
-    it("verifies AS/NZS 1158 Category P4 lighting requirements", () => {
-      const catP4 = getLightingCategory("P4");
-      expect(catP4).toBeDefined();
-      expect(catP4?.maintainedIlluminanceLux).toBe(0.85);
-      expect(catP4?.minimumIlluminanceLux).toBe(0.17);
     });
   });
 

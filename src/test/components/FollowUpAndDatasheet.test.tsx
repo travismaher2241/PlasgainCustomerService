@@ -7,11 +7,8 @@ import {
   generateCustomerFollowUpEmail,
   formatOstendoCSV,
   formatOstendoTabDelimited,
-  validateOstendoItems,
-  resolveProductsForDeal,
-  generateTenderPackageHTML
-} from '../../utils/datasheetExporter';
-import { SAMPLE_PRODUCTS } from '../../data/mockData';
+  validateOstendoItems
+} from '../../utils/ostendoExporter';
 
 describe('Follow-up Generator & Ostendo Product-Only Exporter Utils', () => {
   it('formats line items strictly as product-only for Ostendo ERP CSV import (no pricing, GST or tax)', () => {
@@ -104,36 +101,6 @@ describe('Follow-up Generator & Ostendo Product-Only Exporter Utils', () => {
 
     expect(email.subject).toContain('Tender Closing Check-in');
     expect(email.body).toContain('AS/NZS 1158 Category P/V compliance declaration');
-  });
-
-  it('resolves product names against catalogue correctly', () => {
-    const testCat = [
-      { id: 'prod-intense', code: '50W-INTENSE', name: 'Intense 50W Solar Light', category: 'Solar Luminaire' } as any,
-      { id: 'prod-plaspole', code: 'PLASPOLE-6M', name: 'Plaspole Composite Pole', category: 'Poles' } as any
-    ];
-    const resolved = resolveProductsForDeal(['Intense 50W', 'Plaspole'], testCat);
-    expect(resolved.length).toBeGreaterThanOrEqual(1);
-    expect(resolved.some((p) => p.name.includes('Intense') || p.name.includes('Plaspole'))).toBe(true);
-  });
-
-  it('generates branded HTML Tender Spec Package with cover sheet and datasheets', () => {
-    const testProducts = [
-      { id: 'p1', code: '50W-INTENSE', name: 'Intense 50W Solar Light', category: 'Solar Luminaire' } as any,
-      { id: 'p2', code: 'PBS-125', name: 'Pro Blade Solar 125', category: 'Modular Solar Pole Platform' } as any
-    ];
-    const html = generateTenderPackageHTML({
-      projectName: 'Ballarat Shared Path Upgrade',
-      customerName: 'Ballarat City Council',
-      quoteRef: 'OST-8924',
-      products: testProducts
-    });
-
-    expect(html).toContain('TECHNICAL TENDER SPECIFICATION BUNDLE');
-    expect(html).toContain('Ballarat Shared Path Upgrade');
-    expect(html).toContain('Ballarat City Council');
-    expect(html).toContain('OST-8924');
-    expect(html).toContain('AS/NZS 1158');
-    expect(html).toContain('AS 4702');
   });
 });
 

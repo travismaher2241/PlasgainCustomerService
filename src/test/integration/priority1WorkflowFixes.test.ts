@@ -8,7 +8,7 @@ import {
 } from '../../utils/dateUtils';
 import { sortActivitiesChronological, parseActivityTimestamp } from '../../utils/activityUtils';
 import { normalizeNotification, getUnreadNotificationsCount } from '../../utils/notificationUtils';
-import { generateCustomerFollowUpEmail, generateTenderPackageHTML } from '../../utils/datasheetExporter';
+import { generateCustomerFollowUpEmail } from '../../utils/ostendoExporter';
 import { CRMActivity, CRMNotification, CRMLead, Opportunity } from '../../types/crm';
 
 describe('PRIORITY 1 CORE SALES WORKFLOW VERIFICATION (P1-01 to P1-16)', () => {

@@ -47,7 +47,7 @@ import {
   validateOstendoItems,
   downloadOstendoCSV,
   copyOstendoProductList
-} from "../../utils/datasheetExporter";
+} from "../../utils/ostendoExporter";
 import { sortActivitiesChronological } from "../../utils/activityUtils";
 
 export type DealDetailsTab = "overview" | "products" | "quote" | "activity";

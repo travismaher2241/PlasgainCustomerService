@@ -1,29 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { SAMPLE_PRODUCTS } from "../../data/mockData";
-import { LIGHTING_STANDARDS_CATEGORIES, getLightingCategory } from "../../data/lightingStandards";
 
 describe("Priority 2 Audit Remediation Test Suite", () => {
-  // ==========================================
-  // P2: Global Product Search & ProductDetail Inspection
-  // ==========================================
-  describe("Product Catalogue & Detail Inspection", () => {
-    it("starts with a clean slate catalogue array", () => {
-      expect(Array.isArray(SAMPLE_PRODUCTS)).toBe(true);
-      expect(SAMPLE_PRODUCTS.length).toBe(0);
-    });
-
-    it("handles product inspection safely with clean slate or loaded products", () => {
-      const mockProduct = {
-        id: "prod-test-50w",
-        name: "Test Light 50W",
-        code: "50W-TEST",
-        category: "Solar Luminaire",
-        cct: "3000K Warm White"
-      };
-      expect(mockProduct.code).toBeDefined();
-      expect(mockProduct.cct).toMatch(/3000K|Warm/i);
-    });
-  });
 
   // ==========================================
   // P2: Cable Cover Multi-Strip Calculations & Trench Arrangement
@@ -57,26 +34,6 @@ describe("Priority 2 Audit Remediation Test Suite", () => {
       expect(concreteMass).toBe(3600);
       expect(polyMass).toBe(180);
       expect(reductionPercent).toBe(95);
-    });
-  });
-
-  // ==========================================
-  // P2: AS/NZS 1158 Spacing & Photometric Disclaimers
-  // ==========================================
-  describe("Pathway Pole Spacing & Standards Parameters", () => {
-    it("retrieves Category P4 maintained and minimum illuminance criteria", () => {
-      const catP4 = getLightingCategory("P4");
-      expect(catP4).toBeDefined();
-      expect(catP4?.maintainedIlluminanceLux).toBe(0.85);
-      expect(catP4?.minimumIlluminanceLux).toBe(0.17);
-      expect(catP4?.standardReference).toContain("AS/NZS 1158.3.1");
-    });
-
-    it("estimates tighter spacing for higher illuminance Category P1", () => {
-      const catP1 = getLightingCategory("P1");
-      const catP4 = getLightingCategory("P4");
-
-      expect(catP1?.maintainedIlluminanceLux).toBeGreaterThan(catP4!.maintainedIlluminanceLux);
     });
   });
 

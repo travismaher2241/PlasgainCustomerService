@@ -1,7 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { INITIAL_ACCOUNTS, INITIAL_OPPORTUNITIES, DEFAULT_PIPELINES } from '../../data/crmMockData';
-import { SAMPLE_PRODUCTS } from '../../data/mockData';
-import { resolveProductsForDeal, findUnmatchedProducts } from '../../utils/datasheetExporter';
 import { CRMIntelligenceEngine } from '../../utils/crmIntelligence';
 
 describe('Cross-Module System Integrity & Seams', () => {
@@ -20,15 +18,6 @@ describe('Cross-Module System Integrity & Seams', () => {
       const stageSet = pipelineMap.get(deal.pipelineId)!;
       expect(stageSet.has(deal.stageId)).toBe(true);
     }
-  });
-
-  it('verifies product resolution does not silently substitute wrong products when unmatched', () => {
-    const unmatchedCodes = ['UNKNOWN-POLE-XYZ', 'CUSTOM-FITTING-99'];
-    const resolved = resolveProductsForDeal(unmatchedCodes);
-    const unmatched = findUnmatchedProducts(unmatchedCodes);
-
-    expect(resolved.length).toBe(0);
-    expect(unmatched).toEqual(unmatchedCodes);
   });
 
   it('verifies dynamic lead scoring calculates scores across diverse parameters', () => {

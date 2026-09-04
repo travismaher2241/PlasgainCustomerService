@@ -1,7 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { validateDealValue } from '../../utils/dealValueValidator';
-import { resolveSingleProduct } from '../../utils/productResolver';
 
 describe('Deal value basis (understated pipeline)', () => {
   // Per-unit with a blank quantity used to save the unit price as the whole
@@ -35,59 +34,5 @@ describe('Deal value basis (understated pipeline)', () => {
 
     expect(result.isOutlier).toBe(true);
     expect(result.suggestedCorrection?.basis).toBe('PER_UNIT');
-  });
-});
-
-describe('Product resolution (invented SKUs)', () => {
-  const TEST_CATALOGUE = [
-    { id: 'prod-enlighten-zorro-2', code: 'ZAL15S / ZAL40S / ZAL60S', name: 'enLighten Zorro 2 Area Luminaire' },
-    { id: 'prod-solar-blade-sonaray', code: 'SS-2020 / SS-2030 / SS-2060', name: 'Sonaray Solar Blade Platform' },
-    { id: 'prod-roadway-vled-70w', code: 'V-LED-70W', name: 'Roadway V-LED 70W Luminaire' },
-    { id: 'prod-pro-blade', code: 'PBS-75 / PBS-125', name: 'Pro Blade Solar 75/125' },
-    { id: 'prod-intense-50w', code: '50W-INTENSE', name: 'Intense Light - 50W Solar' },
-    { id: 'prod-plaspole', code: 'PLASPOLE-SERIES', name: 'Plaspole Composite Pole' }
-  ] as any;
-
-  // Real families must pass; invented ones must not.
-  const realFamilies: Array<[string, string]> = [
-    ['ZAL40S-T3-4K-B', 'enLighten Zorro 2 (40W)'],
-    ['SS-2060', 'Sonaray Solar Blade SS-2060'],
-    ['V-LED-70W', 'Roadway V-LED 70W'],
-    ['PBS-125', 'Pro Blade Solar 125'],
-    ['50W-INTENSE', 'Intense Light - 50W Solar'],
-    ['PLASPOLE-SERIES', 'Plaspole Composite Pole']
-  ];
-
-  it.each(realFamilies)('resolves %s to a catalogue product', (productCode, productName) => {
-    const result = resolveSingleProduct({ productCode, productName }, TEST_CATALOGUE);
-
-    expect(result.status).not.toBe('UNMATCHED');
-    expect(result.product).toBeDefined();
-  });
-
-  it.each([
-    ['TOTALLY-MADE-UP-9000', 'Fictional Megalight 9000'],
-    ['XYZ-1', 'Northern Lights Ultra Beam']
-  ])('rejects %s, which corresponds to nothing in the catalogue', (productCode, productName) => {
-    const result = resolveSingleProduct({ productCode, productName }, TEST_CATALOGUE);
-
-    expect(result.product).toBeUndefined();
-    expect(result.status).toBe('UNMATCHED');
-  });
-
-  it('resolves a family alias to the real catalogue entry, not the quoted string', () => {
-    const result = resolveSingleProduct({
-      productCode: 'ROADWAY-VLED-150W',
-      productName: 'Plasgain Roadway V-LED 150W Luminaire'
-    }, TEST_CATALOGUE);
-
-    expect(result.status).toBe('ALIAS_MATCH');
-    expect(result.product?.code).toBe('V-LED-70W');
-  });
-
-  it('matches a single SKU inside a compound catalogue code', () => {
-    const result = resolveSingleProduct({ productCode: 'SS-2030', productName: 'Solar Blade' }, TEST_CATALOGUE);
-
-    expect(result.product?.code).toBe('SS-2020 / SS-2030 / SS-2060');
   });
 });

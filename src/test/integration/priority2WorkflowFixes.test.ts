@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { accountIntelligenceCache, generateAccountSourceHash } from "../../utils/accountIntelligenceCache";
-import { productComparisonCache, generateSymmetricComparisonKey } from "../../utils/productComparisonCache";
 import {
   detectDuplicateAccount,
   detectDuplicateContact,
@@ -15,20 +14,6 @@ import { addBusinessDaysLocal, getLocalDateInputValue } from "../../utils/dateUt
 describe("Priority 2: Speed & Usability Improvements Acceptance Suite", () => {
   beforeEach(() => {
     accountIntelligenceCache.clear();
-    productComparisonCache.clear();
-  });
-
-  // ==========================================
-  // P2-01 & P2-02: Progressive Streaming & Discrete Stages
-  // ==========================================
-  describe("P2-01 & P2-02: Streaming & Discrete Workflow Stages", () => {
-    it("verifies discrete analysis pipeline stages are ordered and resilient", () => {
-      const stages = ["reading", "extracting", "cross_checking", "product_matching", "finalizing"];
-      expect(stages).toHaveLength(5);
-      expect(stages[0]).toBe("reading");
-      expect(stages[2]).toBe("cross_checking");
-      expect(stages[4]).toBe("finalizing");
-    });
   });
 
   // ==========================================
@@ -84,44 +69,6 @@ describe("Priority 2: Speed & Usability Improvements Acceptance Suite", () => {
       };
       const cacheMiss = accountIntelligenceCache.get(mutatedSource);
       expect(cacheMiss).toBeNull();
-    });
-  });
-
-  // ==========================================
-  // P2-04: Symmetric Product Comparison Cache
-  // ==========================================
-  describe("P2-04: Symmetric Product Comparison Cache", () => {
-    it("generates identical cache keys regardless of product comparison order", () => {
-      const prodA = "PLAS-SOLAR-50W";
-      const prodB = "PLAS-SOLAR-125W";
-
-      const keyForward = generateSymmetricComparisonKey([prodA, prodB], "shared path", "2026.1", "v4.2");
-      const keyBackward = generateSymmetricComparisonKey([prodB, prodA], "shared path", "2026.1", "v4.2");
-
-      expect(keyForward).toBe(keyBackward);
-    });
-
-    it("stores comparison and retrieves identically in reverse order", () => {
-      const prodA = "Intense Light - 50W Solar";
-      const prodB = "Pro Blade Solar 75/125";
-
-      const mockRecord = {
-        productIds: [prodA, prodB],
-        standardsVersion: "AS/NZS 1158:2020",
-        catalogueVersion: "2026.1",
-        comparedAt: Date.now(),
-        comparisonMatrix: {
-          luminaireOutput: { [prodA]: "5,000 lm", [prodB]: "12,000 lm" }
-        },
-        tradeOffsSummary: "Pro Blade offers higher lumen output for arterial pathways."
-      };
-
-      productComparisonCache.set([prodA, prodB], mockRecord);
-
-      // Retrieve in reversed query order [prodB, prodA]
-      const retrieved = productComparisonCache.get([prodB, prodA]);
-      expect(retrieved).not.toBeNull();
-      expect(retrieved?.tradeOffsSummary).toBe(mockRecord.tradeOffsSummary);
     });
   });
 
