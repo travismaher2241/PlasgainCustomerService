@@ -14,7 +14,7 @@ import {
   Briefcase
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
-import { getLocalDateInputValue } from "../../utils/dateUtils";
+import { getLocalDateInputValue, formatAuTime } from "../../utils/dateUtils";
 import { getTomorrowDateString } from "../../utils/crmMeetingPreparation";
 
 export const CRMScheduleMeetingModal: React.FC = () => {
@@ -33,7 +33,7 @@ export const CRMScheduleMeetingModal: React.FC = () => {
   const [opportunityId, setOpportunityId] = useState("");
   const [title, setTitle] = useState("");
   const [meetingDate, setMeetingDate] = useState(getTomorrowDateString());
-  const [meetingTime, setMeetingTime] = useState("10:00 AM");
+  const [meetingTime, setMeetingTime] = useState("10:00");
   const [meetingFormat, setMeetingFormat] = useState<"In Person" | "Teams/Zoom" | "Phone" | "Site Visit">("In Person");
   const [durationMinutes, setDurationMinutes] = useState(45);
   const [location, setLocation] = useState("");
@@ -44,20 +44,18 @@ export const CRMScheduleMeetingModal: React.FC = () => {
   useEffect(() => {
     if (scheduleMeetingModal?.isOpen) {
       const prefill = scheduleMeetingModal.prefill;
-      const initialAccountId = prefill?.accountId || accounts[0]?.id || "";
+      // Nothing is chosen on the rep's behalf. This previously defaulted to the
+      // first account and then ticked the first two of its contacts, so people
+      // nobody selected ended up as meeting participants — and their names were
+      // printed in the preparation plan's attendee line.
+      const initialAccountId = prefill?.accountId || "";
       setAccountId(initialAccountId);
-
-      if (prefill?.contactId) {
-        setSelectedContactIds([prefill.contactId]);
-      } else {
-        const accountContacts = contacts.filter((c) => c.accountId === initialAccountId && !c.isArchived);
-        setSelectedContactIds(accountContacts.slice(0, 2).map((c) => c.id));
-      }
+      setSelectedContactIds(prefill?.contactId ? [prefill.contactId] : []);
 
       setOpportunityId(prefill?.opportunityId || "");
       setMeetingDate(prefill?.date || getTomorrowDateString());
       setTitle("");
-      setMeetingTime("10:00 AM");
+      setMeetingTime("10:00");
       setMeetingFormat("In Person");
       setDurationMinutes(45);
       setLocation("");
@@ -82,10 +80,10 @@ export const CRMScheduleMeetingModal: React.FC = () => {
 
   const handleAccountChange = (newAccId: string) => {
     setAccountId(newAccId);
-    const newContacts = contacts.filter((c) => c.accountId === newAccId && !c.isArchived);
-    setSelectedContactIds(newContacts.slice(0, 2).map((c) => c.id));
-    const newDeals = crmOpportunities.filter((d) => d.accountId === newAccId);
-    setOpportunityId(newDeals[0]?.id || "");
+    // Changing customer clears the participant list rather than ticking the
+    // first two contacts of the new account on the rep's behalf.
+    setSelectedContactIds([]);
+    setOpportunityId("");
   };
 
   const setDatePreset = (preset: "tomorrow" | "in2days" | "nextweek") => {
@@ -150,10 +148,10 @@ export const CRMScheduleMeetingModal: React.FC = () => {
             </div>
             <div>
               <h3 id="schedule-meeting-title" className="text-base font-bold text-body">
-                Schedule Customer Meeting
+                Schedule a meeting
               </h3>
               <p className="text-spec text-ink-dim">
-                Organise upcoming meeting and auto-generate AI preparation plan
+                A preparation plan is put together for you once it is booked
               </p>
             </div>
           </div>
@@ -181,6 +179,7 @@ export const CRMScheduleMeetingModal: React.FC = () => {
                 required
                 className="w-full pl-9 pr-3 py-2 text-spec rounded-edge border border-line focus:outline-none focus:border-brand-deep bg-white font-medium"
               >
+                <option value="">Choose a customer…</option>
                 {accounts.map((acc) => (
                   <option key={acc.id} value={acc.id}>
                     {acc.name} ({acc.territory})
@@ -308,13 +307,19 @@ export const CRMScheduleMeetingModal: React.FC = () => {
                   onChange={(e) => setMeetingTime(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 text-spec rounded-edge border border-line focus:outline-none focus:border-brand-deep bg-white"
                 >
+                  {/*
+                    Stored as 24-hour and displayed through the shared
+                    formatter. The picker previously offered "08:30 AM" while
+                    the calendar card and preparation plan rendered the same
+                    value as "08:30".
+                  */}
                   {[
-                    "08:30 AM", "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM",
-                    "11:00 AM", "11:30 AM", "12:00 PM", "01:00 PM", "01:30 PM",
-                    "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM"
+                    "08:30", "09:00", "09:30", "10:00", "10:30",
+                    "11:00", "11:30", "12:00", "13:00", "13:30",
+                    "14:00", "14:30", "15:00", "15:30", "16:00", "16:30"
                   ].map((tm) => (
                     <option key={tm} value={tm}>
-                      {tm}
+                      {formatAuTime(tm)}
                     </option>
                   ))}
                 </select>
@@ -420,10 +425,10 @@ export const CRMScheduleMeetingModal: React.FC = () => {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-brand-deep hover:bg-brand text-white text-spec font-bold rounded-edge shadow-xs cursor-pointer flex items-center gap-1.5 transition-colors"
+              className="min-h-[44px] px-4 py-2 bg-brand-deep hover:bg-brand text-white text-spec font-bold rounded-edge shadow-xs cursor-pointer flex items-center gap-1.5 transition-colors"
             >
               <Calendar className="w-3.5 h-3.5" />
-              <span>Schedule &amp; Prepare Plan</span>
+              <span>Book meeting</span>
             </button>
           </div>
         </form>

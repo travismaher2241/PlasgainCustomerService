@@ -36,9 +36,11 @@ export const CRMTasksActivitiesView: React.FC = () => {
   const [newTaskForm, setNewTaskForm] = useState({
     title: "",
     type: "Call" as TaskType,
-    priority: "High" as TaskPriority,
+    priority: "Medium" as TaskPriority,
     dueDate: todayStr,
-    accountId: accounts[0]?.id || "",
+    // Matches the "No specific account" option the select actually shows.
+    // Defaulting to accounts[0] filed general reminders against a customer.
+    accountId: "",
     notes: ""
   });
 
@@ -169,7 +171,7 @@ export const CRMTasksActivitiesView: React.FC = () => {
                 <option value="all">All Priorities</option>
                 <option value="Urgent">Urgent</option>
                 <option value="High">High</option>
-                <option value="Normal">Normal</option>
+                <option value="Medium">Medium</option>
                 <option value="Low">Low</option>
               </select>
             </div>
@@ -371,7 +373,7 @@ export const CRMTasksActivitiesView: React.FC = () => {
                 >
                   <option>Urgent</option>
                   <option>High</option>
-                  <option>Normal</option>
+                  <option>Medium</option>
                   <option>Low</option>
                 </select>
               </div>

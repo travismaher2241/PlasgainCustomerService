@@ -13,6 +13,7 @@ import {
 import { useApp } from "../context/AppContext";
 import { CRMOpportunity } from "../types/crm";
 import { resolveQuotingStage } from "../data/crmMockData";
+import { addDaysLocal, formatAuDate } from "../utils/dateUtils";
 
 export const HomeDashboard: React.FC = () => {
   const {
@@ -60,21 +61,16 @@ export const HomeDashboard: React.FC = () => {
   }, [contacts, selectedQuoteAccount]);
 
   const handleOpenNewQuoteModal = () => {
-    const acc = accounts[0];
-    const initialContacts = acc
-      ? contacts.filter(
-          (c) =>
-            c.accountId === acc.id ||
-            (Boolean(acc.name) && Boolean(c.accountName) && c.accountName.trim().toLowerCase() === acc.name.trim().toLowerCase())
-        )
-      : [];
+    // No account is pre-selected. Defaulting to accounts[0] meant a quote saved
+    // without touching the field was filed against whichever customer happened
+    // to be first in the list.
     setNewQuoteForm({
-      accountId: acc?.id || "",
+      accountId: "",
       name: "",
       quoteNumber: "",
       dealValue: "",
-      expectedCloseDate: new Date(Date.now() + 45 * 86400000).toISOString().split("T")[0],
-      primaryContactId: initialContacts[0]?.id || "",
+      expectedCloseDate: addDaysLocal(45),
+      primaryContactId: "",
       notes: ""
     });
     setIsNewQuoteModalOpen(true);
@@ -83,8 +79,19 @@ export const HomeDashboard: React.FC = () => {
   const handleCreateQuote = (e: React.FormEvent) => {
     e.preventDefault();
     const quotingStage = resolveQuotingStage("pipe-major-projects");
-    const acc = accounts.find((a) => a.id === newQuoteForm.accountId) || accounts[0];
-    if (!acc || !newQuoteForm.name.trim() || newQuoteForm.dealValue === "" || isNaN(Number(newQuoteForm.dealValue))) return;
+    const acc = accounts.find((a) => a.id === newQuoteForm.accountId);
+    if (!acc) {
+      showToast("Choose which customer this quote is for.", "warning");
+      return;
+    }
+    if (!newQuoteForm.name.trim()) {
+      showToast("Give the quote a name so you can find it later.", "warning");
+      return;
+    }
+    if (newQuoteForm.dealValue === "" || isNaN(Number(newQuoteForm.dealValue))) {
+      showToast("Enter the quote value, excluding GST.", "warning");
+      return;
+    }
 
     const matchedContact = quoteAccountContacts.find((c) => c.id === newQuoteForm.primaryContactId) || quoteAccountContacts[0];
 
@@ -466,12 +473,16 @@ export const HomeDashboard: React.FC = () => {
                     setNewQuoteForm((prev) => ({
                       ...prev,
                       accountId: nextAccId,
-                      name: nextAcc ? `${nextAcc.name} - Solar Public Lighting` : prev.name,
+                      // Only suggest a name while the field is still untouched.
+                      // This previously overwrote whatever the rep had typed
+                      // with a hard-coded "<Account> - Solar Public Lighting".
+                      name: prev.name.trim() ? prev.name : nextAcc ? `${nextAcc.name} — ` : prev.name,
                       primaryContactId: nextContacts[0]?.id || ""
                     }));
                   }}
                   className="w-full p-2 border border-line rounded-edge bg-white text-spec"
                 >
+                  <option value="">Choose a customer…</option>
                   {accounts.map((acc) => (
                     <option key={acc.id} value={acc.id}>
                       {acc.name} ({acc.accountType || "Account"})

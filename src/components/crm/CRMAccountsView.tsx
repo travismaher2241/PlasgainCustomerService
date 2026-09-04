@@ -498,13 +498,27 @@ export const CRMAccountsView: React.FC = () => {
 
   // Handle Delete Account
   const handleDeleteAccount = async (accountToDelete: Account) => {
+    // deleteAccount cascades. The confirmation used to promise only "the
+    // account record", so quotes and logged calls were destroyed unmentioned.
+    const dependents = [
+      { n: crmOpportunities.filter((d) => d.accountId === accountToDelete.id).length, one: "quote", many: "quotes" },
+      { n: contacts.filter((c) => c.accountId === accountToDelete.id).length, one: "contact", many: "contacts" },
+      { n: activities.filter((a) => a.accountId === accountToDelete.id).length, one: "logged activity", many: "logged activities" },
+      { n: tasks.filter((t) => t.accountId === accountToDelete.id).length, one: "task", many: "tasks" }
+    ]
+      .filter((d) => d.n > 0)
+      .map((d) => `${d.n} ${d.n === 1 ? d.one : d.many}`);
+
+    const consequence = dependents.length
+      ? `This also permanently deletes ${dependents.join(", ")} belonging to this account.`
+      : `This account has no quotes, contacts or history attached to it.`;
+
     if (
       window.confirm(
-        `Permanently delete "${accountToDelete.name}"?\n\nThis will remove the account record from your workspace.`
+        `Permanently delete "${accountToDelete.name}"?\n\n${consequence}\n\nThis cannot be undone. Archive the account instead if you only want it out of the way.`
       )
     ) {
       await deleteAccount(accountToDelete.id);
-      showToast(`Account "${accountToDelete.name}" deleted.`, "info");
     }
   };
 
@@ -545,7 +559,7 @@ export const CRMAccountsView: React.FC = () => {
     addAccount(newAcc);
     setSelectedAccountId(newAcc.id);
     setIsNewAccountModalOpen(false);
-    showToast(`Account "${newAcc.name}" (${newAcc.accountType}) created.`, "success");
+    showToast(`Added "${newAcc.name}".`, "success");
   };
 
   // Open Edit Account Modal
@@ -594,7 +608,7 @@ export const CRMAccountsView: React.FC = () => {
     });
 
     setIsEditAccountModalOpen(false);
-    showToast(`Account "${editAccountForm.name}" updated successfully.`, "success");
+    showToast(`Saved changes to "${editAccountForm.name}".`, "success");
   };
 
   // Handle New Deal Creation (Context preselected!)
@@ -843,8 +857,9 @@ export const CRMAccountsView: React.FC = () => {
                       <option>VIC/TAS</option>
                       <option>NSW/ACT</option>
                       <option>QLD/NT</option>
-                      <option>WA/SA</option>
-                      <option>National / Key Accounts</option>
+                      <option>WA</option>
+                      <option>SA</option>
+                      <option>National</option>
                     </select>
                   </div>
                 </div>
@@ -2692,8 +2707,9 @@ export const CRMAccountsView: React.FC = () => {
                     <option>VIC/TAS</option>
                     <option>NSW/ACT</option>
                     <option>QLD/NT</option>
-                    <option>WA/SA</option>
-                    <option>National / Key Accounts</option>
+                    <option>WA</option>
+                      <option>SA</option>
+                    <option>National</option>
                   </select>
                 </div>
               </div>
@@ -2821,8 +2837,9 @@ export const CRMAccountsView: React.FC = () => {
                     <option>VIC/TAS</option>
                     <option>NSW/ACT</option>
                     <option>QLD/NT</option>
-                    <option>WA/SA</option>
-                    <option>National / Key Accounts</option>
+                    <option>WA</option>
+                      <option>SA</option>
+                    <option>National</option>
                   </select>
                 </div>
               </div>

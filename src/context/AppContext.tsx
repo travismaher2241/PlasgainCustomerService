@@ -38,6 +38,7 @@ import {
 } from "../data/crmMockData";
 import { CRMIntelligenceEngine } from "../utils/crmIntelligence";
 import { normalizeNotification, getUnreadNotificationsCount } from "../utils/notificationUtils";
+import { formatAuDate, formatAuTime } from "../utils/dateUtils";
 import { setSessionToken } from "../utils/apiClient";
 import {
   saveDocToCloud,
@@ -549,7 +550,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteTeamMember = (idOrName: string) => {
     if (!currentUser.isAdmin) {
-      showToast("Access Denied: Only administrator profiles can remove team members", "error");
+      showToast("Only administrators can remove team members.", "error");
       return;
     }
     const memberToDelete = teamMembers.find(
@@ -561,7 +562,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       currentUser.name.toLowerCase() === memberToDelete.name.toLowerCase() ||
       (currentUser.id && currentUser.id === memberToDelete.id)
     ) {
-      showToast("Cannot delete the currently signed-in user profile", "warning");
+      showToast("You cannot remove the profile you are signed in as.", "warning");
       return;
     }
 
@@ -579,7 +580,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addTeamMember = (member: UserProfile) => {
     if (!currentUser.isAdmin) {
-      showToast("Access Denied: Only administrator profiles can create team members", "error");
+      showToast("Only administrators can add team members.", "error");
       return;
     }
     const userId = member.id || `user-${member.name.toLowerCase().trim().replace(/[^a-z0-9]/g, "-")}`;
@@ -1007,13 +1008,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           accountName: data.record.accountName,
           performedBy: data.record.createdBy
         });
-        showToast("Competitor pricing recorded & team alert dispatched!", "success");
+        showToast("Competitor price saved. The team has been notified.", "success");
         return data.record;
       }
       return null;
     } catch (err: any) {
       console.error("Error adding competitor pricing:", err);
-      showToast(err.message || "Failed to record competitor pricing", "error");
+      showToast("The competitor price could not be saved. Try again.", "error");
       return null;
     }
   };
@@ -1043,7 +1044,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return null;
     } catch (err: any) {
       console.error("Error updating competitor pricing:", err);
-      showToast(err.message || "Failed to update competitor record", "error");
+      showToast("The competitor price could not be updated. Try again.", "error");
       return null;
     }
   };
@@ -1282,7 +1283,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // ignore localStorage quota errors
           }
           if (totalPurged > 0) {
-            showToast(`Cleaned up ${totalPurged} legacy sample records`, "info");
+            // Housekeeping the user did not ask for and cannot act on: logged, not shown.
+            console.info(`[Plasgain] Removed ${totalPurged} legacy sample records`);
           }
         }
 
@@ -1401,15 +1403,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setLastCloudSyncTime(getLastSyncTime());
       if (res.success) {
         setCloudSyncStatus("synced");
-        showToast(`Synced ${res.processedCount} queued offline change(s) to Cloud Firestore`, "success");
+        showToast(`Saved ${res.processedCount} change${res.processedCount === 1 ? "" : "s"} that were waiting for a connection.`, "success");
       } else {
         setCloudSyncStatus("queued");
-        showToast(`Partially synced. Some changes remain in queue.`, "warning");
+        showToast("Some changes are still waiting for a connection.", "warning");
       }
     } catch (err) {
       console.error("Error flushing offline queue:", err);
       setCloudSyncStatus("error");
-      showToast("Failed to flush offline queue", "error");
+      showToast("Could not save the waiting changes. They are still on this device.", "error");
     }
   };
 
@@ -1432,11 +1434,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCloudSyncStatus("synced");
       setLastCloudSyncTime(getLastSyncTime());
       setQueuedWritesCount(getQueuedWritesCount());
-      showToast("All workspace data synchronized with Cloud Firestore!", "success");
+      showToast("Everything is saved to the team database.", "success");
     } catch (err) {
       console.error("Manual cloud sync error:", err);
       setCloudSyncStatus("error");
-      showToast("Cloud sync failed. Local cache preserved.", "error");
+      showToast("Could not reach the team database. Your work is saved on this device.", "error");
     }
   };
 
@@ -1555,7 +1557,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAccounts((prev) => [account, ...prev]);
     saveDocToCloud("crm_accounts", account.id, account);
     recordAuditLog("CREATE", "Account", account.id, account.name, `Created ${account.accountType || "Account"}: ${account.name}`);
-    showToast(`Account "${account.name}" created`, "success");
+    // The calling screen reports the outcome; two toasts meant the first was never seen.
   };
 
   const updateAccount = (id: string, updates: Partial<Account>) => {
@@ -1608,7 +1610,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       recordAuditLog("UPDATE", "Account", id, targetName, `Updated account details for ${targetName}`);
     }
 
-    showToast("Account updated", "success");
+    // Reported by the calling screen.
   };
 
   const deleteAccount = async (id: string) => {
@@ -1625,7 +1627,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     await deleteDocFromCloud("crm_accounts", id);
     recordAuditLog("DELETE", "Account", id, accName, `Deleted account ${accName}`);
-    showToast("Account removed from workspace", "info");
+    showToast(`Deleted "${accName}" and everything attached to it.`, "info");
   };
 
   const addContact = (contact: CRMContact) => {
@@ -1830,7 +1832,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setLeads((prev) => [lead, ...prev]);
     saveDocToCloud("crm_leads", lead.id, lead);
     recordAuditLog("CREATE", "Lead", lead.id, lead.leadName, `Created lead ${lead.leadName} (${lead.company})`);
-    showToast(`Lead "${lead.leadName}" added`, "success");
+    showToast(`Lead "${lead.leadName}" added.`, "success");
   };
 
   const updateLead = (id: string, updates: Partial<CRMLead>) => {
@@ -2016,7 +2018,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCrmOpportunities((prev) => [opp, ...prev]);
     saveDocToCloud("crm_deals", opp.id, opp);
     recordAuditLog("CREATE", "Deal", opp.id, opp.name, `Created deal: ${opp.name} ($${opp.dealValue?.toLocaleString() || 0}) for ${opp.accountName}`);
-    showToast(`Opportunity "${opp.name}" added to pipeline`, "success");
+    showToast(`Quote "${opp.name}" created.`, "success");
   };
 
   const updateCrmOpportunity = (id: string, updates: Partial<CRMOpportunity>) => {
@@ -2047,7 +2049,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       recordAuditLog("UPDATE", "Deal", id, dealName, `Updated deal details for "${dealName}"`);
     }
 
-    showToast("Opportunity updated", "success");
+    showToast("Quote updated.", "success");
   };
 
   const deleteCrmOpportunity = async (id: string) => {
@@ -2064,7 +2066,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     await deleteDocFromCloud("crm_deals", id);
     recordAuditLog("DELETE", "Deal", id, oppName, `Deleted opportunity ${oppName}`);
-    showToast("Opportunity deleted", "info");
+    showToast("Quote deleted.", "info");
   };
 
   const logActivity = (activityData: Omit<CRMActivity, "id" | "timestamp">) => {
@@ -2216,7 +2218,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    showToast(`Activity logged: ${activityData.title}`, "success");
+    showToast(`Saved: ${activityData.title}`, "success");
 
     return {
       activity: newAct,
@@ -2304,7 +2306,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTasks((prev) => [newTask, ...prev]);
     saveDocToCloud("crm_tasks", newTask.id, newTask);
     recordAuditLog("CREATE", "Task", newTask.id, newTask.title, `Scheduled customer meeting: ${newTask.title}`);
-    showToast(`Meeting "${newTask.title}" scheduled for ${newTask.dueDate}`, "success");
+    showToast(`Meeting booked for ${formatAuDate(newTask.dueDate)}${newTask.dueTime ? ` at ${formatAuTime(newTask.dueTime)}` : ""}.`, "success");
     return newTask;
   };
 
@@ -2316,7 +2318,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addOpportunity = (opp: Opportunity) => {
     setOpportunities((prev) => [opp, ...prev]);
     saveDocToCloud("opportunities", opp.id, opp);
-    showToast(`Opportunity "${opp.project}" saved`, "success");
+    showToast(`Quote "${opp.project}" saved.`, "success");
   };
 
   const updateOpportunity = (id: string, updates: Partial<Opportunity>) => {
