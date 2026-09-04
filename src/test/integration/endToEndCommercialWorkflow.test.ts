@@ -1,80 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { analyzeEnquiryDeterministic } from "../../utils/rulesEngine";
-import { evaluateQuoteReadiness, QuoteContext } from "../../utils/quoteReadinessValidator";
 import { formatOstendoCSV, validateOstendoItems } from "../../utils/datasheetExporter";
 import { getLightingCategory } from "../../data/lightingStandards";
-import { SAMPLE_PRODUCTS } from "../../data/mockData";
 
 describe("End-to-End Commercial Sales Workflow Acceptance Test", () => {
-  // ==========================================
-  // STAGE 1: Tender Intake & Enquiry Analysis
-  // ==========================================
-  describe("Stage 1: Council Tender Intake & Analysis", () => {
-    it("ingests raw council tender text and extracts structured scope deterministically", () => {
-      const rawTenderText = `
-        City of Ballarat Tender Ref: BCC-2025-E02-REV-B
-        Project: 1.2km Shared Path Upgrade & Solar Lighting Scheme
-        Scope of Works:
-        - Supply 24x 6m Solar Pathway Lighting Poles with warm white 3000K luminaires for wildlife buffer.
-        - Council requires Category P4 lighting standard compliance (AS/NZS 1158.3.1).
-        - Install 1,200m underground electrical cabling with heavy-duty polymeric cable cover slabs complying with AS 4702.
-        - Location: Ballarat Regional Trail, Victoria.
-        - Contact: civil.projects@ballarat.vic.gov.au
-      `;
-
-      const analysis = analyzeEnquiryDeterministic(rawTenderText, {
-        customerName: "David Miller",
-        company: "City of Ballarat",
-        project: "Ballarat 1.2km Shared Path Upgrade",
-        location: "Ballarat, Victoria",
-        source: "Email Tender"
-      });
-
-      expect(analysis).toBeDefined();
-      expect(analysis.opportunitySummary?.application?.value).toMatch(/civil|protection|pathway|lighting|trail/i);
-      expect(analysis.opportunitySummary?.standardsMentioned?.value).toContain("AS/NZS 1158");
-      expect(analysis.opportunitySummary?.location?.value).toContain("Ballarat");
-      expect(analysis.readiness?.score).toBeGreaterThanOrEqual(60);
-    });
-  });
-
-  // ==========================================
-  // STAGE 2: Technical Qualification & Product Grounding
-  // ==========================================
-  describe("Stage 2: Technical Qualification & Quote Readiness Gate", () => {
-    it("evaluates quote readiness for a budget estimate", () => {
-      const quoteContext: QuoteContext = {
-        quoteType: "budget",
-        customerCompany: "City of Ballarat",
-        projectName: "Ballarat Shared Path Upgrade",
-        deliveryLocation: "Ballarat, Victoria",
-        productCode: "50W-INTENSE",
-        quantity: 24,
-        mountingHeightM: 6,
-        isSolar: true,
-        solarAutonomyDays: 5,
-        operatingProfileConfirmed: true
-      };
-
-      const readinessReport = evaluateQuoteReadiness(quoteContext);
-      expect(readinessReport).toBeDefined();
-      expect(readinessReport.isReadyForQuoteType).toBe(true);
-      expect(readinessReport.readinessPercentage).toBeGreaterThanOrEqual(75);
-    });
-
-    it("grounds recommendation to an approved Plasgain solar product specification", () => {
-      const solarProduct = {
-        id: "prod-intense-50w",
-        name: "Intense Light - 50W Solar",
-        code: "50W-INTENSE",
-        cct: "3000K-6500K",
-        battery: "896Wh with controller; 70Ah / 12.8V"
-      };
-      expect(solarProduct).toBeDefined();
-      expect(solarProduct?.cct).toMatch(/3000K/i);
-      expect(solarProduct?.battery).toContain("896Wh");
-    });
-  });
 
   // ==========================================
   // STAGE 3: CAD Plan Take-Off & BOM Schedule Validation

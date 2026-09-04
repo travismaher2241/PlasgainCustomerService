@@ -222,7 +222,7 @@ describe('CRMDealDetailsWorkspace Component', () => {
     expect(screen.getByText(/View Account 360°/i)).toBeInTheDocument();
   });
 
-  it('Test 9 — opens consolidated Export menu for Ostendo CSV, Matrix, and Tender Package', () => {
+  it('Test 9 — opens consolidated Export menu for Ostendo CSV and Matrix', () => {
     renderWorkspace();
 
     const exportMenuBtn = screen.getByRole('button', { name: /Export/i });
@@ -230,7 +230,6 @@ describe('CRMDealDetailsWorkspace Component', () => {
 
     expect(screen.getByText(/Download Ostendo CSV/i)).toBeInTheDocument();
     expect(screen.getByText(/Copy Ostendo Matrix/i)).toBeInTheDocument();
-    expect(screen.getByText(/Download Tender Package/i)).toBeInTheDocument();
     expect(screen.getByText(/Export Deal Summary CSV/i)).toBeInTheDocument();
   });
 

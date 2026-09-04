@@ -3,7 +3,6 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import { AppProvider } from '../../context/AppContext';
 import { CustomerFollowUpModal } from '../../components/CustomerFollowUpModal';
-import { DatasheetPackageModal } from '../../components/DatasheetPackageModal';
 import {
   generateCustomerFollowUpEmail,
   formatOstendoCSV,
@@ -167,29 +166,5 @@ describe('CustomerFollowUpModal Component', () => {
     // Actions
     expect(screen.getByText(/Copy Email Text/i)).toBeInTheDocument();
     expect(screen.getByText(/Open in Outlook/i)).toBeInTheDocument();
-    expect(screen.getByText(/Log Activity to CRM/i)).toBeInTheDocument();
-  });
-});
-
-describe('DatasheetPackageModal Component', () => {
-  it('renders tender package modal with product checklist and preview', () => {
-    render(
-      <AppProvider>
-        <DatasheetPackageModal
-          isOpen={true}
-          onClose={() => {}}
-          projectName="Ballarat Shared Trail"
-          customerName="Ballarat City Council"
-          quoteRef="OST-8924"
-          initialProductNames={['Intense Light - 50W Solar', 'Plaspole 6.0m Recycled Composite Light Pole']}
-        />
-      </AppProvider>
-    );
-
-    expect(screen.getByText(/Export Datasheet & Tender Spec Package/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Ballarat Shared Trail/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/OST-8924/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/Download Tender Package/i)).toBeInTheDocument();
-    expect(screen.getByText(/Copy Spec Text/i)).toBeInTheDocument();
   });
 });

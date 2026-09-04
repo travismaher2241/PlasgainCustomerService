@@ -42,8 +42,6 @@ import {
 import { useApp } from "../../context/AppContext";
 import { CRMOpportunity, DealHealthRating, OpportunityProductLine, CRMActivity } from "../../types/crm";
 import { CustomerFollowUpModal } from "../CustomerFollowUpModal";
-import { DatasheetPackageModal } from "../DatasheetPackageModal";
-import { SAMPLE_PRODUCTS } from "../../data/mockData";
 import {
   formatOstendoCSV,
   validateOstendoItems,
@@ -91,7 +89,6 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
 
   // Modals
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
-  const [isDatasheetModalOpen, setIsDatasheetModalOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   // Products & Pricing local state
@@ -691,17 +688,6 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                     <span>Copy Ostendo Matrix</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsDatasheetModalOpen(true);
-                      setIsExportMenuOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body border-t border-line"
-                  >
-                    <Download className="w-3.5 h-3.5 text-cyan-600" />
-                    <span>Download Tender Package</span>
-                  </button>
 
                   <button
                     type="button"
@@ -1095,40 +1081,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                   <Plus className="w-4 h-4" /> Add Line Item to Bill of Materials
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                  <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-bold uppercase text-ink-dim mb-1">
-                      Catalogue Product Preset
-                    </label>
-                    <select
-                      value={newBomLine.catalogId}
-                      onChange={(e) => {
-                        const prod = SAMPLE_PRODUCTS.find((p) => p.id === e.target.value);
-                        if (prod) {
-                          setNewBomLine({
-                            ...newBomLine,
-                            catalogId: prod.id,
-                            productCode: prod.code,
-                            productName: prod.name,
-                            category: prod.category,
-                            unitPrice: 1650,
-                            costPrice: 1050
-                          });
-                        } else {
-                          setNewBomLine({ ...newBomLine, catalogId: "" });
-                        }
-                      }}
-                      className="w-full p-2 bg-white rounded-edge border border-line text-spec font-medium"
-                    >
-                      <option value="">-- Custom Item / Hardware Surcharge --</option>
-                      {SAMPLE_PRODUCTS.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.code})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-bold uppercase text-ink-dim mb-1">
                       Product SKU Code *
@@ -1311,8 +1264,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                           <td className="py-2.5 px-3 font-mono font-bold text-brand-deep text-spec">
                             <div className="flex items-center gap-1.5">
                               <span>{p.productCode || "CUSTOM"}</span>
-                              {p.isOstendoVerified ||
-                              SAMPLE_PRODUCTS.some((sp) => sp.code.toLowerCase() === (p.productCode || "").toLowerCase()) ? (
+                              {p.isOstendoVerified ? (
                                 <span className="text-[9px] bg-brand-wash text-brand-deep border border-brand-edge px-1.5 py-0.2 rounded font-sans font-bold" title="Ostendo Registered & Verified Product SKU">
                                   ✓ Verified
                                 </span>
@@ -1659,15 +1611,6 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Mark PO Received (Won)</span>
                 </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsDatasheetModalOpen(true)}
-                  className="px-3 py-1.5 bg-white hover:bg-raised text-body border border-line font-semibold text-spec rounded-edge flex items-center gap-1.5 cursor-pointer shadow-2xs transition-colors"
-                >
-                  <Download className="w-3.5 h-3.5 text-cyan-600" />
-                  <span>Tender Package</span>
-                </button>
               </div>
             </div>
           </div>
@@ -1800,17 +1743,6 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
           initialProjectName={deal.name}
           initialQuoteRef={deal.ostendoQuoteRef || deal.quoteNumber || ""}
           initialProducts={(deal.products || []).map((p) => p.productName || p.productCode)}
-        />
-      )}
-
-      {isDatasheetModalOpen && (
-        <DatasheetPackageModal
-          isOpen={isDatasheetModalOpen}
-          onClose={() => setIsDatasheetModalOpen(false)}
-          projectName={deal.name}
-          customerName={deal.accountName}
-          quoteRef={deal.ostendoQuoteRef || deal.quoteNumber || ""}
-          initialProductNames={(deal.products || []).map((p) => p.productName || p.productCode)}
         />
       )}
 

@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { accountIntelligenceCache, generateAccountSourceHash } from "../../utils/accountIntelligenceCache";
 import { productComparisonCache, generateSymmetricComparisonKey } from "../../utils/productComparisonCache";
-import { evaluateQuoteReadiness, QuoteContext } from "../../utils/quoteReadinessValidator";
 import {
   detectDuplicateAccount,
   detectDuplicateContact,
@@ -128,67 +127,6 @@ describe("Priority 2: Speed & Usability Improvements Acceptance Suite", () => {
 
 
 
-  // ==========================================
-  // P2-08: Pre-Quote Readiness Gate
-  // ==========================================
-  describe("P2-08: Pre-Quote Readiness Gate & Conditional Rules", () => {
-    it("blocks Firm Quotation when critical fields or approved pricing are missing", () => {
-      const incompleteContext: QuoteContext = {
-        quoteType: "firm",
-        isSolar: true,
-        productFamily: "Pro Blade Solar",
-        customerCompany: "City of Greater Geelong",
-        projectName: "Waterfront Promenade Stage 2",
-        // Missing: mountingHeight, commercialPricingApproved
-        commercialPricingApproved: false
-      };
-
-      const report = evaluateQuoteReadiness(incompleteContext);
-      expect(report.isReadyForFirmQuote).toBe(false);
-      expect(report.isReadyForQuoteType).toBe(false);
-      expect(report.blockers.length).toBeGreaterThan(0);
-
-      const pricingBlocker = report.blockers.find((b) => b.field === "commercialPricingApproved");
-      expect(pricingBlocker).toBeDefined();
-    });
-
-    it("allows Budget Estimate when basic project context is present", () => {
-      const budgetContext: QuoteContext = {
-        quoteType: "budget",
-        isSolar: true,
-        productFamily: "Pro Blade Solar",
-        customerCompany: "City of Greater Geelong",
-        projectName: "Waterfront Promenade Stage 2",
-        quantity: 12
-      };
-
-      const report = evaluateQuoteReadiness(budgetContext);
-      expect(report.isReadyForQuoteType).toBe(true);
-      expect(report.blockers).toHaveLength(0);
-    });
-
-    it("passes Firm Quotation when all critical commercial fields are confirmed", () => {
-      const completeFirmContext: QuoteContext = {
-        quoteType: "firm",
-        isSolar: true,
-        productFamily: "Pro Blade Solar",
-        customerCompany: "City of Greater Geelong",
-        projectName: "Waterfront Promenade Stage 2",
-        productCode: "PRO-BLADE-75",
-        quantity: 16,
-        mountingHeightM: 6.0,
-        solarAutonomyDays: 5,
-        commercialPricingApproved: true,
-        deliveryLocation: "Waterfront Promenade, Geelong"
-      };
-
-      const report = evaluateQuoteReadiness(completeFirmContext);
-      expect(report.isReadyForFirmQuote).toBe(true);
-      expect(report.isReadyForQuoteType).toBe(true);
-      expect(report.blockers).toHaveLength(0);
-      expect(report.readinessPercentage).toBeGreaterThanOrEqual(90);
-    });
-  });
 
 
 

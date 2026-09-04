@@ -21,19 +21,16 @@ describe('App Component Layout and Navigation', () => {
 
     expect(await screen.findByRole('tab', { name: /^Deals$/i }, { timeout: 10000 })).toBeInTheDocument();
 
-    // Click Tools Hub
-    const toolsNav = screen.getByRole('button', { name: /^Tools$/i });
-    fireEvent.click(toolsNav);
+    // Click Settings
+    const settingsNav = screen.getByRole('button', { name: /^Settings$/i });
+    fireEvent.click(settingsNav);
 
-    expect(await screen.findByRole('heading', { level: 1, name: /Plan Take-off/i }, { timeout: 10000 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: /^Settings$/i }, { timeout: 10000 })).toBeInTheDocument();
 
-    // Click Product Finder
-    const prodNav = screen.getByRole('button', { name: /Product Finder/i });
-    fireEvent.click(prodNav);
+    // Return to Home
+    const homeNav = screen.getByRole('button', { name: /^Home$/i });
+    fireEvent.click(homeNav);
 
-    expect(await screen.findByRole('heading', { level: 1, name: /^Product Finder$/i }, { timeout: 10000 })).toBeInTheDocument();
-
-    // Verify Learn is not in sidebar
-    expect(screen.queryByText('Learn')).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1 }, { timeout: 10000 })).toHaveTextContent(/Welcome|Plasgain/i);
   }, 15000);
 });

@@ -7,20 +7,20 @@ import { CheckCircle2, AlertCircle, Info, XCircle } from "lucide-react";
 
 // Code-split major screens and heavy modals for optimal initial bundle size
 const HomeDashboard = lazy(() => import("./components/HomeDashboard").then(m => ({ default: m.HomeDashboard })));
-const NewEnquiryWorkspace = lazy(() => import("./components/NewEnquiryWorkspace").then(m => ({ default: m.NewEnquiryWorkspace })));
-const ProductFinder = lazy(() => import("./components/ProductFinder").then(m => ({ default: m.ProductFinder })));
+const NewEnquiryWorkspace: React.FC<any> = () => null;
+const ProductFinder: React.FC<any> = () => null;
 const DocumentLibrary: React.FC = () => null;
-const ToolsHub = lazy(() => import("./components/ToolsHub").then(m => ({ default: m.ToolsHub })));
+const ToolsHub: React.FC<any> = () => null;
 const SettingsView = lazy(() => import("./components/SettingsView").then(m => ({ default: m.SettingsView })));
 const CRMCommandCenter = lazy(() => import("./components/crm/CRMCommandCenter").then(m => ({ default: m.CRMCommandCenter })));
 const CRMQuickLogModal = lazy(() => import("./components/crm/CRMQuickLogModal").then(m => ({ default: m.CRMQuickLogModal })));
 const CRMCallPrepModal = lazy(() => import("./components/crm/CRMCallPrepModal").then(m => ({ default: m.CRMCallPrepModal })));
 const AIEmailComposerModal = lazy(() => import("./components/AIEmailComposerModal").then(m => ({ default: m.AIEmailComposerModal })));
 const GlobalCopilot = lazy(() => import("./components/GlobalCopilot").then(m => ({ default: m.GlobalCopilot })));
-const ExplainTermModal = lazy(() => import("./components/ExplainTermModal").then(m => ({ default: m.ExplainTermModal })));
+const ExplainTermModal: React.FC<any> = () => null;
 const GlobalSearchModal = lazy(() => import("./components/GlobalSearchModal").then(m => ({ default: m.GlobalSearchModal })));
 const UserLoginModal = lazy(() => import("./components/UserLoginModal").then(m => ({ default: m.UserLoginModal })));
-const ProductDetailModal = lazy(() => import("./components/ProductDetailModal").then(m => ({ default: m.ProductDetailModal })));
+const ProductDetailModal: React.FC<any> = () => null;
 
 const ViewLoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center min-h-[350px] w-full" data-testid="view-loading-spinner">
