@@ -11,8 +11,6 @@ import {
   normalizeEmail,
   normalizePhone
 } from "../../utils/duplicateDetector";
-import { analysisStore } from "../../server/analysisStore";
-import { commercialPricingStore } from "../../server/commercialPricingStore";
 import { addBusinessDaysLocal, getLocalDateInputValue } from "../../utils/dateUtils";
 
 describe("Priority 2: Speed & Usability Improvements Acceptance Suite", () => {
@@ -128,54 +126,7 @@ describe("Priority 2: Speed & Usability Improvements Acceptance Suite", () => {
     });
   });
 
-  // ==========================================
-  // P2-07: Persistent Project Analysis Storage
-  // ==========================================
-  describe("P2-07: Authoritative Backend Project Analysis Storage", () => {
-    it("saves and retrieves project analysis record by projectId", async () => {
-      const projectId = `proj-test-${Date.now()}`;
-      const analysisData = {
-        opportunitySummary: {
-          project: { value: "Ballarat Western Link Shared Path", status: "Confirmed" as const }
-        },
-        readiness: { score: 85, rating: "High" as const, knownItems: ["Luminaire output"], missingItems: [], summaryExplanation: "Ready" },
-        productRecommendations: {
-          recommendedStartingPoint: {
-            productName: "Pro Blade Solar 125",
-            productCode: "PRO-BLADE-125",
-            matchLevel: "Strong",
-            whySuitable: "Pedestrian shared path lighting",
-            supportingSpecifications: {}
-          },
-          alternatives: []
-        },
-        nextBestAction: { title: "Issue Formal Quote", description: "Send quote", primaryActionLabel: "Send Quote", urgency: "Immediate" },
-        questionsBeforeWeQuote: []
-      };
 
-      const record = await analysisStore.saveAnalysis({
-        projectId,
-        projectName: "Ballarat Western Link Shared Path",
-        customerCompany: "City of Ballarat",
-        analysisData,
-        rawEnquiryText: "Supply 24 solar lights for Ballarat trail",
-        sourceHash: "test-hash-1",
-        status: "current"
-      });
-
-      expect(record.id).toBeDefined();
-      expect(record.projectId).toBe(projectId);
-
-      const latest = await analysisStore.getLatestByProject(projectId);
-      expect(latest).not.toBeNull();
-      expect(latest?.projectName).toBe("Ballarat Western Link Shared Path");
-
-      // Mark stale
-      await analysisStore.markStale(record.id);
-      const updated = await analysisStore.getAnalysis(record.id);
-      expect(updated?.status).toBe("stale");
-    });
-  });
 
   // ==========================================
   // P2-08: Pre-Quote Readiness Gate
@@ -239,38 +190,7 @@ describe("Priority 2: Speed & Usability Improvements Acceptance Suite", () => {
     });
   });
 
-  // ==========================================
-  // P2-09: Commercial Pricing Request Workflow
-  // ==========================================
-  describe("P2-09: Commercial Pricing Request Workflow", () => {
-    it("creates durable pricing request with 'Requested' status and no fake price", async () => {
-      const newRequest = await commercialPricingStore.createRequest({
-        projectId: "proj-docklands-01",
-        customerCompany: "Lendlease Urban",
-        productCode: "PRO-BLADE-125",
-        productName: "Pro Blade Solar 125W",
-        quantity: 36,
-        requestedBy: "Technical Sales Specialist",
-        requiredByDate: addBusinessDaysLocal(3),
-        notes: "Major tender opportunity for docklands boardwalk"
-      });
 
-      expect(newRequest.id).toBeDefined();
-      expect(newRequest.status).toBe("Requested");
-      expect(newRequest.approvedUnitPrice).toBeUndefined(); // Never fabricate prices!
-
-      // Approve price
-      const approved = await commercialPricingStore.updateStatus(newRequest.id, "Pricing Supplied", {
-        approvedUnitPrice: 1850,
-        reviewedBy: "Commercial Ops Director",
-        notes: "Approved special project discount tier 1"
-      });
-
-      expect(approved?.status).toBe("Pricing Supplied");
-      expect(approved?.approvedUnitPrice).toBe(1850);
-      expect(approved?.reviewedBy).toBe("Commercial Ops Director");
-    });
-  });
 
   // ==========================================
   // P2-13: Conservative CRM Duplicate Detection

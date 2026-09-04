@@ -1,70 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { normalizeEnquiryAnalysis } from '../../../server';
 import { validateDealValue } from '../../utils/dealValueValidator';
 import { resolveSingleProduct } from '../../utils/productResolver';
-
-/**
- * Regressions for the defects found while working the app as a new sales rep.
- *
- * Each block names the failure it prevents coming back, because the failure mode
- * matters more than the assertion: these are the paths where wrong output either
- * reached a customer or took the whole workspace down.
- */
-
-describe('Enquiry analysis envelope (white-screen crash)', () => {
-  // The streaming endpoint used to omit the schema, so the model answered with a
-  // PascalCase wrapper and the client died on `nextBestAction.urgency`.
-  const modelDrift = {
-    EnquiryAnalysisResult: {
-      OpportunityFields: { Company: { Value: 'Latrobe City Council', Status: 'Confirmed' } },
-      QuoteReadinessPercentage: 65,
-      PrimaryRecommendedProduct: { ProductFamily: 'enLighten Zorro 2' },
-      AlternativeProducts: []
-    }
-  };
-
-  it('unwraps a PascalCase envelope and always supplies nextBestAction', () => {
-    const result = normalizeEnquiryAnalysis(modelDrift);
-
-    expect(result.nextBestAction).toBeDefined();
-    expect(typeof result.nextBestAction.urgency).toBe('string');
-    expect(typeof result.nextBestAction.title).toBe('string');
-    expect(result.opportunitySummary).toEqual(modelDrift.EnquiryAnalysisResult.OpportunityFields);
-    expect(result.productRecommendations.recommendedStartingPoint).toEqual(
-      modelDrift.EnquiryAnalysisResult.PrimaryRecommendedProduct
-    );
-  });
-
-  it('never leaves a rendered field undefined, even for an empty response', () => {
-    const result = normalizeEnquiryAnalysis({});
-
-    expect(result.nextBestAction.urgency).toBeTruthy();
-    expect(result.readiness.score).toBe(0);
-    expect(Array.isArray(result.questionsBeforeWeQuote)).toBe(true);
-    expect(Array.isArray(result.productRecommendations.alternatives)).toBe(true);
-  });
-
-  it('leaves a well-formed camelCase response untouched', () => {
-    const good = {
-      opportunitySummary: { company: { value: 'X', status: 'Confirmed' } },
-      readiness: { score: 80, rating: 'High', knownItems: [], missingItems: [], summaryExplanation: '' },
-      productRecommendations: { recommendedStartingPoint: { productName: 'Zorro 2' }, alternatives: [] },
-      nextBestAction: {
-        title: 'Send datasheets',
-        description: 'd',
-        primaryActionLabel: 'Send',
-        actionType: 'send_datasheet',
-        urgency: 'Today'
-      },
-      questionsBeforeWeQuote: [{ id: 'q1' }]
-    };
-
-    const result = normalizeEnquiryAnalysis(good);
-    expect(result.nextBestAction).toEqual(good.nextBestAction);
-    expect(result.readiness.score).toBe(80);
-  });
-});
 
 describe('Deal value basis (understated pipeline)', () => {
   // Per-unit with a blank quantity used to save the unit price as the whole

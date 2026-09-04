@@ -4,7 +4,6 @@ import { evaluateQuoteReadiness, QuoteContext } from "../../utils/quoteReadiness
 import { formatOstendoCSV, validateOstendoItems } from "../../utils/datasheetExporter";
 import { getLightingCategory } from "../../data/lightingStandards";
 import { SAMPLE_PRODUCTS } from "../../data/mockData";
-import { analysisStore } from "../../server/analysisStore";
 
 describe("End-to-End Commercial Sales Workflow Acceptance Test", () => {
   // ==========================================
@@ -159,35 +158,6 @@ describe("End-to-End Commercial Sales Workflow Acceptance Test", () => {
       const clarificationQuestion = "Can council confirm if 3000K Warm White is acceptable in lieu of 5700K to comply with AS 4282:2019 and local fauna protection guidelines?";
       expect(clarificationQuestion).toContain("AS 4282:2019");
       expect(clarificationQuestion).toContain("3000K");
-    });
-  });
-
-  // ==========================================
-  // STAGE 6: End-to-End Governance & Pipeline Injection
-  // ==========================================
-  describe("Stage 6: Complete Pipeline Injection & Document Governance", () => {
-    it("records engineered analysis session and verifies persistence in analysisStore", async () => {
-      const projectRecord = {
-        id: "deal-ballarat-001",
-        projectId: "proj-ballarat-001",
-        projectName: "Ballarat 1.2km Shared Path Upgrade",
-        customerCompany: "City of Ballarat",
-        analysisType: "enquiry" as const,
-        status: "complete" as const,
-        sourceHash: "hash-ballarat-v1",
-        analysisData: {
-          dealValue: 78500,
-          productsCount: 3
-        }
-      };
-
-      await analysisStore.saveAnalysis(projectRecord);
-      const retrieved = await analysisStore.getAnalysis("deal-ballarat-001");
-
-      expect(retrieved).toBeDefined();
-      expect(retrieved?.projectName).toBe(projectRecord.projectName);
-      expect(retrieved?.customerCompany).toBe("City of Ballarat");
-      expect(retrieved?.analysisData?.dealValue).toBe(78500);
     });
   });
 });

@@ -1,7 +1,20 @@
 import React, { useState } from "react";
 import { AlertCircle, CheckCircle2, DollarSign, Send, X } from "lucide-react";
 import { apiPost } from "../utils/apiClient";
-import { CommercialPricingRequest } from "../server/commercialPricingStore";
+export interface CommercialPricingRequest {
+  id: string;
+  opportunityId?: string;
+  projectId: string;
+  customerCompany: string;
+  productCode: string;
+  productName: string;
+  quantity: number;
+  requestedBy: string;
+  requestedAt: string;
+  requiredByDate: string;
+  status: string;
+  notes?: string;
+}
 import { getLocalDateInputValue, addBusinessDaysLocal } from "../utils/dateUtils";
 
 interface CommercialPricingRequestModalProps {
