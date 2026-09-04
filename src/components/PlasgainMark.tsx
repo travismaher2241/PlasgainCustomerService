@@ -25,7 +25,7 @@ export const PlasgainMark: React.FC<PlasgainMarkProps> = ({ className }) => (
 );
 
 interface PlasgainLockupProps {
-  /** Renders the "Customer Service Sidekick" sub-label beneath the wordmark. */
+  /** Renders the "Sales Workspace" sub-label beneath the wordmark. */
   showSub?: boolean;
 }
 
@@ -43,7 +43,7 @@ export const PlasgainLockup: React.FC<PlasgainLockupProps> = ({ showSub = true }
         back to Menlo. 0.09em leaves ~21px of headroom. */}
     {showSub && (
       <div className="u-eyebrow mt-1.5 text-[0.625rem] tracking-[0.09em] whitespace-nowrap text-chrome-dim">
-        Customer Service Sidekick
+        Sales Workspace
       </div>
     )}
   </div>

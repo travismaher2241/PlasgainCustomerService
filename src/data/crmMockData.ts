@@ -34,7 +34,7 @@ export const DEFAULT_PIPELINES: PipelineConfig[] = [
     description: "Faster sales cycle for standard stock luminaires and contractor orders.",
     isDefault: false,
     stages: [
-      { id: "stage-inquiry", name: "Inquiry Received", order: 1, probability: 15, colorClass: "border-slate-300 bg-slate-50 text-slate-700", description: "Price check or product availability request." },
+      { id: "stage-inquiry", name: "Enquiry Received", order: 1, probability: 15, colorClass: "border-slate-300 bg-slate-50 text-slate-700", description: "Price check or product availability request." },
       { id: "stage-pricing", name: "Pricing Provided", order: 2, probability: 50, colorClass: "border-blue-300 bg-blue-50 text-blue-700", description: "Commercial pricing and ETA shared." },
       { id: "stage-followup", name: "Follow-Up", order: 3, probability: 70, colorClass: "border-amber-300 bg-amber-50 text-amber-700", description: "Checking if contractor won the tender or needs stock held." },
       { id: "stage-ordered", name: "Order Placed", order: 4, probability: 100, colorClass: "border-green-400 bg-green-50 text-green-800", description: "PO received." },

@@ -52,7 +52,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
   const getTabDisplayName = (tab: NavTab) => {
     switch (tab) {
       case "home":
-        return "Dashboard";
+        return "Home";
       case "crm":
         return "CRM Command Centre";
       case "settings":
@@ -102,12 +102,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
 
         {/* Page Identity & Breadcrumb */}
         <div className="flex items-center gap-1.5 text-meta text-ink-dim min-w-0">
-          <span className="font-bold text-body text-ink text-base sm:text-lead shrink-0">
+          <span className="font-bold text-body text-ink text-base sm:text-lead truncate">
             {getTabDisplayName(activeTab)}
-          </span>
-          <span className="text-ink-faint px-0.5 hidden sm:inline">/</span>
-          <span className="truncate hidden sm:inline text-ink-faint">
-            Plasgain Australia
           </span>
         </div>
       </div>
@@ -152,8 +148,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           >
             <Bell className="w-4 h-4" />
             {unreadNotificationsCount > 0 && (
-              <span className="absolute 1 top-1 right-1 w-4 h-4 bg-urgent text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs animate-pulse">
-                {unreadNotificationsCount}
+              <span className="absolute top-1 right-1 min-w-4 h-4 px-1 bg-urgent text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-xs">
+                {unreadNotificationsCount > 9 ? "9+" : unreadNotificationsCount}
               </span>
             )}
           </button>

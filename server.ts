@@ -231,8 +231,11 @@ export function isAIConfigured(): boolean {
 let aiClient: GoogleGenAI | null = null;
 function getAI(): GoogleGenAI {
   if (!isAIConfigured()) {
+    // Rep-facing text. The operator instruction (set GEMINI_API_KEY in
+    // .env.local) is logged at startup, where the person who can act on it
+    // will see it — a salesperson cannot.
     throw new AIUnavailableError(
-      "GEMINI_API_KEY is not set. Add it to .env.local (see .env.example) and restart the server."
+      "The AI assistant is not switched on for this workspace. Everything else works as normal — let your administrator know if you need it."
     );
   }
   if (!aiClient) {
@@ -529,7 +532,7 @@ app.get("/api/health", (req, res) => {
   const aiConfigured = isAIConfigured();
   res.json({
     status: aiConfigured ? "ok" : "degraded",
-    app: "Plasgain Lighting Sales Copilot",
+    app: "Plasgain Sales Workspace",
     ai: {
       configured: aiConfigured,
       model: DEFAULT_MODEL,
@@ -694,7 +697,7 @@ app.post("/api/email/research-and-draft", async (req, res) => {
     }
 
     if (!isAIConfigured()) {
-      return sendAIUnavailable(res, "email-composer", new AIUnavailableError("GEMINI_API_KEY is not configured."));
+      return sendAIUnavailable(res, "email-composer", new AIUnavailableError("The AI assistant is not switched on for this workspace. Everything else works as normal — let your administrator know if you need it."));
     }
 
     const ai = getAI();
@@ -914,7 +917,7 @@ app.post("/api/email/refine-draft", async (req, res) => {
     }
 
     if (!isAIConfigured()) {
-      return sendAIUnavailable(res, "email-refine", new AIUnavailableError("GEMINI_API_KEY is not configured."));
+      return sendAIUnavailable(res, "email-refine", new AIUnavailableError("The AI assistant is not switched on for this workspace. Everything else works as normal — let your administrator know if you need it."));
     }
 
     let instruction = "";
@@ -1526,7 +1529,7 @@ app.post("/api/crm/account-summary", async (req, res) => {
     if (!isAIConfigured()) {
       return res.status(503).json({
         error: "AI unavailable",
-        detail: "GEMINI_API_KEY is not configured. AI account intelligence requires a valid key."
+        detail: "The AI assistant is not switched on for this workspace. Everything else works as normal — let your administrator know if you need it."
       });
     }
 
@@ -1606,7 +1609,7 @@ app.post(["/api/copilot/chat-stream", "/api/chat-stream"], async (req, res) => {
     }
 
     if (!isAIConfigured()) {
-      return res.status(503).json({ error: "AI Unavailable", detail: "GEMINI_API_KEY not configured" });
+      return res.status(503).json({ error: "AI Unavailable", detail: "The AI assistant is not switched on for this workspace. Everything else works as normal — let your administrator know if you need it." });
     }
 
     initSSE(res);

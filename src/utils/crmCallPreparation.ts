@@ -272,7 +272,7 @@ export function generateCallPreparationBriefing(params: {
     if (!q.hasRecordedResponse) {
       talkingPoints.push({
         category: "Commercial",
-        text: `Check status of quote ${q.quoteNumber} ($${q.dealValue.toLocaleString()}) for "${q.dealName}". ${q.sentDate ? `Sent ${q.sentDate}.` : ""} Ask if technical package was satisfactory or if revisions are needed.`
+        text: `Check status of quote ${q.quoteNumber} ($${q.dealValue.toLocaleString()}) for "${q.dealName}". ${q.sentDate ? `Sent ${formatAuDate(q.sentDate)}.` : ""} Ask if technical package was satisfactory or if revisions are needed.`
       });
     }
   }

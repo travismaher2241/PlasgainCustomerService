@@ -119,7 +119,7 @@ export const CRMQuickLogModal: React.FC = () => {
       case "follow_up":
         return `Follow-up with ${name}${suffix}`;
       default:
-        return `Touchpoint with ${name}`;
+        return `Contact with ${name}`;
     }
   };
 
@@ -416,7 +416,7 @@ export const CRMQuickLogModal: React.FC = () => {
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <Building2 className="w-3.5 h-3.5 text-brand-deep shrink-0" />
                   <span className="font-bold text-body text-spec truncate">
-                    {targetAccount?.name || "General Touchpoint"}
+                    {targetAccount?.name || "No customer selected"}
                   </span>
                   {targetOpp && (
                     <>
@@ -461,7 +461,7 @@ export const CRMQuickLogModal: React.FC = () => {
                     aria-label="Select Customer Account"
                     className="w-full p-1.5 rounded-edge border border-line bg-surface text-spec focus:outline-none focus:border-brand-deep"
                   >
-                    <option value="">-- No Account --</option>
+                    <option value="">Choose a customer…</option>
                     {accounts.map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.name} ({a.territory})
@@ -472,7 +472,7 @@ export const CRMQuickLogModal: React.FC = () => {
 
                 <div>
                   <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                    Deal / Opportunity
+                    Quote
                   </label>
                   <select
                     value={selectedOppId}
@@ -480,7 +480,7 @@ export const CRMQuickLogModal: React.FC = () => {
                     aria-label="Select Linked Deal"
                     className="w-full p-1.5 rounded-edge border border-line bg-surface text-spec focus:outline-none focus:border-brand-deep"
                   >
-                    <option value="">-- General Account Touchpoint --</option>
+                    <option value="">No specific quote</option>
                     {crmOpportunities
                       .filter((d) => !selectedAccountId || d.accountId === selectedAccountId)
                       .map((d) => (
@@ -586,7 +586,7 @@ export const CRMQuickLogModal: React.FC = () => {
               {accountContacts.length === 0 && !isInlineContactOpen ? (
                 <div className="p-3 bg-paper rounded-edge border border-line text-center space-y-2">
                   <p className="text-spec text-ink-dim font-medium">
-                    No Contacts have been added to this Account yet.
+                    No contacts recorded for this customer yet.
                   </p>
                   <button
                     type="button"

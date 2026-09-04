@@ -13,7 +13,7 @@ import {
   ReplenishmentTimeline,
   ParsedSupplyCycle
 } from "./crmKnowledgeEngine";
-import { formatAuDate } from "./dateUtils";
+import { formatAuDate, formatAuDateTime } from "./dateUtils";
 import { CallTalkingPoint } from "./crmCallPreparation";
 
 /**
@@ -325,7 +325,7 @@ export function generateMeetingPreparationPlan(
 
   const participantsList = participants.map((p) => `${p.firstName} ${p.lastName}`).join(", ") || "Key Stakeholders";
   narrativeParagraphs.push(
-    `Meeting scheduled with ${accountName} on ${meeting.dueDate}${meeting.dueTime ? ` at ${meeting.dueTime}` : ""} (${meeting.meetingFormat || "In Person"}). Attendees: ${participantsList}.`
+    `Meeting with ${accountName} on ${formatAuDateTime(meeting.dueDate, meeting.dueTime)} (${meeting.meetingFormat || "In Person"}). Attendees: ${participantsList}.`
   );
 
   // Supply cycle narrative

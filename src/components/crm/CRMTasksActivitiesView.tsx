@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { CRMTask, TaskPriority, TaskType } from "../../types/crm";
-import { getLocalDateInputValue } from "../../utils/dateUtils";
+import { getLocalDateInputValue, formatAuDate } from "../../utils/dateUtils";
 
 export const CRMTasksActivitiesView: React.FC = () => {
   const {
@@ -205,12 +205,34 @@ export const CRMTasksActivitiesView: React.FC = () => {
 
           {/* TASK ROWS */}
           {filteredTasks.length === 0 ? (
+            /* An empty workspace and an over-narrow filter are different
+               situations. This used to blame a filter the user had not set and
+               report work that had never existed. */
             <div className="p-12 text-center space-y-2 bg-white rounded-panel border border-line shadow-2xs">
               <CheckCircle2 className="w-10 h-10 text-emerald-600 mx-auto" />
-              <h2 className="text-base font-bold text-body">No tasks match your filter</h2>
-              <p className="text-spec text-ink-dim max-w-md mx-auto">
-                All open tasks have been completed.
-              </p>
+              {tasks.length === 0 ? (
+                <>
+                  <h2 className="text-base font-bold text-body">No tasks yet</h2>
+                  <p className="text-spec text-ink-dim max-w-md mx-auto">
+                    Use Add task to set yourself a reminder, or add one while logging a call.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsNewTaskModalOpen(true)}
+                    className="mt-2 min-h-[44px] px-4 inline-flex items-center gap-1.5 text-spec font-bold text-white bg-brand-deep hover:bg-brand rounded-edge cursor-pointer"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Add task</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-base font-bold text-body">Nothing matches these filters</h2>
+                  <p className="text-spec text-ink-dim max-w-md mx-auto">
+                    You have {tasks.length} task{tasks.length === 1 ? "" : "s"} on file. Try widening the filters above.
+                  </p>
+                </>
+              )}
             </div>
           ) : (
             <div className="divide-y divide-line border border-line rounded-panel bg-white shadow-2xs overflow-hidden">
@@ -297,7 +319,7 @@ export const CRMTasksActivitiesView: React.FC = () => {
 
                     <div className="flex items-center gap-3 shrink-0">
                       <span className={`text-xs font-mono font-medium ${isOverdue ? "text-red-700 font-bold" : "text-ink-dim"}`}>
-                        {task.dueDate}
+                        {formatAuDate(task.dueDate)}
                       </span>
                     </div>
                   </div>

@@ -137,7 +137,7 @@ describe('CRMDealDetailsWorkspace Component', () => {
 
     // Next Action in header strip and Overview card
     expect(screen.getAllByText(/Call Sarah Jenkins to confirm pole spacing/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText(/2026-09-03/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/3 Sept? 2026/i).length).toBeGreaterThanOrEqual(1);
 
     // Overview tab action buttons
     expect(screen.getAllByRole('button', { name: /Log activity/i }).length).toBeGreaterThanOrEqual(1);

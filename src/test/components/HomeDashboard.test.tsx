@@ -41,8 +41,8 @@ describe('HomeDashboard Step 8 Suite', () => {
     // 3. Compact quick creation actions
     expect(screen.getByRole('button', { name: /New quote/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Add account/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Pipeline/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Quick Log/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Quotes/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Log a call/i })).toBeInTheDocument();
 
     // Verify "Why this matters" is NOT present on Home
     expect(screen.queryByText(/Why this matters/i)).not.toBeInTheDocument();

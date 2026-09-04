@@ -156,7 +156,7 @@ describe("CRMQuickLogModal Contact Participants & Inline Creation", () => {
 
     fireEvent.click(screen.getByTestId("open-call-btn"));
 
-    expect(screen.getByText(/No Contacts have been added to this Account yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/No contacts recorded for this customer yet/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /\+ New Contact/i })).toBeInTheDocument();
   });
 

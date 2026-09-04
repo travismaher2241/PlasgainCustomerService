@@ -519,7 +519,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                 <span className="font-semibold text-body truncate">{deal.nextAction}</span>
                 {deal.nextActionDate && (
                   <span className="text-spec font-bold text-ink-dim bg-paper px-2 py-0.5 rounded border border-line shrink-0">
-                    Due {deal.nextActionDate}
+                    Due {formatAuDate(deal.nextActionDate)}
                   </span>
                 )}
               </div>
@@ -848,7 +848,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                   {deal.nextAction || "No scheduled action. Create one to keep deal momentum."}
                 </div>
                 <div className="text-spec text-ink-dim">
-                  Target Due: <span className="font-semibold text-body">{deal.nextActionDate || "Not set"}</span> • Owner: {deal.opportunityOwner}
+                  Target due: <span className="font-semibold text-body">{deal.nextActionDate ? formatAuDate(deal.nextActionDate) : "not set"}</span> • Owner: {deal.opportunityOwner}
                 </div>
               </div>
 

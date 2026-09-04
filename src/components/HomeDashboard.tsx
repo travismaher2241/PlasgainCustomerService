@@ -231,7 +231,7 @@ export const HomeDashboard: React.FC = () => {
               ? "No sales activity has been logged yet."
               : totalNeedingAction === 0
               ? "Everything is up to date across your accounts and deals."
-              : `${totalNeedingAction} item${totalNeedingAction === 1 ? "" : "s"} need attention today.`}
+              : `${totalNeedingAction} item${totalNeedingAction === 1 ? " needs" : "s need"} attention today.`}
           </p>
         </div>
 
@@ -286,7 +286,7 @@ export const HomeDashboard: React.FC = () => {
           <div className="p-1.5 rounded bg-paper text-ink-dim shrink-0">
             <KanbanSquare className="w-4 h-4" />
           </div>
-          <span className="text-spec font-bold text-body truncate">Pipeline</span>
+          <span className="text-spec font-bold text-body truncate">Quotes</span>
         </button>
 
         <button
@@ -297,7 +297,7 @@ export const HomeDashboard: React.FC = () => {
           <div className="p-1.5 rounded bg-paper text-ink-dim shrink-0">
             <PhoneCall className="w-4 h-4" />
           </div>
-          <span className="text-spec font-bold text-body truncate">Quick Log</span>
+          <span className="text-spec font-bold text-body truncate">Log a call</span>
         </button>
       </div>
 

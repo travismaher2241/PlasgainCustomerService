@@ -96,7 +96,7 @@ describe('Non-AI endpoints still serve normally', () => {
   it('GET /api/health reports app metadata and the real AI state', async () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
-    expect(res.body.app).toBe('Plasgain Lighting Sales Copilot');
+    expect(res.body.app).toBe('Plasgain Sales Workspace');
     expect(res.body.knowledgeVersion).toBeUndefined();
     // With no key configured the app must not claim the AI is healthy.
     expect(res.body.ai.configured).toBe(false);

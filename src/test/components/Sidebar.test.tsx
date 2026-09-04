@@ -21,7 +21,7 @@ describe('Sidebar Component', () => {
     expect(
       screen.getByText((_t, el) => el?.textContent?.replace(/\s/g, "") === "PLASGAIN" && el.children.length === 1)
     ).toBeInTheDocument();
-    expect(screen.getByText(/Customer Service Sidekick/i)).toBeInTheDocument();
+    expect(screen.getByText(/Sales Workspace/i)).toBeInTheDocument();
     expect(screen.getByText('Home')).toBeInTheDocument();
     expect(screen.getByText('CRM Command Centre')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();

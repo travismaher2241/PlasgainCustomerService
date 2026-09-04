@@ -12,7 +12,7 @@ describe('Header Component', () => {
       </AppProvider>
     );
 
-    expect(screen.getByText(/^Dashboard$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^Home$/i)).toBeInTheDocument();
     expect(screen.getByText(/Search accounts, deals & contacts/i)).toBeInTheDocument();
     expect(screen.getByText(/Write AI Email/i)).toBeInTheDocument();
     expect(screen.queryByText(/Lighting terms/i)).not.toBeInTheDocument();

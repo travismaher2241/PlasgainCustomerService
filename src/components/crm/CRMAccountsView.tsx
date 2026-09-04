@@ -66,7 +66,7 @@ import {
   AccountIntelligenceSummary
 } from "../../types/crm";
 import { resolveQuotingStage } from "../../data/crmMockData";
-import { getLocalDateInputValue } from "../../utils/dateUtils";
+import { getLocalDateInputValue, formatAuDate } from "../../utils/dateUtils";
 import { sortActivitiesChronological, formatActivityTimestamp } from "../../utils/activityUtils";
 import { CRMContactModal } from "./CRMContactModal";
 import { accountIntelligenceCache, generateAccountSourceHash } from "../../utils/accountIntelligenceCache";
@@ -497,6 +497,28 @@ export const CRMAccountsView: React.FC = () => {
       "info"
     );
   };
+
+  // Escape closes whichever dialog this screen has open, matching the rest of
+  // the app. None of them handled it, so a keyboard user was stuck.
+  useEffect(() => {
+    const anyOpen =
+      isNewAccountModalOpen ||
+      isEditAccountModalOpen ||
+      isNewDealModalOpen ||
+      isContactModalOpen ||
+      Boolean(drawerContact);
+    if (!anyOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (drawerContact) setDrawerContact(null);
+      else if (isContactModalOpen) setIsContactModalOpen(false);
+      else if (isNewDealModalOpen) setIsNewDealModalOpen(false);
+      else if (isEditAccountModalOpen) setIsEditAccountModalOpen(false);
+      else if (isNewAccountModalOpen) setIsNewAccountModalOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isNewAccountModalOpen, isEditAccountModalOpen, isNewDealModalOpen, isContactModalOpen, drawerContact]);
 
   // A shortcut asked for the Add Account form, not the list behind it.
   useEffect(() => {
@@ -1442,7 +1464,7 @@ export const CRMAccountsView: React.FC = () => {
                           Current Priority &amp; Next Step
                         </span>
                         <span className="text-[11px] font-mono text-ink-dim">
-                          {selectedAccount.lastInteractionDate ? `Last Contact: ${selectedAccount.lastInteractionDate}` : "Recent"}
+                          {selectedAccount.lastInteractionDate ? `Last contact ${formatAuDate(selectedAccount.lastInteractionDate)}` : "Recent"}
                         </span>
                       </div>
                       <p className="text-body font-bold text-base">
@@ -1518,7 +1540,7 @@ export const CRMAccountsView: React.FC = () => {
                             >
                               <div className="min-w-0">
                                 <h4 className="font-bold text-body text-spec truncate">{deal.name}</h4>
-                                <p className="text-xs text-ink-dim">{deal.stageName} · Expected: {deal.expectedCloseDate}</p>
+                                <p className="text-xs text-ink-dim">{deal.stageName} · Expected {formatAuDate(deal.expectedCloseDate)}</p>
                               </div>
                               <div className="text-right shrink-0">
                                 <span className="font-mono font-bold text-body text-spec">
@@ -1864,7 +1886,7 @@ export const CRMAccountsView: React.FC = () => {
                                   </span>
                                 </div>
                                 <p className="text-xs text-ink-dim">
-                                  Next: {deal.nextAction || "Follow up proposal"} · Target Close: {deal.expectedCloseDate}
+                                  Next: {deal.nextAction || "Follow up on this quote"} · Target close {formatAuDate(deal.expectedCloseDate)}
                                 </p>
                               </div>
 

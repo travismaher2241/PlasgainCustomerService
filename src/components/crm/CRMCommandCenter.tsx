@@ -114,7 +114,7 @@ export const CRMCommandCenter: React.FC = () => {
             {/* Unified Standardised CRM Navigation */}
             <nav
               aria-label="CRM Navigation"
-              className="flex-1 flex items-center gap-1 sm:gap-1.5 py-1 min-w-0 overflow-x-auto scrollbar-none no-scrollbar flex-nowrap [mask-image:linear-gradient(to_right,black_calc(100%-16px),transparent)] md:[mask-image:none]"
+              className="flex-1 flex items-center gap-1 sm:gap-1.5 py-1 min-w-0 overflow-x-auto scrollbar-none no-scrollbar flex-nowrap"
             >
               {/* 1. Today */}
               <button

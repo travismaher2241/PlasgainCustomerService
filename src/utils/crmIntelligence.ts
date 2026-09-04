@@ -7,6 +7,7 @@ import {
   NextBestActionItem,
   DealHealthRating
 } from "../types/crm";
+import { formatAuDate } from "./dateUtils";
 
 export class CRMIntelligenceEngine {
   /**
@@ -131,7 +132,7 @@ export class CRMIntelligenceEngine {
           id: `nba-overdue-task-${task.id}`,
           ruleId: "RULE_OVERDUE_TASK",
           title: `Complete Overdue Task: "${task.title}"`,
-          description: `Task assigned to ${task.assignedTo} was due on ${task.dueDate}.`,
+          description: `Task assigned to ${task.assignedTo} was due on ${formatAuDate(task.dueDate)}.`,
           reason: `Overdue commitments directly impact customer confidence and sales cycle speed.`,
           urgency: "Immediate",
           category: "Overdue Task",

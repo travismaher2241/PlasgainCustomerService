@@ -310,7 +310,7 @@ interface AppContextType {
   setIsCopilotContextPinned: (pinned: boolean) => void;
   clearCopilotContext: () => void;
   copilotCustomContext: string | null;
-  openCopilotWithContext: (contextStr: string, initialPrompt?: string) => void;
+  openCopilotWithContext: (contextStr: string) => void;
   togglePinCopilotContext: () => void;
 
   // Global Search Modal
@@ -923,7 +923,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
 
-  const openCopilotWithContext = (contextStr: string, initialPrompt?: string) => {
+  const openCopilotWithContext = (contextStr: string) => {
     setCopilotCustomContext(contextStr);
     setIsCopilotOpen(true);
   };

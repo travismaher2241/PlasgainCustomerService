@@ -323,7 +323,12 @@ export const CRMTodayWorkspace: React.FC = () => {
         </div>
 
         {/* THIN SUMMARY METRIC STRIP (PART B) */}
-        {hasAnyCrmRecords && workItems.length > 0 && (
+        {/* Only render when at least one metric has something to say — all three
+            are individually conditional, so this used to draw an empty bordered
+            box under the date. */}
+        {hasAnyCrmRecords &&
+          workItems.length > 0 &&
+          (overdueTasksCount > 0 || dueTodayTasksCount > 0 || quotesAwaitingCount > 0) && (
           <div className="flex items-center gap-3 text-spec bg-white px-3 py-1.5 rounded-edge border border-line shadow-2xs">
             {overdueTasksCount > 0 && (
               <span className="font-bold text-red-700 flex items-center gap-1">
@@ -433,6 +438,26 @@ export const CRMTodayWorkspace: React.FC = () => {
           </div>
 
           {/* ACTIONABLE QUEUE ROWS (TOP RECOMMENDATION INTEGRATED AT TOP!) */}
+          {filteredWorkItems.length === 0 ? (
+            /* A filter that matches nothing used to leave an empty bordered box,
+               indistinguishable from a screen that had failed to load. */
+            <div className="p-10 text-center space-y-2 bg-white rounded-panel border border-line shadow-2xs">
+              <CheckCircle2 className="w-8 h-8 text-ink-faint mx-auto" />
+              <h3 className="text-spec font-bold text-body">
+                Nothing here {activeFilter === "all" ? "matches your search" : `under ${activeFilter === "followups" ? "Follow-ups" : activeFilter === "quotes" ? "Quotes" : "Overdue"}`}
+              </h3>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveFilter("all");
+                  setSearchQuery("");
+                }}
+                className="text-spec font-bold text-brand-deep hover:underline cursor-pointer min-h-[44px]"
+              >
+                Show everything
+              </button>
+            </div>
+          ) : (
           <div className="divide-y divide-line border border-line rounded-panel bg-white shadow-2xs overflow-hidden">
             {filteredWorkItems.map((item, index) => {
               const isTopRecommendation = index === 0 && activeFilter === "all" && !searchQuery;
@@ -499,6 +524,7 @@ export const CRMTodayWorkspace: React.FC = () => {
               );
             })}
           </div>
+          )}
         </div>
       )}
 
