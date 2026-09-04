@@ -61,7 +61,6 @@ export const CRMPipelineView: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [stageFilter, setStageFilter] = useState("all");
-  const [healthFilter, setHealthFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState<"active" | "closed" | "all">("active");
   const [showWeightedValue, setShowWeightedValue] = useState(false);
   const [activeMenuDealId, setActiveMenuDealId] = useState<string | null>(null);
@@ -134,9 +133,8 @@ export const CRMPipelineView: React.FC = () => {
       deal.projectApplication?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStage = stageFilter === "all" || deal.stageName === stageFilter || deal.stageId === stageFilter;
-    const matchesHealth = healthFilter === "all" || deal.dealHealth === healthFilter;
 
-    return matchesSearch && matchesStage && matchesHealth;
+    return matchesSearch && matchesStage;
   });
 
   const totalValue = filteredDeals.reduce((sum, d) => sum + (d.dealValue || 0), 0);
@@ -285,19 +283,6 @@ export const CRMPipelineView: React.FC = () => {
             <option value="Negotiation & Review">Negotiation</option>
             <option value="Closed Won">Closed Won</option>
             <option value="Closed Lost">Closed Lost</option>
-          </select>
-
-          {/* HEALTH FILTER */}
-          <select
-            aria-label="Filter by health"
-            value={healthFilter}
-            onChange={(e) => setHealthFilter(e.target.value)}
-            className="p-1.5 text-xs border border-line rounded-edge bg-white text-body font-medium"
-          >
-            <option value="all">All Health</option>
-            <option value="Healthy">Healthy</option>
-            <option value="Needs Attention">Needs Attention</option>
-            <option value="At Risk">At Risk</option>
           </select>
         </div>
 
