@@ -2087,7 +2087,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // AI Analysis: Candidate Notable Events & CRM Knowledge
     const candidateNotableEvents = extractCandidateNotableEvents(newAct, contacts);
-    const extractedKnowledge = extractCrmKnowledge(newAct);
+    const extractedKnowledge = extractCrmKnowledge(newAct, contacts);
 
     // If candidate notable events were discovered, stage them against the target contact
     if (candidateNotableEvents.length > 0) {

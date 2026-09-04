@@ -12,7 +12,8 @@ import {
   Calendar,
   AlertCircle,
   Lightbulb,
-  FileText
+  FileText,
+  Package
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { generateCallPreparationBriefing } from "../../utils/crmCallPreparation";
@@ -33,6 +34,7 @@ export const CRMCallPrepModal: React.FC = () => {
 
   const [callNotes, setCallNotes] = useState("");
   const [copied, setCopied] = useState(false);
+  const [meetingOffsetMonths, setMeetingOffsetMonths] = useState<number>(0);
 
   // Resolve target account, deal, contact
   const targetAccount = useMemo(() => {
@@ -70,6 +72,15 @@ export const CRMCallPrepModal: React.FC = () => {
     return null;
   }, [contacts, callPrepModal?.contactId, targetOpp, targetAccount]);
 
+  // Calculate target date for preparation horizon (e.g. today vs in 1 month vs in 2 months)
+  const targetDate = useMemo(() => {
+    const d = new Date();
+    if (meetingOffsetMonths > 0) {
+      d.setMonth(d.getMonth() + meetingOffsetMonths);
+    }
+    return d.toISOString().split("T")[0];
+  }, [meetingOffsetMonths]);
+
   // Generate dynamic, grounded natural language briefing
   const briefing = useMemo(() => {
     return generateCallPreparationBriefing({
@@ -78,9 +89,10 @@ export const CRMCallPrepModal: React.FC = () => {
       opportunity: targetOpp,
       activities,
       knowledge,
-      tasks
+      tasks,
+      targetDate
     });
-  }, [targetAccount, targetContact, targetOpp, activities, knowledge, tasks]);
+  }, [targetAccount, targetContact, targetOpp, activities, knowledge, tasks, targetDate]);
 
   if (!callPrepModal || !callPrepModal.isOpen) return null;
 
@@ -97,7 +109,7 @@ export const CRMCallPrepModal: React.FC = () => {
   };
 
   const handleCopyBriefing = () => {
-    const fullText = `=== CALL PREPARATION BRIEFING ===\nContact: ${briefing.contactName} (${briefing.contactRole || "Key Contact"})\nAccount: ${briefing.accountName}\n\n${briefing.executiveBriefing}\n\nTALKING POINTS:\n${briefing.talkingPoints.map((tp) => `• [${tp.category}] ${tp.text}`).join("\n")}\n\n${callNotes ? `Private Notes:\n${callNotes}` : ""}`;
+    const fullText = `=== CALL PREPARATION BRIEFING ===\nContact: ${briefing.contactName} (${briefing.contactRole || "Key Contact"})\nAccount: ${briefing.accountName}\nHorizon: ${meetingOffsetMonths === 0 ? "Today" : `In ${meetingOffsetMonths} months`}\n\n${briefing.executiveBriefing}\n\nTALKING POINTS:\n${briefing.talkingPoints.map((tp) => `• [${tp.category}] ${tp.text}`).join("\n")}\n\n${callNotes ? `Private Notes:\n${callNotes}` : ""}`;
     navigator.clipboard.writeText(fullText).then(() => {
       setCopied(true);
       showToast("Call briefing copied to clipboard", "success");
@@ -149,6 +161,35 @@ export const CRMCallPrepModal: React.FC = () => {
           </div>
         </div>
 
+        {/* Preparation Timing Horizon Selector */}
+        <div className="flex items-center justify-between bg-paper p-2.5 rounded-edge border border-line text-xs">
+          <div className="flex items-center gap-1.5 font-bold text-ink-dim uppercase tracking-wider">
+            <Calendar className="w-3.5 h-3.5 text-brand-deep" />
+            <span>Preparation Horizon:</span>
+          </div>
+          <div className="flex items-center gap-1">
+            {[
+              { label: "Today", offset: 0 },
+              { label: "In 1 Month", offset: 1 },
+              { label: "In 2 Months", offset: 2 },
+              { label: "In 3 Months", offset: 3 }
+            ].map((tab) => (
+              <button
+                key={tab.offset}
+                type="button"
+                onClick={() => setMeetingOffsetMonths(tab.offset)}
+                className={`px-2.5 py-1 rounded text-xs font-semibold cursor-pointer transition-all ${
+                  meetingOffsetMonths === tab.offset
+                    ? "bg-brand-deep text-white shadow-xs"
+                    : "bg-white text-ink-dim hover:text-body border border-line hover:border-ink-dim/40"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* 1. EXECUTIVE NATURAL-LANGUAGE BRIEFING */}
         <div className="p-4 bg-brand-wash/40 border border-brand-edge/60 rounded-edge space-y-2 text-spec">
           <div className="flex items-center gap-1.5 font-bold text-brand-deep uppercase text-xs tracking-wider">
@@ -159,6 +200,67 @@ export const CRMCallPrepModal: React.FC = () => {
             {briefing.executiveBriefing}
           </div>
         </div>
+
+        {/* Product Supply & Replenishment Tracker Card (if detected) */}
+        {briefing.supplyCycles.length > 0 && (
+          <div className="p-3.5 bg-paper border border-line rounded-edge space-y-2.5 text-spec">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-bold uppercase text-brand-deep tracking-wider flex items-center gap-1.5">
+                <Package className="w-3.5 h-3.5 text-brand-deep" />
+                <span>Product Supply &amp; Replenishment Tracker</span>
+              </div>
+              <span className="text-[11px] text-ink-dim font-medium">
+                {meetingOffsetMonths === 0 ? "Status: Today" : `Status: In ${meetingOffsetMonths} Months`}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {briefing.supplyCycles.map((sc, idx) => (
+                <div
+                  key={idx}
+                  className={`p-3 rounded border text-xs space-y-1.5 ${
+                    sc.reorderUrgency === "Critical" || sc.monthsRemaining <= 1
+                      ? "bg-amber-50/90 border-amber-300 text-amber-950"
+                      : "bg-white border-line text-body"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div className="font-bold flex items-center gap-1.5 text-sm">
+                      <span>{sc.product}</span>
+                      {sc.quantity && (
+                        <span className="font-normal text-ink-dim text-xs">({sc.quantity} units)</span>
+                      )}
+                      {sc.destination && (
+                        <span className="text-[10px] bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200 uppercase font-semibold">
+                          {sc.destination}
+                        </span>
+                      )}
+                    </div>
+                    <span
+                      className={`text-[11px] font-bold px-2 py-0.5 rounded ${
+                        sc.monthsRemaining <= 1
+                          ? "bg-amber-200 text-amber-900 border border-amber-400"
+                          : "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                      }`}
+                    >
+                      {sc.monthsRemaining <= 1
+                        ? "⚠️ 1 Month Out (Re-order Window)"
+                        : `~${sc.monthsRemaining} Months Stock Remaining`}
+                    </span>
+                  </div>
+                  <p className="font-medium text-xs leading-relaxed">
+                    {sc.statusText}
+                  </p>
+                  <div className="text-[11px] text-ink-dim flex items-center gap-3 pt-1 border-t border-line/40">
+                    <span>Ordered: {sc.orderDate} (~{sc.durationRaw} supply)</span>
+                    <span>•</span>
+                    <span>Projected Run-Out: {sc.runOutDate}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 2. RECOMMENDED CALL OBJECTIVES & ACTIONABLE TALKING POINTS */}
         <div className="p-3.5 bg-paper border border-line rounded-edge space-y-2">
@@ -180,6 +282,8 @@ export const CRMCallPrepModal: React.FC = () => {
                         ? "bg-sky-100 text-sky-900 border border-sky-300"
                         : tp.category === "Question"
                         ? "bg-purple-100 text-purple-900 border border-purple-300"
+                        : tp.category === "Context"
+                        ? "bg-blue-100 text-blue-900 border border-blue-300"
                         : "bg-slate-100 text-slate-800 border border-slate-300"
                     }`}
                   >
@@ -192,15 +296,6 @@ export const CRMCallPrepModal: React.FC = () => {
               ))}
             </div>
           )}
-          <div className="pt-2 border-t border-line/60">
-            <span className="text-[11px] font-bold uppercase text-ink-dim block mb-1">Standard Lighting Specification Verification</span>
-            <ul className="list-disc pl-4 space-y-1 text-spec text-body">
-              <li>Verify required AS/NZS 1158 Category (e.g. P4 pathway vs V3 roadway).</li>
-              <li>Confirm site soil conditions or rag-bolt vs in-ground footing preference.</li>
-              <li>Check battery autonomy expectation (standard 4–5 nights vs shaded location).</li>
-              <li>Confirm decision-making timeline and council tender committee dates.</li>
-            </ul>
-          </div>
         </div>
 
         {/* 3. RELEVANT CRM KNOWLEDGE BASE ITEMS */}

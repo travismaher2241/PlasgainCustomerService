@@ -426,7 +426,8 @@ export type CRMKnowledgeCategory =
   | "Commitment"
   | "Competitor Intelligence"
   | "Project Context"
-  | "Unresolved Question";
+  | "Unresolved Question"
+  | "Supply & Replenishment Cycle";
 
 export interface CRMKnowledgeItem {
   id: string;

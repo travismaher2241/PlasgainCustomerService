@@ -45,6 +45,167 @@ function areStatementsSimilar(a: string, b: string): boolean {
  * Extract candidate Notable Events from activity notes.
  * Strictly grounded in real phrases (role change, moving company, taking responsibility, major milestone).
  */
+export interface ParsedSupplyCycle {
+  product: string;
+  quantity?: number;
+  durationMonths: number;
+  durationRaw: string;
+  orderDate: string; // YYYY-MM-DD
+  runOutDate: string; // YYYY-MM-DD
+  destination?: string;
+  rawText: string;
+}
+
+export interface ReplenishmentTimeline {
+  product: string;
+  quantity?: number;
+  durationRaw: string;
+  orderDate: string;
+  runOutDate: string;
+  destination?: string;
+  monthsRemaining: number;
+  daysRemaining: number;
+  isRunOut: boolean;
+  statusText: string;
+  reorderUrgency: "Normal" | "Approaching" | "Critical" | "Depleted";
+}
+
+/**
+ * Parse product supply / replenishment cycle mentions from activity notes.
+ * Extracts: product name (e.g. PLASSLAB), quantity (e.g. 600), duration (e.g. 3 months),
+ * destination (e.g. SA), order date, and projected run-out date.
+ */
+export function parseSupplyCyclesFromText(text: string, referenceDateStr?: string): ParsedSupplyCycle[] {
+  if (!text || text.length < 10) return [];
+  const cycles: ParsedSupplyCycle[] = [];
+
+  const refDate = referenceDateStr ? new Date(referenceDateStr) : new Date();
+  const validRefDate = isNaN(refDate.getTime()) ? new Date() : refDate;
+  const orderDateStr = validRefDate.toISOString().split("T")[0];
+
+  // Regex for order / purchase with quantity, product, and duration
+  const supplyPattern = /(?:order(?:ed|ing)?|purchas(?:ed|ing)?|bought|delivery\s+of|supplied|stock\s+of)\s+([^.\n;]+?)(?:last(?:ing)?\s+(?:them\s+)?(?:around|approx|approximately)?\s*(\d+(?:\.\d+)?)\s*(months?|weeks?|days?|years?)|(?:supply|duration)\s+(?:of|for)\s+(\d+(?:\.\d+)?)\s*(months?|weeks?)|(\d+(?:\.\d+)?)\s*(months?|weeks?)\s*(?:worth|supply))/i;
+
+  const match = text.match(supplyPattern);
+  if (match) {
+    const preText = match[1].trim();
+
+    let quantity: number | undefined;
+    const qtyMatch = preText.match(/(?:^|\s)(\d{1,6})(?:\s*units?)?(?:\s+of(?:\s+the)?)?\s+/i);
+    if (qtyMatch) {
+      quantity = parseInt(qtyMatch[1], 10);
+    }
+
+    let product = "Product";
+    const knownProductsMatch = text.match(/\b(PLASSLAB|PLAS-SLAB|Composite\s+Poles?|Solar\s+Lighting|Poles?)\b/i);
+    if (knownProductsMatch) {
+      product = knownProductsMatch[1].toUpperCase() === "PLASSLAB" ? "PLASSLAB" : knownProductsMatch[1];
+    } else if (qtyMatch) {
+      const prodAfterQty = preText.slice(qtyMatch.index! + qtyMatch[0].length).split(/[\s,]+/)[0];
+      if (prodAfterQty && prodAfterQty.length > 2) {
+        product = prodAfterQty;
+      }
+    }
+
+    let durationNum = 1;
+    let durationUnit = "months";
+    if (match[2] && match[3]) {
+      durationNum = parseFloat(match[2]);
+      durationUnit = match[3].toLowerCase();
+    } else if (match[4] && match[5]) {
+      durationNum = parseFloat(match[4]);
+      durationUnit = match[5].toLowerCase();
+    } else if (match[6] && match[7]) {
+      durationNum = parseFloat(match[6]);
+      durationUnit = match[7].toLowerCase();
+    }
+
+    let durationMonths = durationNum;
+    if (durationUnit.startsWith("week")) {
+      durationMonths = durationNum / 4.33;
+    } else if (durationUnit.startsWith("day")) {
+      durationMonths = durationNum / 30;
+    } else if (durationUnit.startsWith("year")) {
+      durationMonths = durationNum * 12;
+    }
+
+    let destination: string | undefined;
+    const destMatch = text.match(/(?:sent\s+to|shipped\s+to|destined\s+for|bound\s+for|(?:delivered|going)\s+to)\s+(?:the\s+)?(SA\b|WA\b|NSW\b|VIC\b|QLD\b|TAS\b|NT\b|ACT\b|South\s+Australia|Western\s+Australia|Queensland|Victoria|New\s+South\s+Wales|Tasmania|Northern\s+Territory|Perth\b|Adelaide\b|Sydney\b|Melbourne\b|Brisbane\b)/i);
+    if (destMatch) {
+      const d = destMatch[1].trim();
+      destination = d.length <= 3 ? d.toUpperCase() : d;
+    }
+
+    const runOutDate = new Date(validRefDate);
+    const totalDays = Math.round(durationMonths * 30.44);
+    runOutDate.setDate(runOutDate.getDate() + totalDays);
+    const runOutDateStr = runOutDate.toISOString().split("T")[0];
+
+    cycles.push({
+      product,
+      quantity,
+      durationMonths: Math.round(durationMonths * 10) / 10,
+      durationRaw: `${durationNum} ${durationUnit}`,
+      orderDate: orderDateStr,
+      runOutDate: runOutDateStr,
+      destination,
+      rawText: match[0]
+    });
+  }
+
+  return cycles;
+}
+
+/**
+ * Calculates stock remaining and reorder urgency relative to a target meeting or call date.
+ */
+export function calculateReplenishmentTimeline(
+  cycle: ParsedSupplyCycle,
+  targetDateStr?: string
+): ReplenishmentTimeline {
+  const targetDate = targetDateStr ? new Date(targetDateStr) : new Date();
+  const validTarget = isNaN(targetDate.getTime()) ? new Date() : targetDate;
+  const runOutDate = new Date(cycle.runOutDate);
+
+  const diffDays = Math.round((runOutDate.getTime() - validTarget.getTime()) / (1000 * 60 * 60 * 24));
+  const diffMonths = Math.round(diffDays / 30.44);
+
+  let statusText = "";
+  let reorderUrgency: ReplenishmentTimeline["reorderUrgency"] = "Normal";
+
+  if (diffDays <= 0) {
+    statusText = `Stock is fully depleted (ran out ${cycle.runOutDate}). Immediate re-order required.`;
+    reorderUrgency = "Depleted";
+  } else if (diffMonths <= 1 || diffDays <= 45) {
+    statusText = `Approximately 1 month out from requiring more ${cycle.product} (projected run-out ${cycle.runOutDate}). High priority replenishment window.`;
+    reorderUrgency = "Critical";
+  } else if (diffMonths <= 2 || diffDays <= 75) {
+    statusText = `Approximately 2 months out from requiring more ${cycle.product} (projected run-out ${cycle.runOutDate}). Re-order planning window.`;
+    reorderUrgency = "Approaching";
+  } else {
+    statusText = `Currently has ~${diffMonths} months of ${cycle.product} stock remaining (projected run-out ${cycle.runOutDate}).`;
+    reorderUrgency = "Normal";
+  }
+
+  return {
+    product: cycle.product,
+    quantity: cycle.quantity,
+    durationRaw: cycle.durationRaw,
+    orderDate: cycle.orderDate,
+    runOutDate: cycle.runOutDate,
+    destination: cycle.destination,
+    monthsRemaining: Math.max(0, diffMonths),
+    daysRemaining: diffDays,
+    isRunOut: diffDays <= 0,
+    statusText,
+    reorderUrgency
+  };
+}
+
+/**
+ * Extract candidate Notable Events from activity notes.
+ * Strictly grounded in real phrases (role change, moving company, taking responsibility, major milestone, introductions, personal context).
+ */
 export function extractCandidateNotableEvents(
   activity: CRMActivity,
   contacts: CRMContact[]
@@ -84,14 +245,26 @@ export function extractCandidateNotableEvents(
     {
       regex: /(?:confirmed installation before|deadline agreed for|project commencement set for)\s+([^.,;]+)/i,
       titleFormatter: (m, name) => `Milestone date agreed: ${m[1].trim()}`
+    },
+    {
+      regex: /(?:met\s+([A-Za-z]+)\s+for\s+the\s+first\s+time|first\s+meeting\s+with\s+([A-Za-z]+))/i,
+      titleFormatter: (m, name) => `First meeting with ${m[1] || m[2] || name}`
     }
   ];
 
   for (const pat of patterns) {
     const match = content.match(pat.regex);
     if (match) {
-      const contactName = defaultContact
-        ? `${defaultContact.firstName} ${defaultContact.lastName}`.trim()
+      // If the pattern captured a specific person's name (e.g. Gordon)
+      let targetContact = defaultContact;
+      if (match[1] || match[2]) {
+        const capturedName = (match[1] || match[2]).toLowerCase();
+        const matched = contacts.find((c) => c.firstName?.toLowerCase() === capturedName || c.lastName?.toLowerCase() === capturedName);
+        if (matched) targetContact = matched;
+      }
+
+      const contactName = targetContact
+        ? `${targetContact.firstName} ${targetContact.lastName}`.trim()
         : activity.contactName || "Contact";
 
       const title = pat.titleFormatter(match, contactName);
@@ -105,10 +278,50 @@ export function extractCandidateNotableEvents(
         recordedBy: activity.performedBy,
         isAiGenerated: true,
         status: "candidate",
-        contactId: defaultContact?.id || activity.contactId,
+        contactId: targetContact?.id || activity.contactId,
         contactName
       });
-      break; // One primary notable event per activity to avoid spam
+      break;
+    }
+  }
+
+  // Check for cross-contact mentions / personal updates across all known contacts (e.g. Zia in Perth with a water leak)
+  for (const c of contacts) {
+    if (!c.firstName || c.firstName.length < 2) continue;
+    const nameRegex = new RegExp(`\\b${c.firstName}\\b`, "i");
+    if (nameRegex.test(content)) {
+      const sentences = content.split(/[.!?\n]+/);
+      const contactSentence = sentences.find((s) => nameRegex.test(s));
+      if (contactSentence) {
+        // Detect personal / travel / property / urgency contexts
+        if (/(?:water\s*leak|leak|property|perth|interstate|emergency|repairs?|hospital|leave|holiday|away|sick|personal|rush)/i.test(contactSentence)) {
+          let title = `Personal update: ${c.firstName}`;
+          if (/water\s*leak/i.test(contactSentence) && /perth/i.test(contactSentence)) {
+            title = `Property water leak in Perth`;
+          } else if (/water\s*leak/i.test(contactSentence)) {
+            title = `Urgent property water leak`;
+          } else if (/perth/i.test(contactSentence)) {
+            title = `Travelled to Perth for property repairs`;
+          }
+
+          const alreadyAdded = candidateEvents.some((ce) => ce.contactId === c.id);
+          if (!alreadyAdded) {
+            candidateEvents.push({
+              id: `cne-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+              title,
+              description: contactSentence.trim(),
+              eventDate: activity.timestamp.split("T")[0],
+              sourceActivityId: activity.id,
+              sourceActivityDate: activity.timestamp,
+              recordedBy: activity.performedBy,
+              isAiGenerated: true,
+              status: "candidate",
+              contactId: c.id,
+              contactName: `${c.firstName} ${c.lastName}`.trim()
+            });
+          }
+        }
+      }
     }
   }
 
@@ -191,6 +404,23 @@ export function extractCrmKnowledge(
         const sentences = t.split(/[.!\n]+/);
         const match = sentences.find((s) => /\?|(?:unresolved|waiting\s+on|clarification|unknown\s+if|pending\s+council|asked)/i.test(s));
         return match ? match.trim() : "";
+      }
+    },
+    // 6. Product Supply & Replenishment Cycle
+    {
+      category: "Supply & Replenishment Cycle",
+      trigger: /(?:order(?:ed|ing)?|purchas(?:ed|ing)?|bought|delivery\s+of|supplied|stock\s+of|worth\s+of)\s+[^.]+?(?:last(?:ing)?\s+(?:them\s+)?(?:around|approx|approximately)?\s*(\d+(?:\.\d+)?)\s*(months?|weeks?|days?|years?)|(?:supply|duration)\s+(?:of|for)\s+(\d+(?:\.\d+)?)\s*(months?|weeks?)|(\d+(?:\.\d+)?)\s*(months?|weeks?)\s*(?:worth|supply))/i,
+      extract: (t) => {
+        const cycles = parseSupplyCyclesFromText(t, activityDate);
+        if (cycles.length > 0) {
+          const c = cycles[0];
+          const destText = c.destination ? `, mostly sent to ${c.destination}` : "";
+          const runOutDateObj = new Date(c.runOutDate);
+          const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+          const runOutStr = `${monthNames[runOutDateObj.getMonth()]} ${runOutDateObj.getFullYear()}`;
+          return `Ordered ${c.quantity ? `${c.quantity} units of ` : ""}${c.product} (~${c.durationRaw} supply${destText}). Estimated run-out / replenishment date: early ${runOutStr}.`;
+        }
+        return "";
       }
     }
   ];

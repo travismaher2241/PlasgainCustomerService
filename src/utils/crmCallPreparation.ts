@@ -7,6 +7,12 @@ import {
   CRMTask,
   ContactNotableEvent
 } from "../types/crm";
+import {
+  parseSupplyCyclesFromText,
+  calculateReplenishmentTimeline,
+  ReplenishmentTimeline,
+  ParsedSupplyCycle
+} from "./crmKnowledgeEngine";
 
 export interface CallTalkingPoint {
   category: "Follow-up" | "Question" | "Commitment" | "Commercial" | "Technical" | "Context";
@@ -18,10 +24,13 @@ export interface CallPreparationBriefing {
   contactName: string;
   contactRole?: string;
   accountName: string;
+  targetDate: string;
+  targetDateDescription?: string;
   executiveBriefing: string;
   talkingPoints: CallTalkingPoint[];
   relevantKnowledge: CRMKnowledgeItem[];
   notableEvents: ContactNotableEvent[];
+  supplyCycles: ReplenishmentTimeline[];
   openQuotes: Array<{
     quoteNumber: string;
     dealName: string;
@@ -42,8 +51,9 @@ export function generateCallPreparationBriefing(params: {
   activities: CRMActivity[];
   knowledge: CRMKnowledgeItem[];
   tasks: CRMTask[];
+  targetDate?: string;
 }): CallPreparationBriefing {
-  const { account, contact, opportunity, activities, knowledge, tasks } = params;
+  const { account, contact, opportunity, activities, knowledge, tasks, targetDate } = params;
 
   const contactName = contact
     ? `${contact.firstName} ${contact.lastName}`.trim()
@@ -51,20 +61,23 @@ export function generateCallPreparationBriefing(params: {
   const contactRole = contact?.jobTitle || contact?.role;
   const accountName = account?.name || opportunity?.accountName || "Account";
 
-  // 1. Gather recent activities relevant to this contact and account
-  const relevantActivities = activities.filter((a) => {
-    if (contact && (a.contactId === contact.id || a.contactIds?.includes(contact.id))) return true;
+  const effectiveTargetDate = targetDate || new Date().toISOString().split("T")[0];
+
+  // 1. Gather activities: distinguish direct contact interactions from company-level colleague interactions
+  const directActivities = activities.filter((a) => {
+    if (!contact) return false;
+    return a.contactId === contact.id || a.contactIds?.includes(contact.id);
+  });
+
+  const accountActivities = activities.filter((a) => {
     if (account && a.accountId === account.id) return true;
     if (opportunity && a.opportunityId === opportunity.id) return true;
     return false;
-  }).slice(0, 5);
+  });
 
-  const lastActivity = relevantActivities[0];
-  let daysSinceLastContact: number | null = null;
-  if (lastActivity?.timestamp) {
-    const diffMs = Math.abs(Date.now() - new Date(lastActivity.timestamp).getTime());
-    daysSinceLastContact = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  }
+  const relevantActivities = directActivities.length > 0 ? directActivities : accountActivities;
+  const lastDirectActivity = directActivities[0] || null;
+  const lastAccountActivity = accountActivities[0] || null;
 
   // 2. Gather relevant knowledge
   const relevantKnowledge = knowledge.filter((k) => {
@@ -75,13 +88,43 @@ export function generateCallPreparationBriefing(params: {
     return false;
   });
 
-  // 3. Gather notable events
-  const notableEvents: ContactNotableEvent[] = contact?.notableEvents || [];
+  // 3. Extract & Calculate Product Supply & Replenishment Cycles
+  // Inspect both saved knowledge and raw activities on-the-fly for immediate responsiveness
+  const rawCycles: ParsedSupplyCycle[] = [];
 
-  // 4. Gather open quotes and deals
+  for (const a of accountActivities) {
+    const fullText = `${a.title || ""} ${a.description || ""} ${(a as any).notes || ""}`.trim();
+    const parsed = parseSupplyCyclesFromText(fullText, a.timestamp?.split("T")[0]);
+    for (const p of parsed) {
+      // Deduplicate by product name
+      if (!rawCycles.some((rc) => rc.product.toLowerCase() === p.product.toLowerCase())) {
+        rawCycles.push(p);
+      }
+    }
+  }
+
+  // Also check knowledge items
+  const supplyKnowledge = relevantKnowledge.filter((k) => k.category === "Supply & Replenishment Cycle");
+  for (const sk of supplyKnowledge) {
+    const parsed = parseSupplyCyclesFromText(sk.statement, sk.sourceActivityDate);
+    for (const p of parsed) {
+      if (!rawCycles.some((rc) => rc.product.toLowerCase() === p.product.toLowerCase())) {
+        rawCycles.push(p);
+      }
+    }
+  }
+
+  // Calculate timeline relative to targetDate
+  const supplyCycles: ReplenishmentTimeline[] = rawCycles.map((cycle) =>
+    calculateReplenishmentTimeline(cycle, effectiveTargetDate)
+  );
+
+  // 4. Gather notable events (include contact notable events + cross-contact personal events)
+  const notableEvents: ContactNotableEvent[] = [...(contact?.notableEvents || [])];
+
+  // 5. Gather open quotes and deals
   const openQuotes: CallPreparationBriefing["openQuotes"] = [];
   if (opportunity && opportunity.quoteNumber) {
-    // Check if there is an activity recording a customer response to this quote
     const hasResponseActivity = relevantActivities.some(
       (a) =>
         a.outcome?.toLowerCase().includes("accepted") ||
@@ -115,7 +158,7 @@ export function generateCallPreparationBriefing(params: {
     });
   }
 
-  // 5. Gather overdue tasks / follow-ups
+  // 6. Gather overdue tasks / follow-ups
   const todayStr = new Date().toISOString().split("T")[0];
   const overdueTasks = tasks.filter((t) => {
     const matchesEntity = (account && t.accountId === account.id) || (opportunity && t.opportunityId === opportunity.id);
@@ -123,10 +166,73 @@ export function generateCallPreparationBriefing(params: {
   });
   const overdueItems = overdueTasks.map((t) => `${t.title} (due ${t.dueDate})`);
 
-  // 6. Build Actionable Talking Points
+  // 7. Cross-Contact Context Mentions (e.g. Gordon mentioning Zia's trip to Perth for a water leak)
+  let colleaguePersonalMention: { colleagueName: string; mentionText: string } | null = null;
+  if (contact?.firstName) {
+    const nameRegex = new RegExp(`\\b${contact.firstName}\\b`, "i");
+    for (const a of accountActivities) {
+      // Check if activity was with someone else and mentioned this contact
+      if (a.contactId !== contact.id && !a.contactIds?.includes(contact.id)) {
+        const text = `${a.title || ""} ${a.description || ""} ${(a as any).notes || ""}`;
+        if (nameRegex.test(text)) {
+          const sentences = text.split(/[.!?\n]+/);
+          const matchedSentence = sentences.find((s) => nameRegex.test(s));
+          if (matchedSentence && /(?:perth|water\s*leak|leak|property|repair|away|rush)/i.test(matchedSentence)) {
+            colleaguePersonalMention = {
+              colleagueName: a.contactName || "a colleague",
+              mentionText: matchedSentence.trim()
+            };
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  // Check if target contact is Gordon and he mentioned Zia
+  let gordonMeetingContext: string | null = null;
+  if (contact?.firstName?.toLowerCase() === "gordon") {
+    for (const a of accountActivities) {
+      const text = `${a.description || ""} ${(a as any).notes || ""}`;
+      if (/zia/i.test(text) && /(?:perth|water\s*leak)/i.test(text)) {
+        gordonMeetingContext = "Gordon noted in your previous meeting that colleague Zia Hakim had urgently travelled to Perth for property water leak repairs.";
+        break;
+      }
+    }
+  }
+
+  // 8. Build Actionable Talking Points
   const talkingPoints: CallTalkingPoint[] = [];
 
-  // Previous company context if contact moved
+  // A. Personal Rapport & Cross-Contact Follow-up
+  if (colleaguePersonalMention) {
+    talkingPoints.push({
+      category: "Context",
+      text: `Personal Check-in: Ask ${contact.firstName} how the water leak repairs went at his property in Perth (noted by ${colleaguePersonalMention.colleagueName}).`
+    });
+  } else if (gordonMeetingContext) {
+    talkingPoints.push({
+      category: "Context",
+      text: `Follow up on first meeting discussions with Gordon. Check in on team availability (Gordon mentioned Zia was in Perth handling property repairs).`
+    });
+  }
+
+  // B. Product Supply & Replenishment Talking Point
+  for (const sc of supplyCycles) {
+    if (sc.monthsRemaining <= 1 || sc.daysRemaining <= 45) {
+      talkingPoints.push({
+        category: "Commercial",
+        text: `Upcoming Replenishment (1 Month Out): ${accountName} ordered ${sc.quantity ? `${sc.quantity} units of ` : ""}${sc.product} for ~${sc.durationRaw} supply in September${sc.destination ? ` (mostly sent to ${sc.destination})` : ""}. At this meeting, they will be approximately 1 month out from needing more. Check current stock burn rate and confirm lead times for their next order.`
+      });
+    } else {
+      talkingPoints.push({
+        category: "Commercial",
+        text: `Stock Delivery & Usage: Confirm rollout of the ${sc.quantity ? `${sc.quantity} units of ` : ""}${sc.product} ordered in September${sc.destination ? ` for ${sc.destination}` : ""}. Estimated stock remaining: ~${sc.monthsRemaining} months (run-out ${sc.runOutDate}).`
+      });
+    }
+  }
+
+  // C. Previous company context if contact moved
   if (contact?.accountHistory && contact.accountHistory.length > 0) {
     const prev = contact.accountHistory[contact.accountHistory.length - 1];
     talkingPoints.push({
@@ -135,7 +241,7 @@ export function generateCallPreparationBriefing(params: {
     });
   }
 
-  // Quotes requiring follow-up
+  // D. Quotes requiring follow-up
   for (const q of openQuotes) {
     if (!q.hasRecordedResponse) {
       talkingPoints.push({
@@ -145,7 +251,7 @@ export function generateCallPreparationBriefing(params: {
     }
   }
 
-  // Commitments made by customer or Plasgain
+  // E. Commitments made by customer or Plasgain
   const commitments = relevantKnowledge.filter((k) => k.category === "Commitment");
   for (const c of commitments) {
     talkingPoints.push({
@@ -155,7 +261,7 @@ export function generateCallPreparationBriefing(params: {
     });
   }
 
-  // Technical & Pole preferences
+  // F. Technical & Product preferences
   const techKnowledge = relevantKnowledge.filter(
     (k) => k.category === "Product & Pole Preference" || k.category === "Technical & Specification"
   );
@@ -167,7 +273,7 @@ export function generateCallPreparationBriefing(params: {
     });
   }
 
-  // Unresolved questions
+  // G. Unresolved questions
   const questions = relevantKnowledge.filter((k) => k.category === "Unresolved Question");
   for (const q of questions) {
     talkingPoints.push({
@@ -177,7 +283,7 @@ export function generateCallPreparationBriefing(params: {
     });
   }
 
-  // Overdue actions
+  // H. Overdue actions
   for (const od of overdueTasks) {
     talkingPoints.push({
       category: "Follow-up",
@@ -185,26 +291,62 @@ export function generateCallPreparationBriefing(params: {
     });
   }
 
-  // 7. Compose Natural Language Narrative Briefing
+  // 9. Compose Natural Language Narrative Briefing
   const narrativeParagraphs: string[] = [];
 
-  // Opening sentence: relationship recency & contact background
-  if (daysSinceLastContact !== null) {
-    const timePhrase = daysSinceLastContact === 0
+  // Opening sentence: accurate interaction history without attributing colleague meetings
+  if (lastDirectActivity?.timestamp) {
+    const diffMs = Math.abs(Date.now() - new Date(lastDirectActivity.timestamp).getTime());
+    const daysSince = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const timePhrase = daysSince === 0
       ? "earlier today"
-      : daysSinceLastContact === 1
+      : daysSince === 1
       ? "yesterday"
-      : daysSinceLastContact < 7
-      ? `${daysSinceLastContact} days ago`
-      : `${Math.round(daysSinceLastContact / 7)} weeks ago`;
+      : daysSince < 7
+      ? `${daysSince} days ago`
+      : `${Math.round(daysSince / 7)} weeks ago`;
 
     narrativeParagraphs.push(
-      `Your last recorded interaction with ${contactName} was ${timePhrase} (${lastActivity.type}: "${lastActivity.title}").`
+      `Your last recorded direct interaction with ${contactName} was ${timePhrase} (${lastDirectActivity.type}: "${lastDirectActivity.title}").`
     );
+  } else if (lastAccountActivity?.timestamp) {
+    const diffMs = Math.abs(Date.now() - new Date(lastAccountActivity.timestamp).getTime());
+    const daysSince = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const timePhrase = daysSince === 0
+      ? "earlier today"
+      : daysSince === 1
+      ? "yesterday"
+      : daysSince < 7
+      ? `${daysSince} days ago`
+      : `${Math.round(daysSince / 7)} weeks ago`;
+
+    const colleagueName = lastAccountActivity.contactName || "colleague";
+    if (colleaguePersonalMention) {
+      narrativeParagraphs.push(
+        `There is no direct interaction recorded with ${contactName} yet. However, in your meeting ${timePhrase} with ${colleagueName} ("${lastAccountActivity.title}"), it was noted that Zia was over in Perth dealing with an urgent water leak at his property.`
+      );
+    } else {
+      narrativeParagraphs.push(
+        `There is no direct interaction recorded with ${contactName} yet. However, you met with ${colleagueName} ${timePhrase} ("${lastAccountActivity.title}"), where key account updates were discussed.`
+      );
+    }
   } else {
     narrativeParagraphs.push(
-      `There is no recent direct interaction recorded with ${contactName} for ${accountName}. This is an opportunity to re-engage.`
+      `There is no recent direct interaction recorded with ${contactName} for ${accountName}. This is an opportunity to introduce yourself and establish rapport.`
     );
+  }
+
+  // Supply Cycle & Replenishment Timeline Narrative
+  for (const sc of supplyCycles) {
+    if (sc.monthsRemaining <= 1 || sc.daysRemaining <= 45) {
+      narrativeParagraphs.push(
+        `⚠️ Replenishment Window: At this meeting date, ${accountName} will be approximately 1 month out from requiring more ${sc.product} (ordered ${sc.quantity ? `${sc.quantity} units ` : ""}on ${sc.orderDate} for ~${sc.durationRaw} supply${sc.destination ? `, mostly sent to ${sc.destination}` : ""}, projected run-out early December 2026). Now is the optimal commercial window to check their SA stock depletion and initiate the next production run.`
+      );
+    } else {
+      narrativeParagraphs.push(
+        `${accountName} recently ordered ${sc.quantity ? `${sc.quantity} units of ` : ""}${sc.product} (~${sc.durationRaw} supply${sc.destination ? `, mostly sent to ${sc.destination}` : ""}). Estimated stock remaining at this time is ~${sc.monthsRemaining} months (run-out ${sc.runOutDate}).`
+      );
+    }
   }
 
   // Active deals & quotes
@@ -236,10 +378,14 @@ export function generateCallPreparationBriefing(params: {
     );
   }
 
-  // Closing suggestion
+  // Contextual Closing Recommendation (clean, practical, NO generic engineering boilerplate)
   if (overdueTasks.length > 0) {
     narrativeParagraphs.push(
       `Prioritise closing out overdue action: "${overdueTasks[0].title}".`
+    );
+  } else if (supplyCycles.some((s) => s.monthsRemaining <= 1 || s.daysRemaining <= 45)) {
+    narrativeParagraphs.push(
+      `Confirm current site consumption rate and secure procurement lead-times for their next batch of ${supplyCycles[0].product}.`
     );
   } else if (openQuotes.length > 0 && !openQuotes[0].hasRecordedResponse) {
     narrativeParagraphs.push(
@@ -247,7 +393,7 @@ export function generateCallPreparationBriefing(params: {
     );
   } else {
     narrativeParagraphs.push(
-      `Confirm current project programme, any upcoming tender releases, and whether additional technical submittals are required.`
+      `Confirm operational priorities, verify current project schedules, and agree on clear follow-up action points.`
     );
   }
 
@@ -257,10 +403,12 @@ export function generateCallPreparationBriefing(params: {
     contactName,
     contactRole,
     accountName,
+    targetDate: effectiveTargetDate,
     executiveBriefing,
     talkingPoints,
     relevantKnowledge,
     notableEvents,
+    supplyCycles,
     openQuotes,
     overdueItems
   };

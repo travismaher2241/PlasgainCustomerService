@@ -98,9 +98,10 @@ describe('CRMCallPrepModal Component', () => {
     expect(screen.getByText(/0412 345 678/i)).toBeInTheDocument();
     expect(screen.getByText(/dwalker@moreton.qld.gov.au/i)).toBeInTheDocument();
 
-    // Recommended objectives
+    // Recommended objectives & Horizon selector
     expect(screen.getByText(/Recommended Call Objectives/i)).toBeInTheDocument();
-    expect(screen.getByText(/Verify required AS\/NZS 1158 Category/i)).toBeInTheDocument();
+    expect(screen.getByText(/Preparation Horizon/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Verify required AS\/NZS 1158 Category/i)).not.toBeInTheDocument();
   });
 
   it('closing call briefing creates NO activities or tasks', async () => {
