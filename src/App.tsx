@@ -11,6 +11,8 @@ const SettingsView = lazy(() => import("./components/SettingsView").then(m => ({
 const CRMCommandCenter = lazy(() => import("./components/crm/CRMCommandCenter").then(m => ({ default: m.CRMCommandCenter })));
 const CRMQuickLogModal = lazy(() => import("./components/crm/CRMQuickLogModal").then(m => ({ default: m.CRMQuickLogModal })));
 const CRMCallPrepModal = lazy(() => import("./components/crm/CRMCallPrepModal").then(m => ({ default: m.CRMCallPrepModal })));
+const CRMScheduleMeetingModal = lazy(() => import("./components/crm/CRMScheduleMeetingModal").then(m => ({ default: m.CRMScheduleMeetingModal })));
+const CRMMeetingPrepModal = lazy(() => import("./components/crm/CRMMeetingPrepModal").then(m => ({ default: m.CRMMeetingPrepModal })));
 const AIEmailComposerModal = lazy(() => import("./components/AIEmailComposerModal").then(m => ({ default: m.AIEmailComposerModal })));
 const GlobalCopilot = lazy(() => import("./components/GlobalCopilot").then(m => ({ default: m.GlobalCopilot })));
 const GlobalSearchModal = lazy(() => import("./components/GlobalSearchModal").then(m => ({ default: m.GlobalSearchModal })));
@@ -60,6 +62,8 @@ const MainLayout: React.FC = () => {
         <GlobalSearchModal />
         <CRMQuickLogModal />
         <CRMCallPrepModal />
+        <CRMScheduleMeetingModal />
+        <CRMMeetingPrepModal />
       </Suspense>
       </ErrorBoundary>
 

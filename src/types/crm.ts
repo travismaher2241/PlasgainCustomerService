@@ -459,6 +459,7 @@ export interface CRMTask {
   accountName?: string;
   contactId?: string;
   contactName?: string;
+  contactIds?: string[];
   opportunityId?: string;
   opportunityName?: string;
   assignedTo: string;
@@ -466,6 +467,58 @@ export interface CRMTask {
   notes?: string;
   completedAt?: string;
   isOverdue?: boolean;
+  location?: string;
+  meetingFormat?: "In Person" | "Teams/Zoom" | "Phone" | "Site Visit";
+  durationMinutes?: number;
+  agenda?: string;
+}
+
+export interface MeetingPreparationPlan {
+  meetingId: string;
+  meetingTitle: string;
+  meetingDate: string;
+  meetingTime?: string;
+  meetingFormat?: "In Person" | "Teams/Zoom" | "Phone" | "Site Visit";
+  location?: string;
+  account: Account | null;
+  participants: CRMContact[];
+  opportunity: CRMOpportunity | null;
+  executiveBriefing: string;
+  agendaItems: string[];
+  talkingPoints: Array<{
+    category: "Commercial" | "Context" | "Technical" | "Commitment" | "Question" | "Follow-up";
+    text: string;
+    sourceRef?: string;
+  }>;
+  supplyCycles: Array<{
+    product: string;
+    quantity?: number;
+    durationRaw: string;
+    orderDate: string;
+    runOutDate: string;
+    destination?: string;
+    monthsRemaining: number;
+    daysRemaining: number;
+    isRunOut: boolean;
+    statusText: string;
+    reorderUrgency: "Normal" | "Approaching" | "Critical" | "Depleted";
+  }>;
+  participantContexts: Array<{
+    contact: CRMContact;
+    role?: string;
+    rapportPoints: string[];
+  }>;
+  openQuotes: Array<{
+    quoteNumber: string;
+    dealName: string;
+    dealValue: number;
+    quoteStatus?: string;
+    sentDate?: string;
+    hasRecordedResponse: boolean;
+    responseDetail: string;
+  }>;
+  suggestedQuestions: string[];
+  privateNotes?: string;
 }
 
 export interface NextBestActionItem {

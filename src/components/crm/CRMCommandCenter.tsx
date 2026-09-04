@@ -3,6 +3,7 @@ import {
   Sun,
   Building2,
   Kanban,
+  Calendar,
   Flame,
   CheckCircle2,
   TrendingUp,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import { useApp, CRMSubTab } from "../../context/AppContext";
 import { ErrorBoundary } from "../ErrorBoundary";
+import { getNextDayMeetings } from "../../utils/crmMeetingPreparation";
 
 const CRMTodayWorkspace = lazy(() =>
   import("./CRMTodayWorkspace").then((m) => ({ default: m.CRMTodayWorkspace }))
@@ -21,6 +23,9 @@ const CRMAccountsView = lazy(() =>
 );
 const CRMPipelineView = lazy(() =>
   import("./CRMPipelineView").then((m) => ({ default: m.CRMPipelineView }))
+);
+const CRMCalendarView = lazy(() =>
+  import("./CRMCalendarView").then((m) => ({ default: m.CRMCalendarView }))
 );
 const CRMLeadsView = lazy(() =>
   import("./CRMLeadsView").then((m) => ({ default: m.CRMLeadsView }))
@@ -87,6 +92,8 @@ export const CRMCommandCenter: React.FC = () => {
       d.quoteStatus === "PO Received";
     return !isClosed;
   }).length;
+
+  const tomorrowMeetingsCount = getNextDayMeetings(tasks).length;
 
   const isMoreTabActive =
     activeCRMTab === "leads" ||
@@ -182,6 +189,38 @@ export const CRMCommandCenter: React.FC = () => {
                     }`}
                   >
                     {outstandingQuotesCount}
+                  </span>
+                )}
+              </button>
+
+              {/* 4. Calendar */}
+              <button
+                type="button"
+                role="tab"
+                aria-label="Sales Calendar"
+                aria-selected={activeCRMTab === "calendar"}
+                onClick={() => {
+                  setActiveCRMTab("calendar");
+                  setIsMoreMenuOpen(false);
+                }}
+                className={`h-8 px-2 sm:px-2.5 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                  activeCRMTab === "calendar"
+                    ? "bg-brand-deep text-white shadow-xs"
+                    : "text-ink-dim hover:text-ink hover:bg-paper"
+                }`}
+              >
+                <Calendar className="w-3.5 h-3.5 shrink-0" />
+                <span>Calendar</span>
+                {tomorrowMeetingsCount > 0 && (
+                  <span
+                    className={`px-1.5 py-0.2 rounded-full text-[10px] ${
+                      activeCRMTab === "calendar"
+                        ? "bg-chrome text-white font-semibold"
+                        : "bg-brand-deep text-white font-semibold"
+                    }`}
+                    title={`${tomorrowMeetingsCount} meeting(s) scheduled for tomorrow`}
+                  >
+                    {tomorrowMeetingsCount}
                   </span>
                 )}
               </button>
@@ -295,6 +334,29 @@ export const CRMCommandCenter: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => {
+                        setActiveCRMTab("calendar");
+                        setIsMoreMenuOpen(false);
+                      }}
+                      className={`w-full px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
+                        activeCRMTab === "calendar"
+                          ? "bg-brand-wash text-brand-deep font-bold"
+                          : "text-ink hover:bg-hover"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Calendar className="w-3.5 h-3.5 text-brand-deep shrink-0" />
+                        <span>Calendar</span>
+                      </div>
+                      {tomorrowMeetingsCount > 0 && (
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-brand-deep text-white font-bold">
+                          {tomorrowMeetingsCount}
+                        </span>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
                         setActiveCRMTab("leads");
                         setIsMoreMenuOpen(false);
                       }}
@@ -389,6 +451,7 @@ export const CRMCommandCenter: React.FC = () => {
             {activeCRMTab === "today" && <CRMTodayWorkspace />}
             {activeCRMTab === "accounts" && <CRMAccountsView />}
             {activeCRMTab === "pipeline" && <CRMPipelineView />}
+            {activeCRMTab === "calendar" && <CRMCalendarView />}
             {activeCRMTab === "leads" && <CRMLeadsView />}
             {activeCRMTab === "tasks" && <CRMTasksActivitiesView />}
             {activeCRMTab === "competitor-pricing" && <CRMCompetitorPricingView />}
@@ -396,6 +459,7 @@ export const CRMCommandCenter: React.FC = () => {
               activeCRMTab === "today" ||
               activeCRMTab === "accounts" ||
               activeCRMTab === "pipeline" ||
+              activeCRMTab === "calendar" ||
               activeCRMTab === "leads" ||
               activeCRMTab === "tasks" ||
               activeCRMTab === "competitor-pricing"

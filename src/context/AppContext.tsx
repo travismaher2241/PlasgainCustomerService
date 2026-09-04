@@ -6,6 +6,7 @@ import {
   CRMOpportunity,
   CRMActivity,
   CRMTask,
+  TaskType,
   PipelineConfig,
   NextBestActionItem,
   CRMNotification,
@@ -58,6 +59,7 @@ export type CRMSubTab =
   | "today"
   | "accounts"
   | "pipeline"
+  | "calendar"
   | "leads"
   | "tasks"
   | "competitor-pricing";
@@ -275,6 +277,7 @@ interface AppContextType {
   addTask: (task: Omit<CRMTask, "id">) => void;
   updateTask: (id: string, updates: Partial<CRMTask>) => void;
   toggleTaskComplete: (id: string) => void;
+  scheduleCustomerMeeting: (meetingData: Partial<CRMTask>) => CRMTask;
 
   pipelines: PipelineConfig[];
   activePipelineId: string;
@@ -352,6 +355,32 @@ interface AppContextType {
     taskTitle?: string;
   }) => void;
   closeCallPrep: () => void;
+
+  // Customer Meeting Scheduling Modal State
+  scheduleMeetingModal: {
+    isOpen: boolean;
+    prefill?: {
+      accountId?: string;
+      contactId?: string;
+      date?: string;
+      opportunityId?: string;
+    };
+  } | null;
+  openScheduleMeeting: (prefill?: {
+    accountId?: string;
+    contactId?: string;
+    date?: string;
+    opportunityId?: string;
+  }) => void;
+  closeScheduleMeeting: () => void;
+
+  // Next-Day & Customer Meeting Preparation Modal State
+  meetingPrepModal: {
+    isOpen: boolean;
+    meetingId?: string;
+  } | null;
+  openMeetingPrep: (meetingId: string) => void;
+  closeMeetingPrep: () => void;
 
   // AI Email Composer Modal
   isEmailComposerOpen: boolean;
@@ -761,6 +790,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     contactId?: string;
     taskId?: string;
     taskTitle?: string;
+  } | null>(null);
+
+  // Customer Meeting Scheduling & Meeting Prep Modal States
+  const [scheduleMeetingModal, setScheduleMeetingModal] = useState<{
+    isOpen: boolean;
+    prefill?: {
+      accountId?: string;
+      contactId?: string;
+      date?: string;
+      opportunityId?: string;
+    };
+  } | null>(null);
+
+  const [meetingPrepModal, setMeetingPrepModal] = useState<{
+    isOpen: boolean;
+    meetingId?: string;
   } | null>(null);
 
   // AI Email Composer Modal State
@@ -1479,6 +1524,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCallPrepModal(null);
   };
 
+  const openScheduleMeeting = (prefill?: {
+    accountId?: string;
+    contactId?: string;
+    date?: string;
+    opportunityId?: string;
+  }) => {
+    setScheduleMeetingModal({
+      isOpen: true,
+      prefill
+    });
+  };
+
+  const closeScheduleMeeting = () => {
+    setScheduleMeetingModal(null);
+  };
+
+  const openMeetingPrep = (meetingId: string) => {
+    setMeetingPrepModal({
+      isOpen: true,
+      meetingId
+    });
+  };
+
+  const closeMeetingPrep = () => {
+    setMeetingPrepModal(null);
+  };
+
   const addAccount = (account: Account) => {
     setAccounts((prev) => [account, ...prev]);
     saveDocToCloud("crm_accounts", account.id, account);
@@ -2194,6 +2266,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast("Task status updated", "success");
   };
 
+  const scheduleCustomerMeeting = (meetingData: Partial<CRMTask>): CRMTask => {
+    const newTask: CRMTask = {
+      id: `meeting-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: meetingData.title || "Customer Meeting",
+      type: (meetingData.type || "Meeting") as TaskType,
+      priority: meetingData.priority || "High",
+      status: "To Do",
+      dueDate: meetingData.dueDate || new Date().toISOString().split("T")[0],
+      dueTime: meetingData.dueTime || "10:00 AM",
+      accountId: meetingData.accountId,
+      accountName: meetingData.accountName,
+      contactId: meetingData.contactId,
+      contactName: meetingData.contactName,
+      contactIds: meetingData.contactIds || (meetingData.contactId ? [meetingData.contactId] : []),
+      opportunityId: meetingData.opportunityId,
+      opportunityName: meetingData.opportunityName,
+      location: meetingData.location,
+      meetingFormat: meetingData.meetingFormat || "In Person",
+      durationMinutes: meetingData.durationMinutes || 45,
+      agenda: meetingData.agenda,
+      notes: meetingData.notes,
+      assignedTo: currentUser.name,
+      createdBy: currentUser.name
+    };
+    setTasks((prev) => [newTask, ...prev]);
+    saveDocToCloud("crm_tasks", newTask.id, newTask);
+    recordAuditLog("CREATE", "Task", newTask.id, newTask.title, `Scheduled customer meeting: ${newTask.title}`);
+    showToast(`Meeting "${newTask.title}" scheduled for ${newTask.dueDate}`, "success");
+    return newTask;
+  };
+
   const dismissNotification = (id: string) => {
     archiveNotification(id);
   };
@@ -2318,6 +2421,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addTask,
         updateTask,
         toggleTaskComplete,
+        scheduleCustomerMeeting,
         pipelines,
         activePipelineId,
         setActivePipelineId,
@@ -2352,6 +2456,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         callPrepModal,
         openCallPrep,
         closeCallPrep,
+        scheduleMeetingModal,
+        openScheduleMeeting,
+        closeScheduleMeeting,
+        meetingPrepModal,
+        openMeetingPrep,
+        closeMeetingPrep,
         isEmailComposerOpen,
         emailComposerLaunchContext,
         openEmailComposer,
