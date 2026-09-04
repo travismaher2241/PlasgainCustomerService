@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CRMPipelineView } from '../../components/crm/CRMPipelineView';
 import { AppProvider, useApp } from '../../context/AppContext';
@@ -47,12 +47,19 @@ describe('CRM Deals Global Table Suite (Step 6)', () => {
     expect(screen.getByRole('heading', { level: 1, name: /Outstanding Quotes|Deals/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /New quote/i })).toBeInTheDocument();
 
-    // Table should be rendered directly
-    expect(screen.getByRole('table')).toBeInTheDocument();
-    expect(screen.getByText("Coastal Pathway Solar Lighting")).toBeInTheDocument();
-    expect(screen.getByText("Sunshine Coast Council")).toBeInTheDocument();
-    expect(screen.getAllByText(/\$68,400/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("Proposal & Quoting")).toBeInTheDocument();
+    // Desktop table
+    const table = within(screen.getByRole('table'));
+    expect(table.getByText("Coastal Pathway Solar Lighting")).toBeInTheDocument();
+    expect(table.getByText("Sunshine Coast Council")).toBeInTheDocument();
+    expect(table.getAllByText(/\$68,400/i).length).toBeGreaterThanOrEqual(1);
+    expect(table.getByText("Proposal & Quoting")).toBeInTheDocument();
+
+    // The same quote is also rendered as a card for narrow screens, so value,
+    // due date and actions never sit behind a horizontal scroll on a phone.
+    const cards = screen.getAllByRole('list').find((el) => el.className.includes('md:hidden'));
+    expect(cards).toBeTruthy();
+    expect(within(cards as HTMLElement).getByText("Coastal Pathway Solar Lighting")).toBeInTheDocument();
+    expect(within(cards as HTMLElement).getAllByText(/\$68,400/i).length).toBeGreaterThanOrEqual(1);
   });
 
   it('Test 2 — Clicking deal row opens Step 2 Deal Details workspace', () => {
@@ -62,8 +69,8 @@ describe('CRM Deals Global Table Suite (Step 6)', () => {
       </AppProvider>
     );
 
-    // Click deal row
-    const dealTitle = screen.getByText("Coastal Pathway Solar Lighting");
+    // Click deal row (desktop table)
+    const dealTitle = within(screen.getByRole('table')).getByText("Coastal Pathway Solar Lighting");
     fireEvent.click(dealTitle);
 
     // Step 2 Deal Details workspace opens
@@ -82,7 +89,7 @@ describe('CRM Deals Global Table Suite (Step 6)', () => {
     // Search filter
     const searchInput = screen.getByPlaceholderText(/Search (deals|quotes) or accounts/i);
     fireEvent.change(searchInput, { target: { value: "Coastal Pathway" } });
-    expect(screen.getByText("Coastal Pathway Solar Lighting")).toBeInTheDocument();
+    expect(within(screen.getByRole('table')).getByText("Coastal Pathway Solar Lighting")).toBeInTheDocument();
 
     // Search with non-matching term
     fireEvent.change(searchInput, { target: { value: "NonExistentDealXYZ" } });
@@ -97,7 +104,7 @@ describe('CRM Deals Global Table Suite (Step 6)', () => {
       </AppProvider>
     );
 
-    const followUpBtn = screen.getByRole('button', { name: /Follow Up/i });
+    const followUpBtn = screen.getAllByRole('button', { name: /Follow up/i })[0];
     expect(followUpBtn).toBeInTheDocument();
     fireEvent.click(followUpBtn);
 

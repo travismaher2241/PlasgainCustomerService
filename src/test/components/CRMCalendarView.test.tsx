@@ -24,8 +24,8 @@ const CalendarTestHarness: React.FC<{ seedTomorrowMeeting?: boolean }> = ({ seed
               type: 'Meeting',
               dueDate: tomorrowStr,
               dueTime: '10:00 AM',
-              status: 'pending',
-              priority: 'high',
+              status: 'To Do',
+              priority: 'High',
               accountName: 'ATEC Group',
               meetingFormat: 'In Person',
               location: 'ATEC Head Office, Brisbane',
@@ -56,7 +56,7 @@ describe('CRMCalendarView Component', () => {
     );
 
     // Title and subtext
-    expect(screen.getByText(/sales & customer calendar/i)).toBeInTheDocument();
+    expect(screen.getByText(/^calendar$/i)).toBeInTheDocument();
     
     // Exact Schedule Meeting CTA
     const scheduleBtn = screen.getByRole('button', { name: /^schedule meeting$/i });
@@ -107,13 +107,13 @@ describe('CRMCalendarView Component', () => {
 
     // Banner and meeting should be visible
     await waitFor(() => {
-      expect(screen.getByText(/next-day meeting preparation ready/i)).toBeInTheDocument();
+      expect(screen.getByText(/ready for tomorrow/i)).toBeInTheDocument();
       expect(screen.getAllByText(/Strategic Account Review & Product Replenishment/i).length).toBeGreaterThanOrEqual(1);
       expect(screen.getAllByText(/ATEC Group/i).length).toBeGreaterThanOrEqual(1);
     });
 
     // Preparation plan button inside the banner
-    const prepBtns = screen.getAllByRole('button', { name: /view prep plan/i });
+    const prepBtns = screen.getAllByRole('button', { name: /open briefing/i });
     expect(prepBtns.length).toBeGreaterThanOrEqual(1);
   });
 

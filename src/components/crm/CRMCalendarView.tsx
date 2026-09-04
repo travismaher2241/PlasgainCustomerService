@@ -19,6 +19,7 @@ import {
   Check
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
+import { formatAuDateLong, formatAuTime, formatAuDate } from "../../utils/dateUtils";
 import { CRMTask, TaskType } from "../../types/crm";
 import { getNextDayMeetings, getTomorrowDateString } from "../../utils/crmMeetingPreparation";
 
@@ -224,7 +225,7 @@ export const CRMCalendarView: React.FC = () => {
         <div>
           <h2 className="text-lg sm:text-xl font-bold text-body flex items-center gap-2">
             <CalendarIcon className="w-5 h-5 text-brand-deep" />
-            <span>Sales &amp; Customer Calendar</span>
+            <span>Calendar</span>
           </h2>
           <p className="text-spec text-ink-dim">
             Track customer meetings, follow-ups, scheduled calls, and quote milestones.
@@ -261,15 +262,16 @@ export const CRMCalendarView: React.FC = () => {
               </div>
               <div>
                 <span className="text-xs font-bold uppercase text-brand-deep tracking-wider block">
-                  Next-Day Meeting Preparation Ready
+                  Ready for tomorrow
                 </span>
                 <p className="text-sm font-bold text-body">
-                  Tomorrow ({tomorrowStr}): {tomorrowMeetings.length} Customer Meeting{tomorrowMeetings.length > 1 ? "s" : ""} Scheduled
+                  {formatAuDateLong(tomorrowStr)} &mdash; {tomorrowMeetings.length} meeting
+                  {tomorrowMeetings.length === 1 ? "" : "s"}
                 </p>
               </div>
             </div>
-            <span className="text-xs font-medium text-ink-dim bg-white px-2.5 py-1 rounded-full border border-line">
-              Preparation plans generated automatically
+            <span className="text-xs font-medium text-ink-dim">
+              A briefing is ready for each one
             </span>
           </div>
 
@@ -277,34 +279,36 @@ export const CRMCalendarView: React.FC = () => {
             {tomorrowMeetings.map((m) => (
               <div
                 key={m.id}
-                className="p-3 bg-white rounded-edge border border-line shadow-2xs flex items-center justify-between gap-3 hover:border-brand-deep transition-all"
+                className="p-3 bg-white rounded-edge border border-line shadow-2xs flex flex-col gap-2.5 hover:border-brand-deep transition-all"
               >
+                {/*
+                  Stacked. As a single flex row the account name collapsed to
+                  one word per line beside the button, with the separator and
+                  clock icon stranded mid-column.
+                */}
                 <div className="space-y-1 min-w-0">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="font-bold text-sm text-body truncate">
+                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                    <span className="font-bold text-sm text-body break-words">
                       {m.title}
                     </span>
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge whitespace-nowrap shrink-0">
                       {m.meetingFormat || "In Person"}
                     </span>
                   </div>
-                  <p className="text-xs text-ink-dim flex items-center gap-2">
-                    <span className="font-semibold text-body">{m.accountName}</span>
-                    <span>•</span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {m.dueTime || "Time TBD"}
-                    </span>
+                  <p className="text-xs text-ink-dim break-words">{m.accountName}</p>
+                  <p className="text-xs text-ink-dim flex items-center gap-1">
+                    <Clock className="w-3 h-3 shrink-0" />
+                    <span>{m.dueTime ? formatAuTime(m.dueTime) : "Time to be confirmed"}</span>
                   </p>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => openMeetingPrep(m.id)}
-                  className="px-3 py-1.5 bg-brand-deep hover:bg-brand text-white text-xs font-bold rounded-edge shadow-xs cursor-pointer shrink-0 flex items-center gap-1 transition-colors"
+                  className="w-full sm:w-auto sm:self-start min-h-[44px] px-3 bg-brand-deep hover:bg-brand text-white text-spec font-bold rounded-edge shadow-xs cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
                 >
                   <FileText className="w-3.5 h-3.5" />
-                  <span>View Prep Plan</span>
+                  <span>Open briefing</span>
                 </button>
               </div>
             ))}

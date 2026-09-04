@@ -36,6 +36,7 @@ import {
 import { useApp } from "../../context/AppContext";
 import { CRMOpportunity, DealHealthRating, OpportunityProductLine } from "../../types/crm";
 import { resolveQuotingStage } from "../../data/crmMockData";
+import { formatAuDate } from "../../utils/dateUtils";
 import { CustomerFollowUpModal } from "../CustomerFollowUpModal";
 import { CRMDealDetailsWorkspace } from "./CRMDealDetailsWorkspace";
 
@@ -280,7 +281,10 @@ export const CRMPipelineView: React.FC = () => {
         </div>
       ) : (
         <div className="bg-white rounded-panel border border-line shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Desktop table. Below md this became a 1,012px table inside a ~364px
+              container, hiding value, due date, health and every row action
+              behind an unsignposted sideways scroll — see the card list below. */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-spec">
               <thead>
                 <tr className="border-b border-line bg-paper/60 text-ink-dim text-xs font-bold uppercase tracking-wider">
@@ -338,9 +342,9 @@ export const CRMPipelineView: React.FC = () => {
                         <Clock className="w-3 h-3 text-ink-dim" />
                         <span>
                           {deal.nextActionDate
-                            ? `Follow-up: ${deal.nextActionDate}`
+                            ? `Follow-up ${formatAuDate(deal.nextActionDate)}`
                             : deal.expectedCloseDate
-                            ? `Target Close: ${deal.expectedCloseDate}`
+                            ? `Target close ${formatAuDate(deal.expectedCloseDate)}`
                             : "Follow-up required"}
                         </span>
                       </div>
@@ -421,6 +425,90 @@ export const CRMPipelineView: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile card list — same data, no sideways scrolling. */}
+          <ul className="md:hidden divide-y divide-line">
+            {filteredDeals.map((deal) => (
+              <li key={deal.id}>
+                <div
+                  onClick={() => setSelectedCrmOpportunityId(deal.id)}
+                  className="p-4 space-y-2.5 cursor-pointer hover:bg-raised/60 transition-colors"
+                >
+                  <div className="space-y-1 min-w-0">
+                    <h3 className="font-bold text-spec text-ink leading-snug break-words">{deal.name}</h3>
+                    <p className="text-xs text-ink-dim break-words">{deal.accountName || "Direct customer"}</p>
+                  </div>
+
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="font-mono font-bold text-base text-ink">
+                      ${(deal.dealValue || 0).toLocaleString()}
+                    </span>
+                    <span className="text-[11px] text-ink-dim uppercase tracking-wide">ex GST</span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-xs font-bold px-2 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge">
+                      {deal.stageName}
+                    </span>
+                    {getHealthBadge(deal.dealHealth)}
+                    {(deal.quoteNumber || deal.ostendoQuoteRef) && (
+                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-paper border border-line text-ink-dim">
+                        {deal.quoteNumber || deal.ostendoQuoteRef}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="text-xs text-ink-dim space-y-0.5">
+                    <div className="flex items-start gap-1.5">
+                      <Mail className="w-3.5 h-3.5 text-brand-deep shrink-0 mt-0.5" />
+                      <span className="text-ink break-words">{deal.nextAction || "Follow up on this quote"}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-3 h-3 shrink-0" />
+                      <span>
+                        {deal.nextActionDate
+                          ? `Follow-up ${formatAuDate(deal.nextActionDate)}`
+                          : deal.expectedCloseDate
+                          ? `Target close ${formatAuDate(deal.expectedCloseDate)}`
+                          : "Follow-up required"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="px-4 pb-4 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFollowUpModalProps({
+                        isOpen: true,
+                        dealId: deal.id,
+                        accountId: deal.accountId,
+                        initialContactName: deal.primaryContactName,
+                        initialCompanyName: deal.accountName,
+                        initialProjectName: deal.name,
+                        initialQuoteRef: deal.ostendoQuoteRef || deal.quoteNumber || "",
+                        initialProducts: (deal.products || []).map((p) => p.productName || p.productCode),
+                        initialContactEmail: deal.primaryContactEmail
+                      });
+                    }}
+                    className="flex-1 min-h-[44px] px-3 text-spec font-bold text-brand-deep bg-brand-wash hover:bg-brand-edge/30 rounded-edge border border-brand-edge flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Follow up</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openQuickLog({ type: "call", accountId: deal.accountId, opportunityId: deal.id })}
+                    className="flex-1 min-h-[44px] px-3 text-spec font-bold text-ink bg-paper hover:bg-line rounded-edge border border-line flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-ink-dim" />
+                    <span>Log call</span>
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

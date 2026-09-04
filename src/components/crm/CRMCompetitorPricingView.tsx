@@ -27,7 +27,7 @@ import {
   CompetitorSourceType,
   CompetitorPricingStatus
 } from "../../types/crm";
-import { getLocalDateInputValue } from "../../utils/dateUtils";
+import { getLocalDateInputValue, formatAuDate } from "../../utils/dateUtils";
 
 export const CRMCompetitorPricingView: React.FC = () => {
   const {
@@ -190,7 +190,7 @@ export const CRMCompetitorPricingView: React.FC = () => {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-body tracking-tight">Competitor pricing</h1>
           <p className="text-spec text-ink-dim mt-0.5">
-            {filteredRecords.length} records · Verified commercial market benchmarks and competitive pricing intelligence.
+            {filteredRecords.length} {filteredRecords.length === 1 ? "record" : "records"} · Verified commercial market benchmarks and competitive pricing intelligence.
           </p>
         </div>
 
@@ -279,7 +279,9 @@ export const CRMCompetitorPricingView: React.FC = () => {
         </div>
       ) : (
         <div className="bg-white rounded-panel border border-line shadow-2xs overflow-hidden">
-          <div className="overflow-x-auto">
+          {/* Desktop table. Below md this was a 798px table in a ~364px container,
+              putting the Actions column off screen entirely. */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-spec">
               <thead>
                 <tr className="border-b border-line bg-paper/60 text-ink-dim text-xs font-bold uppercase tracking-wider">
@@ -314,7 +316,7 @@ export const CRMCompetitorPricingView: React.FC = () => {
                     {/* SOURCE & DATE */}
                     <td className="py-3 px-4 min-w-[160px]">
                       <div className="text-xs font-medium text-body">{record.sourceType}</div>
-                      <div className="text-[11px] text-ink-dim font-mono">{record.observedDate}</div>
+                      <div className="text-[11px] text-ink-dim">{formatAuDate(record.observedDate)}</div>
                     </td>
 
                     {/* ACCOUNT CONTEXT */}
@@ -368,6 +370,53 @@ export const CRMCompetitorPricingView: React.FC = () => {
               </tbody>
             </table>
           </div>
+
+          {/* Mobile card list — same data and the same actions, no sideways scroll. */}
+          <ul className="md:hidden divide-y divide-line">
+            {filteredRecords.map((record) => (
+              <li key={record.id} className="p-4 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-bold text-spec text-ink break-words">{record.competitorName}</div>
+                    <div className="text-xs text-ink-dim break-words">{record.competitorProduct}</div>
+                  </div>
+                  <div className="font-mono font-bold text-base text-ink shrink-0">
+                    ${(record.price || 0).toLocaleString()}
+                  </div>
+                </div>
+
+                <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                  <dt className="text-ink-faint">Basis</dt>
+                  <dd className="text-ink text-right">{record.priceBasis} &middot; {record.gstStatus}</dd>
+                  <dt className="text-ink-faint">Source</dt>
+                  <dd className="text-ink text-right break-words">{record.sourceType}</dd>
+                  <dt className="text-ink-faint">Seen</dt>
+                  <dd className="text-ink text-right">{formatAuDate(record.observedDate)}</dd>
+                  <dt className="text-ink-faint">Customer</dt>
+                  <dd className="text-ink text-right break-words">{record.accountName || "Market observation"}</dd>
+                </dl>
+
+                <div className="flex items-center gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenEdit(record)}
+                    className="flex-1 min-h-[44px] px-3 text-spec font-bold text-ink bg-paper hover:bg-line rounded-edge border border-line flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-ink-dim" />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleSuperseded(record)}
+                    className="flex-1 min-h-[44px] px-3 text-spec font-bold text-ink bg-paper hover:bg-line rounded-edge border border-line flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
+                  >
+                    <Archive className="w-3.5 h-3.5 text-ink-dim" />
+                    <span>{record.status === "Superseded" ? "Mark current" : "Supersede"}</span>
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

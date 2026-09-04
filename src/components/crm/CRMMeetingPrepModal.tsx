@@ -18,6 +18,7 @@ import {
   Video
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
+import { formatAuDateTime } from "../../utils/dateUtils";
 import { generateMeetingPreparationPlan } from "../../utils/crmMeetingPreparation";
 
 export const CRMMeetingPrepModal: React.FC = () => {
@@ -64,27 +65,27 @@ export const CRMMeetingPrepModal: React.FC = () => {
     const fullText = `=== MEETING PREPARATION PLAN ===
 Meeting: ${prepPlan.meetingTitle}
 Account: ${prepPlan.account?.name || "Customer"}
-Date & Time: ${prepPlan.meetingDate} ${prepPlan.meetingTime || ""} (${prepPlan.meetingFormat || "In Person"})
+When: ${formatAuDateTime(prepPlan.meetingDate, prepPlan.meetingTime)} (${prepPlan.meetingFormat || "In Person"})
 Location: ${prepPlan.location || "N/A"}
 Attendees: ${participantsList}
 
-EXECUTIVE BRIEFING:
+BRIEFING:
 ${prepPlan.executiveBriefing}
 
 MEETING AGENDA:
 ${prepPlan.agendaItems.map((item, idx) => `${idx + 1}. ${item}`).join("\n")}
 
-ACTIONABLE TALKING POINTS:
+TALKING POINTS:
 ${talkingPointsList}
 
-STRATEGIC QUESTIONS:
+QUESTIONS WORTH ASKING:
 ${questionsList}
 
-${meetingNotes ? `Private Notes:\n${meetingNotes}` : ""}`;
+${meetingNotes ? `YOUR NOTES:\n${meetingNotes}` : ""}`;
 
     navigator.clipboard.writeText(fullText).then(() => {
       setCopied(true);
-      showToast("Meeting preparation plan copied to clipboard", "success");
+      showToast("Briefing copied.", "success");
       setTimeout(() => setCopied(false), 2000);
     });
   };
@@ -109,34 +110,38 @@ ${meetingNotes ? `Private Notes:\n${meetingNotes}` : ""}`;
     >
       <div className="bg-white rounded-2xl max-w-2xl w-full p-5 sm:p-6 shadow-2xl space-y-4 my-6 max-h-[92vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-line pb-3">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 bg-brand-wash text-brand-deep rounded-edge">
+        {/*
+          The meta line below is a stacked list, not a bullet-joined flex row.
+          As a row it collapsed on a phone into four one-word-per-line columns —
+          the account name over six lines and the date split as "2026- / 09-05 /
+          at / 10:30" — with the separators stranded between them.
+        */}
+        <div className="flex items-start justify-between gap-3 border-b border-line pb-3">
+          <div className="flex items-start gap-2.5 min-w-0">
+            <div className="p-2 bg-brand-wash text-brand-deep rounded-edge shrink-0">
               <Calendar className="w-5 h-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 id="meeting-prep-title" className="text-base font-bold text-body">
+            <div className="min-w-0">
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <h3 id="meeting-prep-title" className="text-base font-bold text-body break-words">
                   {prepPlan.meetingTitle}
                 </h3>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge whitespace-nowrap shrink-0">
                   {prepPlan.meetingFormat || "In Person"}
                 </span>
               </div>
-              <p className="text-spec text-ink-dim flex items-center gap-2">
-                <span>{prepPlan.account?.name}</span>
-                <span>•</span>
-                <span>{prepPlan.meetingDate} {prepPlan.meetingTime && `at ${prepPlan.meetingTime}`}</span>
+              <div className="text-spec text-ink-dim mt-1 space-y-0.5">
+                <div className="break-words">{prepPlan.account?.name}</div>
+                <div className="font-medium text-ink">
+                  {formatAuDateTime(prepPlan.meetingDate, prepPlan.meetingTime)}
+                </div>
                 {prepPlan.location && (
-                  <>
-                    <span>•</span>
-                    <span className="flex items-center gap-0.5">
-                      <MapPin className="w-3 h-3" />
-                      {prepPlan.location}
-                    </span>
-                  </>
+                  <div className="flex items-start gap-1 break-words">
+                    <MapPin className="w-3 h-3 shrink-0 mt-0.5" />
+                    <span>{prepPlan.location}</span>
+                  </div>
                 )}
-              </p>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-1.5">
@@ -147,7 +152,7 @@ ${meetingNotes ? `Private Notes:\n${meetingNotes}` : ""}`;
               title="Copy meeting briefing"
             >
               {copied ? <Check className="w-4 h-4 text-green-700" /> : <Copy className="w-4 h-4" />}
-              <span className="hidden sm:inline">{copied ? "Copied" : "Copy Briefing"}</span>
+              <span className="hidden sm:inline">{copied ? "Copied" : "Copy briefing"}</span>
             </button>
             <button
               type="button"
@@ -164,30 +169,30 @@ ${meetingNotes ? `Private Notes:\n${meetingNotes}` : ""}`;
         <div className="p-4 bg-brand-wash/40 border border-brand-edge/60 rounded-edge space-y-1.5 text-spec">
           <div className="flex items-center gap-1.5 font-bold text-brand-deep uppercase text-xs tracking-wider">
             <Sparkles className="w-3.5 h-3.5" />
-            <span>Colleague Executive Briefing</span>
+            <span>Briefing</span>
           </div>
           <div className="text-body leading-relaxed space-y-2 whitespace-pre-line font-medium text-spec">
             {prepPlan.executiveBriefing}
           </div>
         </div>
 
-        {/* 2. Participant Intelligence & Personal Rapport Points */}
+        {/* 2. Participants */}
         {prepPlan.participantContexts.length > 0 && (
           <div className="p-3.5 bg-paper border border-line rounded-edge space-y-2.5 text-spec">
             <div className="text-xs font-bold uppercase text-ink-dim tracking-wider flex items-center gap-1.5">
               <Users className="w-3.5 h-3.5 text-brand-deep" />
-              <span>Participant Intelligence &amp; Personal Rapport ({prepPlan.participantContexts.length})</span>
+              <span>Who you&rsquo;re meeting ({prepPlan.participantContexts.length})</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {prepPlan.participantContexts.map((pc) => (
                 <div key={pc.contact.id} className="p-2.5 bg-white border border-line rounded space-y-1.5 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-body">
+                  {/* Stacked, not a two-column row: a long name and a long job
+                      title each wrapped to three lines side by side. */}
+                  <div className="min-w-0">
+                    <div className="font-bold text-spec text-ink break-words">
                       {pc.contact.firstName} {pc.contact.lastName}
-                    </span>
-                    <span className="text-[10px] text-ink-dim bg-paper px-1.5 py-0.5 rounded border border-line">
-                      {pc.role}
-                    </span>
+                    </div>
+                    <div className="text-[11px] text-ink-dim break-words mt-0.5">{pc.role}</div>
                   </div>
                   {pc.rapportPoints.length > 0 ? (
                     <div className="space-y-1 pt-1 border-t border-line/50 text-ink-dim">
@@ -198,7 +203,7 @@ ${meetingNotes ? `Private Notes:\n${meetingNotes}` : ""}`;
                       ))}
                     </div>
                   ) : (
-                    <p className="text-ink-faint italic text-[11px]">No specific rapport events flagged.</p>
+                    <p className="text-ink-faint italic text-[11px]">Nothing personal recorded yet.</p>
                   )}
                 </div>
               ))}
@@ -271,7 +276,7 @@ ${meetingNotes ? `Private Notes:\n${meetingNotes}` : ""}`;
           <div className="p-3 bg-white border border-line rounded-edge space-y-2 text-spec">
             <div className="text-xs font-bold uppercase text-ink-dim tracking-wider flex items-center gap-1.5">
               <Briefcase className="w-3.5 h-3.5 text-brand-deep" />
-              <span>Active Commercial Quotes &amp; Proposals</span>
+              <span>Open quotes</span>
             </div>
             {prepPlan.openQuotes.map((q) => (
               <div key={q.quoteNumber} className="p-2.5 bg-paper rounded border border-line text-xs space-y-1">
@@ -293,12 +298,12 @@ ${meetingNotes ? `Private Notes:\n${meetingNotes}` : ""}`;
         <div className="p-3.5 bg-paper border border-line rounded-edge space-y-2">
           <div className="text-xs font-bold uppercase text-ink-dim tracking-wider flex items-center gap-1.5">
             <Lightbulb className="w-3.5 h-3.5 text-brand-deep" />
-            <span>Recommended Meeting Agenda &amp; Actionable Talking Points</span>
+            <span>Suggested agenda and talking points</span>
           </div>
 
           {/* Agenda Items */}
           <div className="p-2.5 bg-white border border-line rounded space-y-1 text-xs">
-            <span className="font-bold uppercase text-ink-dim text-[10px] block">Structured Agenda</span>
+            <span className="font-bold uppercase text-ink-dim text-[10px] block">Agenda</span>
             {prepPlan.agendaItems.map((item, idx) => (
               <div key={idx} className="flex items-start gap-2 text-body font-medium">
                 <span className="text-brand-deep font-bold shrink-0">{idx + 1}.</span>
@@ -359,7 +364,7 @@ ${meetingNotes ? `Private Notes:\n${meetingNotes}` : ""}`;
         {/* Private Scratchpad */}
         <div>
           <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
-            Private Notes / Post-Meeting Action Scratchpad
+            Your notes
           </label>
           <textarea
             value={meetingNotes}
@@ -386,7 +391,7 @@ ${meetingNotes ? `Private Notes:\n${meetingNotes}` : ""}`;
               className="px-3 py-2 bg-paper hover:bg-line text-body text-spec font-bold rounded-edge border border-line cursor-pointer flex items-center gap-1.5"
             >
               {copied ? <Check className="w-4 h-4 text-green-700" /> : <Copy className="w-4 h-4" />}
-              <span>{copied ? "Copied" : "Copy Briefing"}</span>
+              <span>{copied ? "Copied" : "Copy briefing"}</span>
             </button>
             <button
               type="button"
@@ -394,7 +399,7 @@ ${meetingNotes ? `Private Notes:\n${meetingNotes}` : ""}`;
               className="px-4 py-2 bg-brand-deep hover:bg-brand text-white text-spec font-bold rounded-edge shadow-xs cursor-pointer flex items-center gap-1.5 transition-colors"
             >
               <FileText className="w-3.5 h-3.5" />
-              <span>Log Meeting Outcome</span>
+              <span>Log the outcome</span>
             </button>
           </div>
         </div>

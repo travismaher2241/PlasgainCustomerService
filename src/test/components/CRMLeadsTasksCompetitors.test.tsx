@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CRMLeadsView } from '../../components/crm/CRMLeadsView';
 import { CRMTasksActivitiesView } from '../../components/crm/CRMTasksActivitiesView';
@@ -202,10 +202,12 @@ describe("CRM Leads, Tasks, Activity & Competitor Pricing Suite (Step 6)", () =>
 
     // Active record visible
     expect(screen.getAllByText("Alpha Lighting").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("Alpha 60W Solar Column")).toBeInTheDocument();
-    expect(screen.getByText(/\$2,100/i)).toBeInTheDocument();
-    expect(screen.getByText("Per Unit")).toBeInTheDocument();
-    expect(screen.getByText("Ex GST")).toBeInTheDocument();
+    expect(within(screen.getByRole('table')).getByText("Alpha 60W Solar Column")).toBeInTheDocument();
+    // Rendered in both the desktop table and the mobile card list.
+    expect(screen.getAllByText(/\$2,100/i).length).toBeGreaterThanOrEqual(1);
+    // Basis and GST appear in the table cell and again in the card list.
+    expect(screen.getAllByText(/Per Unit/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/Ex GST/i).length).toBeGreaterThanOrEqual(1);
 
     // Superseded record filtered out by default
     expect(screen.queryByText("Beta Series (Superseded Model)")).not.toBeInTheDocument();
@@ -215,6 +217,6 @@ describe("CRM Leads, Tasks, Activity & Competitor Pricing Suite (Step 6)", () =>
     fireEvent.click(supersededFilterBtn);
 
     expect(screen.getAllByText("Beta Solar").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("Beta Series (Superseded Model)")).toBeInTheDocument();
+    expect(screen.getAllByText("Beta Series (Superseded Model)").length).toBeGreaterThanOrEqual(1);
   });
 });
