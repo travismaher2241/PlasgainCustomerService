@@ -152,7 +152,7 @@ export const SettingsView: React.FC = () => {
           </h1>
           <p className="text-spec text-ink-dim mt-0.5">
             {subTab === "general"
-              ? "User profile, cloud synchronization, document knowledge, and workspace administration."
+              ? "User profile, cloud synchronization, and workspace administration."
               : "Track all customer calls, record changes, stage moves, and user actions across the shared database."}
           </p>
         </div>

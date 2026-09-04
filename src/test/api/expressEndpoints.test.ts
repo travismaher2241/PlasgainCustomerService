@@ -97,7 +97,7 @@ describe('Non-AI endpoints still serve normally', () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
     expect(res.body.app).toBe('Plasgain Lighting Sales Copilot');
-    expect(res.body.knowledgeVersion).toBeDefined();
+    expect(res.body.knowledgeVersion).toBeUndefined();
     // With no key configured the app must not claim the AI is healthy.
     expect(res.body.ai.configured).toBe(false);
     expect(res.body.status).toBe('degraded');
