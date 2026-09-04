@@ -6,6 +6,7 @@ import {
   CRMActivity,
   CRMTask,
   PipelineConfig,
+  PipelineStageConfig,
   CompetitorPricingRecord,
   CompetitorPricingAlert
 } from "../types/crm";
@@ -51,3 +52,26 @@ export const INITIAL_ACTIVITIES: CRMActivity[] = [];
 export const INITIAL_TASKS: CRMTask[] = [];
 export const INITIAL_COMPETITOR_PRICING: CompetitorPricingRecord[] = [];
 export const INITIAL_COMPETITOR_ALERTS: CompetitorPricingAlert[] = [];
+
+/**
+ * Resolves the stage a newly created quote belongs in.
+ *
+ * The three "New quote" paths used to hard-code stageId "stage-proposal" with
+ * stageName "Proposal & Quoting" — a pair that exists in neither pipeline. The
+ * list rendered the stored name while the deal screen's stage <select>, bound to
+ * stageId, found no matching option and fell back to the first, so one record
+ * reported two different stages. Both values now come from the pipeline config.
+ */
+export function resolveQuotingStage(pipelineId: string = "pipe-major-projects"): PipelineStageConfig {
+  const pipeline =
+    DEFAULT_PIPELINES.find((p) => p.id === pipelineId) ||
+    DEFAULT_PIPELINES.find((p) => p.isDefault) ||
+    DEFAULT_PIPELINES[0];
+
+  const stages = pipeline.stages;
+  return (
+    stages.find((s) => s.id === "stage-quote") ||
+    stages.find((s) => /quote|proposal|pricing/i.test(s.name)) ||
+    stages[0]
+  );
+}

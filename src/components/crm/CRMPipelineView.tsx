@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { CRMOpportunity, DealHealthRating, OpportunityProductLine } from "../../types/crm";
+import { resolveQuotingStage } from "../../data/crmMockData";
 import { CustomerFollowUpModal } from "../CustomerFollowUpModal";
 import { CRMDealDetailsWorkspace } from "./CRMDealDetailsWorkspace";
 
@@ -137,6 +138,7 @@ export const CRMPipelineView: React.FC = () => {
 
   const handleCreateDeal = (e: React.FormEvent) => {
     e.preventDefault();
+    const quotingStage = resolveQuotingStage("pipe-major-projects");
     if (!newDealForm.name.trim()) return;
 
     const acc = accounts.find((a) => a.id === newDealForm.accountId) || accounts[0];
@@ -154,8 +156,8 @@ export const CRMPipelineView: React.FC = () => {
       primaryContactPhone: matchedContact?.phone,
       opportunityOwner: currentUser.name,
       pipelineId: "pipe-major-projects",
-      stageId: "stage-proposal",
-      stageName: newDealForm.stageName || "Proposal & Quoting",
+      stageId: quotingStage.id,
+      stageName: quotingStage.name,
       dealValue: Number(newDealForm.dealValue) || 0,
       weightedValue: (Number(newDealForm.dealValue) || 0) * 0.5,
       probability: 50,

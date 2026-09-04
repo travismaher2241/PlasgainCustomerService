@@ -1865,7 +1865,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     let accountId = targetAccountId;
+    // Never let the name and the id describe different companies: whenever an
+    // existing account is linked, the name comes from that account.
     let accountName = lead.company;
+
+    if (accountId) {
+      const linked = accounts.find((a) => a.id === accountId);
+      if (linked) accountName = linked.name;
+    }
 
     if (!accountId) {
       // Check if account already exists
@@ -1879,10 +1886,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const newAcc: Account = {
           id: accountId,
           name: lead.company,
-          accountType: isCouncil ? "Council" : "Prospect",
+          // A converted lead has never bought anything, so it is a Prospect and
+          // is measured on the Prospect Stage scale. Council is a segment, not
+          // a type: typing it "Council" previously put brand-new prospects on
+          // the Customer Relationship scale instead.
+          accountType: "Prospect",
           status: "Prospect",
-          customerRelationshipStatus: isCouncil ? "Developing" : undefined,
-          prospectStage: isCouncil ? undefined : "Opportunity Identified",
+          customerRelationshipStatus: undefined,
+          prospectStage: "Opportunity Identified",
           industry: "Government & Public Infrastructure",
           customerSegment: isCouncil ? "Local Government / Council" : "Civil Contractor",
           territory: "QLD/NT",
@@ -1997,7 +2008,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       performedBy: currentUser.name
     });
 
-    showToast(`Lead successfully converted to Account, Contact, and Deal!`, "success");
+    showToast(`Converted "${lead.leadName}" — created the account, contact and quote under ${accountName}.`, "success");
     return { accountId: accountId!, contactId, oppId };
   };
 

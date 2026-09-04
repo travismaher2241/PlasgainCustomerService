@@ -65,6 +65,7 @@ import {
   CompetitorPricingStatus,
   AccountIntelligenceSummary
 } from "../../types/crm";
+import { resolveQuotingStage } from "../../data/crmMockData";
 import { getLocalDateInputValue } from "../../utils/dateUtils";
 import { sortActivitiesChronological, formatActivityTimestamp } from "../../utils/activityUtils";
 import { CRMContactModal } from "./CRMContactModal";
@@ -599,6 +600,7 @@ export const CRMAccountsView: React.FC = () => {
   // Handle New Deal Creation (Context preselected!)
   const handleCreateDealFromAccount = (e: React.FormEvent) => {
     e.preventDefault();
+    const quotingStage = resolveQuotingStage("pipe-major-projects");
     if (!selectedAccount || !newDealForm.name.trim() || newDealForm.dealValue === "" || isNaN(Number(newDealForm.dealValue))) return;
 
     const matchedContact = accountContacts.find((c) => c.id === newDealForm.primaryContactId) || accountContacts[0];
@@ -615,8 +617,8 @@ export const CRMAccountsView: React.FC = () => {
       primaryContactPhone: matchedContact?.phone,
       opportunityOwner: selectedAccount.accountOwner || currentUser.name,
       pipelineId: "pipe-major-projects",
-      stageId: "stage-proposal",
-      stageName: newDealForm.stageName || "Proposal & Quoting",
+      stageId: quotingStage.id,
+      stageName: quotingStage.name,
       dealValue: Number(newDealForm.dealValue) || 0,
       weightedValue: (Number(newDealForm.dealValue) || 0) * 0.5,
       probability: 50,

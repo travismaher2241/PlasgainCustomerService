@@ -102,6 +102,6 @@ describe('CRM Deals Global Table Suite (Step 6)', () => {
     fireEvent.click(followUpBtn);
 
     expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText(/Customer Follow-Up Generator/i)).toBeInTheDocument();
+    expect(screen.getByText(/Follow up on this quote/i)).toBeInTheDocument();
   });
 });

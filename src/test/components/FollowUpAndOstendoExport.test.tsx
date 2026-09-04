@@ -120,13 +120,13 @@ describe('CustomerFollowUpModal Component', () => {
       </AppProvider>
     );
 
-    expect(screen.getByText(/Customer Follow-Up Generator/i)).toBeInTheDocument();
-    expect(screen.getByText(/Day 7 Check-in/i)).toBeInTheDocument();
-    expect(screen.getByText(/Day 14 Technical/i)).toBeInTheDocument();
+    expect(screen.getByText(/Follow up on this quote/i)).toBeInTheDocument();
+    expect(screen.getByText(/In one week/i)).toBeInTheDocument();
+    expect(screen.getByText(/In two weeks/i)).toBeInTheDocument();
     expect(screen.getByText(/Tender Closing/i)).toBeInTheDocument();
 
     // Switch to Day 14
-    const day14Button = screen.getByText(/Day 14 Technical/i);
+    const day14Button = screen.getByText(/In two weeks/i);
     fireEvent.click(day14Button);
     expect(screen.getByDisplayValue(/Technical Review & Engineering Support/i)).toBeInTheDocument();
 

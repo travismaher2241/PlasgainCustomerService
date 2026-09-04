@@ -160,10 +160,11 @@ export const CRMLeadsView: React.FC = () => {
 
   const handleConvertLead = () => {
     if (!selectedLead) return;
-    const targetAccId = convertTargetAccountId || matchedAccountInfo?.account?.id;
-    convertLead(selectedLead.id, targetAccId);
+    // An empty selection means "create a new account" and must be honoured.
+    // Falling back to the fuzzy match here silently overrode that choice and
+    // filed the quote against a different customer.
+    convertLead(selectedLead.id, convertTargetAccountId || undefined);
     setIsConvertModalOpen(false);
-    showToast(`Lead converted to Deal and Account!`, "success");
   };
 
   return (

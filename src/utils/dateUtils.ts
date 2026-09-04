@@ -134,3 +134,94 @@ export function isDueWithinBusinessDays(
   const diff = getBusinessDaysDiff(targetDateInput, fromDateInput, timezone);
   return diff >= 0 && diff <= businessDaysThreshold;
 }
+
+/* ---------------------------------------------------------------------------
+   Display formatting.
+
+   Stored dates are ISO (YYYY-MM-DD) because that is what date inputs and
+   sorting need. They must never reach the screen in that form: the audit found
+   raw ISO dates on the calendar, the meeting card, both preparation plans, the
+   quotes table, the task list and the account header, alongside three other
+   formats elsewhere. Everything user-facing goes through the helpers below.
+--------------------------------------------------------------------------- */
+
+/** Parses "YYYY-MM-DD" as a local calendar date, not a UTC instant. */
+function parseCalendarDate(value?: string | Date | null): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return isNaN(value.getTime()) ? null : value;
+  const parts = String(value).split("T")[0].split("-");
+  if (parts.length === 3) {
+    const [y, m, d] = parts.map(Number);
+    if (y && m && d) {
+      const date = new Date(y, m - 1, d);
+      return isNaN(date.getTime()) ? null : date;
+    }
+  }
+  const fallback = new Date(value);
+  return isNaN(fallback.getTime()) ? null : fallback;
+}
+
+/** "8 Sep 2026". The default for anything a salesperson reads. */
+export function formatAuDate(value?: string | Date | null, fallback = ""): string {
+  const date = parseCalendarDate(value);
+  if (!date) return fallback || (typeof value === "string" ? value : "");
+  return new Intl.DateTimeFormat("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+  }).format(date);
+}
+
+/** "Tuesday 8 September 2026". For page headers only. */
+export function formatAuDateLong(value?: string | Date | null, fallback = ""): string {
+  const date = parseCalendarDate(value);
+  if (!date) return fallback || (typeof value === "string" ? value : "");
+  return new Intl.DateTimeFormat("en-AU", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  }).format(date);
+}
+
+/** "Tue 8 Sep". For dense rows where the year is implied. */
+export function formatAuDateShort(value?: string | Date | null, fallback = ""): string {
+  const date = parseCalendarDate(value);
+  if (!date) return fallback || (typeof value === "string" ? value : "");
+  return new Intl.DateTimeFormat("en-AU", {
+    weekday: "short",
+    day: "numeric",
+    month: "short"
+  }).format(date);
+}
+
+/**
+ * "9:30am". One time format across the app — the scheduler previously offered
+ * "09:30 AM" while the calendar card and preparation plan rendered "09:30".
+ * Accepts both, plus 24-hour values.
+ */
+export function formatAuTime(value?: string | null, fallback = ""): string {
+  if (!value) return fallback;
+  const raw = String(value).trim();
+  const match = raw.match(/^(\d{1,2}):(\d{2})\s*([AaPp][Mm])?$/);
+  if (!match) return raw;
+  let hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  const meridiem = match[3]?.toLowerCase();
+  if (meridiem === "pm" && hours < 12) hours += 12;
+  if (meridiem === "am" && hours === 12) hours = 0;
+  if (isNaN(hours) || isNaN(minutes)) return raw;
+  const suffix = hours >= 12 ? "pm" : "am";
+  const displayHour = hours % 12 === 0 ? 12 : hours % 12;
+  return minutes === 0
+    ? `${displayHour}${suffix}`
+    : `${displayHour}:${String(minutes).padStart(2, "0")}${suffix}`;
+}
+
+/** "8 Sep 2026 at 9:30am", or just the date when no time is held. */
+export function formatAuDateTime(dateValue?: string | Date | null, timeValue?: string | null): string {
+  const datePart = formatAuDate(dateValue);
+  const timePart = formatAuTime(timeValue || undefined);
+  if (!datePart) return timePart;
+  return timePart ? `${datePart} at ${timePart}` : datePart;
+}

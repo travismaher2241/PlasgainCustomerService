@@ -49,6 +49,7 @@ import {
   copyOstendoProductList
 } from "../../utils/ostendoExporter";
 import { sortActivitiesChronological } from "../../utils/activityUtils";
+import { getLocalDateInputValue, formatAuDate } from "../../utils/dateUtils";
 
 export type DealDetailsTab = "overview" | "products" | "quote" | "activity";
 
@@ -339,11 +340,20 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
 
   // Mark Won with PO Received
   const handleMarkWon = () => {
-    const wonStage = currentPipeline.stages[currentPipeline.stages.length - 1] || {
-      id: "stage-won",
-      name: "Closed Won",
-      probability: 100
-    };
+    // Resolve the won stage by identity, never by array position. The stage list
+    // ends with Closed Lost, so taking the last entry filed every won job as lost.
+    const wonStage =
+      currentPipeline.stages.find((s) => s.id === "stage-won") ||
+      currentPipeline.stages.find((s) => /\bwon\b/i.test(s.name)) ||
+      currentPipeline.stages.find((s) => s.probability === 100);
+
+    if (!wonStage) {
+      showToast(
+        `This pipeline has no "won" stage set up, so the quote was not moved. Record the outcome manually.`,
+        "error"
+      );
+      return;
+    }
 
     updateCrmOpportunity(deal.id, {
       quoteStatus: "PO Received",
@@ -351,11 +361,11 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
       stageName: wonStage.name,
       probability: 100,
       weightedValue: deal.dealValue,
-      latestActivity: "Purchase Order received! Deal marked Closed Won.",
-      latestActivityDate: new Date().toISOString().split("T")[0],
+      latestActivity: "Purchase order received. Quote marked as won.",
+      latestActivityDate: getLocalDateInputValue(new Date()),
       wonReason: "Accepted technical specification and competitive commercial offer."
     });
-    showToast("🏆 Purchase Order Received! Deal marked Closed Won!", "success");
+    showToast(`Purchase order received. Quote moved to ${wonStage.name}.`, "success");
   };
 
   // Export full deal CSV

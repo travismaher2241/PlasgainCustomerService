@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { CRMOpportunity } from "../types/crm";
+import { resolveQuotingStage } from "../data/crmMockData";
 
 export const HomeDashboard: React.FC = () => {
   const {
@@ -81,6 +82,7 @@ export const HomeDashboard: React.FC = () => {
 
   const handleCreateQuote = (e: React.FormEvent) => {
     e.preventDefault();
+    const quotingStage = resolveQuotingStage("pipe-major-projects");
     const acc = accounts.find((a) => a.id === newQuoteForm.accountId) || accounts[0];
     if (!acc || !newQuoteForm.name.trim() || newQuoteForm.dealValue === "" || isNaN(Number(newQuoteForm.dealValue))) return;
 
@@ -98,8 +100,8 @@ export const HomeDashboard: React.FC = () => {
       primaryContactPhone: matchedContact?.phone,
       opportunityOwner: acc.accountOwner || currentUser.name,
       pipelineId: "pipe-major-projects",
-      stageId: "stage-proposal",
-      stageName: "Proposal & Quoting",
+      stageId: quotingStage.id,
+      stageName: quotingStage.name,
       dealValue: Number(newQuoteForm.dealValue) || 0,
       weightedValue: (Number(newQuoteForm.dealValue) || 0) * 0.5,
       probability: 50,
