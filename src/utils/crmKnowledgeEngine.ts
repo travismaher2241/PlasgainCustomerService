@@ -119,18 +119,23 @@ export function extractCandidateNotableEvents(
  * Extract discrete CRM Knowledge items from activity notes without fabrication.
  */
 export function extractCrmKnowledge(
-  activity: CRMActivity
+  activity: CRMActivity,
+  contacts?: CRMContact[]
 ): CRMKnowledgeItem[] {
   const content = `${activity.description || ""} ${(activity as any).notes || ""} ${activity.outcome || ""}`.trim();
   if (!content || content.length < 15) return [];
 
   const items: CRMKnowledgeItem[] = [];
   const accountId = activity.accountId || "";
-  const contactIds = activity.contactIds && activity.contactIds.length > 0
+  let contactIds = activity.contactIds && activity.contactIds.length > 0
     ? activity.contactIds
     : activity.contactId
     ? [activity.contactId]
     : [];
+
+  if (contactIds.length === 0 && contacts && contacts.length > 0) {
+    contactIds = contacts.map((c) => c.id);
+  }
 
   const activityDate = activity.timestamp ? activity.timestamp.split("T")[0] : new Date().toISOString().split("T")[0];
 

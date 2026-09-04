@@ -144,10 +144,10 @@ export function detectDuplicateAccount(
  * Detect Duplicate Contacts
  */
 export function detectDuplicateContact(
-  candidate: { email: string; phone?: string; name: string; accountId?: string },
+  candidate: { email?: string; phone?: string; name: string; accountId?: string },
   existingContacts: CRMContact[]
 ): DuplicateMatchResult<CRMContact> | null {
-  const normEmail = normalizeEmail(candidate.email);
+  const normEmail = candidate.email ? normalizeEmail(candidate.email) : "";
   const normPhone = candidate.phone ? normalizePhone(candidate.phone) : "";
   const normName = candidate.name.toLowerCase().trim();
 

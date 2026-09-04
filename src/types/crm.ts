@@ -97,7 +97,7 @@ export interface Account {
   tradingName?: string;
   accountType: AccountType;
   status: AccountStatus;
-  industry: string;
+  industry?: string;
   customerSegment?: string;
   companySize?: string;
   abn?: string;
@@ -124,9 +124,11 @@ export interface Account {
   }>;
   territory: "NSW/ACT" | "VIC/TAS" | "QLD/NT" | "WA" | "SA" | "National";
   accountOwner: string;
-  leadSource: string;
-  createdDate: string;
-  lastInteractionDate: string;
+  leadSource?: string;
+  createdDate?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  lastInteractionDate?: string;
   nextScheduledInteraction?: string;
   nextAction?: string;
   nextActionDate?: string;
@@ -135,7 +137,7 @@ export interface Account {
   // Legacy deprecated fields:
   relationshipHealth?: RelationshipHealth;
   healthReasons?: string[];
-  tags: string[];
+  tags?: string[];
   notes?: string;
   customFields?: Record<string, any>;
   metrics?: {
@@ -318,33 +320,35 @@ export interface CRMOpportunity {
   name: string;
   accountId: string;
   accountName: string;
-  primaryContactId: string;
-  primaryContactName: string;
+  primaryContactId?: string;
+  primaryContactName?: string;
   primaryContactEmail?: string;
   primaryContactPhone?: string;
   additionalStakeholderIds?: string[];
-  opportunityOwner: string;
-  pipelineId: string;
-  stageId: string;
-  stageName: string;
+  opportunityOwner?: string;
+  assignedTo?: string;
+  pipelineId?: string;
+  stageId?: string;
+  stageName?: string;
+  stage?: string;
   dealValue: number;
   dealValueBasis?: "Known" | "Estimate" | "Unknown";
   isDraft?: boolean;
   totalCostValue?: number;
   grossMarginPercent?: number;
-  weightedValue: number;
-  probability: number;
-  forecastCategory: ForecastCategory;
-  expectedCloseDate: string;
-  products: OpportunityProductLine[];
-  projectApplication: string;
-  location: string;
+  weightedValue?: number;
+  probability?: number;
+  forecastCategory?: ForecastCategory;
+  expectedCloseDate?: string;
+  products?: OpportunityProductLine[];
+  projectApplication?: string;
+  location?: string;
   windRegion?: "Region A" | "Region B" | "Region C" | "Region D";
   foundationType?: "Direct Burial" | "Base Plate (Ragbolt)";
-  customerNeed: string;
-  keyRequirements: string[];
+  customerNeed?: string;
+  keyRequirements?: string[];
   competitors?: string[];
-  source: string;
+  source?: string;
   quoteNumber?: string;
   ostendoQuoteRef?: string;
   quoteRevision?: string;
@@ -353,15 +357,15 @@ export interface CRMOpportunity {
   quoteSentDate?: string;
   quoteIssuedDate?: string;
   quoteExpiryDate?: string;
-  latestActivity: string;
-  latestActivityDate: string;
-  nextAction: string;
-  nextActionDate: string;
-  daysInCurrentStage: number;
-  totalDealAgeDays: number;
-  dealHealth: DealHealthRating;
-  dealHealthReasons: string[];
-  notes: string;
+  latestActivity?: string;
+  latestActivityDate?: string;
+  nextAction?: string;
+  nextActionDate?: string;
+  daysInCurrentStage?: number;
+  totalDealAgeDays?: number;
+  dealHealth?: DealHealthRating;
+  dealHealthReasons?: string[];
+  notes?: string;
   attachedDocumentIds?: string[];
   rawEnquiryText?: string;
   analysis?: Record<string, unknown>;
@@ -383,7 +387,7 @@ export interface CRMActivity {
   id: string;
   type: ActivityType;
   title: string;
-  description: string;
+  description?: string;
   accountId?: string;
   accountName?: string;
   contactId?: string;
@@ -392,7 +396,8 @@ export interface CRMActivity {
   participants?: ActivityParticipant[];
   opportunityId?: string;
   opportunityName?: string;
-  performedBy: string;
+  performedBy?: string;
+  user?: string;
   authorId?: string;
   isImmutable?: boolean;
   outcome?: string;
@@ -416,6 +421,7 @@ export type CRMKnowledgeCategory =
   | "Technical & Specification"
   | "Product & Pole Preference"
   | "Decision & Criteria"
+  | "Decision Criteria & Timeline"
   | "Commercial & Budget"
   | "Commitment"
   | "Competitor Intelligence"

@@ -99,10 +99,10 @@ export const CRMCommandCenter: React.FC = () => {
       <div className="bg-white border-b border-line sticky top-0 z-20 shadow-2xs w-full min-w-0">
         <div className="max-w-7xl mx-auto px-2.5 sm:px-6 w-full min-w-0">
           <div className="flex items-center justify-between h-11 w-full min-w-0 gap-1.5 sm:gap-2">
-            {/* Unified Standardised CRM Navigation (PART A) */}
+            {/* Unified Standardised CRM Navigation */}
             <nav
               aria-label="CRM Navigation"
-              className="flex-1 flex items-center gap-1 sm:gap-1.5 py-1 min-w-0 overflow-visible md:overflow-x-auto md:scrollbar-none"
+              className="flex-1 flex items-center gap-1 sm:gap-1.5 py-1 min-w-0 overflow-x-auto scrollbar-none no-scrollbar flex-nowrap"
             >
               {/* 1. Today */}
               <button
@@ -113,7 +113,7 @@ export const CRMCommandCenter: React.FC = () => {
                   setActiveCRMTab("today");
                   setIsMoreMenuOpen(false);
                 }}
-                className={`flex-1 md:flex-initial h-8 px-2 sm:px-2.5 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                className={`h-8 px-2 sm:px-2.5 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
                   activeCRMTab === "today"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
@@ -143,7 +143,7 @@ export const CRMCommandCenter: React.FC = () => {
                   setActiveCRMTab("accounts");
                   setIsMoreMenuOpen(false);
                 }}
-                className={`flex-1 md:flex-initial h-8 px-2 sm:px-2.5 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                className={`h-8 px-2 sm:px-2.5 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
                   activeCRMTab === "accounts"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
@@ -157,19 +157,22 @@ export const CRMCommandCenter: React.FC = () => {
               <button
                 type="button"
                 role="tab"
+                aria-label="Outstanding Quotes"
                 aria-selected={activeCRMTab === "pipeline"}
                 onClick={() => {
                   setActiveCRMTab("pipeline");
                   setIsMoreMenuOpen(false);
                 }}
-                className={`flex-1 md:flex-initial h-8 px-2 sm:px-2.5 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                className={`h-8 px-2 sm:px-2.5 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
                   activeCRMTab === "pipeline"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
               >
                 <Kanban className="w-3.5 h-3.5 shrink-0" />
-                <span>Outstanding Quotes</span>
+                <span>
+                  <span className="hidden sm:inline">Outstanding </span>Quotes
+                </span>
                 {outstandingQuotesCount > 0 && (
                   <span
                     className={`px-1.5 py-0.2 rounded-full text-[10px] ${
@@ -252,16 +255,19 @@ export const CRMCommandCenter: React.FC = () => {
                 <TrendingUp className="w-3.5 h-3.5 shrink-0" />
                 <span>Competitors</span>
               </button>
+            </nav>
 
+            {/* Right actions: Mobile More Menu & Quick Log (Pinned, Never Clipped) */}
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               {/* Mobile More dropdown (< 768px) */}
-              <div className="relative md:hidden flex-1 shrink-0" ref={moreMenuRef}>
+              <div className="relative md:hidden shrink-0" ref={moreMenuRef}>
                 <button
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsMoreMenuOpen((prev) => !prev);
                   }}
-                  className={`w-full h-8 px-2 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap ${
+                  className={`h-8 px-2 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 cursor-pointer whitespace-nowrap shrink-0 ${
                     isMoreTabActive
                       ? "bg-brand-deep text-white shadow-xs"
                       : "text-ink-dim hover:text-ink hover:bg-paper border border-line"
@@ -284,7 +290,7 @@ export const CRMCommandCenter: React.FC = () => {
                 {isMoreMenuOpen && (
                   <div
                     onClick={(e) => e.stopPropagation()}
-                    className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-edge border border-line shadow-xl py-1 z-50 text-spec"
+                    className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-edge border border-line shadow-xl py-1 z-50 text-spec animate-in fade-in zoom-in-95 duration-100"
                   >
                     <button
                       type="button"
@@ -352,17 +358,16 @@ export const CRMCommandCenter: React.FC = () => {
                   </div>
                 )}
               </div>
-            </nav>
 
-            {/* Quick Log Action (Always visible) */}
-            <div className="shrink-0">
+              {/* Quick Log Action (Always visible) */}
               <button
                 type="button"
                 onClick={() => openQuickLog({ type: "call" })}
-                className="h-8 px-2.5 sm:px-3 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-xs sm:text-spec transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                className="h-8 px-2.5 sm:px-3 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-xs sm:text-spec transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
                 title="Quick Log Call, Email, Meeting, or Note"
+                aria-label="Quick Log"
               >
-                <Phone className="w-3.5 h-3.5" />
+                <Phone className="w-3.5 h-3.5 shrink-0" />
                 <span className="hidden sm:inline">Quick Log</span>
               </button>
             </div>
