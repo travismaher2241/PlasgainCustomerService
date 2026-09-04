@@ -224,7 +224,6 @@ interface AppContextType {
   deleteCrmOpportunity: (id: string) => Promise<void>;
   selectedCrmOpportunityId: string | null;
   setSelectedCrmOpportunityId: (id: string | null) => void;
-  clearAllWorkspaceData: () => Promise<void>;
 
   activities: CRMActivity[];
   logActivity: (activity: Omit<CRMActivity, "id" | "timestamp">) => void;
@@ -1781,51 +1780,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast("Opportunity deleted", "info");
   };
 
-  const clearAllWorkspaceData = async () => {
-    // 1. Immediately zero-out React state
-    setAccounts([]);
-    setCrmOpportunities([]);
-    setContacts([]);
-    setLeads([]);
-    setActivities([]);
-    setTasks([]);
-    setLocalNotifications([]);
-    setServerNotifications([]);
-    setSelectedAccountId(null);
-    setSelectedCrmOpportunityId(null);
-    setSelectedOpportunityId(null);
-
-    // 2. Clear localStorage and write empty arrays so no key resurrects defaults
-    localStorage.clear();
-    localStorage.setItem("plasgain_crm_accounts", "[]");
-    localStorage.setItem("plasgain_crm_deals", "[]");
-    localStorage.setItem("plasgain_crm_contacts", "[]");
-    localStorage.setItem("plasgain_crm_leads", "[]");
-    localStorage.setItem("plasgain_crm_activities", "[]");
-    localStorage.setItem("plasgain_crm_tasks", "[]");
-    localStorage.setItem("plasgain_notifications", "[]");
-    localStorage.setItem("plasgain_competitor_pricing", "[]");
-    localStorage.setItem("plasgain_opportunities", "[]");
-
-    // 3. Purge all Firestore collections
-    try {
-      await Promise.all([
-        clearCollectionFromCloud("crm_accounts"),
-        clearCollectionFromCloud("crm_deals"),
-        clearCollectionFromCloud("crm_contacts"),
-        clearCollectionFromCloud("crm_leads"),
-        clearCollectionFromCloud("crm_activities"),
-        clearCollectionFromCloud("crm_tasks"),
-        clearCollectionFromCloud("opportunities"),
-        clearCollectionFromCloud("competitor_pricing")
-      ]);
-    } catch (err) {
-      console.warn("[Firebase] Error during clearAllWorkspaceData cloud purge:", err);
-    }
-
-    showToast("Workspace & cloud data completely cleared", "info");
-  };
-
   const logActivity = (activityData: Omit<CRMActivity, "id" | "timestamp">) => {
     // P1: Deduplicate rapid identical technical draft / copy events (within 10 minutes)
     const isTechnicalDraft =
@@ -2054,7 +2008,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         deleteCrmOpportunity,
         selectedCrmOpportunityId,
         setSelectedCrmOpportunityId,
-        clearAllWorkspaceData,
         activities,
         logActivity,
         auditLogs,
