@@ -5,7 +5,7 @@ import { SettingsView } from '../../components/SettingsView';
 import { AppProvider } from '../../context/AppContext';
 
 describe('SettingsView Component Step 8', () => {
-  it('renders 4 primary groups: Profile, Connections, Knowledge, and Administration', () => {
+  it('renders primary groups: Profile, Connections, and Administration', () => {
     render(
       <AppProvider>
         <SettingsView />
@@ -15,7 +15,7 @@ describe('SettingsView Component Step 8', () => {
     expect(screen.getByRole('heading', { level: 1, name: /Settings/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: /Profile/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: /Connections/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: /Knowledge/i })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { level: 2, name: /Knowledge/i })).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: /Administration/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: /Danger Area/i })).toBeInTheDocument();
   });

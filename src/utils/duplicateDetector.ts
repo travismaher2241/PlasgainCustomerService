@@ -12,8 +12,7 @@
  * - NONE: no significant match detected
  */
 
-import { Account, CRMContact, CRMLead } from "../types/crm";
-import { Opportunity } from "../types";
+import { Account, CRMContact, CRMLead, Opportunity } from "../types/crm";
 
 export type DuplicateConfidence = "EXACT" | "HIGH CONFIDENCE" | "POSSIBLE" | "NONE";
 

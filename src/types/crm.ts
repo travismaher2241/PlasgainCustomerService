@@ -1,4 +1,30 @@
-import { EnquiryAnalysisResult } from "../types";
+
+export interface Opportunity {
+  id: string;
+  customerCompany: string;
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  project: string;
+  location?: string;
+  application?: string;
+  stage?: string;
+  status?: string;
+  estimatedQuantity?: number;
+  estimatedValue?: number;
+  quoteDeadline?: string;
+  projectDate?: string;
+  lastActivity?: string;
+  lastActivityDate?: string;
+  nextAction?: string;
+  nextActionDate?: string;
+  readinessScore?: number;
+  notes?: string;
+  quoteNumber?: string;
+  ostendoQuoteRef?: string;
+  rawEnquiry?: string;
+  [key: string]: unknown;
+}
 
 export type AccountStatus = "Customer" | "Prospect" | "Former Customer" | "Partner" | "Distributor" | "Archived";
 export type AccountType = "Prospect" | "Customer" | "Account" | "Council";
@@ -308,7 +334,7 @@ export interface CRMOpportunity {
   notes: string;
   attachedDocumentIds?: string[];
   rawEnquiryText?: string;
-  analysis?: EnquiryAnalysisResult;
+  analysis?: Record<string, unknown>;
   wonReason?: string;
   lostReason?: "Price" | "Competitor" | "Technical Fit" | "Project Cancelled" | "Timeline / Lead Time" | "No Response" | "Other";
   lostReasonNotes?: string;

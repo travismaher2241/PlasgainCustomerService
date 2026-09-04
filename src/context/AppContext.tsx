@@ -1,13 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
 import {
-  Opportunity,
-  KnowledgeDocument,
-  PlasgainProduct,
-  EnquiryAnalysisResult,
-  LessonTopic,
-  GlossaryTerm
-} from "../types";
-import {
   Account,
   CRMContact,
   CRMLead,
@@ -22,15 +14,9 @@ import {
   EmailComposerLaunchContext,
   AuditLogRecord,
   AuditActionType,
-  AuditEntityType
+  AuditEntityType,
+  Opportunity
 } from "../types/crm";
-import {
-  SAMPLE_OPPORTUNITIES,
-  SAMPLE_DOCUMENTS,
-  SAMPLE_PRODUCTS,
-  SAMPLE_LESSONS,
-  GLOSSARY_TERMS
-} from "../data/mockData";
 import {
   DEFAULT_PIPELINES,
   INITIAL_ACCOUNTS,
@@ -56,16 +42,8 @@ import {
   getLastSyncTime,
   recordSuccessfulSync
 } from "../utils/firebase";
-import { resolveToolRoute } from "../utils/toolRegistry";
 
-export type NavTab =
-  | "home"
-  | "crm"
-  | "new-enquiry"
-  | "product-finder"
-  | "documents"
-  | "tools"
-  | "settings";
+export type NavTab = "home" | "crm" | "settings";
 
 export type CRMSubTab =
   | "today"
@@ -75,10 +53,6 @@ export type CRMSubTab =
   | "tasks"
   | "competitor-pricing";
 
-export type ToolSubTab =
-  | "plan-takeoff"
-  | "quote-review"
-  | "unknown";
 
 /** Who is signed in. Editable in Settings; persisted per browser. */
 export interface UserProfile {
@@ -213,8 +187,6 @@ interface AppContextType {
   setActiveTab: (tab: NavTab) => void;
   activeCRMTab: CRMSubTab;
   setActiveCRMTab: (crmTab: CRMSubTab) => void;
-  activeToolTab: ToolSubTab;
-  setActiveToolTab: (tool: ToolSubTab) => void;
 
   // Legacy/Compatibility Opportunities
   opportunities: Opportunity[];
@@ -288,8 +260,6 @@ interface AppContextType {
   markAllNotificationsRead: () => Promise<void>;
   archiveNotification: (id: string) => Promise<void>;
   dismissNotification: (id: string) => void;
-  activeBackgroundAnalysisJob: { id: string; projectName: string; status: "running" | "complete" | "failed" } | null;
-  setActiveBackgroundAnalysisJob: (job: { id: string; projectName: string; status: "running" | "complete" | "failed" } | null) => void;
 
   // Competitor Pricing Intelligence (Shared Server-Backed)
   competitorPricingRecords: CompetitorPricingRecord[];
@@ -299,45 +269,6 @@ interface AppContextType {
   updateCompetitorPricing: (id: string, updates: Partial<CompetitorPricingRecord>) => Promise<CompetitorPricingRecord | null>;
   markCompetitorAlertRead: (alertId: string) => Promise<void>;
   fetchCompetitorData: () => Promise<void>;
-
-  // Knowledge & Training
-  documents: KnowledgeDocument[];
-  addDocument: (doc: KnowledgeDocument) => void;
-  products: PlasgainProduct[];
-  lessons: LessonTopic[];
-  glossary: GlossaryTerm[];
-
-  // Active Enquiry Analysis State
-  currentEnquiryAnalysis: EnquiryAnalysisResult | null;
-  setCurrentEnquiryAnalysis: (analysis: EnquiryAnalysisResult | null) => void;
-  rawEnquiryInput: {
-    rawContent: string;
-    customer: string;
-    contact: string;
-    company: string;
-    project: string;
-    location: string;
-    source: string;
-  };
-  setRawEnquiryInput: React.Dispatch<
-    React.SetStateAction<{
-      rawContent: string;
-      customer: string;
-      contact: string;
-      company: string;
-      project: string;
-      location: string;
-      source: string;
-    }>
-  >;
-
-  // Explain Terminology Popover / Modal
-  explainingTerm: string | null;
-  setExplainingTerm: (term: string | null) => void;
-
-  // Direct Product Inspection Modal (P2)
-  inspectingProduct: PlasgainProduct | null;
-  setInspectingProduct: (product: PlasgainProduct | null) => void;
 
   // Global Copilot Drawer
   isCopilotOpen: boolean;
@@ -414,7 +345,7 @@ interface AppContextType {
   switchUserWithPin: (userId: string, pin: string) => Promise<{ success: boolean; error?: string }>;
 
   // Navigate helper
-  navigateToWorkflow: (tab: NavTab, toolSub?: ToolSubTab, oppId?: string) => void;
+  navigateToWorkflow: (tab: NavTab, toolSub?: string, oppId?: string) => void;
   navigateToCRM: (subTab: CRMSubTab, entityId?: string) => void;
 }
 
@@ -423,7 +354,6 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeTab, setActiveTabState] = useState<NavTab>("home");
   const [activeCRMTab, setActiveCRMTab] = useState<CRMSubTab>("today");
-  const [activeToolTab, setActiveToolTab] = useState<ToolSubTab>("plan-takeoff");
 
   const [cloudSyncStatus, setCloudSyncStatus] = useState<"synced" | "syncing" | "offline" | "queued" | "error">("syncing");
   const [lastCloudSyncTime, setLastCloudSyncTime] = useState<string | null>(() => getLastSyncTime());
@@ -776,30 +706,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const [selectedOpportunityId, setSelectedOpportunityId] = useState<string | null>(null);
-
-  const [documents, setDocuments] = useState<KnowledgeDocument[]>(() => {
-    const saved = localStorage.getItem("plasgain_documents");
-    return saved ? JSON.parse(saved) : SAMPLE_DOCUMENTS;
-  });
-
-  const [products] = useState<PlasgainProduct[]>(SAMPLE_PRODUCTS);
-  const [lessons] = useState<LessonTopic[]>(SAMPLE_LESSONS);
-  const [glossary] = useState<GlossaryTerm[]>(GLOSSARY_TERMS);
-
-  const [currentEnquiryAnalysis, setCurrentEnquiryAnalysis] = useState<EnquiryAnalysisResult | null>(null);
-
-  const [rawEnquiryInput, setRawEnquiryInput] = useState({
-    rawContent: "",
-    customer: "",
-    contact: "",
-    company: "",
-    project: "",
-    location: "",
-    source: "Email"
-  });
-
-  const [explainingTerm, setExplainingTerm] = useState<string | null>(null);
-  const [inspectingProduct, setInspectingProduct] = useState<PlasgainProduct | null>(null);
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
 
@@ -927,11 +833,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setLocalNotifications((prev) => [newN, ...prev]);
   };
 
-  const [activeBackgroundAnalysisJob, setActiveBackgroundAnalysisJob] = useState<{
-    id: string;
-    projectName: string;
-    status: "running" | "complete" | "failed";
-  } | null>(null);
 
   const openCopilotWithContext = (contextStr: string, initialPrompt?: string) => {
     setCopilotCustomContext(contextStr);
@@ -1106,7 +1007,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActiveTabState(tab);
     // Clear stale deal/opportunity context on unrelated workspace navigation when not pinned (P1-07)
     if (!isCopilotContextPinned) {
-      if (tab === "settings" || tab === "home" || tab === "tools" || tab === "new-enquiry") {
+      if (tab === "settings" || tab === "home") {
         setSelectedOpportunityId(null);
         setSelectedCrmOpportunityId(null);
         setCopilotCustomContext(null);
@@ -1149,9 +1050,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.setItem("plasgain_opportunities", JSON.stringify(opportunities));
   }, [opportunities]);
 
-  useEffect(() => {
-    localStorage.setItem("plasgain_documents", JSON.stringify(documents));
-  }, [documents]);
 
   // Automatic Cloud Firestore Initialization & Bidirectional Sync
   useEffect(() => {
@@ -1775,16 +1673,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       probability: 25,
       forecastCategory: "Pipeline",
       expectedCloseDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-      products: lead.productInterest.map((p, idx) => {
-        const resolved = SAMPLE_PRODUCTS.find(sp => sp.name.toLowerCase().includes(p.toLowerCase()) || sp.code.toLowerCase().includes(p.toLowerCase()));
-        return {
-          id: `prod-line-${idx}`,
-          productCode: resolved?.code || "",
-          productName: resolved?.name || p,
-          category: resolved?.category || "Solar Luminaire",
-          quantity: 1
-        };
-      }),
+      products: lead.productInterest.map((p, idx) => ({
+        id: `prod-line-${idx}`,
+        productCode: "",
+        productName: p,
+        category: "Solar Luminaire",
+        quantity: 1
+      })),
       projectApplication: lead.enquiryType,
       location: lead.location,
       customerNeed: lead.notes,
@@ -2079,42 +1974,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
   };
 
-  const addDocument = (doc: KnowledgeDocument) => {
-    setDocuments((prev) => [doc, ...prev]);
-    saveDocToCloud("knowledge_documents", doc.id, doc);
-    showToast(`Document "${doc.title}" added to knowledge base`, "success");
-  };
-
-  const navigateToWorkflow = (tab: NavTab, toolSub?: string, oppId?: string) => {
-    if (tab === "tools" && toolSub) {
-      const route = resolveToolRoute(toolSub);
-      if (route.isSupported) {
-        if (route.targetNavTab === "crm") {
-          navigateToCRM(route.targetCrmTab || "pipeline", oppId);
-          return;
-        }
-        setActiveTab(route.targetNavTab);
-        if (route.targetToolSubTab) {
-          setActiveToolTab(route.targetToolSubTab);
-        }
-        if (oppId) {
-          setSelectedOpportunityId(oppId);
-          setSelectedCrmOpportunityId(oppId);
-        }
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      } else {
-        setActiveTab("tools");
-        setActiveToolTab(toolSub as ToolSubTab);
-        window.scrollTo({ top: 0, behavior: "smooth" });
-        return;
-      }
-    }
-
+  const navigateToWorkflow = (tab: NavTab, _toolSub?: string, oppId?: string) => {
     setActiveTab(tab);
-    if (toolSub) {
-      setActiveToolTab(toolSub as ToolSubTab);
-    }
     if (oppId) {
       setSelectedOpportunityId(oppId);
       setSelectedCrmOpportunityId(oppId);
@@ -2147,8 +2008,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setActiveTab,
         activeCRMTab,
         setActiveCRMTab,
-        activeToolTab,
-        setActiveToolTab,
         cloudSyncStatus,
         lastCloudSyncTime,
         queuedWritesCount,
@@ -2216,8 +2075,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         markAllNotificationsRead,
         archiveNotification,
         dismissNotification,
-        activeBackgroundAnalysisJob,
-        setActiveBackgroundAnalysisJob,
         competitorPricingRecords,
         competitorAlerts,
         unreadCompetitorAlertsCount,
@@ -2225,19 +2082,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateCompetitorPricing,
         markCompetitorAlertRead,
         fetchCompetitorData,
-        documents,
-        addDocument,
-        products,
-        lessons,
-        glossary,
-        currentEnquiryAnalysis,
-        setCurrentEnquiryAnalysis,
-        rawEnquiryInput,
-        setRawEnquiryInput,
-        explainingTerm,
-        setExplainingTerm,
-        inspectingProduct,
-        setInspectingProduct,
         isCopilotOpen,
         setIsCopilotOpen,
         isCopilotContextPinned,

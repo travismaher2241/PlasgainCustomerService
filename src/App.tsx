@@ -7,20 +7,14 @@ import { CheckCircle2, AlertCircle, Info, XCircle } from "lucide-react";
 
 // Code-split major screens and heavy modals for optimal initial bundle size
 const HomeDashboard = lazy(() => import("./components/HomeDashboard").then(m => ({ default: m.HomeDashboard })));
-const NewEnquiryWorkspace: React.FC<any> = () => null;
-const ProductFinder: React.FC<any> = () => null;
-const DocumentLibrary: React.FC = () => null;
-const ToolsHub: React.FC<any> = () => null;
 const SettingsView = lazy(() => import("./components/SettingsView").then(m => ({ default: m.SettingsView })));
 const CRMCommandCenter = lazy(() => import("./components/crm/CRMCommandCenter").then(m => ({ default: m.CRMCommandCenter })));
 const CRMQuickLogModal = lazy(() => import("./components/crm/CRMQuickLogModal").then(m => ({ default: m.CRMQuickLogModal })));
 const CRMCallPrepModal = lazy(() => import("./components/crm/CRMCallPrepModal").then(m => ({ default: m.CRMCallPrepModal })));
 const AIEmailComposerModal = lazy(() => import("./components/AIEmailComposerModal").then(m => ({ default: m.AIEmailComposerModal })));
 const GlobalCopilot = lazy(() => import("./components/GlobalCopilot").then(m => ({ default: m.GlobalCopilot })));
-const ExplainTermModal: React.FC<any> = () => null;
 const GlobalSearchModal = lazy(() => import("./components/GlobalSearchModal").then(m => ({ default: m.GlobalSearchModal })));
 const UserLoginModal = lazy(() => import("./components/UserLoginModal").then(m => ({ default: m.UserLoginModal })));
-const ProductDetailModal: React.FC<any> = () => null;
 
 const ViewLoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center min-h-[350px] w-full" data-testid="view-loading-spinner">
@@ -32,7 +26,7 @@ const ViewLoadingFallback: React.FC = () => (
 );
 
 const MainLayout: React.FC = () => {
-  const { activeTab, toast, inspectingProduct, setInspectingProduct } = useApp();
+  const { activeTab, toast } = useApp();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -50,10 +44,6 @@ const MainLayout: React.FC = () => {
               <Suspense fallback={<ViewLoadingFallback />}>
                 {activeTab === "home" && <HomeDashboard />}
                 {activeTab === "crm" && <CRMCommandCenter />}
-                {activeTab === "new-enquiry" && <NewEnquiryWorkspace />}
-                {activeTab === "product-finder" && <ProductFinder />}
-                {activeTab === "documents" && <DocumentLibrary />}
-                {activeTab === "tools" && <ToolsHub />}
                 {activeTab === "settings" && <SettingsView />}
               </Suspense>
             </ErrorBoundary>
@@ -67,11 +57,9 @@ const MainLayout: React.FC = () => {
         <AIEmailComposerModal />
         <UserLoginModal />
         <GlobalCopilot />
-        <ExplainTermModal />
         <GlobalSearchModal />
         <CRMQuickLogModal />
         <CRMCallPrepModal />
-        <ProductDetailModal product={inspectingProduct} onClose={() => setInspectingProduct(null)} />
       </Suspense>
       </ErrorBoundary>
 

@@ -1,26 +1,16 @@
 import React, { useState, useEffect } from "react";
 import {
   Search,
-  FilePlus2,
-  SearchCode,
-  FileText,
   KanbanSquare,
   Building2,
   User,
   Flame,
-  BookOpen,
   ArrowRight,
-  Sparkles,
-  X,
-  FileSpreadsheet,
   Phone,
   CheckCircle2,
-  Calculator,
-  Compass,
   Terminal,
   Settings,
-  Plus,
-  Package
+  Clock
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 
@@ -28,17 +18,12 @@ export const GlobalSearchModal: React.FC = () => {
   const {
     isSearchOpen,
     setIsSearchOpen,
-    products,
     crmOpportunities,
     accounts,
     contacts,
     leads,
-    documents,
-    glossary,
     navigateToWorkflow,
     navigateToCRM,
-    setExplainingTerm,
-    setInspectingProduct,
     openQuickLog
   } = useApp();
 
@@ -67,7 +52,7 @@ export const GlobalSearchModal: React.FC = () => {
   const commandTerm = isCommandMode ? rawQ.slice(1).trim().toLowerCase() : rawQ.toLowerCase();
   const q = isCommandMode ? "" : rawQ.toLowerCase();
 
-  // OPT-05: Action Shortcuts & Command Handler
+  // Action Shortcuts & Command Handler
   const availableCommands = [
     {
       id: "cmd-call",
@@ -87,47 +72,31 @@ export const GlobalSearchModal: React.FC = () => {
     },
     {
       id: "cmd-deal",
-      title: "Create New Pipeline Deal / Quote",
-      subtitle: "Jump to Opportunities and open the deal creator",
+      title: "Open Pipeline Deals",
+      subtitle: "Jump to Deals & Quotations pipeline",
       icon: KanbanSquare,
       keywords: ["deal", "quote", "opportunity", "pipeline", "new deal"],
       action: () => navigateToCRM("pipeline")
     },
     {
-      id: "cmd-enquiry",
-      title: "Analyse Customer Enquiry / Tender",
-      subtitle: "AI extraction of luminaires, heights, and lux requirements",
-      icon: FilePlus2,
-      keywords: ["enquiry", "tender", "analyse", "rfq", "quote request"],
-      action: () => navigateToWorkflow("new-enquiry")
+      id: "cmd-accounts",
+      title: "Customer Accounts",
+      subtitle: "View and manage customer accounts",
+      icon: Building2,
+      keywords: ["account", "company", "client", "customer"],
+      action: () => navigateToCRM("accounts")
     },
     {
-      id: "cmd-product-finder",
-      title: "Product Finder Wizard",
-      subtitle: "Grounded product selection & AS/NZS 1158 compliance",
-      icon: SearchCode,
-      keywords: ["product", "finder", "luminaire", "light", "fixture"],
-      action: () => navigateToWorkflow("product-finder")
-    },
-    {
-      id: "cmd-takeoff",
-      title: "Plan Take-Off Workspace",
-      subtitle: "Extract lighting layout, poles, and BOM from civil PDF",
-      icon: Compass,
-      keywords: ["takeoff", "plan", "drawing", "pdf", "dwg"],
-      action: () => navigateToWorkflow("tools", "plan-takeoff")
-    },
-    {
-      id: "cmd-tools",
-      title: "Engineering Tools & Calculators",
-      subtitle: "Cable cover, AS 1158 spacing, and AS 1170.2 wind estimator",
-      icon: Calculator,
-      keywords: ["calc", "calculator", "spacing", "cable cover", "wind", "foundation"],
-      action: () => navigateToWorkflow("tools")
+      id: "cmd-today",
+      title: "Today Sales Queue",
+      subtitle: "Review overdue actions and daily priorities",
+      icon: Clock,
+      keywords: ["today", "queue", "tasks", "due"],
+      action: () => navigateToCRM("today")
     },
     {
       id: "cmd-settings",
-      title: "Platform Settings & AI Configuration",
+      title: "Settings",
       subtitle: "Manage API keys, user profile, and system settings",
       icon: Settings,
       keywords: ["settings", "config", "api", "keys", "profile"],
@@ -149,16 +118,6 @@ export const GlobalSearchModal: React.FC = () => {
       cmd.keywords.some((k) => k === q || (q.length >= 3 && k.startsWith(q)))
     );
   });
-
-  const filteredProducts = q
-    ? products.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          (p.code && p.code.toLowerCase().includes(q)) ||
-          (p.category && p.category.toLowerCase().includes(q)) ||
-          (p.series && p.series.toLowerCase().includes(q))
-      )
-    : [];
 
   const filteredAccounts = q
     ? accounts.filter(
@@ -203,28 +162,12 @@ export const GlobalSearchModal: React.FC = () => {
       )
     : [];
 
-  const filteredDocs = q
-    ? documents.filter((d) => d.title.toLowerCase().includes(q))
-    : [];
-
-  const filteredGlossary = q
-    ? glossary.filter(
-        (g) =>
-          g.term.toLowerCase().includes(q) ||
-          (g.shortDefinition || g.definition || "").toLowerCase().includes(q) ||
-          (g.whyItMatters || g.salesRelevance || "").toLowerCase().includes(q)
-      )
-    : [];
-
   const totalResults =
     matchedCommands.length +
-    filteredProducts.length +
     filteredAccounts.length +
     filteredContacts.length +
     filteredDeals.length +
-    filteredLeads.length +
-    filteredDocs.length +
-    filteredGlossary.length;
+    filteredLeads.length;
 
   const handleSelect = (action: () => void) => {
     action();
@@ -241,8 +184,6 @@ export const GlobalSearchModal: React.FC = () => {
         handleSelect(() => navigateToCRM("pipeline", filteredDeals[0].id));
       } else if (filteredContacts.length > 0) {
         handleSelect(() => navigateToCRM("accounts", filteredContacts[0].accountId));
-      } else if (filteredProducts.length > 0) {
-        handleSelect(() => navigateToWorkflow("product-finder"));
       }
     }
   };
@@ -265,8 +206,8 @@ export const GlobalSearchModal: React.FC = () => {
             onKeyDown={handleKeyDown}
             placeholder={
               isCommandMode
-                ? "Type a command: call, deal, task, calc, takeoff, settings..."
-                : "Search or type '>' for command shortcuts (e.g. >call, >deal, >takeoff)..."
+                ? "Type a command: call, task, deal, accounts, today, settings..."
+                : "Search accounts, deals, contacts, or type '>' for command shortcuts..."
             }
             className="w-full text-body focus:outline-none placeholder:text-ink-faint font-sans text-base"
           />
@@ -312,36 +253,36 @@ export const GlobalSearchModal: React.FC = () => {
                   <KanbanSquare className="w-4 h-4 text-brand-deep" />
                   <div>
                     <div className="font-bold flex items-center gap-1.5">
-                      <span>Create Pipeline Deal</span>
+                      <span>View Pipeline</span>
                       <span className="text-[10px] font-mono bg-paper px-1 rounded">&gt;deal</span>
                     </div>
                     <div className="text-spec text-ink-dim">Open active quote pipeline</div>
                   </div>
                 </button>
                 <button
-                  onClick={() => handleSelect(() => navigateToWorkflow("new-enquiry"))}
+                  onClick={() => handleSelect(() => navigateToCRM("accounts"))}
                   className="flex items-center gap-2.5 p-3 rounded-edge bg-raised hover:bg-brand-wash hover:text-brand-deep text-body transition-colors text-left cursor-pointer border border-line"
                 >
-                  <FilePlus2 className="w-4 h-4 text-brand-deep" />
+                  <Building2 className="w-4 h-4 text-brand-deep" />
                   <div>
                     <div className="font-bold flex items-center gap-1.5">
-                      <span>Analyse Enquiry</span>
-                      <span className="text-[10px] font-mono bg-paper px-1 rounded">&gt;enquiry</span>
+                      <span>Customer Accounts</span>
+                      <span className="text-[10px] font-mono bg-paper px-1 rounded">&gt;accounts</span>
                     </div>
-                    <div className="text-spec text-ink-dim">Ingest tender notes or emails</div>
+                    <div className="text-spec text-ink-dim">View and manage accounts</div>
                   </div>
                 </button>
                 <button
-                  onClick={() => handleSelect(() => navigateToWorkflow("tools"))}
+                  onClick={() => handleSelect(() => navigateToCRM("today"))}
                   className="flex items-center gap-2.5 p-3 rounded-edge bg-raised hover:bg-brand-wash hover:text-brand-deep text-body transition-colors text-left cursor-pointer border border-line"
                 >
-                  <Calculator className="w-4 h-4 text-brand-deep" />
+                  <Clock className="w-4 h-4 text-brand-deep" />
                   <div>
                     <div className="font-bold flex items-center gap-1.5">
-                      <span>Engineering Calculators</span>
-                      <span className="text-[10px] font-mono bg-paper px-1 rounded">&gt;calc</span>
+                      <span>Today Follow-ups</span>
+                      <span className="text-[10px] font-mono bg-paper px-1 rounded">&gt;today</span>
                     </div>
-                    <div className="text-spec text-ink-dim">Spacing &amp; Wind estimator</div>
+                    <div className="text-spec text-ink-dim">Action daily tasks and priorities</div>
                   </div>
                 </button>
               </div>
@@ -499,62 +440,11 @@ export const GlobalSearchModal: React.FC = () => {
             </div>
           )}
 
-          {/* Products (P2: Direct Open Technical Detail Modal) */}
-          {filteredProducts.length > 0 && (
-            <div className="space-y-1.5">
-              <span className="text-spec font-bold text-brand-deep uppercase tracking-wider flex items-center gap-1.5">
-                <Package className="w-3.5 h-3.5" /> Plasgain Products ({filteredProducts.length})
-              </span>
-              <div className="space-y-1">
-                {filteredProducts.slice(0, 4).map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => handleSelect(() => setInspectingProduct(p))}
-                    className="w-full flex items-center justify-between p-2 rounded-edge hover:bg-brand-wash/30 text-left transition-colors cursor-pointer border border-line/60"
-                  >
-                    <div>
-                      <span className="font-bold text-body text-ink">{p.name}</span>
-                      <span className="text-ink-dim ml-2 text-spec">({p.code} · {p.category})</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-paper text-brand-deep border border-brand-edge">
-                        View Spec &rarr;
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Glossary Terms */}
-          {filteredGlossary.length > 0 && (
-            <div className="space-y-1.5">
-              <span className="text-spec font-bold text-ink-faint uppercase tracking-wider block">
-                Lighting Glossary &amp; Standards ({filteredGlossary.length})
-              </span>
-              <div className="space-y-1">
-                {filteredGlossary.slice(0, 3).map((g) => (
-                  <button
-                    key={g.term}
-                    onClick={() => handleSelect(() => setExplainingTerm(g.term))}
-                    className="w-full flex items-center justify-between p-2 rounded-edge hover:bg-raised text-left transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
-                      <BookOpen className="w-3.5 h-3.5 text-brand-deep" />
-                      <span className="font-semibold text-body">{g.term}</span>
-                    </div>
-                    <span className="text-ink-faint text-spec">Explain &rarr;</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer */}
         <div className="p-3 bg-raised border-t border-line text-spec text-ink-faint flex items-center justify-between">
-          <span>Type <strong>&gt;</strong> for commands (e.g. <code>&gt;call</code>, <code>&gt;deal</code>, <code>&gt;calc</code>)</span>
+          <span>Type <strong>&gt;</strong> for commands (e.g. <code>&gt;call</code>, <code>&gt;deal</code>, <code>&gt;accounts</code>, <code>&gt;today</code>)</span>
           <span>Plasgain Copilot Search · ⌘K</span>
         </div>
       </div>

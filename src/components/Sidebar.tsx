@@ -1,11 +1,7 @@
 import React from "react";
 import {
   Home,
-  FilePlus2,
-  SearchCode,
   KanbanSquare,
-  BookOpen,
-  Wrench,
   SlidersHorizontal,
   X,
   LogIn,
@@ -117,10 +113,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
   }[] = [
     { id: "home", label: "Home", icon: Home },
     { id: "crm", label: "CRM Command Centre", icon: KanbanSquare },
-    { id: "new-enquiry", label: "New Enquiry", icon: FilePlus2 },
-    { id: "product-finder", label: "Product Finder", icon: SearchCode },
-    { id: "documents", label: "Documents", icon: BookOpen },
-    { id: "tools", label: "Tools", icon: Wrench },
     { id: "settings", label: "Settings", icon: SlidersHorizontal }
   ];
 

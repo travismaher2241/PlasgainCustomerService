@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from "react";
 import {
-  FilePlus2,
   CheckCircle2,
   AlertCircle,
   ArrowRight,
@@ -16,7 +15,6 @@ import { CRMOpportunity } from "../types/crm";
 
 export const HomeDashboard: React.FC = () => {
   const {
-    navigateToWorkflow,
     navigateToCRM,
     crmOpportunities,
     addCrmOpportunity,
@@ -250,13 +248,13 @@ export const HomeDashboard: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <button
           type="button"
-          onClick={() => navigateToWorkflow("new-enquiry")}
+          onClick={handleOpenNewQuoteModal}
           className="p-3 rounded-edge bg-white hover:bg-raised border border-line hover:border-brand-deep transition-all cursor-pointer shadow-2xs flex items-center gap-2.5"
         >
           <div className="p-1.5 rounded bg-brand-wash text-brand-deep shrink-0">
-            <FilePlus2 className="w-4 h-4" />
+            <Plus className="w-4 h-4" />
           </div>
-          <span className="text-spec font-bold text-body truncate">New enquiry</span>
+          <span className="text-spec font-bold text-body truncate">New quote</span>
         </button>
 
         <button
@@ -272,13 +270,13 @@ export const HomeDashboard: React.FC = () => {
 
         <button
           type="button"
-          onClick={handleOpenNewQuoteModal}
+          onClick={() => navigateToCRM("pipeline")}
           className="p-3 rounded-edge bg-white hover:bg-raised border border-line hover:border-brand-deep transition-all cursor-pointer shadow-2xs flex items-center gap-2.5"
         >
           <div className="p-1.5 rounded bg-paper text-ink-dim shrink-0">
             <KanbanSquare className="w-4 h-4" />
           </div>
-          <span className="text-spec font-bold text-body truncate">New quote</span>
+          <span className="text-spec font-bold text-body truncate">Pipeline</span>
         </button>
 
         <button
@@ -302,16 +300,16 @@ export const HomeDashboard: React.FC = () => {
           </div>
           <h2 className="text-base font-bold text-body">No sales records yet</h2>
           <p className="text-spec text-ink-dim max-w-md mx-auto">
-            Start by analyzing a customer enquiry or adding your first customer account to begin building quotes and tracking projects.
+            Start by adding your first customer account or creating a quote to track projects and deals.
           </p>
           <div className="pt-2 flex justify-center gap-2">
             <button
               type="button"
-              onClick={() => navigateToWorkflow("new-enquiry")}
+              onClick={handleOpenNewQuoteModal}
               className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
-              <FilePlus2 className="w-4 h-4" />
-              <span>Analyze an Enquiry</span>
+              <Plus className="w-4 h-4" />
+              <span>Create First Quote</span>
             </button>
           </div>
         </div>

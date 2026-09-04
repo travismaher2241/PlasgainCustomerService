@@ -135,7 +135,7 @@ export const GlobalCopilot: React.FC = () => {
     {
       role: "assistant",
       content:
-        "I'm your Plasgain Sales Assistant. Ask me about product specs, Australian Standards, quotes, or customer accounts."
+        "I'm your Plasgain Sales Assistant. Ask me about quotes, deal pipeline, customer accounts, or sales strategy."
     }
   ]);
   const [input, setInput] = useState("");
@@ -336,12 +336,12 @@ export const GlobalCopilot: React.FC = () => {
                 prompt: `Draft a 3000K fauna-friendly / dark-sky compliance clause for deal "${currentDeal.name}" to satisfy council tender specifications.`
               },
               {
-                label: "5-Day Autonomy Check",
-                prompt: `Analyze battery reserve and autonomy for 5 consecutive overcast days for the products quoted in "${currentDeal.name}".`
+                label: "Follow-Up Strategy",
+                prompt: `Draft a tailored follow-up strategy and email for deal "${currentDeal.name}".`
               },
               {
-                label: "Value-Eng Option",
-                prompt: `Suggest value-engineering alternatives or luminaire spacing adjustments to reduce total quote cost by 15% for "${currentDeal.name}".`
+                label: "Objection Handling",
+                prompt: `Suggest objection handling points for pricing and lead times for deal "${currentDeal.name}".`
               }
             ];
           } else if (currentAccount) {
@@ -359,21 +359,6 @@ export const GlobalCopilot: React.FC = () => {
                 prompt: `List all recorded competitor pricing and alternative specs quoted against "${currentAccount.name}".`
               }
             ];
-          } else if (activeTab === "new-enquiry") {
-            chips = [
-              {
-                label: "Extract Pole & Mounting Spec",
-                prompt: "Extract the required luminaire mounting height, pole type, and outreach arm length as stated in this enquiry."
-              },
-              {
-                label: "Missing Tender Info",
-                prompt: "What critical technical or site specifications are missing from this enquiry before we can issue a formal quote?"
-              },
-              {
-                label: "Stated Lighting Category",
-                prompt: "What lighting category (e.g. P1-P4, PR1-PR4) is stated in this enquiry, if any?"
-              }
-            ];
           } else {
             chips = [
               {
@@ -381,12 +366,12 @@ export const GlobalCopilot: React.FC = () => {
                 prompt: "What is the active quote reference, contact person, and deal value for our most urgent deals?"
               },
               {
-                label: "Common Pole Terms",
-                prompt: "Explain common pole terms that show up on plans, like URD standard pole, impact absorbent pole, and outreach bracket."
+                label: "Sales Call Prep",
+                prompt: "Help me prepare for an upcoming sales call with an electrical contractor or council engineer."
               },
               {
-                label: "Standard Lead Times",
-                prompt: "What are our standard manufacturing and dispatch lead times for solar luminaires and composite poles?"
+                label: "Pipeline Review",
+                prompt: "Summarize overdue tasks and high-value quotes in our pipeline needing attention."
               }
             ];
           }

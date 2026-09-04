@@ -5,7 +5,8 @@
  * Guarantees that every Home shortcut leads to a valid, working destination or a controlled fallback.
  */
 
-import { NavTab, ToolSubTab } from "../context/AppContext";
+export type ToolSubTab = string;
+export type NavTab = string;
 
 export interface ToolRouteDefinition {
   id: string;

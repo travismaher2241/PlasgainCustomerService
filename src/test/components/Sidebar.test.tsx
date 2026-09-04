@@ -24,12 +24,12 @@ describe('Sidebar Component', () => {
     expect(screen.getByText(/Customer Service Sidekick/i)).toBeInTheDocument();
     expect(screen.getByText('Home')).toBeInTheDocument();
     expect(screen.getByText('CRM Command Centre')).toBeInTheDocument();
-    expect(screen.getByText('New Enquiry')).toBeInTheDocument();
-    expect(screen.getByText('Product Finder')).toBeInTheDocument();
-    expect(screen.getByText('Documents')).toBeInTheDocument();
-    expect(screen.queryByText('Product Catalogues')).not.toBeInTheDocument();
-    expect(screen.getByText('Tools')).toBeInTheDocument();
     expect(screen.getByText('Settings')).toBeInTheDocument();
+    expect(screen.queryByText('New Enquiry')).not.toBeInTheDocument();
+    expect(screen.queryByText('Product Finder')).not.toBeInTheDocument();
+    expect(screen.queryByText('Documents')).not.toBeInTheDocument();
+    expect(screen.queryByText('Product Catalogues')).not.toBeInTheDocument();
+    expect(screen.queryByText('Tools')).not.toBeInTheDocument();
     expect(screen.queryByText('Opportunities')).not.toBeInTheDocument();
     expect(screen.queryByText('Learn')).not.toBeInTheDocument();
   });

@@ -27,7 +27,6 @@ import { AdminAuditLogView } from "./AdminAuditLogView";
 
 export const SettingsView: React.FC = () => {
   const {
-    documents,
     showToast,
     currentUser,
     updateCurrentUser,
@@ -142,9 +141,6 @@ export const SettingsView: React.FC = () => {
     }
   };
 
-  // Knowledge statistics
-  const approvedDocsCount = documents.filter((d) => d.status === "Approved" || (d as any).governanceState === "approved").length;
-  const pendingDocsCount = documents.filter((d) => d.status === "Review" || d.status === "Draft").length;
 
   return (
     <div className="space-y-6 max-w-5xl pb-16 w-full min-w-0">
@@ -403,45 +399,6 @@ export const SettingsView: React.FC = () => {
         </div>
       </section>
 
-      {/* 3. KNOWLEDGE SECTION (PART I) */}
-      <section className="bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">
-        <div className="flex items-center justify-between border-b border-line pb-3">
-          <div className="flex items-center gap-2">
-            <BookOpen className="w-4 h-4 text-brand-deep" />
-            <h2 className="text-base font-bold text-body">Knowledge</h2>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-spec">
-          <div className="p-3 bg-paper rounded-edge border border-line">
-            <span className="text-xs text-ink-dim block">Total Documents</span>
-            <span className="text-xl font-bold font-mono text-body block mt-0.5">
-              {documents.length}
-            </span>
-          </div>
-
-          <div className="p-3 bg-paper rounded-edge border border-line">
-            <span className="text-xs text-ink-dim block">Approved Documents</span>
-            <span className="text-xl font-bold font-mono text-emerald-800 block mt-0.5">
-              {approvedDocsCount}
-            </span>
-          </div>
-
-          <div className="p-3 bg-paper rounded-edge border border-line">
-            <span className="text-xs text-ink-dim block">Needs Review</span>
-            <span className="text-xl font-bold font-mono text-amber-800 block mt-0.5">
-              {pendingDocsCount}
-            </span>
-          </div>
-
-          <div className="p-3 bg-paper rounded-edge border border-line">
-            <span className="text-xs text-ink-dim block">Available to AI</span>
-            <span className="text-xl font-bold font-mono text-brand-deep block mt-0.5">
-              {approvedDocsCount}
-            </span>
-          </div>
-        </div>
-      </section>
 
       {/* 4. ADMINISTRATION & DANGER AREA (PART I: COLLAPSIBLE DIAGNOSTICS & DISTINCT DANGER) */}
       <section className="bg-white p-5 rounded-panel border border-line shadow-2xs space-y-4">

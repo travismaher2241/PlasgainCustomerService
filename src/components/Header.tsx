@@ -55,14 +55,6 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
         return "Dashboard";
       case "crm":
         return "CRM Command Centre";
-      case "new-enquiry":
-        return "Enquiry & Tender Analysis";
-      case "product-finder":
-        return "Product Finder";
-      case "documents":
-        return "Documents";
-      case "tools":
-        return "Engineering Take-off & Calculators";
       case "settings":
         return "Settings";
       default:
@@ -113,22 +105,10 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           <span className="font-bold text-body text-ink text-base sm:text-lead shrink-0">
             {getTabDisplayName(activeTab)}
           </span>
-          {activeTab === "new-enquiry" && (
-            <>
-              <span className="text-ink-faint px-0.5 hidden xs:inline">/</span>
-              <span className="truncate text-ink font-medium hidden xs:inline">
-                {currentOpp ? currentOpp.project : "New Sales Enquiry"}
-              </span>
-            </>
-          )}
-          {activeTab !== "new-enquiry" && (
-            <>
-              <span className="text-ink-faint px-0.5 hidden sm:inline">/</span>
-              <span className="truncate hidden sm:inline text-ink-faint">
-                Plasgain Australia
-              </span>
-            </>
-          )}
+          <span className="text-ink-faint px-0.5 hidden sm:inline">/</span>
+          <span className="truncate hidden sm:inline text-ink-faint">
+            Plasgain Australia
+          </span>
         </div>
       </div>
 
@@ -142,7 +122,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center gap-2 text-meta text-ink-faint bg-paper hover:bg-raised px-2.5 py-2 sm:py-1.5 rounded-edge border border-line hover:border-line-strong transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none"
         >
           <Search className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-ink-dim" />
-          <span className="hidden sm:inline">Search specs, terms &amp; docs</span>
+          <span className="hidden sm:inline">Search accounts, deals &amp; contacts</span>
           <kbd className="u-data hidden sm:inline-block ml-1 px-1 text-[0.625rem] text-ink-faint border border-line-strong rounded-[2px]">
             ⌘K
           </kbd>
