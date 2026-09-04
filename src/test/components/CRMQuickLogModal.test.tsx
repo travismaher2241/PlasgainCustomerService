@@ -120,6 +120,9 @@ describe('CRMQuickLogModal Component', () => {
 
     fireEvent.click(screen.getByTestId('open-log-btn'));
 
+    // Select Call outcome (required for Call)
+    fireEvent.click(screen.getByLabelText(/Contact Made/i));
+
     // Type notes
     const notesInput = screen.getByPlaceholderText(/What did the customer say/i);
     fireEvent.change(notesInput, { target: { value: 'Customer confirmed they need lighting for carpark Stage 2.' } });
@@ -132,7 +135,7 @@ describe('CRMQuickLogModal Component', () => {
     expect(screen.queryByText(/Quick Log Activity/i)).not.toBeInTheDocument();
   });
 
-  it('renders Call outcome checkboxes (Contact Made, No Answer, Voicemail Left) and follows exact mutual exclusivity and coupling rules', () => {
+  it('renders Call outcome checkboxes (Contact Made, No Answer, Voicemail Left) as a single-select group', () => {
     render(
       <AppProvider>
         <QuickLogTestWrapper />
@@ -161,48 +164,20 @@ describe('CRMQuickLogModal Component', () => {
     expect(noAnswerCheckbox).not.toBeChecked();
     expect(voicemailLeftCheckbox).not.toBeChecked();
 
-    // 2. Select No Answer -> Contact Made must be cleared; Voicemail Left must NOT be automatically selected
+    // 2. Select No Answer -> Contact Made must be automatically deselected
     fireEvent.click(noAnswerCheckbox);
     expect(contactMadeCheckbox).not.toBeChecked();
     expect(noAnswerCheckbox).toBeChecked();
     expect(voicemailLeftCheckbox).not.toBeChecked();
 
-    // 3. Select Voicemail Left -> No Answer stays checked, Voicemail Left is checked (Valid combination 3: No Answer + Voicemail Left)
+    // 3. Select Voicemail Left -> No Answer must be automatically deselected
     fireEvent.click(voicemailLeftCheckbox);
-    expect(contactMadeCheckbox).not.toBeChecked();
-    expect(noAnswerCheckbox).toBeChecked();
-    expect(voicemailLeftCheckbox).toBeChecked();
-
-    // 4. Select Contact Made -> must automatically clear both No Answer and Voicemail Left
-    fireEvent.click(contactMadeCheckbox);
-    expect(contactMadeCheckbox).toBeChecked();
-    expect(noAnswerCheckbox).not.toBeChecked();
-    expect(voicemailLeftCheckbox).not.toBeChecked();
-
-    // 5. Select Voicemail Left while Contact Made is checked -> must automatically clear Contact Made and select No Answer + Voicemail Left
-    fireEvent.click(voicemailLeftCheckbox);
-    expect(contactMadeCheckbox).not.toBeChecked();
-    expect(noAnswerCheckbox).toBeChecked();
-    expect(voicemailLeftCheckbox).toBeChecked();
-
-    // 6. Deselect No Answer while Voicemail Left is selected -> must also clear Voicemail Left
-    fireEvent.click(noAnswerCheckbox);
     expect(contactMadeCheckbox).not.toBeChecked();
     expect(noAnswerCheckbox).not.toBeChecked();
-    expect(voicemailLeftCheckbox).not.toBeChecked();
-
-    // 7. Select Voicemail Left directly from clean state -> automatically selects No Answer as well
-    fireEvent.click(voicemailLeftCheckbox);
-    expect(noAnswerCheckbox).toBeChecked();
     expect(voicemailLeftCheckbox).toBeChecked();
-
-    // 8. Deselect Voicemail Left -> No Answer remains checked
-    fireEvent.click(voicemailLeftCheckbox);
-    expect(noAnswerCheckbox).toBeChecked();
-    expect(voicemailLeftCheckbox).not.toBeChecked();
   });
 
-  it('switches between Call checkboxes and non-Call select dropdown cleanly', () => {
+  it('switches outcome options immediately when Activity Type changes and clears previous selection', () => {
     render(
       <AppProvider>
         <QuickLogTestWrapper />
@@ -211,24 +186,81 @@ describe('CRMQuickLogModal Component', () => {
 
     fireEvent.click(screen.getByTestId('open-log-btn'));
 
-    // Under Call, checkboxes exist, select dropdown does not
-    expect(screen.getByLabelText(/Contact Made/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Select Activity Outcome/i)).not.toBeInTheDocument();
+    // 1. Under Call, select Voicemail Left
+    const voicemailLeftCheckbox = screen.getByLabelText(/Voicemail Left/i) as HTMLInputElement;
+    fireEvent.click(voicemailLeftCheckbox);
+    expect(voicemailLeftCheckbox).toBeChecked();
 
-    // Switch to Email
+    // 2. Switch to Email
     const emailButton = screen.getByRole('button', { name: /^email$/i });
     fireEvent.click(emailButton);
 
-    // Under Email, select dropdown exists, checkboxes do not
+    // Call options gone
+    expect(screen.queryByLabelText(/Voicemail Left/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/Contact Made/i)).not.toBeInTheDocument();
-    expect(screen.getByLabelText(/Select Activity Outcome/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/No Answer/i)).not.toBeInTheDocument();
 
-    // Switch back to Call
-    const callButton = screen.getByRole('button', { name: /^call$/i });
-    fireEvent.click(callButton);
+    // Email options displayed and unchecked
+    const emailSentCheckbox = screen.getByLabelText(/Email Sent/i) as HTMLInputElement;
+    const emailReceivedCheckbox = screen.getByLabelText(/Email Received/i) as HTMLInputElement;
+    expect(emailSentCheckbox).toBeInTheDocument();
+    expect(emailReceivedCheckbox).toBeInTheDocument();
+    expect(emailSentCheckbox).not.toBeChecked();
+    expect(emailReceivedCheckbox).not.toBeChecked();
 
-    // Call checkboxes restored
-    expect(screen.getByLabelText(/Contact Made/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Select Activity Outcome/i)).not.toBeInTheDocument();
+    // Select Email Sent
+    fireEvent.click(emailSentCheckbox);
+    expect(emailSentCheckbox).toBeChecked();
+
+    // 3. Switch to Meeting
+    const meetingButton = screen.getByRole('button', { name: /^meeting$/i });
+    fireEvent.click(meetingButton);
+
+    // Email options gone
+    expect(screen.queryByLabelText(/Email Sent/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Email Received/i)).not.toBeInTheDocument();
+
+    // Meeting options displayed and unchecked
+    const meetingHeldCheckbox = screen.getByLabelText(/Meeting Held/i) as HTMLInputElement;
+    const cancelledCheckbox = screen.getByLabelText(/Cancelled/i) as HTMLInputElement;
+    const noShowCheckbox = screen.getByLabelText(/No Show/i) as HTMLInputElement;
+    expect(meetingHeldCheckbox).toBeInTheDocument();
+    expect(cancelledCheckbox).toBeInTheDocument();
+    expect(noShowCheckbox).toBeInTheDocument();
+    expect(meetingHeldCheckbox).not.toBeChecked();
+
+    // 4. Switch to Note -> Outcome section must NOT be displayed
+    const noteButton = screen.getByRole('button', { name: /^note$/i });
+    fireEvent.click(noteButton);
+    expect(screen.queryByText(/^outcome$/i)).not.toBeInTheDocument();
+  });
+
+  it('enforces outcome validation for Call, Email, and Meeting, but not Note', () => {
+    render(
+      <AppProvider>
+        <QuickLogTestWrapper />
+      </AppProvider>
+    );
+
+    fireEvent.click(screen.getByTestId('open-log-btn'));
+
+    const submitBtn = screen.getAllByRole('button', { name: /Log Activity/i }).find((btn) => btn.getAttribute('type') === 'submit')!;
+
+    // Attempting to submit Call without outcome shows error
+    fireEvent.click(submitBtn);
+    expect(screen.getByText(/Please select an outcome/i)).toBeInTheDocument();
+    expect(screen.getByText(/Quick Log Activity/i)).toBeInTheDocument();
+
+    // Selecting an outcome clears the validation error
+    fireEvent.click(screen.getByLabelText(/Contact Made/i));
+    expect(screen.queryByText(/Please select an outcome/i)).not.toBeInTheDocument();
+
+    // Switch to Note -> Submitting without outcome succeeds
+    const noteButton = screen.getByRole('button', { name: /^note$/i });
+    fireEvent.click(noteButton);
+    expect(screen.queryByText(/^outcome$/i)).not.toBeInTheDocument();
+
+    fireEvent.click(submitBtn);
+    expect(screen.queryByText(/Quick Log Activity/i)).not.toBeInTheDocument();
   });
 });

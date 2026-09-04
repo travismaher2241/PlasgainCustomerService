@@ -18,6 +18,12 @@ import { ActivityType, Account, CRMContact, CRMOpportunity, ActivityParticipant,
 import { addDaysLocal } from "../../utils/dateUtils";
 import { detectDuplicateContact, DuplicateMatchResult } from "../../utils/duplicateDetector";
 
+export const OUTCOMES_BY_TYPE: Record<"call" | "email" | "meeting", string[]> = {
+  call: ["Contact Made", "No Answer", "Voicemail Left"],
+  email: ["Email Sent", "Email Received"],
+  meeting: ["Meeting Held", "Cancelled", "No Show"]
+};
+
 export const CRMQuickLogModal: React.FC = () => {
   const {
     quickLogModal,
@@ -42,10 +48,8 @@ export const CRMQuickLogModal: React.FC = () => {
   const [title, setTitle] = useState("");
   const [isTitleManuallyEdited, setIsTitleManuallyEdited] = useState(false);
   const [description, setDescription] = useState("");
-  const [callContactMade, setCallContactMade] = useState(false);
-  const [callNoAnswer, setCallNoAnswer] = useState(false);
-  const [callVoicemailLeft, setCallVoicemailLeft] = useState(false);
-  const [nonCallOutcome, setNonCallOutcome] = useState("Connected / Positive");
+  const [selectedOutcome, setSelectedOutcome] = useState("");
+  const [outcomeError, setOutcomeError] = useState(false);
   const [scheduleFollowUp, setScheduleFollowUp] = useState(false);
   const [followUpDate, setFollowUpDate] = useState(() => addDaysLocal(3));
 
@@ -62,42 +66,9 @@ export const CRMQuickLogModal: React.FC = () => {
   // Staged Notable Event to confirm after logging
   const [stagedNotableEvent, setStagedNotableEvent] = useState<ContactNotableEvent | null>(null);
 
-  const handleToggleContactMade = () => {
-    if (!callContactMade) {
-      setCallContactMade(true);
-      setCallNoAnswer(false);
-      setCallVoicemailLeft(false);
-    } else {
-      setCallContactMade(false);
-    }
-  };
-
-  const handleToggleNoAnswer = () => {
-    if (!callNoAnswer) {
-      setCallNoAnswer(true);
-      setCallContactMade(false);
-    } else {
-      setCallNoAnswer(false);
-      setCallVoicemailLeft(false);
-    }
-  };
-
-  const handleToggleVoicemailLeft = () => {
-    if (!callVoicemailLeft) {
-      setCallVoicemailLeft(true);
-      setCallNoAnswer(true);
-      setCallContactMade(false);
-    } else {
-      setCallVoicemailLeft(false);
-    }
-  };
-
-  const getCallOutcome = (): string => {
-    if (callContactMade) return "Contact Made";
-    if (callNoAnswer && callVoicemailLeft) return "No Answer + Voicemail Left";
-    if (callNoAnswer) return "No Answer";
-    if (callVoicemailLeft) return "No Answer + Voicemail Left";
-    return "";
+  const handleSelectOutcome = (opt: string) => {
+    setSelectedOutcome((prev) => (prev === opt ? "" : opt));
+    setOutcomeError(false);
   };
 
   // Resolved CRM records
@@ -170,10 +141,8 @@ export const CRMQuickLogModal: React.FC = () => {
       setShowAccountSelectors(!quickLogModal.accountId);
       setIsTitleManuallyEdited(false);
       setDescription(quickLogModal.prefillNotes || "");
-      setCallContactMade(false);
-      setCallNoAnswer(false);
-      setCallVoicemailLeft(false);
-      setNonCallOutcome("Connected / Positive");
+      setSelectedOutcome("");
+      setOutcomeError(false);
       setScheduleFollowUp(false);
       setFollowUpDate(addDaysLocal(3));
       setIsInlineContactOpen(false);
@@ -197,6 +166,8 @@ export const CRMQuickLogModal: React.FC = () => {
 
   const handleTypeChange = (newType: ActivityType) => {
     setType(newType);
+    setSelectedOutcome("");
+    setOutcomeError(false);
     if (!isTitleManuallyEdited) {
       setTitle(deriveDefaultTitle(newType, targetAccount, targetOpp, primaryContact));
     }
@@ -281,8 +252,13 @@ export const CRMQuickLogModal: React.FC = () => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    const callOutcome = getCallOutcome();
-    const resolvedOutcome = type === "call" ? (callOutcome || "Call Recorded") : nonCallOutcome;
+    if (type !== "note" && !selectedOutcome) {
+      setOutcomeError(true);
+      return;
+    }
+    setOutcomeError(false);
+
+    const resolvedOutcome = type === "note" ? undefined : selectedOutcome;
 
     const chosenContacts = contacts.filter((c) => selectedContactIds.includes(c.id));
     const primary = chosenContacts[0] || null;
@@ -547,6 +523,36 @@ export const CRMQuickLogModal: React.FC = () => {
               </div>
             </div>
 
+            {/* OUTCOME (Single-select checkbox options directly under Activity Type) */}
+            {type !== "note" && (
+              <div>
+                <label className="block text-spec font-bold text-ink-dim uppercase mb-1.5">
+                  Outcome
+                </label>
+                <div className="flex items-center gap-4 sm:gap-6 flex-wrap">
+                  {(OUTCOMES_BY_TYPE[type as "call" | "email" | "meeting"] || []).map((opt) => (
+                    <label
+                      key={opt}
+                      className="flex items-center gap-2 cursor-pointer select-none text-spec font-medium text-body hover:text-ink transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedOutcome === opt}
+                        onChange={() => handleSelectOutcome(opt)}
+                        className="h-4 w-4 rounded border-line-strong text-brand-deep focus:ring-brand-deep cursor-pointer"
+                      />
+                      <span>{opt}</span>
+                    </label>
+                  ))}
+                </div>
+                {outcomeError && (
+                  <p className="text-xs text-urgent font-medium mt-1">
+                    Please select an outcome
+                  </p>
+                )}
+              </div>
+            )}
+
             {/* 2. CONTACT PARTICIPANT SELECTION (Dynamic per Activity Type) */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
@@ -787,61 +793,7 @@ export const CRMQuickLogModal: React.FC = () => {
               )}
             </div>
 
-            {/* 3. OUTCOME (Positioned directly above Notes) */}
-            <div>
-              <label className="block text-spec font-bold text-ink-dim uppercase mb-1.5">
-                Outcome
-              </label>
-              {type === "call" ? (
-                <div className="bg-paper p-3 rounded-edge border border-line space-y-2.5">
-                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={callContactMade}
-                      onChange={handleToggleContactMade}
-                      className="h-4 w-4 rounded border-line-strong text-brand-deep focus:ring-brand-deep cursor-pointer"
-                    />
-                    <span className="text-spec font-medium text-body">Contact Made</span>
-                  </label>
-
-                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={callNoAnswer}
-                      onChange={handleToggleNoAnswer}
-                      className="h-4 w-4 rounded border-line-strong text-brand-deep focus:ring-brand-deep cursor-pointer"
-                    />
-                    <span className="text-spec font-medium text-body">No Answer</span>
-                  </label>
-
-                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={callVoicemailLeft}
-                      onChange={handleToggleVoicemailLeft}
-                      className="h-4 w-4 rounded border-line-strong text-brand-deep focus:ring-brand-deep cursor-pointer"
-                    />
-                    <span className="text-spec font-medium text-body">Voicemail Left</span>
-                  </label>
-                </div>
-              ) : (
-                <select
-                  value={nonCallOutcome}
-                  onChange={(e) => setNonCallOutcome(e.target.value)}
-                  aria-label="Select Activity Outcome"
-                  className="w-full p-2 rounded-edge border border-line bg-paper focus:bg-white text-meta font-medium focus:outline-none focus:border-brand-deep"
-                >
-                  <option value="Connected / Positive">Connected / Positive Discussion</option>
-                  <option value="Sent Technical Package">Sent Technical Package / Proposal</option>
-                  <option value="Price Accepted">Price Accepted / Awaiting PO</option>
-                  <option value="Revision Requested">Revision Requested (Specs / Poles)</option>
-                  <option value="Lost to Competitor">Lost to Competitor</option>
-                  <option value="Completed">Completed</option>
-                </select>
-              )}
-            </div>
-
-            {/* 4. NOTES / CUSTOMER FEEDBACK */}
+            {/* 3. NOTES / CUSTOMER FEEDBACK */}
             <div>
               <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
                 Notes / Customer Feedback
