@@ -10,7 +10,8 @@ import {
   ChevronDown,
   Phone,
   Plus,
-  Mic
+  Mic,
+  Sparkles
 } from "lucide-react";
 import { useApp, CRMSubTab } from "../../context/AppContext";
 import { ErrorBoundary } from "../ErrorBoundary";
@@ -49,6 +50,7 @@ export const CRMCommandCenter: React.FC = () => {
     nextBestActions,
     openQuickLog,
     openVoiceCapture,
+    openEnquiryParser,
     competitorPricingRecords
   } = useApp();
 
@@ -422,6 +424,18 @@ export const CRMCommandCenter: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {/* Parse Inbound Enquiry Action */}
+              <button
+                type="button"
+                onClick={() => openEnquiryParser()}
+                className="h-8 px-2.5 sm:px-3 rounded-edge border border-brand-deep/30 bg-brand-wash hover:bg-brand-wash/80 text-brand-deep font-bold text-xs sm:text-spec transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs shrink-0"
+                title="Parse Inbound Tender, RFQ, or Email into a Structured Lead"
+                aria-label="Parse Inbound Enquiry"
+              >
+                <Sparkles className="w-3.5 h-3.5 shrink-0 text-brand-deep" />
+                <span className="hidden sm:inline">Parse Enquiry</span>
+              </button>
 
               {/* Voice Capture Action (Ute Mode) */}
               <button

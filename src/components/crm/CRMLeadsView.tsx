@@ -39,6 +39,7 @@ export const CRMLeadsView: React.FC = () => {
     accounts,
     contacts,
     openEmailComposer,
+    openEnquiryParser,
     navigateToCRM,
     currentUser,
     showToast
@@ -177,24 +178,53 @@ export const CRMLeadsView: React.FC = () => {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsNewLeadModalOpen(true)}
-          className="px-4 py-2 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add lead</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            type="button"
+            onClick={() => openEnquiryParser()}
+            className="px-3 py-2 rounded-edge border border-brand-deep/30 bg-brand-wash hover:bg-brand-wash/80 text-brand-deep font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            title="Parse Inbound Tender, RFQ, or Email into a Structured Lead"
+          >
+            <Sparkles className="w-4 h-4 text-brand-deep" />
+            <span>Parse Inbound Enquiry</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsNewLeadModalOpen(true)}
+            className="px-4 py-2 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add lead</span>
+          </button>
+        </div>
       </div>
 
       {/* EMPTY STATE */}
       {leads.length === 0 ? (
-        <div className="p-12 text-center space-y-2 bg-white rounded-panel border border-line shadow-2xs">
+        <div className="p-12 text-center space-y-4 bg-white rounded-panel border border-line shadow-2xs">
           <Flame className="w-10 h-10 text-ink-faint mx-auto" />
           <h2 className="text-base font-bold text-body">No leads have been added yet</h2>
           <p className="text-spec text-ink-dim max-w-md mx-auto">
-            Click <strong>Add lead</strong> to record an incoming customer enquiry.
+            Parse an incoming tender, RFQ email, or web form message into a structured lead with AI phrase attribution, or add a lead manually.
           </p>
+          <div className="flex items-center justify-center gap-3 pt-2">
+            <button
+              type="button"
+              onClick={() => openEnquiryParser()}
+              className="px-4 py-2 rounded-edge border border-brand-deep/30 bg-brand-wash hover:bg-brand-wash/80 text-brand-deep font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              <Sparkles className="w-4 h-4 text-brand-deep" />
+              <span>Parse Inbound Enquiry</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsNewLeadModalOpen(true)}
+              className="px-4 py-2 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add lead</span>
+            </button>
+          </div>
         </div>
       ) : (
         /* 2-COLUMN SPLIT: LEADS LIST VS DETAIL */
@@ -263,6 +293,12 @@ export const CRMLeadsView: React.FC = () => {
                         </p>
                       </div>
 
+                      {lead.isAiAssisted && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1 shrink-0" title="Ingested with AI phrase attribution">
+                          <Sparkles className="w-2.5 h-2.5" />
+                          <span>AI</span>
+                        </span>
+                      )}
                       <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-line text-body shrink-0">
                         {lead.leadStatus}
                       </span>
@@ -285,6 +321,12 @@ export const CRMLeadsView: React.FC = () => {
                       <span className="text-xs font-bold px-2 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge">
                         {selectedLead.leadStatus}
                       </span>
+                      {selectedLead.isAiAssisted && (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-emerald-600" />
+                          <span>AI Parsed</span>
+                        </span>
+                      )}
                     </div>
                     <p className="text-spec text-ink-dim">
                       Contact: <strong>{selectedLead.contactName}</strong> · {selectedLead.contactEmail || selectedLead.contactPhone}

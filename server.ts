@@ -1384,6 +1384,253 @@ Return ONLY a JSON object matching this schema:
   }
 });
 
+// 9C. INBOUND ENQUIRY PARSER (Feature 02: Enquiry text to a structured lead)
+app.post(["/api/crm/parse-enquiry", "/api/enquiry/parse-to-lead"], async (req, res) => {
+  try {
+    const rawEnquiryText = readString(req.body?.rawEnquiryText) || readString(req.body?.text);
+    if (!rawEnquiryText) {
+      return res.status(400).json({ error: "rawEnquiryText is required." });
+    }
+
+    const currentDate = readString(req.body?.currentDate) || new Date().toISOString().split("T")[0];
+
+    // Helper for robust heuristic extraction if Gemini is offline or not configured
+    const runFallbackExtraction = () => {
+      const lower = rawEnquiryText.toLowerCase();
+
+      // 1. Email & Phone
+      const emailMatch = rawEnquiryText.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+      const phoneMatch = rawEnquiryText.match(/(?:\+?61|0)[2-478](?:[ -]?[0-9]){8}|(?:\+?61\s?|0)4\d{2}(?:[ -]?\d{3}){2}/);
+
+      // 2. Company Detection
+      let companyVal = "Unknown Company";
+      let companyPhrase = "";
+      const councilMatch = rawEnquiryText.match(/([A-Z][a-zA-Z0-9 &',.-]+?(?:Council|Shire|City Council|Borough|Regional Council|Pty Ltd|Pty\. Ltd\.|Limited|Ltd|Holdings|Group|Engineering|Contractors|Civil))/i);
+      if (councilMatch) {
+        companyVal = councilMatch[1].trim();
+        companyPhrase = councilMatch[0];
+      } else {
+        const fromCompanyMatch = rawEnquiryText.match(/(?:company|organisation|organization|at|from):\s*([^\n\r,]+)/i);
+        if (fromCompanyMatch) {
+          companyVal = fromCompanyMatch[1].trim();
+          companyPhrase = fromCompanyMatch[0];
+        }
+      }
+
+      // 3. Contact Detection
+      let contactName = "Enquiry Contact";
+      let contactTitle = "";
+      let contactPhrase = "";
+      const contactMatch = rawEnquiryText.match(/(?:contact|from|name|attn|attention):\s*([A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+)+)/i);
+      if (contactMatch) {
+        contactName = contactMatch[1].trim();
+        contactPhrase = contactMatch[0];
+      } else {
+        const signoffMatch = rawEnquiryText.match(/(?:Regards|Kind regards|Cheers|Thanks|Sincerely),\s*\n+([A-Z][a-zA-Z'-]+(?:\s+[A-Z][a-zA-Z'-]+)?)/i);
+        if (signoffMatch) {
+          contactName = signoffMatch[1].trim();
+          contactPhrase = signoffMatch[0];
+        }
+      }
+
+      // 4. Territory detection
+      let territory: "NSW/ACT" | "VIC/TAS" | "QLD/NT" | "WA" | "SA" | "National" = "National";
+      if (/(?:vic|victoria|melbourne|geelong|ballarat|bendigo)/i.test(rawEnquiryText)) {
+        territory = "VIC/TAS";
+      } else if (/(?:nsw|new south wales|sydney|newcastle|wollongong|act|canberra)/i.test(rawEnquiryText)) {
+        territory = "NSW/ACT";
+      } else if (/(?:qld|queensland|brisbane|gold coast|cairns|townsville|nt|darwin)/i.test(rawEnquiryText)) {
+        territory = "QLD/NT";
+      } else if (/(?:wa|western australia|perth|fremantle)/i.test(rawEnquiryText)) {
+        territory = "WA";
+      } else if (/(?:sa|south australia|adelaide)/i.test(rawEnquiryText)) {
+        territory = "SA";
+      }
+
+      // 5. Enquiry Type
+      let enquiryType: "Solar Pathway Lighting" | "Roadway & Streetlight" | "Car Park & Area" | "CCTV & Security" | "Composite Poles" | "General" = "General";
+      let leadName = "Solar Lighting Enquiry";
+      if (/pathway|trail|pedestrian|shared path|park/i.test(lower)) {
+        enquiryType = "Solar Pathway Lighting";
+        leadName = "Pathway Solar Lighting Project";
+      } else if (/car park|carparks?|parking/i.test(lower)) {
+        enquiryType = "Car Park & Area";
+        leadName = "Car Park Solar Lighting Project";
+      } else if (/street|road|roadway|highway/i.test(lower)) {
+        enquiryType = "Roadway & Streetlight";
+        leadName = "Roadway Solar Streetlight Project";
+      } else if (/cctv|camera|security/i.test(lower)) {
+        enquiryType = "CCTV & Security";
+        leadName = "Solar CCTV & Security System";
+      } else if (/composite|frp|fiberglass|pole/i.test(lower)) {
+        enquiryType = "Composite Poles";
+        leadName = "Composite Poles Supply";
+      }
+
+      // 6. Quantity & Scope
+      let quantity: number | undefined = undefined;
+      let qtyPhrase = "";
+      const qtyMatch = rawEnquiryText.match(/(?:qty|quantity|approx\.?|count|total of|supply of)?\s*(\d{1,4})\s*(?:x\s+)?(?:units?|columns?|poles?|lights?|fittings?|luminaires?|systems?|plasslab)/i);
+      if (qtyMatch) {
+        quantity = parseInt(qtyMatch[1], 10);
+        qtyPhrase = qtyMatch[0];
+      }
+
+      // 7. Commercial & Deadline
+      let deadlineStr = "";
+      let deadlinePhrase = "";
+      const dueMatch = rawEnquiryText.match(/(?:due|deadline|by|before|tender closes?|submissions? close:?)\s+([0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?|\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i);
+      if (dueMatch) {
+        deadlineStr = dueMatch[1];
+        deadlinePhrase = dueMatch[0];
+      }
+
+      const urgency = /urgent|immediate|asap/i.test(lower) ? "Immediate" : deadlineStr ? "Within 1 Month" : "Budgetary / Exploratory";
+      const estValue = quantity ? quantity * 3500 : undefined;
+
+      return {
+        rawEnquiryText,
+        company: {
+          value: companyVal,
+          sourcePhrase: companyPhrase || companyVal
+        },
+        contact: {
+          name: contactName,
+          email: emailMatch ? emailMatch[1] : undefined,
+          phone: phoneMatch ? phoneMatch[0] : undefined,
+          jobTitle: contactTitle || undefined,
+          sourcePhrase: contactPhrase || contactName
+        },
+        project: {
+          leadName: `${companyVal !== "Unknown Company" ? companyVal + " - " : ""}${leadName}`,
+          enquiryType,
+          location: territory,
+          territory,
+          sourcePhrase: leadName
+        },
+        scope: {
+          quantity,
+          productInterest: quantity ? [`${enquiryType} (${quantity} units)`] : [enquiryType],
+          sourcePhrase: qtyPhrase || undefined
+        },
+        commercial: {
+          deadline: deadlineStr || undefined,
+          urgency,
+          estimatedValue: estValue,
+          estimatedValueBasis: estValue ? "Estimate" : "Unknown",
+          sourcePhrase: deadlinePhrase || undefined
+        },
+        nextAction: {
+          action: "Review specification documents and prepare preliminary design & quote",
+          date: currentDate,
+          sourcePhrase: "Initial enquiry triage"
+        },
+        summaryNotes: `Inbound enquiry received:\n${rawEnquiryText.slice(0, 300)}...`
+      };
+    };
+
+    if (!isAIConfigured()) {
+      return res.json(runFallbackExtraction());
+    }
+
+    try {
+      const prompt = `You are the Plasgain Sales Engineering Enquiry Parser. An inbound enquiry has arrived via email, tender portal, or web form RFQ.
+Your job is to parse this raw text into a structured CRM Lead record, extracting all actionable operational and commercial data.
+Crucially, you MUST extract the verbatim 'sourcePhrase' (short snippet of text) that justifies every single extracted field, so the sales engineer can verify the AI's provenance without re-reading the entire document.
+
+CURRENT DATE: ${currentDate}
+
+RAW ENQUIRY TEXT:
+"""
+${rawEnquiryText}
+"""
+
+EXTRACTION RULES:
+1. company: Extract the purchasing organisation, municipal council, contractor, or commercial firm.
+2. contact: Extract the person's name, email, direct phone, and job title if mentioned.
+3. project:
+   - leadName: Descriptive title for this lead (e.g. "Wyndham City Council - 14x Solar Shared Trail Lighting").
+   - enquiryType: Must be one of ["Solar Pathway Lighting", "Roadway & Streetlight", "Car Park & Area", "CCTV & Security", "Composite Poles", "General"].
+   - location: Specific suburb, road, park, or site if mentioned.
+   - territory: Must be one of ["NSW/ACT", "VIC/TAS", "QLD/NT", "WA", "SA", "National"].
+4. scope:
+   - quantity: Numeric count of poles/lights/systems requested (e.g. 14).
+   - productInterest: Array of product types/models identified (e.g. ["Shared Trail Solar Lighting", "Composite Poles"]).
+5. commercial:
+   - deadline: Extracted date or timeline for submission/quote (ISO YYYY-MM-DD or readable string).
+   - urgency: One of ["Immediate", "Within 1 Month", "Q3/Q4", "Budgetary / Exploratory"].
+   - estimatedValue: Rough dollar figure if specified or estimated ($3,500 - $6,000 per solar pole is typical).
+   - estimatedValueBasis: "Known", "Estimate", or "Unknown".
+6. nextAction:
+   - action: Next concrete sales step (e.g. "Send AS/NZS 1158.3.1 lighting design & formal quote").
+   - date: Suggested due date (YYYY-MM-DD), considering the deadline or defaulting to 2-3 business days.
+7. summaryNotes: Crisp 2-3 bullet point summary of key technical challenges, site conditions, or special requirements mentioned.
+8. sourcePhrase: Verbatim quote from the text demonstrating where each field came from.
+
+Return ONLY a JSON object matching this schema:
+{
+  "rawEnquiryText": string,
+  "company": {
+    "value": string,
+    "sourcePhrase": string
+  },
+  "contact": {
+    "name": string,
+    "email": string,
+    "phone": string,
+    "jobTitle": string,
+    "sourcePhrase": string
+  },
+  "project": {
+    "leadName": string,
+    "enquiryType": "Solar Pathway Lighting" | "Roadway & Streetlight" | "Car Park & Area" | "CCTV & Security" | "Composite Poles" | "General",
+    "location": string,
+    "territory": "NSW/ACT" | "VIC/TAS" | "QLD/NT" | "WA" | "SA" | "National",
+    "sourcePhrase": string
+  },
+  "scope": {
+    "quantity": number,
+    "productInterest": string[],
+    "sourcePhrase": string
+  },
+  "commercial": {
+    "deadline": string,
+    "urgency": "Immediate" | "Within 1 Month" | "Q3/Q4" | "Budgetary / Exploratory",
+    "estimatedValue": number,
+    "estimatedValueBasis": "Known" | "Estimate" | "Unknown",
+    "sourcePhrase": string
+  },
+  "nextAction": {
+    "action": string,
+    "date": string,
+    "sourcePhrase": string
+  },
+  "summaryNotes": string
+}`;
+
+      const response = await generateContentWithFailover({
+        preferredModel: DEFAULT_MODEL,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.1
+        }
+      });
+
+      const parsed = extractJsonFromText(response.text || "{}");
+      parsed.rawEnquiryText = rawEnquiryText;
+      return res.json(parsed);
+    } catch (aiErr: any) {
+      console.warn("[parse-enquiry] AI error, falling back to heuristic extractor:", aiErr?.message);
+      return res.json(runFallbackExtraction());
+    }
+  } catch (error: any) {
+    console.error("Error in parse enquiry endpoint:", error);
+    res.status(500).json({ error: error.message || "Failed to parse enquiry." });
+  }
+});
+
+
 
 // 10. FOLLOW-UP ASSISTANT
 app.post(["/api/follow-up/suggest", "/api/tools/follow-up", "/api/tools/followup"], async (req, res) => {

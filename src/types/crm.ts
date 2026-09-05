@@ -275,6 +275,11 @@ export interface CRMLead {
     hasDefiniteNeed: boolean;
     hasTimeline: boolean;
   };
+  rawEnquiry?: string;
+  rawEnquiryText?: string;
+  enquiryDeadline?: string;
+  quantity?: number;
+  isAiAssisted?: boolean;
   convertedAccountId?: string;
   convertedContactId?: string;
   convertedOpportunityId?: string;
@@ -826,3 +831,44 @@ export interface VoiceLogDiffProposal {
   estimatedValue?: number;
   productInterest?: string[];
 }
+
+export interface EnquiryParseResult {
+  rawEnquiryText: string;
+  company: {
+    value: string;
+    sourcePhrase?: string;
+  };
+  contact: {
+    name: string;
+    email?: string;
+    phone?: string;
+    jobTitle?: string;
+    sourcePhrase?: string;
+  };
+  project: {
+    leadName: string;
+    enquiryType: "Solar Pathway Lighting" | "Roadway & Streetlight" | "Car Park & Area" | "CCTV & Security" | "Composite Poles" | "General";
+    location?: string;
+    territory?: "NSW/ACT" | "VIC/TAS" | "QLD/NT" | "WA" | "SA" | "National";
+    sourcePhrase?: string;
+  };
+  scope: {
+    quantity?: number;
+    productInterest: string[];
+    sourcePhrase?: string;
+  };
+  commercial: {
+    deadline?: string;
+    urgency?: "Immediate" | "Within 1 Month" | "Q3/Q4" | "Budgetary / Exploratory";
+    estimatedValue?: number;
+    estimatedValueBasis?: "Known" | "Estimate" | "Unknown";
+    sourcePhrase?: string;
+  };
+  nextAction: {
+    action: string;
+    date: string;
+    sourcePhrase?: string;
+  };
+  summaryNotes: string;
+}
+

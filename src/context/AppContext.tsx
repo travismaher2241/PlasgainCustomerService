@@ -401,6 +401,14 @@ interface AppContextType {
   closeVoiceCapture: () => void;
   applyVoiceCaptureDiff: (diff: VoiceLogDiffProposal) => Promise<boolean>;
 
+  // Feature 02: Inbound Enquiry Parser Modal State
+  enquiryParserModal: {
+    isOpen: boolean;
+    initialText?: string;
+  } | null;
+  openEnquiryParser: (initialText?: string) => void;
+  closeEnquiryParser: () => void;
+
   // Notification / Toast
   toast: { message: string; type: "success" | "info" | "warning" | "error" } | null;
   showToast: (message: string, type?: "success" | "info" | "warning" | "error") => void;
@@ -852,6 +860,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const closeVoiceCapture = () => {
     setVoiceCaptureModal(null);
+  };
+
+  // Feature 02: Inbound Enquiry Parser Modal State
+  const [enquiryParserModal, setEnquiryParserModal] = useState<{
+    isOpen: boolean;
+    initialText?: string;
+  } | null>(null);
+
+  const openEnquiryParser = (initialText?: string) => {
+    setEnquiryParserModal({
+      isOpen: true,
+      initialText
+    });
+  };
+
+  const closeEnquiryParser = () => {
+    setEnquiryParserModal(null);
   };
   
   // Server-backed Notifications with canonical normalization (P1-05)
@@ -1978,13 +2003,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       weightedValue: lead.estimatedValue * 0.25,
       probability: 25,
       forecastCategory: "Pipeline",
-      expectedCloseDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      expectedCloseDate: lead.enquiryDeadline || new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       products: lead.productInterest.map((p, idx) => ({
         id: `prod-line-${idx}`,
         productCode: "",
         productName: p,
         category: "Solar Luminaire",
-        quantity: 1
+        quantity: lead.quantity || 1
       })),
       projectApplication: lead.enquiryType,
       location: lead.location,
@@ -2601,6 +2626,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         openVoiceCapture,
         closeVoiceCapture,
         applyVoiceCaptureDiff,
+        enquiryParserModal,
+        openEnquiryParser,
+        closeEnquiryParser,
         isEmailComposerOpen,
         emailComposerLaunchContext,
         openEmailComposer,
