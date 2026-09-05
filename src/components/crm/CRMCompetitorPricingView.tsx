@@ -17,7 +17,13 @@ import {
   MoreVertical,
   Archive,
   ArchiveRestore,
-  X
+  X,
+  Shield,
+  Sparkles,
+  Copy,
+  Check,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import {
@@ -28,6 +34,7 @@ import {
   CompetitorPricingStatus
 } from "../../types/crm";
 import { getLocalDateInputValue } from "../../utils/dateUtils";
+import { computeCompetitorIntelligence } from "../../utils/competitorIntelligence";
 
 export const CRMCompetitorPricingView: React.FC = () => {
   const {
@@ -66,6 +73,29 @@ export const CRMCompetitorPricingView: React.FC = () => {
   });
 
   const records = Array.isArray(competitorPricingRecords) ? competitorPricingRecords : [];
+
+  const [selectedBattlecardName, setSelectedBattlecardName] = useState<string | null>(null);
+  const [isBattlecardSectionOpen, setIsBattlecardSectionOpen] = useState(true);
+  const [copiedObjection, setCopiedObjection] = useState<string | null>(null);
+
+  const intelSummary = useMemo(() => {
+    return computeCompetitorIntelligence(records, crmOpportunities);
+  }, [records, crmOpportunities]);
+
+  const activeBattlecard = useMemo(() => {
+    if (intelSummary.battlecards.length === 0) return null;
+    if (selectedBattlecardName) {
+      return intelSummary.battlecards.find((b) => b.competitorName.toLowerCase() === selectedBattlecardName.toLowerCase()) || intelSummary.battlecards[0];
+    }
+    return intelSummary.battlecards[0];
+  }, [intelSummary, selectedBattlecardName]);
+
+  const handleCopyText = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedObjection(id);
+    showToast("Copied counter-positioning argument to clipboard!", "success");
+    setTimeout(() => setCopiedObjection(null), 2500);
+  };
 
   const uniqueCompetitors = useMemo(() => {
     const set = new Set(records.map((r) => r.competitorName));
@@ -203,6 +233,143 @@ export const CRMCompetitorPricingView: React.FC = () => {
           <span>Add competitor price</span>
         </button>
       </div>
+
+      {/* CROSS-DEAL COMPETITOR INTELLIGENCE & COUNTER-POSITIONING (Feature 06) */}
+      {intelSummary.totalRecords > 0 && (
+        <div className="bg-gradient-to-r from-amber-50/70 via-orange-50/30 to-white rounded-panel border border-amber-200 p-4 space-y-3.5 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-edge bg-amber-600 text-white flex items-center justify-center">
+                <TrendingUp className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-body flex items-center gap-2">
+                  <span>Cross-Deal Competitor Intelligence & Positioning</span>
+                  <span className="px-1.5 py-0.5 text-3xs font-bold uppercase rounded-full bg-amber-100 text-amber-900 border border-amber-200">
+                    Live Market Benchmarks
+                  </span>
+                </h3>
+                <p className="text-spec text-ink-dim">
+                  Encounter rates, price variances against Plasgain, and actionable counter-positioning battlecards
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsBattlecardSectionOpen(!isBattlecardSectionOpen)}
+              className="text-xs font-semibold text-ink-dim hover:text-body flex items-center gap-1 cursor-pointer"
+            >
+              <span>{isBattlecardSectionOpen ? "Collapse Intelligence" : "Expand Intelligence"}</span>
+              {isBattlecardSectionOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+
+          {isBattlecardSectionOpen && (
+            <div className="space-y-3 pt-1">
+              {/* Executive Market Takeaway */}
+              {intelSummary.marketTakeaway && (
+                <div className="p-3 bg-white/90 rounded-edge border border-amber-200/80 text-xs text-body leading-relaxed flex items-start gap-2 shadow-2xs">
+                  <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-amber-950">Market Intelligence Insight: </span>
+                    {intelSummary.marketTakeaway}
+                  </div>
+                </div>
+              )}
+
+              {/* Competitor Encounter Strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                {intelSummary.competitorBreakdown.slice(0, 4).map((comp) => {
+                  const isSelected = activeBattlecard?.competitorName === comp.competitorName;
+                  return (
+                    <button
+                      key={comp.competitorName}
+                      type="button"
+                      onClick={() => setSelectedBattlecardName(comp.competitorName)}
+                      className={`p-2.5 rounded-edge border text-left transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-white border-amber-500 ring-2 ring-amber-400/40 shadow-xs"
+                          : "bg-white/80 border-line hover:border-amber-300 hover:bg-white"
+                      }`}
+                    >
+                      <div className="font-bold text-body truncate">{comp.competitorName}</div>
+                      <div className="text-3xs text-ink-dim flex items-center justify-between mt-1">
+                        <span>{comp.count} records ({comp.encounterRatePercent}%)</span>
+                        <span className={`font-bold ${comp.avgVariancePercent < 0 ? "text-amber-800" : "text-emerald-700"}`}>
+                          {comp.avgVariancePercent < 0 ? `${comp.avgVariancePercent}%` : `+${comp.avgVariancePercent}%`}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Active Battlecard Detail */}
+              {activeBattlecard && (
+                <div className="bg-white rounded-edge border border-line p-3.5 space-y-3 shadow-2xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 border-b border-line-subtle pb-2">
+                    <div className="flex items-center gap-2">
+                      <Shield className="w-4 h-4 text-brand-deep" />
+                      <span className="font-bold text-sm text-body">
+                        Battlecard: Winning against {activeBattlecard.competitorName}
+                      </span>
+                    </div>
+                    <span className="text-3xs text-ink-dim">
+                      Primary edge: <span className="font-semibold text-body">{activeBattlecard.positioningBattlecard.categoryEdge}</span>
+                    </span>
+                  </div>
+
+                  {/* Differentiators & Defense Points */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <div className="text-3xs font-bold uppercase tracking-wider text-ink-dim">
+                        Plasgain Engineering & Commercial Advantages
+                      </div>
+                      <ul className="space-y-1 text-xs text-ink">
+                        {activeBattlecard.positioningBattlecard.plasgainDifferentiators.map((diff, idx) => (
+                          <li key={idx} className="flex items-start gap-1.5">
+                            <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                            <span>{diff}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="text-3xs font-bold uppercase tracking-wider text-ink-dim">
+                        Sales Rep Objection Handling & Talk Tracks
+                      </div>
+                      <div className="space-y-2">
+                        {activeBattlecard.positioningBattlecard.objectionHandling.map((obj, idx) => {
+                          const copyId = `${activeBattlecard.competitorName}-${idx}`;
+                          const isCopied = copiedObjection === copyId;
+                          return (
+                            <div key={idx} className="p-2 rounded bg-paper border border-line text-xs space-y-1">
+                              <div className="font-bold text-ink-dim text-3xs">Customer Objection: "{obj.objection}"</div>
+                              <div className="text-body font-medium flex items-start justify-between gap-2">
+                                <span>"{obj.counterResponse}"</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyText(obj.counterResponse, copyId)}
+                                  className="shrink-0 p-1 hover:bg-raised rounded text-ink-dim hover:text-body transition-colors"
+                                  title="Copy response to clipboard"
+                                >
+                                  {isCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* TOOLBAR */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white p-3 rounded-panel border border-line shadow-2xs">

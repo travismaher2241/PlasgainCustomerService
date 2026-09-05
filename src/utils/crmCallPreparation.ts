@@ -323,7 +323,7 @@ export function generateCallPreparationBriefing(params: {
     const colleagueName = lastAccountActivity.contactName || "colleague";
     if (colleaguePersonalMention) {
       narrativeParagraphs.push(
-        `There is no direct interaction recorded with ${contactName} yet. However, in your meeting ${timePhrase} with ${colleagueName} ("${lastAccountActivity.title}"), it was noted that Zia was over in Perth dealing with an urgent water leak at his property.`
+        `There is no direct interaction recorded with ${contactName} yet. However, in your meeting ${timePhrase} with ${colleagueName} ("${lastAccountActivity.title}"), it was noted that ${contact?.firstName || "Zia"} was over in Perth dealing with an urgent water leak at his property.`
       );
     } else {
       narrativeParagraphs.push(

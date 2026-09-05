@@ -24,13 +24,21 @@ import {
   FileText,
   Clock3,
   PhoneCall,
-  Mic
+  Mic,
+  Package,
+  Users
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { CustomerFollowUpModal, CustomerFollowUpModalProps } from "../CustomerFollowUpModal";
 import { CRMIntelligenceEngine } from "../../utils/crmIntelligence";
 import { NextBestActionItem, CRMOpportunity, CRMTask, CRMLead, CRMActionPayload } from "../../types/crm";
 import { executeCRMAction, ActionDispatchContext } from "../../utils/copilotActionDispatcher";
+import {
+  getNextDayMeetings,
+  getUpcomingMeetings,
+  generateMeetingPreparationPlan,
+  getTomorrowDateString
+} from "../../utils/crmMeetingPreparation";
 
 type FilterCategory = "all" | "overdue" | "followups" | "quotes" | "leads";
 type PriorityTier = "do_now" | "today" | "normal" | "waiting";
@@ -93,6 +101,8 @@ export const CRMTodayWorkspace: React.FC = () => {
     openCallPrep,
     openEmailComposer,
     openScheduleMeeting,
+    openMeetingPrep,
+    knowledge,
     addTask,
     updateOpportunity,
     showToast,
@@ -172,6 +182,26 @@ export const CRMTodayWorkspace: React.FC = () => {
   const highPriorityNBACount = useMemo(() => {
     return nextBestActions.filter((a) => a.urgency === "Immediate").length;
   }, [nextBestActions]);
+
+  // Feature 09: Proactive Meeting Preparation that arrives on its own
+  const proactiveMeetingsWithPlans = useMemo(() => {
+    const tomorrowMeetings = getNextDayMeetings(tasks, todayStr);
+    const candidateMeetings = tomorrowMeetings.length > 0
+      ? tomorrowMeetings
+      : getUpcomingMeetings(tasks, todayStr).slice(0, 2);
+
+    return candidateMeetings.map((meeting) => {
+      const plan = generateMeetingPreparationPlan(meeting, {
+        accounts,
+        contacts,
+        opportunities: crmOpportunities,
+        activities,
+        knowledge: knowledge || [],
+        tasks
+      });
+      return { meeting, plan };
+    });
+  }, [tasks, todayStr, accounts, contacts, crmOpportunities, activities, knowledge]);
 
   // Unified Action Queue
   const workItems = useMemo<UnifiedWorkItem[]>(() => {
@@ -416,6 +446,105 @@ export const CRMTodayWorkspace: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* PROACTIVE MEETING PREPARATION (Feature 09: Prep that arrives on its own) */}
+      {proactiveMeetingsWithPlans.length > 0 && (
+        <div className="bg-gradient-to-r from-blue-50/80 via-indigo-50/50 to-white rounded-panel border border-blue-200 p-4 space-y-3 shadow-2xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-edge bg-brand text-white flex items-center justify-center">
+                <Calendar className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-body flex items-center gap-1.5">
+                  <span>Upcoming Meetings & Proactive Briefing</span>
+                  <span className="px-1.5 py-0.5 text-3xs font-bold uppercase rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+                    Auto-Prepared
+                  </span>
+                </h3>
+                <p className="text-spec text-ink-dim">
+                  Context, personal rapport points, and replenishment countdowns synthesized from past notes
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {proactiveMeetingsWithPlans.map(({ meeting, plan }) => {
+              const isTomorrow = meeting.dueDate === getTomorrowDateString(todayStr);
+              const urgentReplenishment = plan.supplyCycles.find((sc) => sc.monthsRemaining <= 1 || sc.daysRemaining <= 45);
+              const personalRapport = plan.participantContexts.find((pc) => pc.rapportPoints.length > 0);
+
+              return (
+                <div
+                  key={meeting.id}
+                  className="bg-white rounded-edge border border-blue-100 hover:border-blue-300 p-3.5 flex flex-col justify-between space-y-2.5 transition-all shadow-2xs"
+                >
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs text-ink-dim">
+                      <span className="font-semibold text-brand flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5" />
+                        {isTomorrow ? "Tomorrow" : meeting.dueDate} {meeting.dueTime ? `· ${meeting.dueTime}` : ""}
+                      </span>
+                      <span className="text-3xs px-2 py-0.5 rounded-full bg-paper border border-line text-ink-dim font-medium">
+                        {meeting.meetingFormat || "Meeting"}
+                      </span>
+                    </div>
+
+                    <h4 className="text-sm font-bold text-body hover:text-brand transition-colors">
+                      {meeting.title}
+                    </h4>
+                    <p className="text-xs text-ink font-medium">
+                      {plan.account?.name || meeting.accountName || "Customer Account"}
+                      {plan.participants.length > 0 && ` · ${plan.participants.map((p) => `${p.firstName} ${p.lastName}`).join(", ")}`}
+                    </p>
+
+                    {/* High-priority Proactive Callout: Replenishment or Personal Rapport */}
+                    {urgentReplenishment ? (
+                      <div className="p-2 rounded bg-amber-50/80 border border-amber-200 text-xs text-amber-900 flex items-start gap-1.5">
+                        <Package className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold">Replenishment Alert: </span>
+                          ~1 month out from requiring more {urgentReplenishment.product} (ordered {urgentReplenishment.durationRaw} supply).
+                        </div>
+                      </div>
+                    ) : personalRapport && personalRapport.rapportPoints.length > 0 ? (
+                      <div className="p-2 rounded bg-blue-50/80 border border-blue-200 text-xs text-blue-900 flex items-start gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-brand shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold">Personal Rapport: </span>
+                          {personalRapport.rapportPoints[0]}
+                        </div>
+                      </div>
+                    ) : plan.talkingPoints.length > 0 ? (
+                      <div className="p-2 rounded bg-paper border border-line text-xs text-body flex items-start gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-brand-deep shrink-0 mt-0.5" />
+                        <div className="line-clamp-2">
+                          {plan.talkingPoints[0].text}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="pt-2 border-t border-line-subtle flex items-center justify-between">
+                    <span className="text-3xs text-ink-faint">
+                      {plan.talkingPoints.length} talking points prepared
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => openMeetingPrep(meeting.id)}
+                      className="inline-flex items-center gap-1 text-xs font-bold text-brand hover:text-brand-deep transition-colors cursor-pointer"
+                    >
+                      <span>Open Full Briefing</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* EMPTY STATES (PART B) */}
       {!hasAnyCrmRecords ? (

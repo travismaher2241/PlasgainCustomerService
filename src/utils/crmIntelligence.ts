@@ -5,10 +5,169 @@ import {
   CRMTask,
   CRMActivity,
   NextBestActionItem,
-  DealHealthRating
+  DealHealthRating,
+  CompetitorPricingRecord
 } from "../types/crm";
 
+export interface DealSilenceRiskEvaluation {
+  isSilent: boolean;
+  daysSilent: number;
+  riskLevel: "Critical" | "Warning" | "Moderate" | "None";
+  diagnosis: string;
+  reasonCategory: "Council Tender Window" | "Contractor Tender Closing" | "Competitor Presence" | "High-Value Silence" | "Normal Cadence";
+  recommendedAction: {
+    actionLabel: string;
+    actionType: "send_email" | "log_call" | "schedule_meeting";
+    subject?: string;
+    suggestedNotes: string;
+  };
+}
+
+/**
+ * Value-weighted, segment-aware deal silence detection.
+ * Analyzes why a deal has gone quiet (Council tender cycle vs Contractor closing window vs Competitor presence).
+ */
+export function evaluateDealSilenceRisk(
+  deal: CRMOpportunity,
+  options: {
+    competitorPricing?: CompetitorPricingRecord[];
+    activities?: CRMActivity[];
+    account?: Account | null;
+    todayStr?: string;
+  } = {}
+): DealSilenceRiskEvaluation {
+  const todayStr = options.todayStr || new Date().toISOString().split("T")[0];
+
+  // 1. Calculate latest customer contact date
+  let latestDate = deal.quoteSentDate || deal.latestActivityDate;
+  if (options.activities && options.activities.length > 0) {
+    const dealActivities = options.activities.filter(
+      (a) => a.opportunityId === deal.id || (deal.accountId && a.accountId === deal.accountId)
+    );
+    for (const a of dealActivities) {
+      const actDate = a.timestamp ? a.timestamp.split("T")[0] : undefined;
+      if (actDate && (!latestDate || actDate > latestDate)) {
+        latestDate = actDate;
+      }
+    }
+  }
+
+  // Days silent since the latest confirmed interaction/quote
+  let daysSilent = deal.daysInCurrentStage || 0;
+  if (latestDate) {
+    const diff = CRMIntelligenceEngine.daysBetween(latestDate, todayStr);
+    daysSilent = Math.max(0, diff);
+  }
+
+  // 2. Identify active competitors for this deal/account
+  const competitorPricing = options.competitorPricing || [];
+  const activeCompetitor = competitorPricing.find(
+    (c) =>
+      c.status === "Active" &&
+      ((deal.accountId && c.accountId === deal.accountId) || (c.opportunityId && c.opportunityId === deal.id))
+  );
+
+  // 3. Segment Identification
+  const combinedName = `${deal.accountName || ""} ${options.account?.name || ""} ${deal.name}`.toLowerCase();
+  const isCouncil =
+    options.account?.accountType === "Council" ||
+    /(?:council|shire|city\s+of|municipality|government|regional)/i.test(combinedName);
+  const isContractor =
+    options.account?.accountType === "Contractor" ||
+    /(?:contract|civil|construction|downer|lendlease|fulton|cpb|electrical|builder)/i.test(combinedName);
+
+  const dealVal = deal.dealValue || 0;
+
+  // Case A: Active Competitor Presence
+  if (activeCompetitor && (daysSilent >= 6 || deal.daysInCurrentStage >= 10)) {
+    const varianceSnippet = activeCompetitor.plasgainQuotedPrice
+      ? ` (quoted $${activeCompetitor.price.toLocaleString()} vs Plasgain $${activeCompetitor.plasgainQuotedPrice.toLocaleString()})`
+      : ` (logged at $${activeCompetitor.price.toLocaleString()})`;
+
+    return {
+      isSilent: true,
+      daysSilent,
+      riskLevel: "Critical",
+      reasonCategory: "Competitor Presence",
+      diagnosis: `Active Competitor Risk: ${activeCompetitor.competitorName} pricing recorded${varianceSnippet}. ${daysSilent} days of silence suggests ${deal.accountName || "the customer"} is actively evaluating competing proposals. Re-anchor on Plasgain's 50-year design life, zero thermal sag, and IK10 durability.`,
+      recommendedAction: {
+        actionLabel: "Send Competitor Defense Email",
+        actionType: "send_email",
+        subject: `Proposal review & technical specifications for ${deal.name}`,
+        suggestedNotes: `Re-anchor client on Plasgain's engineered composite core, IK10 vandal resistance, and 50-year maintenance-free lifecycle compared to ${activeCompetitor.competitorName}.`
+      }
+    };
+  }
+
+  // Case B: Council Tender Committee Window
+  if (isCouncil && (daysSilent >= 10 || deal.daysInCurrentStage >= 14)) {
+    return {
+      isSilent: true,
+      daysSilent,
+      riskLevel: dealVal >= 50000 ? "Critical" : "Warning",
+      reasonCategory: "Council Tender Window",
+      diagnosis: `Council Procurement Silence: ${daysSilent} days since touchpoint on $${dealVal.toLocaleString()} project. Council committees review tenders on monthly schedules; silence signals waiting for agenda sign-off or pending compliance submittals.`,
+      recommendedAction: {
+        actionLabel: "Offer Council Compliance Submittal",
+        actionType: "send_email",
+        subject: `Engineering compliance & DIALux package for ${deal.name}`,
+        suggestedNotes: `Offer to provide certified AS/NZS 1158 engineering calculations, photometric reports, or environmental certificates to support council committee approval.`
+      }
+    };
+  }
+
+  // Case C: Contractor Tender Closing Window
+  if (isContractor && (daysSilent >= 7 || deal.daysInCurrentStage >= 10)) {
+    return {
+      isSilent: true,
+      daysSilent,
+      riskLevel: dealVal >= 50000 ? "Critical" : "Warning",
+      reasonCategory: "Contractor Tender Closing",
+      diagnosis: `Contractor Tender Closing Risk: ${daysSilent} days of silence on $${dealVal.toLocaleString()} quotation. Head contractors finalize sub-packages within 7–14 days. Urgent touchpoint required to guarantee delivery dates and lock specifications.`,
+      recommendedAction: {
+        actionLabel: "Call Contractor to Lock Spec",
+        actionType: "log_call",
+        subject: `Tender closing follow-up for ${deal.name}`,
+        suggestedNotes: `Confirm tender award date with head contractor, verify bill of materials, and commit factory manufacturing slot to secure delivery timeline.`
+      }
+    };
+  }
+
+  // Case D: General High-Value Deal Stall
+  if (dealVal >= 50000 && (daysSilent >= 12 || deal.daysInCurrentStage >= 14)) {
+    return {
+      isSilent: true,
+      daysSilent,
+      riskLevel: "Critical",
+      reasonCategory: "High-Value Silence",
+      diagnosis: `High-Value Stalled Momentum ($${dealVal.toLocaleString()}): In ${deal.stageName} with ${daysSilent} days of customer silence. High risk of project postponement or budget reallocation without executive re-engagement.`,
+      recommendedAction: {
+        actionLabel: "Executive Follow-up Call",
+        actionType: "log_call",
+        subject: `Executive check-in on ${deal.name}`,
+        suggestedNotes: `Reach out directly to senior project sponsor to verify capital expenditure release and delivery milestones.`
+      }
+    };
+  }
+
+  // Case E: Normal Cadence
+  return {
+    isSilent: false,
+    daysSilent,
+    riskLevel: "None",
+    reasonCategory: "Normal Cadence",
+    diagnosis: "Deal cadence is active with regular stakeholder touchpoints.",
+    recommendedAction: {
+      actionLabel: "Review & Re-engage",
+      actionType: "schedule_meeting",
+      suggestedNotes: `Check project timeline and next milestones for ${deal.name}.`
+    }
+  };
+}
+
 export class CRMIntelligenceEngine {
+  static evaluateDealSilenceRisk = evaluateDealSilenceRisk;
+
   /**
    * Calculate Next Best Actions across all Accounts, Deals, Leads, and Tasks
    */
@@ -17,7 +176,8 @@ export class CRMIntelligenceEngine {
     deals: CRMOpportunity[],
     leads: CRMLead[],
     tasks: CRMTask[],
-    _activities: CRMActivity[]
+    activities: CRMActivity[] = [],
+    competitorPricing: CompetitorPricingRecord[] = []
   ): NextBestActionItem[] {
     const actions: NextBestActionItem[] = [];
     const todayStr = new Date().toISOString().split("T")[0];
@@ -81,29 +241,53 @@ export class CRMIntelligenceEngine {
       }
     });
 
-    // Rule 3: High Value Opportunities ($50k+) with Stalled Stage (> 14 days)
+    // Rule 3: High Value Opportunities ($50k+) with Stalled Stage (> 14 days) or Segment-Aware Silence Risk
     deals.forEach((deal) => {
-      if (deal.dealValue >= 50000 && deal.daysInCurrentStage >= 14 && deal.stageId !== "stage-won" && deal.stageId !== "stage-lost") {
-        actions.push({
-          id: `nba-stalled-${deal.id}`,
-          ruleId: "RULE_STALLED_HIGH_VALUE",
-          title: `Re-energise High Value Stalled Deal ($${deal.dealValue.toLocaleString()})`,
-          description: `Opportunity has remained in ${deal.stageName} for ${deal.daysInCurrentStage} days without stage progression.`,
-          reason: `High value infrastructure deals risk losing project budget if not actively championed with council or head contractors.`,
-          urgency: "Today",
-          category: "Stalled Deal",
-          relatedEntityType: "Opportunity",
-          relatedEntityId: deal.id,
-          relatedEntityName: deal.name,
-          actionLabel: "Review & Re-engage",
-          actionPayload: {
-            type: "schedule_meeting",
-            defaultTitle: `Strategy review for ${deal.name}`,
-            opportunityId: deal.id,
-            accountId: deal.accountId,
-            assignedContactId: deal.primaryContactId
-          }
+      if (deal.stageId !== "stage-won" && deal.stageId !== "stage-lost") {
+        const account = accounts.find((a) => a.id === deal.accountId) || null;
+        const silenceRisk = evaluateDealSilenceRisk(deal, {
+          competitorPricing,
+          activities,
+          account,
+          todayStr
         });
+
+        const isClassicStall = deal.dealValue >= 50000 && deal.daysInCurrentStage >= 14;
+        const isUrgentSilence = silenceRisk.isSilent && (silenceRisk.riskLevel === "Critical" || silenceRisk.riskLevel === "Warning");
+
+        if (isClassicStall || isUrgentSilence) {
+          const actionLabel = silenceRisk.recommendedAction.actionLabel || "Review & Re-engage";
+          const actionType = silenceRisk.recommendedAction.actionType || "schedule_meeting";
+          const defaultTitle = silenceRisk.recommendedAction.subject || `Strategy review for ${deal.name}`;
+          const defaultNotes = silenceRisk.recommendedAction.suggestedNotes || `Checking timeline for ${deal.name}`;
+
+          actions.push({
+            id: `nba-stalled-${deal.id}`,
+            ruleId: "RULE_STALLED_HIGH_VALUE",
+            title: `Re-energise High Value Stalled Deal ($${(deal.dealValue || 0).toLocaleString()})`,
+            description: silenceRisk.isSilent
+              ? silenceRisk.diagnosis
+              : `Opportunity has remained in ${deal.stageName} for ${deal.daysInCurrentStage} days without stage progression.`,
+            reason: silenceRisk.isSilent
+              ? silenceRisk.diagnosis
+              : `High value infrastructure deals risk losing project budget if not actively championed with council or head contractors.`,
+            urgency: silenceRisk.riskLevel === "Critical" ? "Immediate" : "Today",
+            category: silenceRisk.isSilent ? "Deal Silence Risk" : "Stalled Deal",
+            relatedEntityType: "Opportunity",
+            relatedEntityId: deal.id,
+            relatedEntityName: deal.name,
+            actionLabel,
+            actionPayload: {
+              type: actionType,
+              defaultTitle,
+              defaultNotes,
+              opportunityId: deal.id,
+              accountId: deal.accountId,
+              assignedContactId: deal.primaryContactId,
+              recipientEmail: deal.primaryContactEmail
+            }
+          });
+        }
       }
     });
 
@@ -166,12 +350,37 @@ export class CRMIntelligenceEngine {
   /**
    * Evaluate Deal Health Rating
    */
-  static evaluateDealHealth(deal: CRMOpportunity, todayStr: string = new Date().toISOString().split("T")[0]): {
+  static evaluateDealHealth(
+    deal: CRMOpportunity,
+    todayStr: string = new Date().toISOString().split("T")[0],
+    options?: {
+      competitorPricing?: CompetitorPricingRecord[];
+      activities?: CRMActivity[];
+      account?: Account | null;
+    }
+  ): {
     rating: DealHealthRating;
     reasons: string[];
+    silenceRisk?: DealSilenceRiskEvaluation;
   } {
     const reasons: string[] = [];
     let riskPoints = 0;
+
+    // Evaluate segment and competitor silence risk
+    const silenceRisk = evaluateDealSilenceRisk(deal, {
+      todayStr,
+      competitorPricing: options?.competitorPricing,
+      activities: options?.activities,
+      account: options?.account
+    });
+
+    if (silenceRisk.isSilent && silenceRisk.riskLevel === "Critical") {
+      riskPoints += 2;
+      reasons.push(silenceRisk.diagnosis);
+    } else if (silenceRisk.isSilent && silenceRisk.riskLevel === "Warning") {
+      riskPoints += 1;
+      reasons.push(silenceRisk.diagnosis);
+    }
 
     // Days in current stage check
     if (deal.daysInCurrentStage > 20) {
@@ -230,17 +439,18 @@ export class CRMIntelligenceEngine {
     }
 
     if (riskPoints >= 5) {
-      return { rating: "At Risk", reasons };
+      return { rating: "At Risk", reasons, silenceRisk };
     }
     if (riskPoints >= 3) {
-      return { rating: "Needs Attention", reasons };
+      return { rating: "Needs Attention", reasons, silenceRisk };
     }
     if (deal.daysInCurrentStage > 18) {
-      return { rating: "Stalled", reasons };
+      return { rating: "Stalled", reasons, silenceRisk };
     }
     return {
       rating: "Healthy",
-      reasons: reasons.length > 0 ? reasons : ["Recent activity logged", "Clear next action scheduled", "Healthy stage velocity"]
+      reasons: reasons.length > 0 ? reasons : ["Recent activity logged", "Clear next action scheduled", "Healthy stage velocity"],
+      silenceRisk
     };
   }
 

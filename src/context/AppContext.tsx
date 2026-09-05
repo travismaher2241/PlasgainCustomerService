@@ -2648,8 +2648,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Dynamic Next Best Actions evaluation
   const nextBestActions = useMemo(() => {
-    return CRMIntelligenceEngine.generateNextBestActions(accounts, crmOpportunities, leads, tasks, activities);
-  }, [accounts, crmOpportunities, leads, tasks, activities]);
+    return CRMIntelligenceEngine.generateNextBestActions(
+      accounts,
+      crmOpportunities,
+      leads,
+      tasks,
+      activities,
+      competitorPricingRecords
+    );
+  }, [accounts, crmOpportunities, leads, tasks, activities, competitorPricingRecords]);
 
   return (
     <AppContext.Provider

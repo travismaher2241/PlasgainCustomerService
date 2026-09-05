@@ -330,5 +330,26 @@ He mentioned he was recently promoted to Head of Asset Maintenance.`,
       expect(ziaBriefing.executiveBriefing).not.toContain("AS/NZS 1158");
       expect(ziaBriefing.executiveBriefing).not.toContain("technical submittals are required");
     });
+
+    it("parses duration-first phrasing e.g. 'purchasing 3 months worth of PLASSLAB'", () => {
+      const act: CRMActivity = {
+        id: "act-dur-1",
+        accountId: "acc-atec",
+        accountName: "ATEC Group",
+        contactId: "con-zia",
+        contactName: "Zia Hakim",
+        type: "call",
+        title: "Call with Zia",
+        timestamp: "2026-09-04T10:00:00Z",
+        description: "Zia mentioned purchasing 3 months worth of PLASSLAB for their Adelaide project.",
+        performedBy: "Travis Maher"
+      };
+
+      const knowledge = extractCrmKnowledge(act, [ziaContact]);
+      const supply = knowledge.find((k) => k.category === "Supply & Replenishment Cycle");
+      expect(supply).toBeDefined();
+      expect(supply?.statement).toContain("PLASSLAB");
+      expect(supply?.statement).toContain("3 months supply");
+    });
   });
 });
