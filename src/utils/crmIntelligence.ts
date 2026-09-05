@@ -42,7 +42,10 @@ export class CRMIntelligenceEngine {
             actionPayload: {
               type: "send_email",
               defaultTitle: `Follow-up: Plasgain Proposal ${deal.quoteNumber || ""}`,
-              defaultNotes: `Checking if ${deal.primaryContactName || "client"} had any questions on the luminaire selection and freight.`
+              defaultNotes: `Checking if ${deal.primaryContactName || "client"} had any questions on the luminaire selection and freight.`,
+              opportunityId: deal.id,
+              accountId: deal.accountId,
+              recipientEmail: deal.primaryContactEmail
             }
           });
         }
@@ -69,7 +72,9 @@ export class CRMIntelligenceEngine {
             actionLabel: "Set Next Action",
             actionPayload: {
               type: "create_task",
-              defaultTitle: `Set next step for ${deal.name}`
+              defaultTitle: `Set next step for ${deal.name}`,
+              opportunityId: deal.id,
+              accountId: deal.accountId
             }
           });
         }
@@ -93,7 +98,10 @@ export class CRMIntelligenceEngine {
           actionLabel: "Review & Re-engage",
           actionPayload: {
             type: "schedule_meeting",
-            defaultTitle: `Strategy review for ${deal.name}`
+            defaultTitle: `Strategy review for ${deal.name}`,
+            opportunityId: deal.id,
+            accountId: deal.accountId,
+            assignedContactId: deal.primaryContactId
           }
         });
       }
@@ -117,7 +125,9 @@ export class CRMIntelligenceEngine {
             actionLabel: "Call Lead Now",
             actionPayload: {
               type: "log_call",
-              defaultTitle: `Initial qualification call with ${lead.contactName}`
+              defaultTitle: `Initial qualification call with ${lead.contactName}`,
+              leadId: lead.id,
+              accountId: lead.convertedAccountId
             }
           });
         }
@@ -140,7 +150,11 @@ export class CRMIntelligenceEngine {
           relatedEntityName: task.title,
           actionLabel: "Mark Complete / Reschedule",
           actionPayload: {
-            type: "create_task"
+            type: "create_task",
+            defaultTitle: `Follow up overdue task: ${task.title}`,
+            opportunityId: task.opportunityId,
+            accountId: task.accountId,
+            dueDate: todayStr
           }
         });
       }

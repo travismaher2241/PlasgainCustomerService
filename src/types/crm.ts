@@ -541,11 +541,38 @@ export interface NextBestActionItem {
   relatedEntityId: string;
   relatedEntityName: string;
   actionLabel: string;
-  actionPayload?: {
-    type: "create_task" | "send_email" | "log_call" | "schedule_meeting" | "update_stage" | "assign_contact";
-    defaultTitle?: string;
-    defaultNotes?: string;
-  };
+  actionPayload?: CRMActionPayload;
+}
+
+export type CRMActionType =
+  | "create_task"
+  | "send_email"
+  | "log_call"
+  | "schedule_meeting"
+  | "update_stage"
+  | "assign_contact";
+
+export interface CRMActionPayload {
+  type: CRMActionType;
+  defaultTitle?: string;
+  defaultNotes?: string;
+  targetStageId?: string;
+  targetStageName?: string;
+  assignedContactId?: string;
+  dueDate?: string;
+  recipientEmail?: string;
+  accountId?: string;
+  opportunityId?: string;
+  leadId?: string;
+}
+
+export interface CopilotActionProposal {
+  id: string;
+  label: string;
+  type: CRMActionType;
+  description?: string;
+  payload: CRMActionPayload;
+  isExecuted?: boolean;
 }
 
 export interface ServerNotification {

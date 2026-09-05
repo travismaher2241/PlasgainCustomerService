@@ -29,7 +29,8 @@ import {
 import { useApp } from "../../context/AppContext";
 import { CustomerFollowUpModal, CustomerFollowUpModalProps } from "../CustomerFollowUpModal";
 import { CRMIntelligenceEngine } from "../../utils/crmIntelligence";
-import { NextBestActionItem, CRMOpportunity, CRMTask, CRMLead } from "../../types/crm";
+import { NextBestActionItem, CRMOpportunity, CRMTask, CRMLead, CRMActionPayload } from "../../types/crm";
+import { executeCRMAction, ActionDispatchContext } from "../../utils/copilotActionDispatcher";
 
 type FilterCategory = "all" | "overdue" | "followups" | "quotes" | "leads";
 type PriorityTier = "do_now" | "today" | "normal" | "waiting";
@@ -55,6 +56,7 @@ interface UnifiedWorkItem {
   contactEmail?: string;
   primaryActionType: "followup" | "call" | "email" | "open" | "complete";
   primaryActionLabel: string;
+  actionPayload?: CRMActionPayload;
   isCompleted?: boolean;
 }
 
@@ -77,6 +79,7 @@ export const CRMTodayWorkspace: React.FC = () => {
     accounts,
     crmOpportunities,
     leads,
+    contacts,
     tasks,
     activities,
     nextBestActions,
@@ -88,10 +91,45 @@ export const CRMTodayWorkspace: React.FC = () => {
     openVoiceCapture,
     openCallPrep,
     openEmailComposer,
+    openScheduleMeeting,
+    addTask,
+    updateOpportunity,
+    showToast,
+    currentUser,
     competitorAlerts,
     markCompetitorAlertRead,
     unreadCompetitorAlertsCount
   } = useApp();
+
+  const dispatchContext: ActionDispatchContext = useMemo(() => ({
+    openEmailComposer,
+    openScheduleMeeting,
+    openQuickLog,
+    addTask,
+    updateOpportunity,
+    navigateToCRM,
+    setSelectedAccountId,
+    setSelectedOpportunityId: setSelectedCrmOpportunityId,
+    showToast,
+    currentUser,
+    accounts,
+    crmOpportunities,
+    contacts
+  }), [
+    openEmailComposer,
+    openScheduleMeeting,
+    openQuickLog,
+    addTask,
+    updateOpportunity,
+    navigateToCRM,
+    setSelectedAccountId,
+    setSelectedCrmOpportunityId,
+    showToast,
+    currentUser,
+    accounts,
+    crmOpportunities,
+    contacts
+  ]);
 
   const [activeFilter, setActiveFilter] = useState<FilterCategory>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -175,7 +213,8 @@ export const CRMTodayWorkspace: React.FC = () => {
         priorityTier: tier,
         category: nba.category,
         primaryActionType: actType,
-        primaryActionLabel: nba.actionLabel || "Review & Follow Up"
+        primaryActionLabel: nba.actionLabel || "Review & Follow Up",
+        actionPayload: nba.actionPayload
       });
     });
 
@@ -271,6 +310,12 @@ export const CRMTodayWorkspace: React.FC = () => {
     }
 
     if (item.sourceType === "nba") {
+      // 1-Tap Execution for NBA Action Payloads
+      if (item.actionPayload) {
+        const res = executeCRMAction(item.actionPayload, dispatchContext);
+        if (res.success) return;
+      }
+
       if (item.entityType === "Opportunity" && item.entityId) {
         setSelectedCrmOpportunityId(item.entityId);
         navigateToCRM("pipeline", item.entityId);
