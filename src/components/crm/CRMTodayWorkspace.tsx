@@ -23,7 +23,8 @@ import {
   Kanban,
   FileText,
   Clock3,
-  PhoneCall
+  PhoneCall,
+  Mic
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { CustomerFollowUpModal, CustomerFollowUpModalProps } from "../CustomerFollowUpModal";
@@ -84,6 +85,7 @@ export const CRMTodayWorkspace: React.FC = () => {
     setSelectedCrmOpportunityId,
     setSelectedAccountId,
     openQuickLog,
+    openVoiceCapture,
     openCallPrep,
     openEmailComposer,
     competitorAlerts,
@@ -322,29 +324,41 @@ export const CRMTodayWorkspace: React.FC = () => {
           <p className="text-spec text-ink-dim mt-0.5">{formattedToday}</p>
         </div>
 
-        {/* THIN SUMMARY METRIC STRIP (PART B) */}
-        {hasAnyCrmRecords && workItems.length > 0 && (
-          <div className="flex items-center gap-3 text-spec bg-white px-3 py-1.5 rounded-edge border border-line shadow-2xs">
-            {overdueTasksCount > 0 && (
-              <span className="font-bold text-red-700 flex items-center gap-1">
-                <AlertTriangle className="w-3.5 h-3.5" />
-                <span>{overdueTasksCount} overdue</span>
-              </span>
-            )}
-            {dueTodayTasksCount > 0 && (
-              <span className="font-semibold text-amber-900 flex items-center gap-1">
-                <Clock className="w-3.5 h-3.5" />
-                <span>{dueTodayTasksCount} due today</span>
-              </span>
-            )}
-            {quotesAwaitingCount > 0 && (
-              <span className="font-medium text-body flex items-center gap-1">
-                <FileText className="w-3.5 h-3.5 text-brand-deep" />
-                <span>{quotesAwaitingCount} quotes pending</span>
-              </span>
-            )}
-          </div>
-        )}
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => openVoiceCapture()}
+            className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-edge text-spec font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            title="Voice Capture: Log visit or call from the ute"
+          >
+            <Mic className="w-3.5 h-3.5 text-emerald-700" />
+            <span>Voice Log</span>
+          </button>
+
+          {/* THIN SUMMARY METRIC STRIP (PART B) */}
+          {hasAnyCrmRecords && workItems.length > 0 && (
+            <div className="flex items-center gap-3 text-spec bg-white px-3 py-1.5 rounded-edge border border-line shadow-2xs">
+              {overdueTasksCount > 0 && (
+                <span className="font-bold text-red-700 flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>{overdueTasksCount} overdue</span>
+                </span>
+              )}
+              {dueTodayTasksCount > 0 && (
+                <span className="font-semibold text-amber-900 flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>{dueTodayTasksCount} due today</span>
+                </span>
+              )}
+              {quotesAwaitingCount > 0 && (
+                <span className="font-medium text-body flex items-center gap-1">
+                  <FileText className="w-3.5 h-3.5 text-brand-deep" />
+                  <span>{quotesAwaitingCount} quotes pending</span>
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* EMPTY STATES (PART B) */}

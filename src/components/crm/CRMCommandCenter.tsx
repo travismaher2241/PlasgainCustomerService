@@ -9,7 +9,8 @@ import {
   TrendingUp,
   ChevronDown,
   Phone,
-  Plus
+  Plus,
+  Mic
 } from "lucide-react";
 import { useApp, CRMSubTab } from "../../context/AppContext";
 import { ErrorBoundary } from "../ErrorBoundary";
@@ -47,6 +48,7 @@ export const CRMCommandCenter: React.FC = () => {
     tasks,
     nextBestActions,
     openQuickLog,
+    openVoiceCapture,
     competitorPricingRecords
   } = useApp();
 
@@ -420,6 +422,18 @@ export const CRMCommandCenter: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {/* Voice Capture Action (Ute Mode) */}
+              <button
+                type="button"
+                onClick={() => openVoiceCapture()}
+                className="h-8 px-2.5 sm:px-3 rounded-edge bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-spec transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                title="Voice Capture Debrief from the Ute"
+                aria-label="Voice Log"
+              >
+                <Mic className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">Voice Log</span>
+              </button>
 
               {/* Quick Log Action (Always visible) */}
               <button

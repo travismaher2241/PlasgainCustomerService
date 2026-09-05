@@ -403,6 +403,9 @@ export interface CRMActivity {
   outcome?: string;
   nextAction?: string;
   nextActionDate?: string;
+  isAiAssisted?: boolean;
+  captureSource?: "manual" | "voice_capture" | "email_inbound" | "copilot_action";
+  aiTranscriptSnippet?: string;
   timestamp: string;
   metadata?: {
     callDurationMinutes?: number;
@@ -746,4 +749,80 @@ export interface AuditLogRecord {
   details: string;
   changes?: Record<string, { from?: any; to?: any }>;
   metadata?: Record<string, any>;
+}
+
+export interface VoiceLogExtractionResult {
+  rawTranscript: string;
+  matchedAccount?: {
+    id?: string;
+    name: string;
+    confidence: number;
+    sourcePhrase: string;
+  };
+  matchedContact?: {
+    id?: string;
+    name: string;
+    confidence: number;
+    sourcePhrase: string;
+  };
+  matchedOpportunity?: {
+    id?: string;
+    name: string;
+    confidence: number;
+    sourcePhrase: string;
+  };
+  activity: {
+    type: ActivityType;
+    outcome?: string;
+    title: string;
+    notes: string;
+    sourcePhrase?: string;
+  };
+  nextAction?: {
+    action: string;
+    date: string;
+    sourcePhrase: string;
+  };
+  proposedTask?: {
+    title: string;
+    dueDate: string;
+    priority: TaskPriority;
+    sourcePhrase?: string;
+  };
+  commercialDetails?: {
+    estimatedValue?: number;
+    quantity?: number;
+    productInterest?: string[];
+    budgetNotes?: string;
+    sourcePhrase?: string;
+  };
+}
+
+export interface VoiceLogDiffProposal {
+  rawTranscript: string;
+  accountId: string;
+  accountName: string;
+  accountSourcePhrase?: string;
+  contactId?: string;
+  contactName?: string;
+  contactSourcePhrase?: string;
+  opportunityId?: string;
+  opportunityName?: string;
+  opportunitySourcePhrase?: string;
+  activityType: ActivityType;
+  activityOutcome?: string;
+  activityTitle: string;
+  activityNotes: string;
+  notesSourcePhrase?: string;
+  nextAction?: string;
+  nextActionDate?: string;
+  nextActionSourcePhrase?: string;
+  createTask: boolean;
+  taskTitle?: string;
+  taskDueDate?: string;
+  taskPriority?: TaskPriority;
+  taskSourcePhrase?: string;
+  updateOpportunityValue?: boolean;
+  estimatedValue?: number;
+  productInterest?: string[];
 }

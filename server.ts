@@ -1175,6 +1175,216 @@ Return JSON:
   }
 });
 
+// 9B. VOICE LOG PARSER (Feature 01: Voice capture after call or site visit)
+app.post(["/api/crm/voice-log-parse", "/api/voice-log/parse"], async (req, res) => {
+  try {
+    const rawTranscript = readString(req.body?.rawTranscript);
+    if (!rawTranscript) {
+      return res.status(400).json({ error: "rawTranscript is required." });
+    }
+
+    const currentDate = readString(req.body?.currentDate) || new Date().toISOString().split("T")[0];
+    const knownAccounts: Array<{ id: string; name: string }> = Array.isArray(req.body?.knownAccounts) ? req.body.knownAccounts : [];
+    const knownContacts: Array<{ id: string; name: string; accountId?: string }> = Array.isArray(req.body?.knownContacts) ? req.body.knownContacts : [];
+    const knownOpportunities: Array<{ id: string; name: string; accountId?: string }> = Array.isArray(req.body?.knownOpportunities) ? req.body.knownOpportunities : [];
+
+    // Helper for heuristic fallback if Gemini is offline
+    const runFallbackExtraction = () => {
+      const lower = rawTranscript.toLowerCase();
+      let matchedAccount: any = null;
+      for (const acc of knownAccounts) {
+        const accNameLower = acc.name.toLowerCase();
+        const words = accNameLower.split(/\s+/).filter((w) => w.length > 3 && !["council", "shire", "group", "pty", "ltd"].includes(w));
+        const matchedWord = words.find((w) => lower.includes(w));
+        if (matchedWord || lower.includes(accNameLower)) {
+          matchedAccount = {
+            id: acc.id,
+            name: acc.name,
+            confidence: 0.85,
+            sourcePhrase: matchedWord || acc.name
+          };
+          break;
+        }
+      }
+
+      let matchedContact: any = null;
+      for (const c of knownContacts) {
+        const cNameLower = c.name.toLowerCase();
+        const firstName = cNameLower.split(/\s+/)[0];
+        if (firstName.length > 2 && lower.includes(firstName)) {
+          matchedContact = {
+            id: c.id,
+            name: c.name,
+            confidence: 0.8,
+            sourcePhrase: firstName
+          };
+          break;
+        }
+      }
+
+      let matchedOpp: any = null;
+      if (matchedAccount) {
+        matchedOpp = knownOpportunities.find((o) => o.accountId === matchedAccount.id) || null;
+      }
+
+      const isSiteVisit = lower.includes("left") || lower.includes("visit") || lower.includes("site") || lower.includes("drove") || lower.includes("trail");
+      const isCall = lower.includes("called") || lower.includes("phone") || lower.includes("spoke on the phone");
+      const actType = isSiteVisit ? "meeting" : isCall ? "call" : "meeting";
+
+      let nextActionStr = "Follow up with client";
+      let nextActionDateStr = currentDate;
+      let nextActionPhrase = "follow up";
+
+      const dateMatch = lower.match(/(?:before|by|on)\s+(?:the\s+)?(\d{1,2})(?:st|nd|rd|th)?/);
+      if (dateMatch && dateMatch[1]) {
+        const day = parseInt(dateMatch[1], 10);
+        const [y, m] = currentDate.split("-");
+        nextActionDateStr = `${y}-${m}-${String(day).padStart(2, "0")}`;
+        nextActionPhrase = dateMatch[0];
+      }
+
+      if (lower.includes("pricing") || lower.includes("quote") || lower.includes("price")) {
+        nextActionStr = "Send pricing / quotation";
+      }
+
+      return {
+        rawTranscript,
+        matchedAccount: matchedAccount || (knownAccounts[0] ? { id: knownAccounts[0].id, name: knownAccounts[0].name, confidence: 0.5, sourcePhrase: "General" } : undefined),
+        matchedContact: matchedContact || undefined,
+        matchedOpportunity: matchedOpp ? { id: matchedOpp.id, name: matchedOpp.name, confidence: 0.7, sourcePhrase: "Current Deal" } : undefined,
+        activity: {
+          type: actType,
+          outcome: actType === "meeting" ? "Meeting Held" : "Contact Made",
+          title: `${isSiteVisit ? "Site Visit" : "Call"}: ${matchedAccount?.name || "Client"} Debrief`,
+          notes: rawTranscript,
+          sourcePhrase: rawTranscript.slice(0, 80)
+        },
+        nextAction: {
+          action: nextActionStr,
+          date: nextActionDateStr,
+          sourcePhrase: nextActionPhrase
+        },
+        proposedTask: {
+          title: nextActionStr,
+          dueDate: nextActionDateStr,
+          priority: "high",
+          sourcePhrase: nextActionPhrase
+        },
+        commercialDetails: {
+          budgetNotes: lower.includes("budget") ? "Budget constraints mentioned" : undefined,
+          sourcePhrase: lower.includes("budget") ? "budget" : undefined
+        }
+      };
+    };
+
+    if (!isAIConfigured()) {
+      return res.json(runFallbackExtraction());
+    }
+
+    try {
+      const prompt = `You are the Plasgain Sales Voice Parsing Assistant. A field sales representative has just recorded a quick 30-45 second spoken debrief from their ute or car after a site visit or phone call.
+Your job is to parse this spoken transcript into a proposed CRM record update diff with complete phrase attribution.
+
+CURRENT DATE REFERENCE: ${currentDate}
+
+KNOWN ACCOUNTS IN WORKSPACE (Use exact IDs if matched):
+${JSON.stringify(knownAccounts.slice(0, 50), null, 2)}
+
+KNOWN CONTACTS IN WORKSPACE:
+${JSON.stringify(knownContacts.slice(0, 60), null, 2)}
+
+KNOWN OPPORTUNITIES IN WORKSPACE:
+${JSON.stringify(knownOpportunities.slice(0, 40), null, 2)}
+
+SPOKEN TRANSCRIPT:
+"""
+${rawTranscript}
+"""
+
+RULES:
+1. Identify the matching account from KNOWN ACCOUNTS if mentioned (e.g., "Cardinia" matches "Cardinia Shire Council"). Include confidence (0.0 to 1.0) and the exact source phrase from the transcript.
+2. Identify the matching contact from KNOWN CONTACTS if mentioned (e.g. "David"). Include confidence and exact source phrase.
+3. Identify the activity type: "meeting" (for site visits, face-to-face meetings), "call" (phone calls), or "note".
+4. Choose outcome:
+   - For meeting: "Meeting Held", "Cancelled", "No Show"
+   - For call: "Contact Made", "No Answer", "Voicemail Left"
+5. Write concise, professional CRM activity notes summarizing key technical, operational, and commercial points.
+6. Extract the Next Action commitment (e.g., "Send pricing for 16 columns") and resolve any relative/absolute date (e.g. "before the twentieth" relative to ${currentDate} becomes YYYY-MM-DD). Always include the exact sourcePhrase.
+7. Formulate a crisp proposed follow-up task (title, dueDate, priority: "high"|"medium"|"low").
+8. Extract commercial details if mentioned: quantity (e.g. 16), product interest (e.g. ["Columns", "Shared Trail Lighting"]), estimated value, budget notes.
+9. EVERY extracted item MUST include the exact "sourcePhrase" from the transcript that justified it.
+
+Return ONLY a JSON object matching this schema:
+{
+  "rawTranscript": string,
+  "matchedAccount": {
+    "id": string,
+    "name": string,
+    "confidence": number,
+    "sourcePhrase": string
+  },
+  "matchedContact": {
+    "id": string,
+    "name": string,
+    "confidence": number,
+    "sourcePhrase": string
+  },
+  "matchedOpportunity": {
+    "id": string,
+    "name": string,
+    "confidence": number,
+    "sourcePhrase": string
+  },
+  "activity": {
+    "type": "meeting" | "call" | "note" | "email",
+    "outcome": string,
+    "title": string,
+    "notes": string,
+    "sourcePhrase": string
+  },
+  "nextAction": {
+    "action": string,
+    "date": string,
+    "sourcePhrase": string
+  },
+  "proposedTask": {
+    "title": string,
+    "dueDate": string,
+    "priority": "high" | "medium" | "low",
+    "sourcePhrase": string
+  },
+  "commercialDetails": {
+    "estimatedValue": number,
+    "quantity": number,
+    "productInterest": string[],
+    "budgetNotes": string,
+    "sourcePhrase": string
+  }
+}`;
+
+      const response = await generateContentWithFailover({
+        preferredModel: DEFAULT_MODEL,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.1
+        }
+      });
+
+      const parsed = extractJsonFromText(response.text || "{}");
+      parsed.rawTranscript = rawTranscript;
+      return res.json(parsed);
+    } catch (aiErr: any) {
+      console.warn("[voice-log-parse] AI error, falling back to heuristic extractor:", aiErr?.message);
+      return res.json(runFallbackExtraction());
+    }
+  } catch (error: any) {
+    console.error("Error in voice log parse endpoint:", error);
+    res.status(500).json({ error: error.message || "Failed to parse voice log." });
+  }
+});
+
+
 // 10. FOLLOW-UP ASSISTANT
 app.post(["/api/follow-up/suggest", "/api/tools/follow-up", "/api/tools/followup"], async (req, res) => {
   try {

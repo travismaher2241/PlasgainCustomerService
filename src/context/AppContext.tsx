@@ -7,6 +7,8 @@ import {
   CRMActivity,
   CRMTask,
   TaskType,
+  TaskPriority,
+  TaskStatus,
   PipelineConfig,
   NextBestActionItem,
   CRMNotification,
@@ -20,7 +22,8 @@ import {
   CRMKnowledgeItem,
   ContactAccountHistoryItem,
   ActivityParticipant,
-  ContactNotableEvent
+  ContactNotableEvent,
+  VoiceLogDiffProposal
 } from "../types/crm";
 import {
   extractCandidateNotableEvents,
@@ -387,6 +390,16 @@ interface AppContextType {
   emailComposerLaunchContext: EmailComposerLaunchContext | null;
   openEmailComposer: (context?: EmailComposerLaunchContext) => void;
   closeEmailComposer: () => void;
+
+  // Feature 01: Voice Capture Modal State & Actions
+  voiceCaptureModal: {
+    isOpen: boolean;
+    prefillAccountId?: string;
+    prefillOppId?: string;
+  } | null;
+  openVoiceCapture: (opts?: { accountId?: string; opportunityId?: string }) => void;
+  closeVoiceCapture: () => void;
+  applyVoiceCaptureDiff: (diff: VoiceLogDiffProposal) => Promise<boolean>;
 
   // Notification / Toast
   toast: { message: string; type: "success" | "info" | "warning" | "error" } | null;
@@ -822,6 +835,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setEmailComposerLaunchContext(null);
   };
 
+  // Feature 01: Voice Capture Modal State
+  const [voiceCaptureModal, setVoiceCaptureModal] = useState<{
+    isOpen: boolean;
+    prefillAccountId?: string;
+    prefillOppId?: string;
+  } | null>(null);
+
+  const openVoiceCapture = (opts?: { accountId?: string; opportunityId?: string }) => {
+    setVoiceCaptureModal({
+      isOpen: true,
+      prefillAccountId: opts?.accountId,
+      prefillOppId: opts?.opportunityId
+    });
+  };
+
+  const closeVoiceCapture = () => {
+    setVoiceCaptureModal(null);
+  };
   
   // Server-backed Notifications with canonical normalization (P1-05)
   const [serverNotifications, setServerNotifications] = useState<CRMNotification[]>([]);
@@ -2297,6 +2328,110 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newTask;
   };
 
+  const applyVoiceCaptureDiff = async (diff: VoiceLogDiffProposal): Promise<boolean> => {
+    try {
+      // 1. Log activity with full AI provenance
+      const resolvedContact = contacts.find((c) => c.id === diff.contactId);
+      const activityResult = logActivity({
+        type: diff.activityType,
+        title: diff.activityTitle,
+        description: diff.activityNotes,
+        outcome: diff.activityOutcome,
+        accountId: diff.accountId,
+        accountName: diff.accountName,
+        contactId: diff.contactId,
+        contactName: diff.contactName || (resolvedContact ? `${resolvedContact.firstName} ${resolvedContact.lastName}`.trim() : undefined),
+        contactIds: diff.contactId ? [diff.contactId] : [],
+        opportunityId: diff.opportunityId,
+        opportunityName: diff.opportunityName,
+        nextAction: diff.nextAction,
+        nextActionDate: diff.nextActionDate,
+        isAiAssisted: true,
+        captureSource: "voice_capture",
+        aiTranscriptSnippet: diff.rawTranscript.slice(0, 140),
+        metadata: {
+          outcome: diff.activityOutcome
+        }
+      });
+
+      // 2. Update Next Action on Account
+      if (diff.accountId && (diff.nextAction || diff.nextActionDate)) {
+        setAccounts((prev) =>
+          prev.map((acc) => {
+            if (acc.id === diff.accountId) {
+              const updated = {
+                ...acc,
+                nextAction: diff.nextAction || acc.nextAction,
+                nextActionDate: diff.nextActionDate || acc.nextActionDate,
+                lastInteractionDate: new Date().toISOString().split("T")[0]
+              };
+              saveDocToCloud("crm_accounts", acc.id, updated);
+              return updated;
+            }
+            return acc;
+          })
+        );
+      }
+
+      // 3. Update Opportunity if present
+      if (diff.opportunityId) {
+        setCrmOpportunities((prev) =>
+          prev.map((opp) => {
+            if (opp.id === diff.opportunityId) {
+              const updated = {
+                ...opp,
+                nextAction: diff.nextAction || opp.nextAction,
+                nextActionDate: diff.nextActionDate || opp.nextActionDate,
+                latestActivity: diff.activityTitle,
+                latestActivityDate: new Date().toISOString().split("T")[0],
+                dealValue: diff.updateOpportunityValue && diff.estimatedValue ? diff.estimatedValue : opp.dealValue
+              };
+              saveDocToCloud("crm_deals", opp.id, updated);
+              return updated;
+            }
+            return opp;
+          })
+        );
+      }
+
+      // 4. Create Task if toggled
+      if (diff.createTask && (diff.taskTitle || diff.nextAction)) {
+        const todayStr = new Date().toISOString().split("T")[0];
+        addTask({
+          title: diff.taskTitle || diff.nextAction || `Follow up: ${diff.accountName}`,
+          type: "Follow-up",
+          status: "To Do",
+          priority: (diff.taskPriority || "Medium") as TaskPriority,
+          dueDate: diff.taskDueDate || diff.nextActionDate || todayStr,
+          accountId: diff.accountId,
+          accountName: diff.accountName,
+          contactId: diff.contactId,
+          contactName: diff.contactName,
+          opportunityId: diff.opportunityId,
+          opportunityName: diff.opportunityName,
+          assignedTo: currentUser.name,
+          createdBy: `${currentUser.name} (Voice Capture)`,
+          notes: `Created from Voice Capture debrief.`
+        });
+      }
+
+      recordAuditLog(
+        "CALL_LOGGED",
+        "Activity",
+        activityResult?.activity?.id || `act-${Date.now()}`,
+        diff.activityTitle,
+        `Applied voice debrief for ${diff.accountName}: ${diff.activityType} (${diff.activityOutcome || "Recorded"})`
+      );
+
+      showToast(`Voice debrief logged for ${diff.accountName}`, "success");
+      return true;
+    } catch (err: any) {
+      console.error("[applyVoiceCaptureDiff] error:", err);
+      showToast("Failed to apply voice debrief changes.", "error");
+      return false;
+    }
+  };
+
   const dismissNotification = (id: string) => {
     archiveNotification(id);
   };
@@ -2462,6 +2597,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         meetingPrepModal,
         openMeetingPrep,
         closeMeetingPrep,
+        voiceCaptureModal,
+        openVoiceCapture,
+        closeVoiceCapture,
+        applyVoiceCaptureDiff,
         isEmailComposerOpen,
         emailComposerLaunchContext,
         openEmailComposer,

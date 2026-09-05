@@ -11,7 +11,8 @@ import {
   User,
   AlertTriangle,
   ExternalLink,
-  Check
+  Check,
+  Mic
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { ActivityType, Account, CRMContact, CRMOpportunity, ActivityParticipant, ContactNotableEvent } from "../../types/crm";
@@ -37,6 +38,7 @@ export const CRMQuickLogModal: React.FC = () => {
     moveContact,
     confirmCandidateNotableEvent,
     dismissCandidateNotableEvent,
+    openVoiceCapture,
     currentUser
   } = useApp();
 
@@ -357,14 +359,28 @@ export const CRMQuickLogModal: React.FC = () => {
               Quick Log Activity
             </h3>
           </div>
-          <button
-            type="button"
-            onClick={closeQuickLog}
-            aria-label="Close dialog"
-            className="text-ink-faint hover:text-ink-dim p-1 rounded-edge cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                closeQuickLog();
+                openVoiceCapture({ accountId: selectedAccountId, opportunityId: selectedOppId });
+              }}
+              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-edge text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Switch to Voice Capture (Ute Mode)"
+            >
+              <Mic className="w-3.5 h-3.5 text-emerald-700" />
+              <span className="hidden sm:inline">Voice Mode</span>
+            </button>
+            <button
+              type="button"
+              onClick={closeQuickLog}
+              aria-label="Close dialog"
+              className="text-ink-faint hover:text-ink-dim p-1 rounded-edge cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* POST-LOGGING NOTABLE EVENT CONFIRMATION DIALOG */}
