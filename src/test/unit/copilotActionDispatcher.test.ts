@@ -26,7 +26,7 @@ describe("executeCRMAction dispatcher", () => {
       products: [],
       daysInCurrentStage: 5,
       totalDealAgeDays: 14,
-      dealHealth: "On Track",
+      dealHealth: "Healthy",
       dealHealthReasons: []
     }
   ];
@@ -56,8 +56,9 @@ describe("executeCRMAction dispatcher", () => {
       email: "david@brimbank.vic.gov.au",
       phone: "03 9249 4000",
       mobile: "0412 345 678",
-      contactRole: "Decision Maker",
-      isPrimaryContact: true
+      contactOwner: "Marcus Vance",
+      role: "Decision Maker",
+      preferredContactMethod: "Email"
     },
     {
       id: "con-2",
@@ -67,8 +68,9 @@ describe("executeCRMAction dispatcher", () => {
       lastName: "Green",
       jobTitle: "Procurement Officer",
       email: "rachel@brimbank.vic.gov.au",
-      contactRole: "Procurement Lead",
-      isPrimaryContact: false
+      contactOwner: "Marcus Vance",
+      role: "Procurement Lead",
+      preferredContactMethod: "Email"
     }
   ];
 

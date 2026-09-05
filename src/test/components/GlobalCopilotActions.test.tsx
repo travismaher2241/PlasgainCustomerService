@@ -25,7 +25,7 @@ const mockDeal: CRMOpportunity = {
   products: [],
   daysInCurrentStage: 4,
   totalDealAgeDays: 12,
-  dealHealth: "On Track",
+  dealHealth: "Healthy",
   dealHealthReasons: []
 };
 
@@ -43,15 +43,16 @@ const mockAccount: Account = {
 
 const mockNBA: NextBestActionItem = {
   id: "nba-wyndham-1",
+  ruleId: "nba-rule-1",
   title: "Follow up on Sent Quote",
   description: "Quote sent 4 days ago without customer response",
-  suggestedAction: "Email contact",
+  reason: "Quote sent without response",
   actionLabel: "Email David",
-  urgency: "High",
+  urgency: "Upcoming",
   relatedEntityType: "Opportunity",
   relatedEntityId: "deal-copilot-1",
   relatedEntityName: "Wyndham Park Retaining Wall",
-  category: "Follow-up",
+  category: "Quote Follow-up",
   actionPayload: {
     type: "send_email",
     opportunityId: "deal-copilot-1",

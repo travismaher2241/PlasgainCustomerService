@@ -1630,7 +1630,351 @@ Return ONLY a JSON object matching this schema:
   }
 });
 
+// 9D. INBOUND EMAIL PARSER (Feature 03: Inbound Email Back Into the Record)
+app.post(["/api/crm/parse-inbound-email", "/api/inbound-email/parse"], async (req, res) => {
+  try {
+    const rawEmailText = readString(req.body?.rawEmailText) || readString(req.body?.text);
+    if (!rawEmailText) {
+      return res.status(400).json({ error: "rawEmailText is required." });
+    }
 
+    const currentDate = readString(req.body?.currentDate) || new Date().toISOString().split("T")[0];
+    const knownAccounts: Array<{ id: string; name: string }> = Array.isArray(req.body?.knownAccounts) ? req.body.knownAccounts : [];
+    const knownContacts: Array<{ id: string; name: string; email?: string; accountId?: string }> = Array.isArray(req.body?.knownContacts) ? req.body.knownContacts : [];
+    const knownOpportunities: Array<{ id: string; name: string; accountId?: string }> = Array.isArray(req.body?.knownOpportunities) ? req.body.knownOpportunities : [];
+
+    // Heuristic Fallback Extractor
+    const runFallbackExtraction = () => {
+      const lower = rawEmailText.toLowerCase();
+
+      // 1. Email Headers
+      const fromMatch = rawEmailText.match(/From:\s*([^\n\r<]+)(?:<([^>]+)>)?/i);
+      let senderName = fromMatch ? fromMatch[1].trim() : "Client Contact";
+      let senderEmail = fromMatch && fromMatch[2] ? fromMatch[2].trim() : "";
+      if (!senderEmail) {
+        const anyEmail = rawEmailText.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+        if (anyEmail) senderEmail = anyEmail[1];
+      }
+
+      const subjectMatch = rawEmailText.match(/Subject:\s*([^\n\r]+)/i);
+      const subject = subjectMatch ? subjectMatch[1].trim() : "Client Email Response";
+
+      // 2. Account Matching
+      let matchedAccount: any = null;
+      for (const acc of knownAccounts) {
+        const accLower = acc.name.toLowerCase();
+        const words = accLower.split(/\s+/).filter((w) => w.length > 3 && !["council", "shire", "group", "pty", "ltd"].includes(w));
+        const matchWord = words.find((w) => lower.includes(w));
+        if (matchWord || lower.includes(accLower)) {
+          matchedAccount = {
+            id: acc.id,
+            name: acc.name,
+            confidence: 0.88,
+            sourcePhrase: matchWord || acc.name
+          };
+          break;
+        }
+      }
+      if (!matchedAccount) {
+        const councilRegex = rawEmailText.match(/([A-Z][a-zA-Z0-9 &',.-]+?(?:Council|Shire|City Council|Borough|Regional Council|Engineering|Contractors|Civil))/i);
+        if (councilRegex) {
+          matchedAccount = {
+            name: councilRegex[1].trim(),
+            confidence: 0.65,
+            sourcePhrase: councilRegex[0]
+          };
+        }
+      }
+
+      // 3. Contact Matching
+      let matchedContact: any = null;
+      for (const c of knownContacts) {
+        const cLower = c.name.toLowerCase();
+        const firstName = cLower.split(/\s+/)[0];
+        if (
+          (c.email && senderEmail && c.email.toLowerCase() === senderEmail.toLowerCase()) ||
+          (firstName.length > 2 && (lower.includes(firstName) || senderName.toLowerCase().includes(firstName)))
+        ) {
+          matchedContact = {
+            id: c.id,
+            name: c.name,
+            email: c.email || senderEmail,
+            confidence: 0.9,
+            sourcePhrase: firstName
+          };
+          break;
+        }
+      }
+      if (!matchedContact && senderName) {
+        matchedContact = {
+          name: senderName,
+          email: senderEmail,
+          confidence: 0.6,
+          sourcePhrase: senderName
+        };
+      }
+
+      // 4. Opportunity Matching
+      let matchedOpportunity: any = null;
+      if (matchedAccount?.id) {
+        matchedOpportunity = knownOpportunities.find((o) => o.accountId === matchedAccount.id) || null;
+      }
+      if (!matchedOpportunity) {
+        for (const opp of knownOpportunities) {
+          const oppLower = opp.name.toLowerCase();
+          const words = oppLower.split(/\s+/).filter((w) => w.length > 4);
+          const oppWord = words.find((w) => lower.includes(w));
+          if (oppWord) {
+            matchedOpportunity = {
+              id: opp.id,
+              name: opp.name,
+              confidence: 0.75,
+              sourcePhrase: oppWord
+            };
+            break;
+          }
+        }
+      } else {
+        matchedOpportunity = {
+          id: matchedOpportunity.id,
+          name: matchedOpportunity.name,
+          confidence: 0.85,
+          sourcePhrase: matchedOpportunity.name
+        };
+      }
+
+      // 5. Commitments
+      const commitments: Array<{ text: string; date?: string; sourcePhrase: string }> = [];
+      const lines = rawEmailText.split(/\r?\n/).map((l) => l.trim()).filter((l) => l.length > 10);
+      for (const l of lines) {
+        const lLow = l.toLowerCase();
+        if (
+          lLow.includes("tender") ||
+          lLow.includes("will ") ||
+          lLow.includes("going to") ||
+          lLow.includes("october") ||
+          lLow.includes("november") ||
+          lLow.includes("december") ||
+          lLow.includes("review") ||
+          lLow.includes("next month") ||
+          lLow.includes("next week") ||
+          lLow.includes("by the")
+        ) {
+          commitments.push({
+            text: l,
+            sourcePhrase: l.slice(0, 80)
+          });
+          if (commitments.length >= 2) break;
+        }
+      }
+
+      // 6. Objections / Concerns
+      const objections: Array<{ text: string; sourcePhrase: string }> = [];
+      for (const l of lines) {
+        const lLow = l.toLowerCase();
+        if (
+          lLow.includes("budget") ||
+          lLow.includes("expensive") ||
+          lLow.includes("price") ||
+          lLow.includes("pricing") ||
+          lLow.includes("lead time") ||
+          lLow.includes("delay") ||
+          lLow.includes("holding") ||
+          lLow.includes("alternative") ||
+          lLow.includes("cheaper")
+        ) {
+          objections.push({
+            text: l,
+            sourcePhrase: l.slice(0, 80)
+          });
+          if (objections.length >= 2) break;
+        }
+      }
+
+      // 7. Sentiment
+      let sentiment: "Positive" | "Neutral" | "Negative" | "Concerned" = "Neutral";
+      if (/(?:approved|proceed|excellent|looks good|happy with|great|awarded)/i.test(lower)) {
+        sentiment = "Positive";
+      } else if (/(?:expensive|budget issue|delay|cancel|concern|too high|unhappy)/i.test(lower)) {
+        sentiment = "Concerned";
+      }
+
+      // 8. Next Action & Date
+      let suggestedNextAction = "Follow up with client regarding email response";
+      let suggestedNextActionDate = currentDate;
+      let suggestedNextActionPhrase = "follow up";
+
+      const dateMatch = lower.match(/(?:in|by|around)\s+(october|november|december|january|february|march|april|may|june|july|august|september)/i);
+      if (dateMatch) {
+        const monthName = dateMatch[1].toLowerCase();
+        suggestedNextAction = `Follow up for ${dateMatch[1]} project milestone / tender`;
+        suggestedNextActionPhrase = dateMatch[0];
+        const monthMap: Record<string, string> = {
+          january: "01", february: "02", march: "03", april: "04", may: "05", june: "06",
+          july: "07", august: "08", september: "09", october: "10", november: "11", december: "12"
+        };
+        const mNum = monthMap[monthName] || "10";
+        suggestedNextActionDate = `2026-${mNum}-01`;
+      } else if (lower.includes("next week")) {
+        suggestedNextAction = "Follow up next week";
+        suggestedNextActionDate = new Date(Date.now() + 7 * 86400000).toISOString().split("T")[0];
+        suggestedNextActionPhrase = "next week";
+      }
+
+      // 9. Competitor Mention
+      let competitorMention: any = undefined;
+      const compRegex = /(?:replas|enviropoles|orca|ingal|modwood)/i;
+      const compMatch = rawEmailText.match(compRegex);
+      if (compMatch) {
+        competitorMention = {
+          competitorName: compMatch[0].charAt(0).toUpperCase() + compMatch[0].slice(1),
+          context: `Mentioned in email regarding alternative specification or pricing`,
+          sourcePhrase: compMatch[0]
+        };
+      }
+
+      // 10. Stage Recommendation
+      let stageRecommendation: any = undefined;
+      if (lower.includes("tender") && (lower.includes("october") || lower.includes("q4") || lower.includes("market"))) {
+        stageRecommendation = {
+          targetStageId: "stage-quote",
+          targetStageName: "Quote / Proposal Sent",
+          reason: "Customer confirmed project proceeding to tender in October",
+          sourcePhrase: "tender"
+        };
+      } else if (lower.includes("approved") || lower.includes("proceed with the trial") || lower.includes("site walk")) {
+        stageRecommendation = {
+          targetStageId: "stage-negotiation",
+          targetStageName: "Negotiation / Review",
+          reason: "Customer approved proposal/trial and requested next steps",
+          sourcePhrase: "proceed"
+        };
+      }
+
+      return {
+        senderEmail,
+        senderName,
+        subject,
+        emailDate: currentDate,
+        summary: lines.slice(0, 3).join(" ").slice(0, 240) || "Received client email reply.",
+        sentiment,
+        matchedAccount,
+        matchedOpportunity,
+        matchedContact,
+        clientCommitments: commitments,
+        clientObjectionsOrConcerns: objections,
+        suggestedNextAction,
+        suggestedNextActionDate,
+        suggestedNextActionPhrase,
+        stageRecommendation,
+        competitorMention
+      };
+    };
+
+    try {
+      const prompt = `You are a specialist commercial CRM assistant for Plasgain (leading Australian manufacturer of recycled plastic and composite infrastructure products, including composite poles and solar lighting systems for local government councils and civil contractors).
+
+Analyze this inbound email or email thread received from a customer/council engineer/contractor:
+
+Current Date: ${currentDate}
+Known Accounts: ${JSON.stringify(knownAccounts.slice(0, 40))}
+Known Opportunities: ${JSON.stringify(knownOpportunities.slice(0, 40))}
+Known Contacts: ${JSON.stringify(knownContacts.slice(0, 40))}
+
+Raw Inbound Email:
+"""
+${rawEmailText}
+"""
+
+Task:
+1. Extract sender information (senderName, senderEmail, subject, emailDate).
+2. Match against Known Accounts, Known Opportunities, and Known Contacts if applicable. If matched to a known record, provide its exact "id" and "name" with confidence and the "sourcePhrase" in the email that confirms it.
+3. Extract clientCommitments: any promises or timelines made by the client (e.g., "tender will be released in October", "reviewing with engineering committee next Tuesday"). Include the verbatim sourcePhrase.
+4. Extract clientObjectionsOrConcerns: any pricing questions, technical reservations, competitor alternatives, or schedule delays. Include verbatim sourcePhrase.
+5. sentiment: One of ["Positive", "Neutral", "Negative", "Concerned"].
+6. suggestedNextAction: Concrete next sales action for the Plasgain rep (e.g., "Follow up David in October ahead of council tender release").
+7. suggestedNextActionDate: Explicit ISO YYYY-MM-DD target date derived from their commitment or deadline.
+8. stageRecommendation: If the email clearly dictates advancing or adjusting the deal stage, specify targetStageId, targetStageName, reason, and sourcePhrase.
+9. competitorMention: If any competitors (e.g. Replas, Timber, Steel, etc.) are mentioned.
+10. summary: 2-3 sentence commercial summary of this email response.
+
+Return ONLY a JSON object matching this schema:
+{
+  "senderEmail": string,
+  "senderName": string,
+  "recipientEmail": string,
+  "emailDate": string,
+  "subject": string,
+  "summary": string,
+  "sentiment": "Positive" | "Neutral" | "Negative" | "Concerned",
+  "matchedAccount": {
+    "id": string,
+    "name": string,
+    "confidence": number,
+    "sourcePhrase": string
+  },
+  "matchedOpportunity": {
+    "id": string,
+    "name": string,
+    "confidence": number,
+    "sourcePhrase": string
+  },
+  "matchedContact": {
+    "id": string,
+    "name": string,
+    "email": string,
+    "confidence": number,
+    "sourcePhrase": string
+  },
+  "clientCommitments": [
+    {
+      "text": string,
+      "date": string,
+      "sourcePhrase": string
+    }
+  ],
+  "clientObjectionsOrConcerns": [
+    {
+      "text": string,
+      "sourcePhrase": string
+    }
+  ],
+  "suggestedNextAction": string,
+  "suggestedNextActionDate": string,
+  "suggestedNextActionPhrase": string,
+  "stageRecommendation": {
+    "targetStageId": string,
+    "targetStageName": string,
+    "reason": string,
+    "sourcePhrase": string
+  },
+  "competitorMention": {
+    "competitorName": string,
+    "context": string,
+    "sourcePhrase": string
+  }
+}`;
+
+      const response = await generateContentWithFailover({
+        preferredModel: DEFAULT_MODEL,
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          temperature: 0.1
+        }
+      });
+
+      const parsed = extractJsonFromText(response.text || "{}");
+      return res.json(parsed);
+    } catch (aiErr: any) {
+      console.warn("[parse-inbound-email] AI error, falling back to heuristic extractor:", aiErr?.message);
+      return res.json(runFallbackExtraction());
+    }
+  } catch (error: any) {
+    console.error("Error in parse inbound email endpoint:", error);
+    res.status(500).json({ error: error.message || "Failed to parse inbound email." });
+  }
+});
 
 // 10. FOLLOW-UP ASSISTANT
 app.post(["/api/follow-up/suggest", "/api/tools/follow-up", "/api/tools/followup"], async (req, res) => {

@@ -15,6 +15,7 @@ const CRMScheduleMeetingModal = lazy(() => import("./components/crm/CRMScheduleM
 const CRMMeetingPrepModal = lazy(() => import("./components/crm/CRMMeetingPrepModal").then(m => ({ default: m.CRMMeetingPrepModal })));
 const CRMVoiceCaptureModal = lazy(() => import("./components/crm/CRMVoiceCaptureModal").then(m => ({ default: m.CRMVoiceCaptureModal })));
 const CRMEnquiryParserModal = lazy(() => import("./components/crm/CRMEnquiryParserModal").then(m => ({ default: m.CRMEnquiryParserModal })));
+const CRMInboundEmailModal = lazy(() => import("./components/crm/CRMInboundEmailModal").then(m => ({ default: m.CRMInboundEmailModal })));
 const AIEmailComposerModal = lazy(() => import("./components/AIEmailComposerModal").then(m => ({ default: m.AIEmailComposerModal })));
 const GlobalCopilot = lazy(() => import("./components/GlobalCopilot").then(m => ({ default: m.GlobalCopilot })));
 const GlobalSearchModal = lazy(() => import("./components/GlobalSearchModal").then(m => ({ default: m.GlobalSearchModal })));
@@ -68,6 +69,7 @@ const MainLayout: React.FC = () => {
         <CRMMeetingPrepModal />
         <CRMVoiceCaptureModal />
         <CRMEnquiryParserModal />
+        <CRMInboundEmailModal />
       </Suspense>
       </ErrorBoundary>
 

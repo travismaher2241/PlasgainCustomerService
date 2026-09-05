@@ -23,7 +23,8 @@ import {
   ContactAccountHistoryItem,
   ActivityParticipant,
   ContactNotableEvent,
-  VoiceLogDiffProposal
+  VoiceLogDiffProposal,
+  InboundEmailDiffProposal
 } from "../types/crm";
 import {
   extractCandidateNotableEvents,
@@ -408,6 +409,17 @@ interface AppContextType {
   } | null;
   openEnquiryParser: (initialText?: string) => void;
   closeEnquiryParser: () => void;
+
+  // Feature 03: Inbound Email Ingestion Modal State
+  inboundEmailModal: {
+    isOpen: boolean;
+    initialText?: string;
+    accountId?: string;
+    opportunityId?: string;
+  } | null;
+  openInboundEmailModal: (opts?: { initialText?: string; accountId?: string; opportunityId?: string }) => void;
+  closeInboundEmailModal: () => void;
+  applyInboundEmailDiff: (diff: InboundEmailDiffProposal) => Promise<boolean>;
 
   // Notification / Toast
   toast: { message: string; type: "success" | "info" | "warning" | "error" } | null;
@@ -877,6 +889,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const closeEnquiryParser = () => {
     setEnquiryParserModal(null);
+  };
+
+  // Feature 03: Inbound Email Ingestion Modal State
+  const [inboundEmailModal, setInboundEmailModal] = useState<{
+    isOpen: boolean;
+    initialText?: string;
+    accountId?: string;
+    opportunityId?: string;
+  } | null>(null);
+
+  const openInboundEmailModal = (opts?: { initialText?: string; accountId?: string; opportunityId?: string }) => {
+    setInboundEmailModal({
+      isOpen: true,
+      initialText: opts?.initialText,
+      accountId: opts?.accountId,
+      opportunityId: opts?.opportunityId
+    });
+  };
+
+  const closeInboundEmailModal = () => {
+    setInboundEmailModal(null);
   };
   
   // Server-backed Notifications with canonical normalization (P1-05)
@@ -2457,6 +2490,119 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // Feature 03: Apply Inbound Email Changes Diff
+  const applyInboundEmailDiff = async (diff: InboundEmailDiffProposal): Promise<boolean> => {
+    try {
+      const todayStr = new Date().toISOString().split("T")[0];
+      const resolvedContact = contacts.find((c) => c.id === diff.contactId);
+
+      // 1. Log Activity as email
+      const activityResult = logActivity({
+        type: "email",
+        title: `Inbound Email: ${diff.emailSubject || "Client Response"}`,
+        description: diff.summaryNotes,
+        outcome: "Email Ingested",
+        accountId: diff.accountId,
+        accountName: diff.accountName,
+        contactId: diff.contactId,
+        contactName: diff.contactName || (resolvedContact ? `${resolvedContact.firstName} ${resolvedContact.lastName}`.trim() : undefined),
+        contactIds: diff.contactId ? [diff.contactId] : [],
+        opportunityId: diff.opportunityId,
+        opportunityName: diff.opportunityName,
+        nextAction: diff.nextAction,
+        nextActionDate: diff.nextActionDate,
+        isAiAssisted: true,
+        captureSource: "email_inbound",
+        aiTranscriptSnippet: diff.rawEmailText.slice(0, 140),
+        metadata: {
+          emailSubject: diff.emailSubject,
+          sentiment: diff.sentiment,
+          outcome: "Received"
+        }
+      });
+
+      // 2. Update Account next action & interaction date
+      if (diff.accountId && (diff.nextAction || diff.nextActionDate)) {
+        setAccounts((prev) =>
+          prev.map((acc) => {
+            if (acc.id === diff.accountId) {
+              const updated = {
+                ...acc,
+                nextAction: diff.nextAction || acc.nextAction,
+                nextActionDate: diff.nextActionDate || acc.nextActionDate,
+                lastInteractionDate: todayStr
+              };
+              saveDocToCloud("crm_accounts", acc.id, updated);
+              return updated;
+            }
+            return acc;
+          })
+        );
+      }
+
+      // 3. Update Opportunity if present
+      if (diff.opportunityId) {
+        setCrmOpportunities((prev) =>
+          prev.map((opp) => {
+            if (opp.id === diff.opportunityId) {
+              const updated: CRMOpportunity = {
+                ...opp,
+                nextAction: diff.nextAction || opp.nextAction,
+                nextActionDate: diff.nextActionDate || opp.nextActionDate,
+                latestActivity: `Inbound Email: ${diff.emailSubject || "Client Response"}`,
+                latestActivityDate: todayStr,
+                ...(diff.updateStage && diff.targetStageId
+                  ? {
+                      stageId: diff.targetStageId,
+                      stageName: diff.targetStageName || opp.stageName
+                    }
+                  : {})
+              };
+              saveDocToCloud("crm_deals", opp.id, updated);
+              return updated;
+            }
+            return opp;
+          })
+        );
+      }
+
+      // 4. Create Task if toggled
+      if (diff.createFollowUpTask && (diff.taskTitle || diff.nextAction)) {
+        addTask({
+          title: diff.taskTitle || diff.nextAction || `Follow up: ${diff.accountName}`,
+          type: "Email",
+          status: "To Do",
+          priority: (diff.taskPriority || "High") as TaskPriority,
+          dueDate: diff.taskDueDate || diff.nextActionDate || todayStr,
+          accountId: diff.accountId,
+          accountName: diff.accountName,
+          contactId: diff.contactId,
+          contactName: diff.contactName,
+          opportunityId: diff.opportunityId,
+          opportunityName: diff.opportunityName,
+          assignedTo: currentUser.name,
+          createdBy: `${currentUser.name} (Inbound Email)`,
+          notes: `Created from Inbound Email ingestion: ${diff.emailSubject}`
+        });
+      }
+
+      recordAuditLog(
+        "EMAIL_INGESTED" as any,
+        "Activity",
+        activityResult?.activity?.id || `act-${Date.now()}`,
+        diff.emailSubject,
+        `Ingested inbound email from ${diff.contactName || diff.contactEmail || "Client"} for ${diff.accountName}`
+      );
+
+      showToast(`Inbound email logged for ${diff.accountName}`, "success");
+      return true;
+    } catch (err: any) {
+      console.error("[applyInboundEmailDiff] error:", err);
+      showToast("Failed to apply email changes", "error");
+      return false;
+    }
+  };
+
   const dismissNotification = (id: string) => {
     archiveNotification(id);
   };
@@ -2629,6 +2775,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         enquiryParserModal,
         openEnquiryParser,
         closeEnquiryParser,
+        inboundEmailModal,
+        openInboundEmailModal,
+        closeInboundEmailModal,
+        applyInboundEmailDiff,
         isEmailComposerOpen,
         emailComposerLaunchContext,
         openEmailComposer,

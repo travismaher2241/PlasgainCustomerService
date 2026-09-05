@@ -899,3 +899,79 @@ export interface EnquiryParseResult {
   summaryNotes: string;
 }
 
+// Feature 03: Inbound Email Back Into the Record
+export interface InboundEmailParseResult {
+  senderEmail?: string;
+  senderName?: string;
+  recipientEmail?: string;
+  emailDate?: string;
+  subject?: string;
+  summary: string;
+  sentiment: "Positive" | "Neutral" | "Negative" | "Concerned";
+  matchedAccount: {
+    id?: string;
+    name?: string;
+    confidence: number;
+    sourcePhrase: string;
+  } | null;
+  matchedOpportunity: {
+    id?: string;
+    name?: string;
+    confidence: number;
+    sourcePhrase: string;
+  } | null;
+  matchedContact: {
+    id?: string;
+    name?: string;
+    email?: string;
+    confidence: number;
+    sourcePhrase: string;
+  } | null;
+  clientCommitments: Array<{
+    text: string;
+    date?: string;
+    sourcePhrase: string;
+  }>;
+  clientObjectionsOrConcerns: Array<{
+    text: string;
+    sourcePhrase: string;
+  }>;
+  suggestedNextAction: string;
+  suggestedNextActionDate: string;
+  suggestedNextActionPhrase: string;
+  stageRecommendation?: {
+    targetStageId?: string;
+    targetStageName?: string;
+    reason: string;
+    sourcePhrase?: string;
+  };
+  competitorMention?: {
+    competitorName?: string;
+    context?: string;
+    sourcePhrase?: string;
+  };
+}
+
+export interface InboundEmailDiffProposal {
+  accountId: string;
+  accountName: string;
+  opportunityId?: string;
+  opportunityName?: string;
+  contactId?: string;
+  contactName?: string;
+  contactEmail?: string;
+  emailSubject: string;
+  emailDate: string;
+  rawEmailText: string;
+  summaryNotes: string;
+  sentiment: "Positive" | "Neutral" | "Negative" | "Concerned";
+  nextAction: string;
+  nextActionDate: string;
+  updateStage?: boolean;
+  targetStageId?: string;
+  targetStageName?: string;
+  createFollowUpTask?: boolean;
+  taskTitle?: string;
+  taskDueDate?: string;
+  taskPriority?: TaskPriority;
+}

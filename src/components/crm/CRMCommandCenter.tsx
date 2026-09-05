@@ -11,7 +11,8 @@ import {
   Phone,
   Plus,
   Mic,
-  Sparkles
+  Sparkles,
+  Mail
 } from "lucide-react";
 import { useApp, CRMSubTab } from "../../context/AppContext";
 import { ErrorBoundary } from "../ErrorBoundary";
@@ -51,6 +52,7 @@ export const CRMCommandCenter: React.FC = () => {
     openQuickLog,
     openVoiceCapture,
     openEnquiryParser,
+    openInboundEmailModal,
     competitorPricingRecords
   } = useApp();
 
@@ -424,6 +426,18 @@ export const CRMCommandCenter: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {/* Ingest Inbound Email Action */}
+              <button
+                type="button"
+                onClick={() => openInboundEmailModal()}
+                className="h-8 px-2.5 sm:px-3 rounded-edge border border-line bg-paper hover:bg-raised text-body font-bold text-xs sm:text-spec transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs shrink-0"
+                title="Ingest Inbound Email Response into CRM"
+                aria-label="Ingest Email"
+              >
+                <Mail className="w-3.5 h-3.5 shrink-0 text-brand-deep" />
+                <span className="hidden sm:inline">Ingest Email</span>
+              </button>
 
               {/* Parse Inbound Enquiry Action */}
               <button

@@ -89,6 +89,7 @@ export const CRMTodayWorkspace: React.FC = () => {
     setSelectedAccountId,
     openQuickLog,
     openVoiceCapture,
+    openInboundEmailModal,
     openCallPrep,
     openEmailComposer,
     openScheduleMeeting,
@@ -369,7 +370,17 @@ export const CRMTodayWorkspace: React.FC = () => {
           <p className="text-spec text-ink-dim mt-0.5">{formattedToday}</p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => openInboundEmailModal()}
+            className="px-3 py-1.5 bg-paper hover:bg-raised text-body border border-line rounded-edge text-spec font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+            title="Ingest inbound client email response"
+          >
+            <Mail className="w-3.5 h-3.5 text-brand-deep" />
+            <span>Ingest Email</span>
+          </button>
+
           <button
             type="button"
             onClick={() => openVoiceCapture()}
