@@ -18,6 +18,13 @@ const ALERTS_FILE = path.join(DATA_DIR, "competitor_alerts.json");
 const SEED_PRICING: CompetitorPricingRecord[] = [];
 const SEED_ALERTS: CompetitorPricingAlert[] = [];
 
+// Under test this store used to read and write the real server_data files, so
+// a plain `vitest run` mutated them and left the working tree dirty with
+// regenerated ids and timestamps. NotificationStore already skipped disk in
+// tests; this brings the two into line. Tests get in-memory seed state.
+const isTestEnv = (): boolean =>
+  process.env.NODE_ENV === "test" || Boolean(process.env.VITEST);
+
 class CompetitorPricingStore {
   private pricingRecords: CompetitorPricingRecord[] = [];
   private alerts: CompetitorPricingAlert[] = [];
@@ -29,6 +36,12 @@ class CompetitorPricingStore {
 
   private init() {
     if (this.isInitialized) return;
+    if (isTestEnv()) {
+      this.pricingRecords = [...SEED_PRICING];
+      this.alerts = [...SEED_ALERTS];
+      this.isInitialized = true;
+      return;
+    }
     try {
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -60,6 +73,7 @@ class CompetitorPricingStore {
   }
 
   private savePricing() {
+    if (isTestEnv()) return;
     try {
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -71,6 +85,7 @@ class CompetitorPricingStore {
   }
 
   private saveAlerts() {
+    if (isTestEnv()) return;
     try {
       if (!fs.existsSync(DATA_DIR)) {
         fs.mkdirSync(DATA_DIR, { recursive: true });
