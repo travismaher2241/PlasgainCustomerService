@@ -345,3 +345,13 @@ export function computeWinLossPatterns(
     hasEnoughHistory: true
   };
 }
+
+/**
+ * Quotes still in play - not won, not lost, not accepted or declined.
+ *
+ * Shared so the CRM bar and the sidebar cannot drift into showing two
+ * different numbers for the same thing.
+ */
+export function countOutstandingQuotes(deals: CRMOpportunity[]): number {
+  return deals.filter((d) => !isWonDeal(d) && !isLostDeal(d)).length;
+}

@@ -6,9 +6,18 @@ import {
   X,
   LogIn,
   PanelLeftClose,
-  PanelLeftOpen
+  PanelLeftOpen,
+  Sun,
+  Building2,
+  Kanban,
+  Calendar,
+  Flame,
+  CheckCircle2,
+  TrendingUp,
+  Trophy
 } from "lucide-react";
-import { useApp, NavTab, initialsOf } from "../context/AppContext";
+import { useApp, NavTab, CRMSubTab, initialsOf } from "../context/AppContext";
+import { countOutstandingQuotes } from "../utils/winLossPatterns";
 import { PlasgainLockup, PlasgainMark } from "./PlasgainMark";
 
 interface SidebarProps {
@@ -25,8 +34,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
     isSidebarCollapsed,
     toggleSidebar,
     openEmailComposer,
-    setIsCopilotOpen
+    setIsCopilotOpen,
+    activeCRMTab,
+    setActiveCRMTab,
+    crmOpportunities
   } = useApp();
+
+  const outstandingQuotesCount = countOutstandingQuotes(crmOpportunities);
   const sidebarRef = React.useRef<HTMLElement>(null);
   const previouslyFocusedElementRef = React.useRef<HTMLElement | null>(null);
 
@@ -115,6 +129,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
     { id: "crm", label: "CRM Command Centre", icon: KanbanSquare },
     { id: "settings", label: "Settings", icon: SlidersHorizontal }
   ];
+
+  /*
+    Every CRM destination lives here as well as in the bar at the top of the
+    workspace. The bar can only hold two or three on a phone, and putting the
+    rest behind a "More" dropdown meant hunting for them while this menu sat
+    mostly empty. This is the full list, always.
+  */
+  const crmDestinations: {
+    id: CRMSubTab;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    badge?: number;
+  }[] = [
+    { id: "today", label: "Today", icon: Sun },
+    { id: "accounts", label: "Accounts", icon: Building2 },
+    { id: "pipeline", label: "Outstanding Quotes", icon: Kanban, badge: outstandingQuotesCount },
+    { id: "calendar", label: "Calendar", icon: Calendar },
+    { id: "leads", label: "Leads", icon: Flame },
+    { id: "tasks", label: "Tasks", icon: CheckCircle2 },
+    { id: "competitor-pricing", label: "Competitors", icon: TrendingUp },
+    { id: "win-patterns", label: "Win patterns", icon: Trophy }
+  ];
+
+  const handleSelectCRM = (crmTab: CRMSubTab) => {
+    setActiveTab("crm");
+    setActiveCRMTab(crmTab);
+    if (setMobileOpen) setMobileOpen(false);
+  };
 
   const handleSelect = (tab: NavTab) => {
     setActiveTab(tab);
@@ -209,7 +251,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
             const isActive = activeTab === item.id;
             const isCollapsedMode = isSidebarCollapsed && !mobileOpen;
 
-            return (
+            const button = (
               <button
                 key={item.id}
                 onClick={() => handleSelect(item.id)}
@@ -262,6 +304,79 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) =
                   <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-brand-lift" />
                 )}
               </button>
+            );
+
+            // The CRM destinations belong directly under the workspace they
+            // are part of, not after Settings.
+            if (item.id !== "crm") return button;
+
+            return (
+              <React.Fragment key={item.id}>
+                {button}
+          {/* CRM destinations, nested under the workspace they belong to. */}
+                {(() => {
+                  const isCollapsedRail = isSidebarCollapsed && !mobileOpen;
+                  return (
+            <ul
+              className={
+                isCollapsedRail
+                  ? "mt-0.5 mb-1 space-y-0.5"
+                  : "mt-0.5 mb-1 ml-4 pl-2 border-l border-chrome-line/70 space-y-0.5"
+              }
+            >
+              {crmDestinations.map((dest) => {
+                const DestIcon = dest.icon;
+                const isActive = activeTab === "crm" && activeCRMTab === dest.id;
+                return (
+                  <li key={dest.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectCRM(dest.id)}
+                      aria-current={isActive ? "page" : undefined}
+                      title={isCollapsedRail ? dest.label : undefined}
+                      aria-label={dest.label}
+                      className={`group w-full flex items-center rounded-edge text-meta cursor-pointer transition-colors ${
+                        isCollapsedRail
+                          ? "justify-center p-2 relative"
+                          : "gap-2.5 px-2 min-h-[40px] text-left"
+                      } ${
+                        isActive
+                          ? isCollapsedRail
+                            ? "bg-brand-deep text-white"
+                            : "bg-chrome-raised text-chrome-text font-semibold"
+                          : "text-chrome-dim font-medium hover:bg-chrome-raised hover:text-chrome-text"
+                      }`}
+                    >
+                      <DestIcon
+                        className={`w-3.5 h-3.5 shrink-0 transition-colors ${
+                          isActive
+                            ? isCollapsedRail
+                              ? "text-white"
+                              : "text-brand-lift"
+                            : "text-chrome-dim group-hover:text-chrome-text"
+                        }`}
+                      />
+                      {!isCollapsedRail && (
+                        <>
+                          <span className="truncate">{dest.label}</span>
+                          {dest.badge !== undefined && dest.badge > 0 && (
+                            <span className="u-data ml-auto text-[0.625rem] leading-none px-1.5 py-1 rounded-[2px] bg-chrome-line text-chrome-text">
+                              {dest.badge}
+                            </span>
+                          )}
+                        </>
+                      )}
+                      {isCollapsedRail && dest.badge !== undefined && dest.badge > 0 && (
+                        <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-brand-lift" />
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+                  );
+                })()}
+              </React.Fragment>
             );
           })}
 

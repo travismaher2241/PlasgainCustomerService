@@ -31,22 +31,19 @@ describe('CRM Command Center Navigation Suite (Step 6)', () => {
       expect(screen.getByRole('tab', { name: /accounts/i })).toBeInTheDocument();
       expect(screen.getByRole('tab', { name: /outstanding quotes|deals/i })).toBeInTheDocument();
 
-      // Quick Log action is present
-      expect(screen.getByRole('button', { name: /quick log/i })).toBeInTheDocument();
+      // The single capture entry point on a phone
+      expect(screen.getByRole('button', { name: /log or capture something/i })).toBeInTheDocument();
 
-      // More menu on mobile
-      const moreBtn = screen.getByRole('button', { name: /more crm destinations/i });
-      expect(moreBtn).toBeInTheDocument();
+      // There is no "More" dropdown any more. Every destination lives in the
+      // workspace sidebar, which has room for all of them, instead of being
+      // hidden behind a control in a bar too narrow to hold them.
+      expect(screen.queryByRole('button', { name: /more crm destinations/i })).not.toBeInTheDocument();
 
-      fireEvent.click(moreBtn);
-
-      const moreMenu = container.querySelector('.absolute.right-0') as HTMLElement;
-      expect(moreMenu).toBeInTheDocument();
-
-      const moreMenuScope = within(moreMenu);
-      expect(moreMenuScope.getByRole('button', { name: /^leads/i })).toBeInTheDocument();
-      expect(moreMenuScope.getByRole('button', { name: /^tasks/i })).toBeInTheDocument();
-      expect(moreMenuScope.getByRole('button', { name: /^competitors/i })).toBeInTheDocument();
+      // The capture actions collapse into a single Log menu on a phone.
+      const logBtn = screen.getByRole('button', { name: /log or capture something/i });
+      fireEvent.click(logBtn);
+      expect(screen.getByRole('button', { name: /record a voice debrief/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /turn an enquiry into a lead/i })).toBeInTheDocument();
     });
   });
 
