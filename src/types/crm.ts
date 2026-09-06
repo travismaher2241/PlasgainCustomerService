@@ -275,6 +275,11 @@ export interface CRMLead {
     hasDefiniteNeed: boolean;
     hasTimeline: boolean;
   };
+  rawEnquiry?: string;
+  rawEnquiryText?: string;
+  enquiryDeadline?: string;
+  quantity?: number;
+  isAiAssisted?: boolean;
   convertedAccountId?: string;
   convertedContactId?: string;
   convertedOpportunityId?: string;
@@ -403,6 +408,9 @@ export interface CRMActivity {
   outcome?: string;
   nextAction?: string;
   nextActionDate?: string;
+  isAiAssisted?: boolean;
+  captureSource?: "manual" | "voice_capture" | "email_inbound" | "copilot_action";
+  aiTranscriptSnippet?: string;
   timestamp: string;
   metadata?: {
     callDurationMinutes?: number;
@@ -533,11 +541,38 @@ export interface NextBestActionItem {
   relatedEntityId: string;
   relatedEntityName: string;
   actionLabel: string;
-  actionPayload?: {
-    type: "create_task" | "send_email" | "log_call" | "schedule_meeting" | "update_stage" | "assign_contact";
-    defaultTitle?: string;
-    defaultNotes?: string;
-  };
+  actionPayload?: CRMActionPayload;
+}
+
+export type CRMActionType =
+  | "create_task"
+  | "send_email"
+  | "log_call"
+  | "schedule_meeting"
+  | "update_stage"
+  | "assign_contact";
+
+export interface CRMActionPayload {
+  type: CRMActionType;
+  defaultTitle?: string;
+  defaultNotes?: string;
+  targetStageId?: string;
+  targetStageName?: string;
+  assignedContactId?: string;
+  dueDate?: string;
+  recipientEmail?: string;
+  accountId?: string;
+  opportunityId?: string;
+  leadId?: string;
+}
+
+export interface CopilotActionProposal {
+  id: string;
+  label: string;
+  type: CRMActionType;
+  description?: string;
+  payload: CRMActionPayload;
+  isExecuted?: boolean;
 }
 
 export interface ServerNotification {
@@ -746,4 +781,197 @@ export interface AuditLogRecord {
   details: string;
   changes?: Record<string, { from?: any; to?: any }>;
   metadata?: Record<string, any>;
+}
+
+export interface VoiceLogExtractionResult {
+  rawTranscript: string;
+  matchedAccount?: {
+    id?: string;
+    name: string;
+    confidence: number;
+    sourcePhrase: string;
+  };
+  matchedContact?: {
+    id?: string;
+    name: string;
+    confidence: number;
+    sourcePhrase: string;
+  };
+  matchedOpportunity?: {
+    id?: string;
+    name: string;
+    confidence: number;
+    sourcePhrase: string;
+  };
+  activity: {
+    type: ActivityType;
+    outcome?: string;
+    title: string;
+    notes: string;
+    sourcePhrase?: string;
+  };
+  nextAction?: {
+    action: string;
+    date: string;
+    sourcePhrase: string;
+  };
+  proposedTask?: {
+    title: string;
+    dueDate: string;
+    priority: TaskPriority;
+    sourcePhrase?: string;
+  };
+  commercialDetails?: {
+    estimatedValue?: number;
+    quantity?: number;
+    productInterest?: string[];
+    budgetNotes?: string;
+    sourcePhrase?: string;
+  };
+}
+
+export interface VoiceLogDiffProposal {
+  rawTranscript: string;
+  accountId: string;
+  accountName: string;
+  accountSourcePhrase?: string;
+  contactId?: string;
+  contactName?: string;
+  contactSourcePhrase?: string;
+  opportunityId?: string;
+  opportunityName?: string;
+  opportunitySourcePhrase?: string;
+  activityType: ActivityType;
+  activityOutcome?: string;
+  activityTitle: string;
+  activityNotes: string;
+  notesSourcePhrase?: string;
+  nextAction?: string;
+  nextActionDate?: string;
+  nextActionSourcePhrase?: string;
+  createTask: boolean;
+  taskTitle?: string;
+  taskDueDate?: string;
+  taskPriority?: TaskPriority;
+  taskSourcePhrase?: string;
+  updateOpportunityValue?: boolean;
+  estimatedValue?: number;
+  productInterest?: string[];
+}
+
+export interface EnquiryParseResult {
+  rawEnquiryText: string;
+  company: {
+    value: string;
+    sourcePhrase?: string;
+  };
+  contact: {
+    name: string;
+    email?: string;
+    phone?: string;
+    jobTitle?: string;
+    sourcePhrase?: string;
+  };
+  project: {
+    leadName: string;
+    enquiryType: "Solar Pathway Lighting" | "Roadway & Streetlight" | "Car Park & Area" | "CCTV & Security" | "Composite Poles" | "General";
+    location?: string;
+    territory?: "NSW/ACT" | "VIC/TAS" | "QLD/NT" | "WA" | "SA" | "National";
+    sourcePhrase?: string;
+  };
+  scope: {
+    quantity?: number;
+    productInterest: string[];
+    sourcePhrase?: string;
+  };
+  commercial: {
+    deadline?: string;
+    urgency?: "Immediate" | "Within 1 Month" | "Q3/Q4" | "Budgetary / Exploratory";
+    estimatedValue?: number;
+    estimatedValueBasis?: "Known" | "Estimate" | "Unknown";
+    sourcePhrase?: string;
+  };
+  nextAction: {
+    action: string;
+    date: string;
+    sourcePhrase?: string;
+  };
+  summaryNotes: string;
+}
+
+// Feature 03: Inbound Email Back Into the Record
+export interface InboundEmailParseResult {
+  senderEmail?: string;
+  senderName?: string;
+  recipientEmail?: string;
+  emailDate?: string;
+  subject?: string;
+  summary: string;
+  sentiment: "Positive" | "Neutral" | "Negative" | "Concerned";
+  matchedAccount: {
+    id?: string;
+    name?: string;
+    confidence: number;
+    sourcePhrase: string;
+  } | null;
+  matchedOpportunity: {
+    id?: string;
+    name?: string;
+    confidence: number;
+    sourcePhrase: string;
+  } | null;
+  matchedContact: {
+    id?: string;
+    name?: string;
+    email?: string;
+    confidence: number;
+    sourcePhrase: string;
+  } | null;
+  clientCommitments: Array<{
+    text: string;
+    date?: string;
+    sourcePhrase: string;
+  }>;
+  clientObjectionsOrConcerns: Array<{
+    text: string;
+    sourcePhrase: string;
+  }>;
+  suggestedNextAction: string;
+  suggestedNextActionDate: string;
+  suggestedNextActionPhrase: string;
+  stageRecommendation?: {
+    targetStageId?: string;
+    targetStageName?: string;
+    reason: string;
+    sourcePhrase?: string;
+  };
+  competitorMention?: {
+    competitorName?: string;
+    context?: string;
+    sourcePhrase?: string;
+  };
+}
+
+export interface InboundEmailDiffProposal {
+  accountId: string;
+  accountName: string;
+  opportunityId?: string;
+  opportunityName?: string;
+  contactId?: string;
+  contactName?: string;
+  contactEmail?: string;
+  emailSubject: string;
+  emailDate: string;
+  rawEmailText: string;
+  summaryNotes: string;
+  sentiment: "Positive" | "Neutral" | "Negative" | "Concerned";
+  nextAction: string;
+  nextActionDate: string;
+  updateStage?: boolean;
+  targetStageId?: string;
+  targetStageName?: string;
+  createFollowUpTask?: boolean;
+  taskTitle?: string;
+  taskDueDate?: string;
+  taskPriority?: TaskPriority;
 }

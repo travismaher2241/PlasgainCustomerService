@@ -7,6 +7,8 @@ import {
   CRMActivity,
   CRMTask,
   TaskType,
+  TaskPriority,
+  TaskStatus,
   PipelineConfig,
   NextBestActionItem,
   CRMNotification,
@@ -20,7 +22,9 @@ import {
   CRMKnowledgeItem,
   ContactAccountHistoryItem,
   ActivityParticipant,
-  ContactNotableEvent
+  ContactNotableEvent,
+  VoiceLogDiffProposal,
+  InboundEmailDiffProposal
 } from "../types/crm";
 import {
   extractCandidateNotableEvents,
@@ -388,6 +392,35 @@ interface AppContextType {
   emailComposerLaunchContext: EmailComposerLaunchContext | null;
   openEmailComposer: (context?: EmailComposerLaunchContext) => void;
   closeEmailComposer: () => void;
+
+  // Feature 01: Voice Capture Modal State & Actions
+  voiceCaptureModal: {
+    isOpen: boolean;
+    prefillAccountId?: string;
+    prefillOppId?: string;
+  } | null;
+  openVoiceCapture: (opts?: { accountId?: string; opportunityId?: string }) => void;
+  closeVoiceCapture: () => void;
+  applyVoiceCaptureDiff: (diff: VoiceLogDiffProposal) => Promise<boolean>;
+
+  // Feature 02: Inbound Enquiry Parser Modal State
+  enquiryParserModal: {
+    isOpen: boolean;
+    initialText?: string;
+  } | null;
+  openEnquiryParser: (initialText?: string) => void;
+  closeEnquiryParser: () => void;
+
+  // Feature 03: Inbound Email Ingestion Modal State
+  inboundEmailModal: {
+    isOpen: boolean;
+    initialText?: string;
+    accountId?: string;
+    opportunityId?: string;
+  } | null;
+  openInboundEmailModal: (opts?: { initialText?: string; accountId?: string; opportunityId?: string }) => void;
+  closeInboundEmailModal: () => void;
+  applyInboundEmailDiff: (diff: InboundEmailDiffProposal) => Promise<boolean>;
 
   // Notification / Toast
   toast: { message: string; type: "success" | "info" | "warning" | "error" } | null;
@@ -831,6 +864,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setEmailComposerLaunchContext(null);
   };
 
+  // Feature 01: Voice Capture Modal State
+  const [voiceCaptureModal, setVoiceCaptureModal] = useState<{
+    isOpen: boolean;
+    prefillAccountId?: string;
+    prefillOppId?: string;
+  } | null>(null);
+
+  const openVoiceCapture = (opts?: { accountId?: string; opportunityId?: string }) => {
+    setVoiceCaptureModal({
+      isOpen: true,
+      prefillAccountId: opts?.accountId,
+      prefillOppId: opts?.opportunityId
+    });
+  };
+
+  const closeVoiceCapture = () => {
+    setVoiceCaptureModal(null);
+  };
+
+  // Feature 02: Inbound Enquiry Parser Modal State
+  const [enquiryParserModal, setEnquiryParserModal] = useState<{
+    isOpen: boolean;
+    initialText?: string;
+  } | null>(null);
+
+  const openEnquiryParser = (initialText?: string) => {
+    setEnquiryParserModal({
+      isOpen: true,
+      initialText
+    });
+  };
+
+  const closeEnquiryParser = () => {
+    setEnquiryParserModal(null);
+  };
+
+  // Feature 03: Inbound Email Ingestion Modal State
+  const [inboundEmailModal, setInboundEmailModal] = useState<{
+    isOpen: boolean;
+    initialText?: string;
+    accountId?: string;
+    opportunityId?: string;
+  } | null>(null);
+
+  const openInboundEmailModal = (opts?: { initialText?: string; accountId?: string; opportunityId?: string }) => {
+    setInboundEmailModal({
+      isOpen: true,
+      initialText: opts?.initialText,
+      accountId: opts?.accountId,
+      opportunityId: opts?.opportunityId
+    });
+  };
+
+  const closeInboundEmailModal = () => {
+    setInboundEmailModal(null);
+  };
   
   // Server-backed Notifications with canonical normalization (P1-05)
   const [serverNotifications, setServerNotifications] = useState<CRMNotification[]>([]);
@@ -1968,13 +2057,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       weightedValue: lead.estimatedValue * 0.25,
       probability: 25,
       forecastCategory: "Pipeline",
-      expectedCloseDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      expectedCloseDate: lead.enquiryDeadline || new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
       products: lead.productInterest.map((p, idx) => ({
         id: `prod-line-${idx}`,
         productCode: "",
         productName: p,
         category: "Solar Luminaire",
-        quantity: 1
+        quantity: lead.quantity || 1
       })),
       projectApplication: lead.enquiryType,
       location: lead.location,
@@ -2318,6 +2407,223 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newTask;
   };
 
+  const applyVoiceCaptureDiff = async (diff: VoiceLogDiffProposal): Promise<boolean> => {
+    try {
+      // 1. Log activity with full AI provenance
+      const resolvedContact = contacts.find((c) => c.id === diff.contactId);
+      const activityResult = logActivity({
+        type: diff.activityType,
+        title: diff.activityTitle,
+        description: diff.activityNotes,
+        outcome: diff.activityOutcome,
+        accountId: diff.accountId,
+        accountName: diff.accountName,
+        contactId: diff.contactId,
+        contactName: diff.contactName || (resolvedContact ? `${resolvedContact.firstName} ${resolvedContact.lastName}`.trim() : undefined),
+        contactIds: diff.contactId ? [diff.contactId] : [],
+        opportunityId: diff.opportunityId,
+        opportunityName: diff.opportunityName,
+        nextAction: diff.nextAction,
+        nextActionDate: diff.nextActionDate,
+        isAiAssisted: true,
+        captureSource: "voice_capture",
+        aiTranscriptSnippet: diff.rawTranscript.slice(0, 140),
+        metadata: {
+          outcome: diff.activityOutcome
+        }
+      });
+
+      // 2. Update Next Action on Account
+      if (diff.accountId && (diff.nextAction || diff.nextActionDate)) {
+        setAccounts((prev) =>
+          prev.map((acc) => {
+            if (acc.id === diff.accountId) {
+              const updated = {
+                ...acc,
+                nextAction: diff.nextAction || acc.nextAction,
+                nextActionDate: diff.nextActionDate || acc.nextActionDate,
+                lastInteractionDate: new Date().toISOString().split("T")[0]
+              };
+              saveDocToCloud("crm_accounts", acc.id, updated);
+              return updated;
+            }
+            return acc;
+          })
+        );
+      }
+
+      // 3. Update Opportunity if present
+      if (diff.opportunityId) {
+        setCrmOpportunities((prev) =>
+          prev.map((opp) => {
+            if (opp.id === diff.opportunityId) {
+              const updated = {
+                ...opp,
+                nextAction: diff.nextAction || opp.nextAction,
+                nextActionDate: diff.nextActionDate || opp.nextActionDate,
+                latestActivity: diff.activityTitle,
+                latestActivityDate: new Date().toISOString().split("T")[0],
+                dealValue: diff.updateOpportunityValue && diff.estimatedValue ? diff.estimatedValue : opp.dealValue
+              };
+              saveDocToCloud("crm_deals", opp.id, updated);
+              return updated;
+            }
+            return opp;
+          })
+        );
+      }
+
+      // 4. Create Task if toggled
+      if (diff.createTask && (diff.taskTitle || diff.nextAction)) {
+        const todayStr = new Date().toISOString().split("T")[0];
+        addTask({
+          title: diff.taskTitle || diff.nextAction || `Follow up: ${diff.accountName}`,
+          type: "Follow-up",
+          status: "To Do",
+          priority: (diff.taskPriority || "Medium") as TaskPriority,
+          dueDate: diff.taskDueDate || diff.nextActionDate || todayStr,
+          accountId: diff.accountId,
+          accountName: diff.accountName,
+          contactId: diff.contactId,
+          contactName: diff.contactName,
+          opportunityId: diff.opportunityId,
+          opportunityName: diff.opportunityName,
+          assignedTo: currentUser.name,
+          createdBy: `${currentUser.name} (Voice Capture)`,
+          notes: `Created from Voice Capture debrief.`
+        });
+      }
+
+      recordAuditLog(
+        "CALL_LOGGED",
+        "Activity",
+        activityResult?.activity?.id || `act-${Date.now()}`,
+        diff.activityTitle,
+        `Applied voice debrief for ${diff.accountName}: ${diff.activityType} (${diff.activityOutcome || "Recorded"})`
+      );
+
+      showToast(`Voice debrief logged for ${diff.accountName}`, "success");
+      return true;
+    } catch (err: any) {
+      console.error("[applyVoiceCaptureDiff] error:", err);
+      showToast("Failed to apply voice debrief changes.", "error");
+      return false;
+    }
+  };
+
+  // Feature 03: Apply Inbound Email Changes Diff
+  const applyInboundEmailDiff = async (diff: InboundEmailDiffProposal): Promise<boolean> => {
+    try {
+      const todayStr = new Date().toISOString().split("T")[0];
+      const resolvedContact = contacts.find((c) => c.id === diff.contactId);
+
+      // 1. Log Activity as email
+      const activityResult = logActivity({
+        type: "email",
+        title: `Inbound Email: ${diff.emailSubject || "Client Response"}`,
+        description: diff.summaryNotes,
+        outcome: "Email Ingested",
+        accountId: diff.accountId,
+        accountName: diff.accountName,
+        contactId: diff.contactId,
+        contactName: diff.contactName || (resolvedContact ? `${resolvedContact.firstName} ${resolvedContact.lastName}`.trim() : undefined),
+        contactIds: diff.contactId ? [diff.contactId] : [],
+        opportunityId: diff.opportunityId,
+        opportunityName: diff.opportunityName,
+        nextAction: diff.nextAction,
+        nextActionDate: diff.nextActionDate,
+        isAiAssisted: true,
+        captureSource: "email_inbound",
+        aiTranscriptSnippet: diff.rawEmailText.slice(0, 140),
+        metadata: {
+          emailSubject: diff.emailSubject,
+          sentiment: diff.sentiment,
+          outcome: "Received"
+        }
+      });
+
+      // 2. Update Account next action & interaction date
+      if (diff.accountId && (diff.nextAction || diff.nextActionDate)) {
+        setAccounts((prev) =>
+          prev.map((acc) => {
+            if (acc.id === diff.accountId) {
+              const updated = {
+                ...acc,
+                nextAction: diff.nextAction || acc.nextAction,
+                nextActionDate: diff.nextActionDate || acc.nextActionDate,
+                lastInteractionDate: todayStr
+              };
+              saveDocToCloud("crm_accounts", acc.id, updated);
+              return updated;
+            }
+            return acc;
+          })
+        );
+      }
+
+      // 3. Update Opportunity if present
+      if (diff.opportunityId) {
+        setCrmOpportunities((prev) =>
+          prev.map((opp) => {
+            if (opp.id === diff.opportunityId) {
+              const updated: CRMOpportunity = {
+                ...opp,
+                nextAction: diff.nextAction || opp.nextAction,
+                nextActionDate: diff.nextActionDate || opp.nextActionDate,
+                latestActivity: `Inbound Email: ${diff.emailSubject || "Client Response"}`,
+                latestActivityDate: todayStr,
+                ...(diff.updateStage && diff.targetStageId
+                  ? {
+                      stageId: diff.targetStageId,
+                      stageName: diff.targetStageName || opp.stageName
+                    }
+                  : {})
+              };
+              saveDocToCloud("crm_deals", opp.id, updated);
+              return updated;
+            }
+            return opp;
+          })
+        );
+      }
+
+      // 4. Create Task if toggled
+      if (diff.createFollowUpTask && (diff.taskTitle || diff.nextAction)) {
+        addTask({
+          title: diff.taskTitle || diff.nextAction || `Follow up: ${diff.accountName}`,
+          type: "Email",
+          status: "To Do",
+          priority: (diff.taskPriority || "High") as TaskPriority,
+          dueDate: diff.taskDueDate || diff.nextActionDate || todayStr,
+          accountId: diff.accountId,
+          accountName: diff.accountName,
+          contactId: diff.contactId,
+          contactName: diff.contactName,
+          opportunityId: diff.opportunityId,
+          opportunityName: diff.opportunityName,
+          assignedTo: currentUser.name,
+          createdBy: `${currentUser.name} (Inbound Email)`,
+          notes: `Created from Inbound Email ingestion: ${diff.emailSubject}`
+        });
+      }
+
+      recordAuditLog(
+        "EMAIL_INGESTED" as any,
+        "Activity",
+        activityResult?.activity?.id || `act-${Date.now()}`,
+        diff.emailSubject,
+        `Ingested inbound email from ${diff.contactName || diff.contactEmail || "Client"} for ${diff.accountName}`
+      );
+
+      showToast(`Inbound email logged for ${diff.accountName}`, "success");
+      return true;
+    } catch (err: any) {
+      console.error("[applyInboundEmailDiff] error:", err);
+      showToast("Failed to apply email changes", "error");
+      return false;
+    }
+  };
+
   const dismissNotification = (id: string) => {
     archiveNotification(id);
   };
@@ -2372,8 +2678,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Dynamic Next Best Actions evaluation
   const nextBestActions = useMemo(() => {
-    return CRMIntelligenceEngine.generateNextBestActions(accounts, crmOpportunities, leads, tasks, activities);
-  }, [accounts, crmOpportunities, leads, tasks, activities]);
+    return CRMIntelligenceEngine.generateNextBestActions(
+      accounts,
+      crmOpportunities,
+      leads,
+      tasks,
+      activities,
+      competitorPricingRecords
+    );
+  }, [accounts, crmOpportunities, leads, tasks, activities, competitorPricingRecords]);
 
   return (
     <AppContext.Provider
@@ -2492,6 +2805,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         meetingPrepModal,
         openMeetingPrep,
         closeMeetingPrep,
+        voiceCaptureModal,
+        openVoiceCapture,
+        closeVoiceCapture,
+        applyVoiceCaptureDiff,
+        enquiryParserModal,
+        openEnquiryParser,
+        closeEnquiryParser,
+        inboundEmailModal,
+        openInboundEmailModal,
+        closeInboundEmailModal,
+        applyInboundEmailDiff,
         isEmailComposerOpen,
         emailComposerLaunchContext,
         openEmailComposer,

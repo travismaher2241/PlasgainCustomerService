@@ -94,4 +94,37 @@ describe("CRM Today's Action Queue Suite (Step 6)", () => {
 
     expect(screen.getByText(/Call Sarah about DIALux spacing/i)).toBeInTheDocument();
   });
+
+  it("Test 4 — Displays proactive meeting preparation strip for tomorrow's meetings", () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = tomorrow.toISOString().split("T")[0];
+
+    const meetingTasks = [
+      {
+        id: "task-meeting-tomorrow",
+        title: "ATEC Group Product Review Meeting",
+        type: "Meeting",
+        dueDate: tomorrowStr,
+        dueTime: "10:00",
+        priority: "High",
+        status: "Pending",
+        assignedTo: "Travis Maher",
+        accountId: "acc-custom-1",
+        accountName: "ATEC Group",
+        meetingFormat: "In Person"
+      }
+    ];
+
+    render(
+      <AppProvider>
+        <TodayTestWrapper tasks={meetingTasks} />
+      </AppProvider>
+    );
+
+    // Proactive meeting card is rendered
+    expect(screen.getByText(/Upcoming Meetings & Proactive Briefing/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/ATEC Group Product Review Meeting/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Open Full Briefing/i)).toBeInTheDocument();
+  });
 });

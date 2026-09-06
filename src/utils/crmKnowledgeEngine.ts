@@ -83,12 +83,67 @@ export function parseSupplyCyclesFromText(text: string, referenceDateStr?: strin
   const validRefDate = isNaN(refDate.getTime()) ? new Date() : refDate;
   const orderDateStr = validRefDate.toISOString().split("T")[0];
 
-  // Regex for order / purchase with quantity, product, and duration
-  const supplyPattern = /(?:order(?:ed|ing)?|purchas(?:ed|ing)?|bought|delivery\s+of|supplied|stock\s+of)\s+([^.\n;]+?)(?:last(?:ing)?\s+(?:them\s+)?(?:around|approx|approximately)?\s*(\d+(?:\.\d+)?)\s*(months?|weeks?|days?|years?)|(?:supply|duration)\s+(?:of|for)\s+(\d+(?:\.\d+)?)\s*(months?|weeks?)|(\d+(?:\.\d+)?)\s*(months?|weeks?)\s*(?:worth|supply))/i;
+  const computeRunOut = (durationMonths: number) => {
+    const runOutDate = new Date(validRefDate);
+    const totalDays = Math.round(durationMonths * 30.44);
+    runOutDate.setDate(runOutDate.getDate() + totalDays);
+    return runOutDate.toISOString().split("T")[0];
+  };
 
-  const match = text.match(supplyPattern);
-  if (match) {
-    const preText = match[1].trim();
+  const extractDest = (str: string) => {
+    const destMatch = str.match(/(?:sent\s+to|shipped\s+to|destined\s+for|bound\s+for|(?:delivered|going)\s+to|(?:for|in))\s+(?:the\s+)?(SA\b|WA\b|NSW\b|VIC\b|QLD\b|TAS\b|NT\b|ACT\b|South\s+Australia|Western\s+Australia|Queensland|Victoria|New\s+South\s+Wales|Tasmania|Northern\s+Territory|Perth\b|Adelaide\b|Sydney\b|Melbourne\b|Brisbane\b)/i);
+    if (destMatch) {
+      const d = destMatch[1].trim();
+      return d.length <= 3 ? d.toUpperCase() : d;
+    }
+    return undefined;
+  };
+
+  // 1. Duration-first pattern: "purchasing 3 months worth of PLASSLAB" or "ordered 3 months supply of Composite Poles"
+  const durationFirstPattern = /(?:order(?:ed|ing)?|purchas(?:ed|ing)?|bought|buying|procuring|delivery\s+of|stock\s+of)\s+(?:around\s+|approx\s+)?(\d+(?:\.\d+)?)\s*(months?|weeks?|days?|years?)\s*(?:worth|supply)?\s*(?:of(?:\s+the)?)?\s*([^.\n;,]+)/i;
+  const match1 = text.match(durationFirstPattern);
+  if (match1) {
+    const durationNum = parseFloat(match1[1]);
+    const durationUnit = match1[2].toLowerCase();
+    let durationMonths = durationNum;
+    if (durationUnit.startsWith("week")) durationMonths = durationNum / 4.33;
+    else if (durationUnit.startsWith("day")) durationMonths = durationNum / 30;
+    else if (durationUnit.startsWith("year")) durationMonths = durationNum * 12;
+
+    const afterStr = match1[3].trim();
+    let product = "Product";
+    const knownProductsMatch = text.match(/\b(PLASSLAB|PLAS-SLAB|Composite\s+Poles?|Solar\s+Lighting|Poles?)\b/i);
+    if (knownProductsMatch) {
+      product = knownProductsMatch[1].toUpperCase() === "PLASSLAB" ? "PLASSLAB" : knownProductsMatch[1];
+    } else {
+      const firstWord = afterStr.split(/\s+/)[0];
+      if (firstWord && firstWord.length > 2) product = firstWord;
+    }
+
+    let quantity: number | undefined;
+    const qtyMatch = text.match(/(\d{1,6})\s*(?:units?|pieces?|slabs?|poles?)/i);
+    if (qtyMatch) quantity = parseInt(qtyMatch[1], 10);
+
+    const destination = extractDest(text);
+    const runOutDateStr = computeRunOut(durationMonths);
+
+    cycles.push({
+      product,
+      quantity,
+      durationMonths: Math.round(durationMonths * 10) / 10,
+      durationRaw: `${durationNum} ${durationUnit}`,
+      orderDate: orderDateStr,
+      runOutDate: runOutDateStr,
+      destination,
+      rawText: match1[0]
+    });
+  }
+
+  // 2. Product-first pattern: "ordered 600 PLASSLAB lasting 3 months" or "purchased PLASSLAB for 3 months supply"
+  const supplyPattern = /(?:order(?:ed|ing)?|purchas(?:ed|ing)?|bought|delivery\s+of|supplied|stock\s+of)\s+([^.\n;]+?)(?:last(?:ing)?\s+(?:them\s+)?(?:around|approx|approximately)?\s*(\d+(?:\.\d+)?)\s*(months?|weeks?|days?|years?)|(?:supply|duration)\s+(?:of|for)\s+(\d+(?:\.\d+)?)\s*(months?|weeks?)|(\d+(?:\.\d+)?)\s*(months?|weeks?)\s*(?:worth|supply))/i;
+  const match2 = text.match(supplyPattern);
+  if (match2 && cycles.length === 0) {
+    const preText = match2[1].trim();
 
     let quantity: number | undefined;
     const qtyMatch = preText.match(/(?:^|\s)(\d{1,6})(?:\s*units?)?(?:\s+of(?:\s+the)?)?\s+/i);
@@ -109,15 +164,15 @@ export function parseSupplyCyclesFromText(text: string, referenceDateStr?: strin
 
     let durationNum = 1;
     let durationUnit = "months";
-    if (match[2] && match[3]) {
-      durationNum = parseFloat(match[2]);
-      durationUnit = match[3].toLowerCase();
-    } else if (match[4] && match[5]) {
-      durationNum = parseFloat(match[4]);
-      durationUnit = match[5].toLowerCase();
-    } else if (match[6] && match[7]) {
-      durationNum = parseFloat(match[6]);
-      durationUnit = match[7].toLowerCase();
+    if (match2[2] && match2[3]) {
+      durationNum = parseFloat(match2[2]);
+      durationUnit = match2[3].toLowerCase();
+    } else if (match2[4] && match2[5]) {
+      durationNum = parseFloat(match2[4]);
+      durationUnit = match2[5].toLowerCase();
+    } else if (match2[6] && match2[7]) {
+      durationNum = parseFloat(match2[6]);
+      durationUnit = match2[7].toLowerCase();
     }
 
     let durationMonths = durationNum;
@@ -129,17 +184,8 @@ export function parseSupplyCyclesFromText(text: string, referenceDateStr?: strin
       durationMonths = durationNum * 12;
     }
 
-    let destination: string | undefined;
-    const destMatch = text.match(/(?:sent\s+to|shipped\s+to|destined\s+for|bound\s+for|(?:delivered|going)\s+to)\s+(?:the\s+)?(SA\b|WA\b|NSW\b|VIC\b|QLD\b|TAS\b|NT\b|ACT\b|South\s+Australia|Western\s+Australia|Queensland|Victoria|New\s+South\s+Wales|Tasmania|Northern\s+Territory|Perth\b|Adelaide\b|Sydney\b|Melbourne\b|Brisbane\b)/i);
-    if (destMatch) {
-      const d = destMatch[1].trim();
-      destination = d.length <= 3 ? d.toUpperCase() : d;
-    }
-
-    const runOutDate = new Date(validRefDate);
-    const totalDays = Math.round(durationMonths * 30.44);
-    runOutDate.setDate(runOutDate.getDate() + totalDays);
-    const runOutDateStr = runOutDate.toISOString().split("T")[0];
+    const destination = extractDest(text);
+    const runOutDateStr = computeRunOut(durationMonths);
 
     cycles.push({
       product,
@@ -149,7 +195,7 @@ export function parseSupplyCyclesFromText(text: string, referenceDateStr?: strin
       orderDate: orderDateStr,
       runOutDate: runOutDateStr,
       destination,
-      rawText: match[0]
+      rawText: match2[0]
     });
   }
 
@@ -409,7 +455,7 @@ export function extractCrmKnowledge(
     // 6. Product Supply & Replenishment Cycle
     {
       category: "Supply & Replenishment Cycle",
-      trigger: /(?:order(?:ed|ing)?|purchas(?:ed|ing)?|bought|delivery\s+of|supplied|stock\s+of|worth\s+of)\s+[^.]+?(?:last(?:ing)?\s+(?:them\s+)?(?:around|approx|approximately)?\s*(\d+(?:\.\d+)?)\s*(months?|weeks?|days?|years?)|(?:supply|duration)\s+(?:of|for)\s+(\d+(?:\.\d+)?)\s*(months?|weeks?)|(\d+(?:\.\d+)?)\s*(months?|weeks?)\s*(?:worth|supply))/i,
+      trigger: /(?:order(?:ed|ing)?|purchas(?:ed|ing)?|bought|buying|procuring|delivery|supplied|stock).*(?:\d+\s*(?:months?|weeks?|days?|years?)|supply\s+cycle|replenish)/i,
       extract: (t) => {
         const cycles = parseSupplyCyclesFromText(t, activityDate);
         if (cycles.length > 0) {
