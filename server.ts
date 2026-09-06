@@ -1473,7 +1473,16 @@ app.post(["/api/crm/parse-enquiry", "/api/enquiry/parse-to-lead"], async (req, r
       // 6. Quantity & Scope
       let quantity: number | undefined = undefined;
       let qtyPhrase = "";
-      const qtyMatch = rawEnquiryText.match(/(?:qty|quantity|approx\.?|count|total of|supply of)?\s*(\d{1,4})\s*(?:x\s+)?(?:units?|columns?|poles?|lights?|fittings?|luminaires?|systems?|plasslab)/i);
+      // The unit noun rarely sits straight after the number: real enquiries say
+      // "14x integrated solar pathway lighting columns" or "28 composite frp
+      // lighting poles". Requiring them to be adjacent meant quantity came back
+      // undefined for both, which also left estimated value undefined since it
+      // is derived from quantity. Allow a few describing words in between,
+      // lazily so the nearest noun still wins, and keep the match on one line so
+      // it cannot run across a line break into unrelated digits.
+      const qtyMatch = rawEnquiryText.match(
+        /(?:qty|quantity|approx\.?|count|total of|supply of)?[ \t]*(\d{1,4})[ \t]*(?:x[ \t]*)?(?:[A-Za-z][A-Za-z-]*[ \t]+){0,4}?(?:units?|columns?|poles?|lights?|fittings?|luminaires?|systems?|plasslab)\w*/i
+      );
       if (qtyMatch) {
         quantity = parseInt(qtyMatch[1], 10);
         qtyPhrase = qtyMatch[0];
@@ -1482,7 +1491,14 @@ app.post(["/api/crm/parse-enquiry", "/api/enquiry/parse-to-lead"], async (req, r
       // 7. Commercial & Deadline
       let deadlineStr = "";
       let deadlinePhrase = "";
-      const dueMatch = rawEnquiryText.match(/(?:due|deadline|by|before|tender closes?|submissions? close:?)\s+([0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?|\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i);
+      // Tender notices routinely write the close date in ISO form
+      // ("Submissions close: 2026-10-15"), which the day-month and slashed
+      // forms below do not cover - so the deadline, and the urgency derived
+      // from it, came back empty for exactly the documents this parser exists
+      // to read. ISO goes first so it wins before \d{1,2} can bite off "20".
+      const dueMatch = rawEnquiryText.match(
+        /(?:due|deadline|by|before|tender closes?|submissions? close:?)\s+(\d{4}-\d{1,2}-\d{1,2}|[0-9]{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+\d{4})?|\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/i
+      );
       if (dueMatch) {
         deadlineStr = dueMatch[1];
         deadlinePhrase = dueMatch[0];

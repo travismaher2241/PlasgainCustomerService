@@ -72,9 +72,14 @@ export function evaluateDealSilenceRisk(
   const combinedName = `${deal.accountName || ""} ${options.account?.name || ""} ${deal.name}`.toLowerCase();
   const isCouncil =
     options.account?.accountType === "Council" ||
+    options.account?.customerSegment === "Local Government / Council" ||
     /(?:council|shire|city\s+of|municipality|government|regional)/i.test(combinedName);
+  // accountType is Prospect | Customer | Account | Council - it has never had a
+  // "Contractor" member, so the old check here was always false and contractor
+  // detection silently depended on the name regex alone. The segment field is
+  // where the distinction actually lives.
   const isContractor =
-    options.account?.accountType === "Contractor" ||
+    options.account?.customerSegment === "Civil Contractor" ||
     /(?:contract|civil|construction|downer|lendlease|fulton|cpb|electrical|builder)/i.test(combinedName);
 
   const dealVal = deal.dealValue || 0;
@@ -526,7 +531,10 @@ export class CRMIntelligenceEngine {
   /**
    * Helper: calculate days between two YYYY-MM-DD dates
    */
-  private static daysBetween(startDate: string, endDate: string): number {
+  // Not private: evaluateDealSilenceRisk below is a module-level export that
+  // needs the same day arithmetic, and duplicating it invites the two copies
+  // to drift apart.
+  static daysBetween(startDate: string, endDate: string): number {
     try {
       const d1 = new Date(startDate);
       const d2 = new Date(endDate);

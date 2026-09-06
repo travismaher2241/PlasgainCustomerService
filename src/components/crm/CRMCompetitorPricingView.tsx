@@ -36,6 +36,29 @@ import {
 import { getLocalDateInputValue, formatAuDate } from "../../utils/dateUtils";
 import { computeCompetitorIntelligence } from "../../utils/competitorIntelligence";
 
+// The form used to offer "Installed / Turnkey", "Full Package",
+// "Customer Written", "Public Tender Schedule" and "Distributor Price List" -
+// none of which are members of the types these fields are stored as, so any
+// record saved with them landed outside the schema and would not group or
+// filter with the rest. Driving the options straight off the unions keeps the
+// form and the stored data speaking the same vocabulary.
+const PRICE_BASIS_OPTIONS: CompetitorPriceBasis[] = [
+  "Per Unit",
+  "Per System",
+  "Project Total",
+  "Supply Only",
+  "Installed",
+  "Unknown"
+];
+
+const SOURCE_TYPE_OPTIONS: CompetitorSourceType[] = [
+  "Customer Verbal",
+  "Competitor Quote",
+  "Tender Schedule",
+  "Email",
+  "Other"
+];
+
 export const CRMCompetitorPricingView: React.FC = () => {
   const {
     competitorPricingRecords,
@@ -645,13 +668,14 @@ export const CRMCompetitorPricingView: React.FC = () => {
                   <label className="block text-spec font-bold mb-1">Price Basis</label>
                   <select
                     value={formState.priceBasis}
-                    onChange={(e) => setFormState({ ...formState, priceBasis: e.target.value as any })}
+                    onChange={(e) => setFormState({ ...formState, priceBasis: e.target.value as CompetitorPriceBasis })}
                     className="w-full p-2 border border-line rounded-edge bg-white text-spec"
                   >
-                    <option>Per Unit</option>
-                    <option>Supply Only</option>
-                    <option>Installed / Turnkey</option>
-                    <option>Full Package</option>
+                    {PRICE_BASIS_OPTIONS.map((basis) => (
+                      <option key={basis} value={basis}>
+                        {basis}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -661,7 +685,7 @@ export const CRMCompetitorPricingView: React.FC = () => {
                   <label className="block text-spec font-bold mb-1">GST Treatment</label>
                   <select
                     value={formState.gstStatus}
-                    onChange={(e) => setFormState({ ...formState, gstStatus: e.target.value as any })}
+                    onChange={(e) => setFormState({ ...formState, gstStatus: e.target.value as CompetitorGstStatus })}
                     className="w-full p-2 border border-line rounded-edge bg-white text-spec"
                   >
                     <option>Ex GST</option>
@@ -672,13 +696,14 @@ export const CRMCompetitorPricingView: React.FC = () => {
                   <label className="block text-spec font-bold mb-1">Source Type</label>
                   <select
                     value={formState.sourceType}
-                    onChange={(e) => setFormState({ ...formState, sourceType: e.target.value as any })}
+                    onChange={(e) => setFormState({ ...formState, sourceType: e.target.value as CompetitorSourceType })}
                     className="w-full p-2 border border-line rounded-edge bg-white text-spec"
                   >
-                    <option>Customer Verbal</option>
-                    <option>Customer Written</option>
-                    <option>Public Tender Schedule</option>
-                    <option>Distributor Price List</option>
+                    {SOURCE_TYPE_OPTIONS.map((source) => (
+                      <option key={source} value={source}>
+                        {source}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

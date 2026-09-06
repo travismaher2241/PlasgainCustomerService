@@ -536,7 +536,14 @@ export interface NextBestActionItem {
   description: string;
   reason: string;
   urgency: "Immediate" | "Today" | "Upcoming";
-  category: "Quote Follow-up" | "Missing Action" | "Decision Maker" | "Stalled Deal" | "Overdue Task" | "Customer Waiting";
+  category:
+    | "Quote Follow-up"
+    | "Missing Action"
+    | "Decision Maker"
+    | "Stalled Deal"
+    | "Deal Silence Risk"
+    | "Overdue Task"
+    | "Customer Waiting";
   relatedEntityType: "Account" | "Opportunity" | "Lead" | "Task";
   relatedEntityId: string;
   relatedEntityName: string;

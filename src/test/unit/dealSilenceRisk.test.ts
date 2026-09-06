@@ -18,7 +18,8 @@ describe("Deal Silence Risk & Reason Diagnosis (Feature 05)", () => {
   const contractorAccount: Account = {
     id: "acc-contractor",
     name: "Downer EDI Civil Infrastructure",
-    accountType: "Contractor",
+    accountType: "Customer",
+    customerSegment: "Civil Contractor",
     status: "Customer",
     customerRelationshipStatus: "Active",
     territory: "QLD/NT",
@@ -97,6 +98,84 @@ describe("Deal Silence Risk & Reason Diagnosis (Feature 05)", () => {
     expect(evalResult.recommendedAction.suggestedNotes).toContain("factory manufacturing slot");
   });
 
+  it("classifies a contractor from its segment when the company name gives nothing away", () => {
+    // The existing contractor fixture is named "Downer EDI Civil Infrastructure",
+    // so it matches the name regex and passes whether or not the segment check
+    // works - which is how a permanently-false accountType comparison survived
+    // here unnoticed. This account's name contains none of the trigger words,
+    // so only the segment can classify it.
+    const quietlyNamedContractor: Account = {
+      id: "acc-hansen",
+      name: "Hansen Yuncken Group",
+      accountType: "Customer",
+      customerSegment: "Civil Contractor",
+      status: "Customer",
+      customerRelationshipStatus: "Active",
+      territory: "QLD/NT",
+      accountOwner: "Travis Maher",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-08-01T00:00:00Z"
+    };
+
+    const deal: CRMOpportunity = {
+      id: "deal-hansen-1",
+      name: "Bruce Highway Stage 4 Lighting Package",
+      accountId: "acc-hansen",
+      accountName: "Hansen Yuncken Group",
+      stageId: "stage-quote",
+      stageName: "Quote / Proposal Sent",
+      dealValue: 62000,
+      quoteStatus: "Sent",
+      quoteNumber: "Q-2026-9411",
+      quoteSentDate: "2026-08-22",
+      latestActivityDate: "2026-08-22",
+      daysInCurrentStage: 9
+    };
+
+    const evalResult = evaluateDealSilenceRisk(deal, {
+      account: quietlyNamedContractor,
+      todayStr: "2026-08-30" // 8 days since quote
+    });
+
+    expect(evalResult.reasonCategory).toBe("Contractor Tender Closing");
+    expect(evalResult.recommendedAction.actionLabel).toBe("Call Contractor to Lock Spec");
+  });
+
+  it("does not treat an unsegmented, plainly named account as a contractor", () => {
+    const plainAccount: Account = {
+      id: "acc-plain",
+      name: "Hansen Yuncken Group",
+      accountType: "Customer",
+      status: "Customer",
+      customerRelationshipStatus: "Active",
+      territory: "QLD/NT",
+      accountOwner: "Travis Maher",
+      createdAt: "2026-01-01T00:00:00Z",
+      updatedAt: "2026-08-01T00:00:00Z"
+    };
+
+    const deal: CRMOpportunity = {
+      id: "deal-plain-1",
+      name: "Bruce Highway Stage 4 Lighting Package",
+      accountId: "acc-plain",
+      accountName: "Hansen Yuncken Group",
+      stageId: "stage-quote",
+      stageName: "Quote / Proposal Sent",
+      dealValue: 20000,
+      quoteStatus: "Sent",
+      quoteSentDate: "2026-08-22",
+      latestActivityDate: "2026-08-22",
+      daysInCurrentStage: 9
+    };
+
+    const evalResult = evaluateDealSilenceRisk(deal, {
+      account: plainAccount,
+      todayStr: "2026-08-30"
+    });
+
+    expect(evalResult.reasonCategory).not.toBe("Contractor Tender Closing");
+  });
+
   it("detects acute competitor presence and prioritizes counter-positioning defense", () => {
     const competitorPricing: CompetitorPricingRecord[] = [
       {
@@ -109,9 +188,9 @@ describe("Deal Silence Risk & Reason Diagnosis (Feature 05)", () => {
         price: 132000,
         plasgainQuotedPrice: 145000,
         currency: "AUD",
-        priceBasis: "Project Lot",
+        priceBasis: "Project Total",
         gstStatus: "Ex GST",
-        sourceType: "Tender Debrief",
+        sourceType: "Tender Schedule",
         observedDate: "2026-08-18",
         status: "Active",
         createdBy: "Marcus Vance",
