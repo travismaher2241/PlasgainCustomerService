@@ -67,7 +67,8 @@ export type CRMSubTab =
   | "calendar"
   | "leads"
   | "tasks"
-  | "competitor-pricing";
+  | "competitor-pricing"
+  | "win-patterns";
 
 
 /** Who is signed in. Editable in Settings; persisted per browser. */

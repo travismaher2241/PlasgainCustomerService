@@ -7,6 +7,7 @@ import {
   Flame,
   CheckCircle2,
   TrendingUp,
+  Trophy,
   ChevronDown,
   Phone,
   Plus,
@@ -39,6 +40,21 @@ const CRMTasksActivitiesView = lazy(() =>
 const CRMCompetitorPricingView = lazy(() =>
   import("./CRMCompetitorPricingView").then((m) => ({ default: m.CRMCompetitorPricingView }))
 );
+const CRMWinPatternsView = lazy(() =>
+  import("./CRMWinPatternsView").then((m) => ({ default: m.CRMWinPatternsView }))
+);
+
+/** Every tab that renders its own view; anything else falls back to Today. */
+const CRM_TABS_WITH_VIEWS: CRMSubTab[] = [
+  "today",
+  "accounts",
+  "pipeline",
+  "calendar",
+  "leads",
+  "tasks",
+  "competitor-pricing",
+  "win-patterns"
+];
 
 export const CRMCommandCenter: React.FC = () => {
   const {
@@ -115,7 +131,8 @@ export const CRMCommandCenter: React.FC = () => {
     activeCRMTab === "calendar" ||
     activeCRMTab === "leads" ||
     activeCRMTab === "tasks" ||
-    activeCRMTab === "competitor-pricing";
+    activeCRMTab === "competitor-pricing" ||
+    activeCRMTab === "win-patterns";
 
   return (
     <div className="min-h-screen bg-raised w-full min-w-0 overflow-x-hidden">
@@ -190,7 +207,7 @@ export const CRMCommandCenter: React.FC = () => {
                   setActiveCRMTab("pipeline");
                   setIsMoreMenuOpen(false);
                 }}
-                className={`hidden md:flex h-8 px-2.5 rounded-edge text-spec font-bold transition-all items-center justify-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                className={`hidden lg:flex h-8 px-2.5 rounded-edge text-spec font-bold transition-all items-center justify-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
                   activeCRMTab === "pipeline"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
@@ -198,7 +215,7 @@ export const CRMCommandCenter: React.FC = () => {
               >
                 <Kanban className="w-3.5 h-3.5 shrink-0" />
                 <span>
-                  <span className="hidden sm:inline">Outstanding </span>Quotes
+                  <span>Quotes</span>
                 </span>
                 {outstandingQuotesCount > 0 && (
                   <span
@@ -224,7 +241,7 @@ export const CRMCommandCenter: React.FC = () => {
                   setActiveCRMTab("calendar");
                   setIsMoreMenuOpen(false);
                 }}
-                className={`hidden md:flex h-8 px-2.5 rounded-edge text-spec font-bold transition-all items-center justify-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                className={`hidden lg:flex h-8 px-2.5 rounded-edge text-spec font-bold transition-all items-center justify-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
                   activeCRMTab === "calendar"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
@@ -252,7 +269,7 @@ export const CRMCommandCenter: React.FC = () => {
                 role="tab"
                 aria-selected={activeCRMTab === "leads"}
                 onClick={() => setActiveCRMTab("leads")}
-                className={`hidden md:flex h-11 px-2.5 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                className={`hidden 2xl:flex h-11 px-2.5 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
                   activeCRMTab === "leads"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
@@ -279,7 +296,7 @@ export const CRMCommandCenter: React.FC = () => {
                 role="tab"
                 aria-selected={activeCRMTab === "tasks"}
                 onClick={() => setActiveCRMTab("tasks")}
-                className={`hidden md:flex h-11 px-2.5 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                className={`hidden 2xl:flex h-11 px-2.5 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
                   activeCRMTab === "tasks"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
@@ -306,8 +323,9 @@ export const CRMCommandCenter: React.FC = () => {
                 role="tab"
                 aria-selected={activeCRMTab === "competitor-pricing"}
                 onClick={() => setActiveCRMTab("competitor-pricing")}
-                className={`hidden md:flex h-11 px-2.5 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
-                  activeCRMTab === "competitor-pricing"
+                className={`hidden 2xl:flex h-11 px-2.5 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                  activeCRMTab === "competitor-pricing" ||
+              activeCRMTab === "win-patterns"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
                 }`}
@@ -315,12 +333,28 @@ export const CRMCommandCenter: React.FC = () => {
                 <TrendingUp className="w-3.5 h-3.5 shrink-0" />
                 <span>Competitors</span>
               </button>
+
+              {/* 7. Win patterns (Desktop) */}
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeCRMTab === "win-patterns"}
+                onClick={() => setActiveCRMTab("win-patterns")}
+                className={`hidden 2xl:flex h-11 px-2.5 rounded-edge text-spec font-bold transition-all items-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                  activeCRMTab === "win-patterns"
+                    ? "bg-brand-deep text-white shadow-xs"
+                    : "text-ink-dim hover:text-ink hover:bg-paper"
+                }`}
+              >
+                <Trophy className="w-3.5 h-3.5 shrink-0" />
+                <span>Win patterns</span>
+              </button>
             </nav>
 
             {/* Right actions: Mobile More Menu & Quick Log (Pinned, Never Clipped) */}
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               {/* Mobile More dropdown (< 768px) */}
-              <div className="relative md:hidden shrink-0" ref={moreMenuRef}>
+              <div className="relative 2xl:hidden shrink-0" ref={moreMenuRef}>
                 <button
                   type="button"
                   onClick={(e) => {
@@ -350,6 +384,8 @@ export const CRMCommandCenter: React.FC = () => {
                       ? "Tasks"
                       : activeCRMTab === "competitor-pricing"
                       ? "Competitors"
+                      : activeCRMTab === "win-patterns"
+                      ? "Win patterns"
                       : "More"}
                   </span>
                   {/* The quote count is the one number a rep needs at a glance,
@@ -385,7 +421,7 @@ export const CRMCommandCenter: React.FC = () => {
                         setActiveCRMTab("pipeline");
                         setIsMoreMenuOpen(false);
                       }}
-                      className={`w-full min-h-[44px] px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
+                      className={`w-full min-h-[44px] px-3 py-2 text-left flex lg:hidden items-center justify-between cursor-pointer ${
                         activeCRMTab === "pipeline"
                           ? "bg-brand-wash text-brand-deep font-bold"
                           : "text-ink hover:bg-hover"
@@ -408,7 +444,7 @@ export const CRMCommandCenter: React.FC = () => {
                         setActiveCRMTab("calendar");
                         setIsMoreMenuOpen(false);
                       }}
-                      className={`w-full min-h-[44px] px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
+                      className={`w-full min-h-[44px] px-3 py-2 text-left flex lg:hidden items-center justify-between cursor-pointer ${
                         activeCRMTab === "calendar"
                           ? "bg-brand-wash text-brand-deep font-bold"
                           : "text-ink hover:bg-hover"
@@ -431,7 +467,7 @@ export const CRMCommandCenter: React.FC = () => {
                         setActiveCRMTab("leads");
                         setIsMoreMenuOpen(false);
                       }}
-                      className={`w-full min-h-[44px] px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
+                      className={`w-full min-h-[44px] px-3 py-2 text-left flex 2xl:hidden items-center justify-between cursor-pointer ${
                         activeCRMTab === "leads"
                           ? "bg-brand-wash text-brand-deep font-bold"
                           : "text-ink hover:bg-hover"
@@ -454,7 +490,7 @@ export const CRMCommandCenter: React.FC = () => {
                         setActiveCRMTab("tasks");
                         setIsMoreMenuOpen(false);
                       }}
-                      className={`w-full min-h-[44px] px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
+                      className={`w-full min-h-[44px] px-3 py-2 text-left flex 2xl:hidden items-center justify-between cursor-pointer ${
                         activeCRMTab === "tasks"
                           ? "bg-brand-wash text-brand-deep font-bold"
                           : "text-ink hover:bg-hover"
@@ -477,7 +513,7 @@ export const CRMCommandCenter: React.FC = () => {
                         setActiveCRMTab("competitor-pricing");
                         setIsMoreMenuOpen(false);
                       }}
-                      className={`w-full min-h-[44px] px-3 py-2 text-left flex items-center justify-between cursor-pointer ${
+                      className={`w-full min-h-[44px] px-3 py-2 text-left flex 2xl:hidden items-center justify-between cursor-pointer ${
                         activeCRMTab === "competitor-pricing"
                           ? "bg-brand-wash text-brand-deep font-bold"
                           : "text-ink hover:bg-hover"
@@ -486,6 +522,24 @@ export const CRMCommandCenter: React.FC = () => {
                       <div className="flex items-center gap-2 min-w-0">
                         <TrendingUp className="w-3.5 h-3.5 text-brand-deep shrink-0" />
                         <span>Competitors</span>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveCRMTab("win-patterns");
+                        setIsMoreMenuOpen(false);
+                      }}
+                      className={`w-full min-h-[44px] px-3 py-2 text-left flex 2xl:hidden items-center justify-between cursor-pointer ${
+                        activeCRMTab === "win-patterns"
+                          ? "bg-brand-wash text-brand-deep font-bold"
+                          : "text-ink hover:bg-hover"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Trophy className="w-3.5 h-3.5 text-brand-deep shrink-0" />
+                        <span>Win patterns</span>
                       </div>
                     </button>
                   </div>
@@ -578,7 +632,7 @@ export const CRMCommandCenter: React.FC = () => {
                 aria-label="Ingest Email"
               >
                 <Mail className="w-3.5 h-3.5 shrink-0 text-brand-deep" />
-                <span>Ingest Email</span>
+                <span className="hidden 2xl:inline">Ingest Email</span>
               </button>
 
               {/* Parse Inbound Enquiry Action (Desktop) */}
@@ -590,7 +644,7 @@ export const CRMCommandCenter: React.FC = () => {
                 aria-label="Parse Inbound Enquiry"
               >
                 <Sparkles className="w-3.5 h-3.5 shrink-0 text-brand-deep" />
-                <span>Parse Enquiry</span>
+                <span className="hidden 2xl:inline">Parse Enquiry</span>
               </button>
 
               {/* Voice Capture Action (Desktop) */}
@@ -602,7 +656,7 @@ export const CRMCommandCenter: React.FC = () => {
                 aria-label="Voice Log"
               >
                 <Mic className="w-3.5 h-3.5 shrink-0" />
-                <span>Voice Log</span>
+                <span className="hidden 2xl:inline">Voice Log</span>
               </button>
 
               {/* Quick Log Action (Desktop) */}
@@ -614,7 +668,7 @@ export const CRMCommandCenter: React.FC = () => {
                 aria-label="Quick Log"
               >
                 <Phone className="w-3.5 h-3.5 shrink-0" />
-                <span>Quick Log</span>
+                <span className="hidden 2xl:inline">Quick Log</span>
               </button>
             </div>
           </div>
@@ -639,15 +693,12 @@ export const CRMCommandCenter: React.FC = () => {
             {activeCRMTab === "leads" && <CRMLeadsView />}
             {activeCRMTab === "tasks" && <CRMTasksActivitiesView />}
             {activeCRMTab === "competitor-pricing" && <CRMCompetitorPricingView />}
-            {!(
-              activeCRMTab === "today" ||
-              activeCRMTab === "accounts" ||
-              activeCRMTab === "pipeline" ||
-              activeCRMTab === "calendar" ||
-              activeCRMTab === "leads" ||
-              activeCRMTab === "tasks" ||
-              activeCRMTab === "competitor-pricing"
-            ) && <CRMTodayWorkspace />}
+            {activeCRMTab === "win-patterns" && <CRMWinPatternsView />}
+            {/* Falls back to Today for any tab with no view of its own. This
+                used to repeat the list of known tabs inline, so adding a tab
+                and forgetting to extend the list rendered Today underneath the
+                new view. One list, used by both. */}
+            {!CRM_TABS_WITH_VIEWS.includes(activeCRMTab) && <CRMTodayWorkspace />}
           </Suspense>
         </ErrorBoundary>
       </div>
