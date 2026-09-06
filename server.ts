@@ -6,6 +6,7 @@ import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
 import { competitorPricingStore } from "./src/server/competitorPricingStore";
 import { notificationStore } from "./src/server/notificationStore";
+import { knowledgeStore } from "./src/server/knowledgeStore";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -400,6 +401,50 @@ function sendSSEStage(res: express.Response, stage: string, label: string, detai
 
 function sendSSEChunk(res: express.Response, delta: string) {
   res.write(`event: chunk\ndata: ${JSON.stringify({ delta })}\n\n`);
+}
+
+/**
+ * Builds the grounded-context block and the matching citations for a question.
+ *
+ * The instruction is deliberately strict: answer from these passages, and say
+ * so when they do not cover the question. A confident invented lumen output or
+ * clearance figure inside a tender response is a commercial and legal
+ * exposure, so "I do not have that documented" is the correct answer whenever
+ * retrieval comes back empty.
+ */
+function buildGrounding(question: string): { instruction: string; citations: any[] } {
+  const passages = knowledgeStore.search(question, 4);
+
+  if (passages.length === 0) {
+    const { documentCount } = knowledgeStore.getStatus();
+    return {
+      instruction:
+        documentCount === 0
+          ? "\n\nNo Plasgain reference documents are loaded in this workspace. Do not state product specifications, photometric figures, standards clauses or compliance claims as fact. Say that the detail is not documented here and suggest the rep check the source document."
+          : "\n\nNone of the loaded Plasgain reference documents match this question. Do not invent product specifications, photometric figures or standards clauses - say the detail is not in the loaded documents.",
+      citations: []
+    };
+  }
+
+  const block = passages
+    .map((p, i) => `[${i + 1}] ${p.documentTitle}${p.section ? ` - ${p.section}` : ""}\n${p.text}`)
+    .join("\n\n");
+
+  return {
+    instruction:
+      "\n\nGROUNDED SOURCES - Plasgain's own reference documents.\n" +
+      "For any product specification, photometric figure, standards clause or compliance claim, use ONLY the passages below and cite them by their number. " +
+      "If they do not cover what was asked, say so plainly rather than filling the gap from general knowledge.\n\n" +
+      block,
+    citations: passages.map((p) => ({
+      sourceId: p.id,
+      sourceType: "document",
+      title: p.documentTitle,
+      clause: p.section,
+      documentId: p.documentId,
+      excerpt: p.text.length > 240 ? `${p.text.slice(0, 240)}...` : p.text
+    }))
+  };
 }
 
 function sendSSEComplete(res: express.Response, result: any) {
@@ -2084,7 +2129,7 @@ You have situational awareness of what the user is currently viewing on their sc
 Screen: ${resolvedScreen}
 Context Data: ${JSON.stringify(activeContextData || {})}
 
-Keep answers concise, actionable, and grounded in approved Plasgain knowledge.`;
+Keep answers concise, actionable, and grounded in approved Plasgain knowledge.${buildGrounding(message).instruction}`;
 
       const userPrompt = `USER MESSAGE: "${message}"
 CHAT HISTORY: ${JSON.stringify(resolvedHistory)}`;
@@ -2105,6 +2150,31 @@ CHAT HISTORY: ${JSON.stringify(resolvedHistory)}`;
   } catch (error: any) {
     console.error("Error in copilot chat:", error);
     res.status(500).json({ error: error.message || "Failed to process chat" });
+  }
+});
+
+// -------------------------------------------------------------
+// GROUNDED KNOWLEDGE (Feature 08)
+// -------------------------------------------------------------
+
+// GET /api/knowledge - what the Copilot is able to cite right now.
+app.get("/api/knowledge", (_req, res) => {
+  try {
+    return res.json({ ...knowledgeStore.getStatus(), documents: knowledgeStore.getDocuments() });
+  } catch (err: any) {
+    console.error("Error reading knowledge status:", err);
+    return res.status(500).json({ error: "Failed to read the knowledge library" });
+  }
+});
+
+// POST /api/knowledge/reload - pick up documents added since startup.
+app.post("/api/knowledge/reload", (_req, res) => {
+  try {
+    knowledgeStore.reload();
+    return res.json({ ...knowledgeStore.getStatus(), documents: knowledgeStore.getDocuments() });
+  } catch (err: any) {
+    console.error("Error reloading knowledge library:", err);
+    return res.status(500).json({ error: "Failed to reload the knowledge library" });
   }
 });
 
@@ -2431,11 +2501,18 @@ app.post(["/api/copilot/chat-stream", "/api/chat-stream"], async (req, res) => {
 
     initSSE(res);
 
+    // Retrieval happens before the model is called, so the answer is written
+    // against Plasgain's own documents rather than checked afterwards.
+    const grounding = buildGrounding(message);
+
     try {
       const stream = await generateContentStreamWithFailover({
         contents: JSON.stringify({ message, activeScreen, activeContextData, chatHistory: chatHistory.slice(-6) }),
         config: {
-          systemInstruction: MASTER_PLASGAIN_SYSTEM_INSTRUCTION + "\nSay when information is not available.",
+          systemInstruction:
+            MASTER_PLASGAIN_SYSTEM_INSTRUCTION +
+            "\nSay when information is not available." +
+            grounding.instruction,
           temperature: 0.1,
         }
       });
@@ -2444,7 +2521,7 @@ app.post(["/api/copilot/chat-stream", "/api/chat-stream"], async (req, res) => {
         fullText += chunk.text || "";
         sendSSEChunk(res, chunk.text || "");
       }
-      sendSSEComplete(res, { reply: fullText, citations: [] });
+      sendSSEComplete(res, { reply: fullText, citations: grounding.citations });
     } catch (aiErr: any) {
       sendSSEError(res, aiErr?.message || "Copilot stream failed");
     }

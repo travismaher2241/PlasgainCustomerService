@@ -289,6 +289,27 @@ export const GlobalCopilot: React.FC = () => {
   const [copilotState, setCopilotState] = useState<"ready" | "working" | "offline" | "failed">("ready");
   const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
 
+  // Whether the assistant has any Plasgain reference documents to cite. A rep
+  // asking about a lumen output or an AS/NZS clause needs to know up front
+  // whether the answer can be sourced, rather than inferring it from the
+  // absence of citations after the fact.
+  const [knowledgeDocCount, setKnowledgeDocCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isCopilotOpen || knowledgeDocCount !== null) return;
+    let cancelled = false;
+    apiGet<{ documentCount: number }>("/api/knowledge")
+      .then((data) => {
+        if (!cancelled) setKnowledgeDocCount(data?.documentCount ?? 0);
+      })
+      .catch(() => {
+        if (!cancelled) setKnowledgeDocCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isCopilotOpen, knowledgeDocCount]);
+
   // Derive Context
   const currentAccount = accounts.find((a) => a.id === selectedAccountId);
   const currentDeal = crmOpportunities.find((d) => d.id === selectedCrmOpportunityId);
@@ -437,9 +458,28 @@ export const GlobalCopilot: React.FC = () => {
             </div>
             <div>
               <h3 className="font-bold text-body text-sm">Plasgain Sales Assistant</h3>
-              <span className="text-[11px] text-ink-dim font-mono">
+              <span className="text-[11px] text-ink-dim font-mono block">
                 {currentDeal ? `Context: ${currentDeal.name}` : currentAccount ? `Context: ${currentAccount.name}` : "General Workspace Context"}
               </span>
+              {knowledgeDocCount !== null && (
+                <span
+                  className={`text-[11px] flex items-center gap-1 ${
+                    knowledgeDocCount > 0 ? "text-emerald-700" : "text-ink-faint"
+                  }`}
+                  title={
+                    knowledgeDocCount > 0
+                      ? "Product and standards answers are quoted from these documents and cited below the reply."
+                      : "No reference documents are loaded, so specifications and standards clauses cannot be sourced."
+                  }
+                >
+                  <ShieldCheck className="w-3 h-3 shrink-0" />
+                  <span>
+                    {knowledgeDocCount > 0
+                      ? `Citing ${knowledgeDocCount} reference ${knowledgeDocCount === 1 ? "document" : "documents"}`
+                      : "No reference documents loaded"}
+                  </span>
+                </span>
+              )}
             </div>
           </div>
 
