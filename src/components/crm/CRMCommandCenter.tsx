@@ -58,11 +58,16 @@ export const CRMCommandCenter: React.FC = () => {
 
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+  const [isLogMenuOpen, setIsLogMenuOpen] = useState(false);
+  const logMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (moreMenuRef.current && !moreMenuRef.current.contains(event.target as Node)) {
         setIsMoreMenuOpen(false);
+      }
+      if (logMenuRef.current && !logMenuRef.current.contains(event.target as Node)) {
+        setIsLogMenuOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -106,6 +111,7 @@ export const CRMCommandCenter: React.FC = () => {
   // while the Calendar tab itself was scrolled off screen — nothing in the bar
   // showed where the rep was.
   const isMoreTabActive =
+    activeCRMTab === "pipeline" ||
     activeCRMTab === "calendar" ||
     activeCRMTab === "leads" ||
     activeCRMTab === "tasks" ||
@@ -171,7 +177,10 @@ export const CRMCommandCenter: React.FC = () => {
                 <span>Accounts</span>
               </button>
 
-              {/* 3. Outstanding Quotes */}
+              {/* 3. Outstanding Quotes (Desktop) — in the More menu on mobile.
+                  Today and Accounts are the only two tabs that fit a 320px
+                  phone once More and Log are pinned; anything else here is
+                  rendered as a clipped half-word. */}
               <button
                 type="button"
                 role="tab"
@@ -181,7 +190,7 @@ export const CRMCommandCenter: React.FC = () => {
                   setActiveCRMTab("pipeline");
                   setIsMoreMenuOpen(false);
                 }}
-                className={`h-11 px-2 sm:px-2.5 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                className={`hidden md:flex h-8 px-2.5 rounded-edge text-spec font-bold transition-all items-center justify-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
                   activeCRMTab === "pipeline"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
@@ -204,7 +213,8 @@ export const CRMCommandCenter: React.FC = () => {
                 )}
               </button>
 
-              {/* 4. Calendar */}
+              {/* 4. Calendar (Desktop) — on mobile it lives in the More menu,
+                  and must appear in exactly one of the two. */}
               <button
                 type="button"
                 role="tab"
@@ -214,7 +224,7 @@ export const CRMCommandCenter: React.FC = () => {
                   setActiveCRMTab("calendar");
                   setIsMoreMenuOpen(false);
                 }}
-                className={`h-11 px-2 sm:px-2.5 rounded-edge text-xs sm:text-spec font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
+                className={`hidden md:flex h-8 px-2.5 rounded-edge text-spec font-bold transition-all items-center justify-center gap-1.5 shrink-0 cursor-pointer whitespace-nowrap ${
                   activeCRMTab === "calendar"
                     ? "bg-brand-deep text-white shadow-xs"
                     : "text-ink-dim hover:text-ink hover:bg-paper"
@@ -323,10 +333,16 @@ export const CRMCommandCenter: React.FC = () => {
                       : "text-ink-dim hover:text-ink hover:bg-paper border border-line"
                   }`}
                   aria-expanded={isMoreMenuOpen}
-                  aria-label="More CRM destinations"
+                  aria-label={
+                    outstandingQuotesCount > 0 && activeCRMTab !== "pipeline"
+                      ? `More CRM destinations, ${outstandingQuotesCount} outstanding quotes`
+                      : "More CRM destinations"
+                  }
                 >
                   <span>
-                    {activeCRMTab === "calendar"
+                    {activeCRMTab === "pipeline"
+                      ? "Quotes"
+                      : activeCRMTab === "calendar"
                       ? "Calendar"
                       : activeCRMTab === "leads"
                       ? "Leads"
@@ -336,6 +352,19 @@ export const CRMCommandCenter: React.FC = () => {
                       ? "Competitors"
                       : "More"}
                   </span>
+                  {/* The quote count is the one number a rep needs at a glance,
+                      and Quotes now sits inside this menu — so surface it on the
+                      button rather than losing it behind a tap. */}
+                  {outstandingQuotesCount > 0 && activeCRMTab !== "pipeline" && (
+                    <span
+                      className={`px-1.5 rounded-full text-[10px] font-bold ${
+                        isMoreTabActive ? "bg-chrome text-white" : "bg-brand-deep text-white"
+                      }`}
+                      title={`${outstandingQuotesCount} outstanding quote${outstandingQuotesCount === 1 ? "" : "s"}`}
+                    >
+                      {outstandingQuotesCount}
+                    </span>
+                  )}
                   <ChevronDown className="w-3 h-3 shrink-0" />
                 </button>
 
@@ -463,52 +492,129 @@ export const CRMCommandCenter: React.FC = () => {
                 )}
               </div>
 
-              {/* Ingest Inbound Email Action */}
+              {/*
+                Four separate capture buttons were pinned here at every width.
+                On a 390px phone they took 150px of a 370px bar, leaving the
+                destination tabs 135px to render 330px of content — so every
+                scroll position showed a half-word ("Accc", "Ca"). They collapse
+                into one Log menu below md; all four stay inline on desktop,
+                where there is room for them.
+              */}
+              <div className="relative md:hidden shrink-0" ref={logMenuRef}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsLogMenuOpen((prev) => !prev);
+                    setIsMoreMenuOpen(false);
+                  }}
+                  className="h-11 min-w-[44px] px-2.5 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-xs transition-colors flex items-center justify-center gap-1 cursor-pointer shadow-xs shrink-0"
+                  aria-expanded={isLogMenuOpen}
+                  aria-label="Log or capture something"
+                >
+                  <Plus className="w-3.5 h-3.5 shrink-0" />
+                  <span>Log</span>
+                </button>
+
+                {isLogMenuOpen && (
+                  <div className="absolute right-0 top-full mt-1 w-56 bg-white border border-line rounded-panel shadow-xl overflow-hidden z-50 text-spec">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openQuickLog({ type: "call" });
+                        setIsLogMenuOpen(false);
+                      }}
+                      className="w-full min-h-[44px] px-3 py-2 text-left flex items-center gap-2 text-ink hover:bg-hover cursor-pointer"
+                    >
+                      <Phone className="w-3.5 h-3.5 text-brand-deep shrink-0" />
+                      <span>Log a call or note</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openVoiceCapture();
+                        setIsLogMenuOpen(false);
+                      }}
+                      className="w-full min-h-[44px] px-3 py-2 text-left flex items-center gap-2 text-ink hover:bg-hover cursor-pointer"
+                    >
+                      <Mic className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                      <span>Record a voice debrief</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openInboundEmailModal();
+                        setIsLogMenuOpen(false);
+                      }}
+                      className="w-full min-h-[44px] px-3 py-2 text-left flex items-center gap-2 text-ink hover:bg-hover cursor-pointer"
+                    >
+                      <Mail className="w-3.5 h-3.5 text-brand-deep shrink-0" />
+                      <span>Add a customer email</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openEnquiryParser();
+                        setIsLogMenuOpen(false);
+                      }}
+                      className="w-full min-h-[44px] px-3 py-2 text-left flex items-center gap-2 text-ink hover:bg-hover cursor-pointer"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-brand-deep shrink-0" />
+                      <span>Turn an enquiry into a lead</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Ingest Inbound Email Action (Desktop) */}
               <button
                 type="button"
                 onClick={() => openInboundEmailModal()}
-                className="h-8 px-2.5 sm:px-3 rounded-edge border border-line bg-paper hover:bg-raised text-body font-bold text-xs sm:text-spec transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs shrink-0"
+                className="hidden md:flex h-8 px-3 rounded-edge border border-line bg-paper hover:bg-raised text-body font-bold text-spec transition-colors items-center justify-center gap-1.5 cursor-pointer shadow-2xs shrink-0"
                 title="Ingest Inbound Email Response into CRM"
                 aria-label="Ingest Email"
               >
                 <Mail className="w-3.5 h-3.5 shrink-0 text-brand-deep" />
-                <span className="hidden sm:inline">Ingest Email</span>
+                <span>Ingest Email</span>
               </button>
 
-              {/* Parse Inbound Enquiry Action */}
+              {/* Parse Inbound Enquiry Action (Desktop) */}
               <button
                 type="button"
                 onClick={() => openEnquiryParser()}
-                className="h-8 px-2.5 sm:px-3 rounded-edge border border-brand-deep/30 bg-brand-wash hover:bg-brand-wash/80 text-brand-deep font-bold text-xs sm:text-spec transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs shrink-0"
+                className="hidden md:flex h-8 px-3 rounded-edge border border-brand-deep/30 bg-brand-wash hover:bg-brand-wash/80 text-brand-deep font-bold text-spec transition-colors items-center justify-center gap-1.5 cursor-pointer shadow-2xs shrink-0"
                 title="Parse Inbound Tender, RFQ, or Email into a Structured Lead"
                 aria-label="Parse Inbound Enquiry"
               >
                 <Sparkles className="w-3.5 h-3.5 shrink-0 text-brand-deep" />
-                <span className="hidden sm:inline">Parse Enquiry</span>
+                <span>Parse Enquiry</span>
               </button>
 
-              {/* Voice Capture Action (Ute Mode) */}
+              {/* Voice Capture Action (Desktop) */}
               <button
                 type="button"
                 onClick={() => openVoiceCapture()}
-                className="h-8 px-2.5 sm:px-3 rounded-edge bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs sm:text-spec transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                className="hidden md:flex h-8 px-3 rounded-edge bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-spec transition-colors items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
                 title="Voice Capture Debrief from the Ute"
                 aria-label="Voice Log"
               >
                 <Mic className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden sm:inline">Voice Log</span>
+                <span>Voice Log</span>
               </button>
 
-              {/* Quick Log Action (Always visible) */}
+              {/* Quick Log Action (Desktop) */}
               <button
                 type="button"
                 onClick={() => openQuickLog({ type: "call" })}
-                className="h-11 min-w-[44px] px-2.5 sm:px-3 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-xs sm:text-spec transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
+                className="hidden md:flex h-8 px-3 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-spec transition-colors items-center justify-center gap-1.5 cursor-pointer shadow-xs shrink-0"
                 title="Quick Log Call, Email, Meeting, or Note"
                 aria-label="Quick Log"
               >
                 <Phone className="w-3.5 h-3.5 shrink-0" />
-                <span className="hidden sm:inline">Quick Log</span>
+                <span>Quick Log</span>
               </button>
             </div>
           </div>
