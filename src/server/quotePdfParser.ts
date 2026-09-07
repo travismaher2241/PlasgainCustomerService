@@ -15,6 +15,28 @@
  * value undefined. It never guesses.
  */
 
+import path from "path";
+import { pathToFileURL } from "url";
+import { createRequire } from "module";
+
+function getPdfjsAssetOptions(): {
+  standardFontDataUrl?: string;
+  cMapUrl?: string;
+  cMapPacked?: boolean;
+} {
+  try {
+    const req = createRequire(import.meta.url);
+    const pdfjsDir = path.dirname(req.resolve("pdfjs-dist/package.json"));
+    return {
+      standardFontDataUrl: pathToFileURL(path.join(pdfjsDir, "standard_fonts/")).href,
+      cMapUrl: pathToFileURL(path.join(pdfjsDir, "cmaps/")).href,
+      cMapPacked: true
+    };
+  } catch {
+    return {};
+  }
+}
+
 /** One text run from the PDF, with the position it was drawn at. */
 export interface PositionedText {
   x: number;
@@ -75,9 +97,12 @@ const LABEL_COLUMN_MAX_X = 80;
  * is enforced rather than left to Date's discretion.
  */
 export function parseAustralianDate(value: string): string | undefined {
-  const match = value.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  const match = value.trim().match(/^(\d{1,2})[-./](\d{1,2})[-./](\d{2,4})$/);
   if (!match) return undefined;
-  const [, dd, mm, yyyy] = match;
+  let [, dd, mm, yyyy] = match;
+  if (yyyy.length === 2) {
+    yyyy = `20${yyyy}`;
+  }
   const day = Number(dd);
   const month = Number(mm);
   const year = Number(yyyy);
@@ -156,11 +181,20 @@ const rowText = (row: PositionedText[]): string =>
  */
 function valueAfterLabel(rows: PositionedText[][], label: string): string | undefined {
   for (const row of rows) {
-    const idx = row.findIndex((i) => i.text.trim().toUpperCase().startsWith(label.toUpperCase()));
+    const idx = row.findIndex((i) => i.text && i.text.trim().toUpperCase().startsWith(label.toUpperCase()));
     if (idx === -1) continue;
+    const item = row[idx];
+    const trimmed = (item.text || "").trim();
+    if (trimmed.toUpperCase().startsWith(label.toUpperCase())) {
+      const rest = trimmed.slice(label.length).replace(/^[:\s]+/, "").trim();
+      if (rest) {
+        const remaining = row.slice(idx + 1).map((i) => (i.text || "").trim()).filter(Boolean);
+        return [rest, ...remaining].join(" ").trim();
+      }
+    }
     const after = row
       .slice(idx + 1)
-      .map((i) => i.text.trim())
+      .map((i) => (i.text || "").trim())
       .filter(Boolean);
     if (after.length > 0) return after.join(" ");
   }
@@ -177,13 +211,15 @@ function leftColumnValueOnLabelRow(
   label: string
 ): string | undefined {
   for (const row of rows) {
-    const hasLabel = row.some((i) => i.text.trim().toUpperCase().startsWith(label.toUpperCase()));
-    if (!hasLabel) continue;
+    const labelIdx = row.findIndex((i) => i.text && i.text.trim().toUpperCase().startsWith(label.toUpperCase()));
+    if (labelIdx === -1) continue;
+    const labelItem = row[labelIdx];
     const value = row.find(
-      (i) =>
-        i.x > LABEL_COLUMN_MAX_X &&
-        !/:$/.test(i.text.trim()) &&
-        Boolean(i.text.trim())
+      (i, idx) =>
+        idx !== labelIdx &&
+        i.x > labelItem.x + 15 &&
+        !/:$/.test((i.text || "").trim()) &&
+        Boolean((i.text || "").trim())
     );
     if (value) return value.text.trim();
   }
@@ -194,13 +230,38 @@ export function parseQuoteFromPositionedText(items: PositionedText[]): ParsedQuo
   const rows = groupIntoRows(items);
   const warnings: string[] = [];
 
-  const quoteNumber =
+  let quoteNumber =
     leftColumnValueOnLabelRow(rows, "QUOTATION #") ||
+    leftColumnValueOnLabelRow(rows, "QUOTATION NO") ||
+    leftColumnValueOnLabelRow(rows, "QUOTE #") ||
+    leftColumnValueOnLabelRow(rows, "QUOTE NO") ||
+    leftColumnValueOnLabelRow(rows, "QUOTATION NUMBER") ||
+    leftColumnValueOnLabelRow(rows, "QUOTE NUMBER") ||
+    valueAfterLabel(rows, "QUOTATION #:") ||
+    valueAfterLabel(rows, "QUOTE #:") ||
+    valueAfterLabel(rows, "QUOTATION NO:") ||
+    valueAfterLabel(rows, "QUOTE NO:") ||
+    valueAfterLabel(rows, "Quote:") ||
     // The footer repeats it on every page as "Quote: PL5597".
     (rowText(rows.find((r) => /^Quote:\s/i.test(rowText(r))) || []).match(/^Quote:\s*(\S+)/i) || [])[1];
+
+  if (!quoteNumber) {
+    for (const r of rows) {
+      const match = rowText(r).match(/\b(PL\d{3,6})\b/i);
+      if (match) {
+        quoteNumber = match[1].toUpperCase();
+        break;
+      }
+    }
+  }
   if (!quoteNumber) warnings.push("Could not find the quote number on this PDF.");
 
-  const rawQuoteDate = valueAfterLabel(rows, "QUOTE DATE:");
+  const rawQuoteDate =
+    valueAfterLabel(rows, "QUOTE DATE:") ||
+    valueAfterLabel(rows, "QUOTATION DATE:") ||
+    valueAfterLabel(rows, "DATE:") ||
+    leftColumnValueOnLabelRow(rows, "QUOTE DATE") ||
+    leftColumnValueOnLabelRow(rows, "DATE");
   const quoteDate = rawQuoteDate ? parseAustralianDate(rawQuoteDate) : undefined;
   if (!quoteDate) {
     warnings.push(
@@ -210,33 +271,46 @@ export function parseQuoteFromPositionedText(items: PositionedText[]): ParsedQuo
     );
   }
 
-  const rawExpiry = leftColumnValueOnLabelRow(rows, "QUOTE EXPIRY");
+  const rawExpiry =
+    leftColumnValueOnLabelRow(rows, "QUOTE EXPIRY") ||
+    leftColumnValueOnLabelRow(rows, "EXPIRY DATE") ||
+    leftColumnValueOnLabelRow(rows, "EXPIRY") ||
+    valueAfterLabel(rows, "QUOTE EXPIRY:") ||
+    valueAfterLabel(rows, "EXPIRY DATE:") ||
+    valueAfterLabel(rows, "EXPIRY:");
   const quoteExpiryDate = rawExpiry ? parseAustralianDate(rawExpiry) : undefined;
   if (rawExpiry && !quoteExpiryDate) {
     warnings.push(`Could not read the expiry date "${rawExpiry}" as a date.`);
   }
 
-  const quoteTerms = valueAfterLabel(rows, "QUOTE TERMS:");
+  const quoteTerms =
+    valueAfterLabel(rows, "QUOTE TERMS:") ||
+    valueAfterLabel(rows, "TERMS:") ||
+    leftColumnValueOnLabelRow(rows, "QUOTE TERMS");
 
   // "To:" block - first line is the person, the lines beneath are the company
-  // and its address, all sharing the same left edge.
+  // and its address.
   let contactName: string | undefined;
   let customerName: string | undefined;
   let customerAddress: string | undefined;
   let customerAddressParts: ParsedQuote["customerAddressParts"];
 
-  const toRowIndex = rows.findIndex((r) => r.some((i) => i.text.trim() === "To:"));
+  const toRowIndex = rows.findIndex((r) => r.some((i) => /^(To|Attention|Attn):?$/i.test((i.text || "").trim())));
   if (toRowIndex >= 0) {
     const toRow = rows[toRowIndex];
-    const toIdx = toRow.findIndex((i) => i.text.trim() === "To:");
-    const nameX = toRow[toIdx + 1]?.x;
-    contactName = toRow[toIdx + 1]?.text.trim();
+    const toIdx = toRow.findIndex((i) => /^(To|Attention|Attn):?$/i.test((i.text || "").trim()));
+    const labelItem = toRow[toIdx];
+    const nameItem = toRow[toIdx + 1];
+    contactName = nameItem?.text?.trim();
+    const nameX = nameItem?.x ?? labelItem.x;
 
     const block: string[] = [];
-    for (let i = toRowIndex + 1; i < rows.length; i++) {
-      const line = rows[i].filter((t) => nameX !== undefined && Math.abs(t.x - nameX) < 6);
+    for (let i = toRowIndex + 1; i < Math.min(toRowIndex + 8, rows.length); i++) {
+      const line = rows[i].filter((t) => nameX !== undefined && Math.abs(t.x - nameX) < 40 && t.x < 350);
       if (line.length === 0) break;
-      block.push(line.map((t) => t.text.trim()).join(" "));
+      const text = line.map((t) => t.text.trim()).join(" ");
+      if (/^(Quote For|Project|Deliver To|Terms|Item|Product|Drawing):/i.test(text)) break;
+      block.push(text);
     }
     if (block.length > 0) customerName = block[0];
     if (block.length > 1) {
@@ -249,19 +323,26 @@ export function parseQuoteFromPositionedText(items: PositionedText[]): ParsedQuo
     warnings.push("Could not read the customer from the To: block - choose the account by hand.");
   }
 
-  // "Quote For:" - the project sits on the row beneath the label.
+  // "Quote For:" - the project description.
   let projectName: string | undefined;
-  const quoteForIndex = rows.findIndex((r) => rowText(r).toLowerCase().startsWith("quote for:"));
+  const quoteForIndex = rows.findIndex((r) => /^(quote for|project|re):/i.test(rowText(r)));
   if (quoteForIndex >= 0) {
-    const sameRow = valueAfterLabel(rows, "Quote For:");
+    const sameRow =
+      valueAfterLabel(rows, "Quote For:") ||
+      valueAfterLabel(rows, "Project:") ||
+      valueAfterLabel(rows, "RE:");
     projectName = sameRow || rowText(rows[quoteForIndex + 1] || []);
   }
   if (!projectName) warnings.push("Could not find the project description (Quote For).");
 
   // Line items. A priced row is: code, qty, unit, unit price, ext price - and
-  // the description is the row directly beneath it.
+  // the description is typically the row directly beneath it.
   const lineItems: QuoteLineItem[] = [];
   let currentDrawing: string | undefined;
+
+  const NON_CODE_WORDS = new Set([
+    "CODE", "ITEM", "PRODUCT", "QTY", "QUANTITY", "UNIT", "PRICE", "AMOUNT", "TOTAL", "EXTENDED", "DESCRIPTION", "DRAWING"
+  ]);
 
   for (let i = 0; i < rows.length; i++) {
     const cells = rows[i].map((c) => c.text.trim());
@@ -281,7 +362,8 @@ export function parseQuoteFromPositionedText(items: PositionedText[]): ParsedQuo
 
     if (cells.length < 5) continue;
     const [code, qty, unit, unitPrice, extPrice] = cells;
-    if (!/^[A-Z0-9]{6,}$/.test(code)) continue;
+    if (NON_CODE_WORDS.has(code.toUpperCase())) continue;
+    if (!/^[A-Z0-9][A-Z0-9\-_/.]{2,25}$/i.test(code)) continue;
 
     const quantity = Number(qty);
     const unitPriceNum = parseMoney(unitPrice);
@@ -306,9 +388,22 @@ export function parseQuoteFromPositionedText(items: PositionedText[]): ParsedQuo
     return raw ? parseMoney(raw) : undefined;
   };
 
-  const nettTotal = readTotal("Nett Total:");
-  const taxTotal = readTotal("Tax Total:");
-  const grossTotal = readTotal("Total:");
+  const nettTotal =
+    readTotal("Nett Total:") ??
+    readTotal("Net Total:") ??
+    readTotal("Total Ex GST:") ??
+    readTotal("Subtotal:");
+
+  const taxTotal =
+    readTotal("Tax Total:") ??
+    readTotal("Tax:") ??
+    readTotal("GST:") ??
+    readTotal("GST Total:");
+
+  const grossTotal =
+    readTotal("Total:") ??
+    readTotal("Gross Total:") ??
+    readTotal("Total Inc GST:");
 
   if (nettTotal === undefined) {
     warnings.push("Could not find the nett total, which is the figure used for deal value.");
@@ -386,10 +481,12 @@ export async function parseQuotePdf(buffer: Buffer | Uint8Array): Promise<Parsed
     throw new PdfReaderUnavailableError(err);
   }
 
+  const assetOptions = getPdfjsAssetOptions();
   const doc = await getDocument({
     data: new Uint8Array(buffer),
     isEvalSupported: false,
-    useSystemFonts: true
+    useSystemFonts: true,
+    ...assetOptions
   }).promise;
 
   const items: PositionedText[] = [];
@@ -399,11 +496,19 @@ export async function parseQuotePdf(buffer: Buffer | Uint8Array): Promise<Parsed
   for (let pageNo = 1; pageNo <= doc.numPages; pageNo++) {
     const page = await doc.getPage(pageNo);
     const content = await page.getTextContent();
-    for (const item of content.items as any[]) {
-      if (!item.str || !item.str.trim()) continue;
+    for (const item of (content.items || []) as any[]) {
+      if (!item || typeof item.str !== "string" || !item.str.trim()) continue;
+      const x =
+        Array.isArray(item.transform) && Number.isFinite(item.transform[4])
+          ? Math.round(item.transform[4])
+          : 0;
+      const y =
+        Array.isArray(item.transform) && Number.isFinite(item.transform[5])
+          ? Math.round(item.transform[5])
+          : 0;
       items.push({
-        x: Math.round(item.transform[4]),
-        y: Math.round(item.transform[5]) - pageNo * PAGE_STRIDE,
+        x,
+        y: y - pageNo * PAGE_STRIDE,
         text: item.str
       });
     }
@@ -419,5 +524,13 @@ export async function parseQuotePdf(buffer: Buffer | Uint8Array): Promise<Parsed
     };
   }
 
-  return parseQuoteFromPositionedText(items);
+  try {
+    return parseQuoteFromPositionedText(items);
+  } catch (err: any) {
+    console.warn("parseQuoteFromPositionedText encountered an unexpected error:", err);
+    return {
+      lineItems: [],
+      warnings: [`Could not parse quote layout: ${err?.message || "Unknown error"}`]
+    };
+  }
 }

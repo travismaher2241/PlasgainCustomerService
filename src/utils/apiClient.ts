@@ -58,10 +58,12 @@ export class AIUnavailableError extends Error {
 /** Thrown for ordinary request problems (validation, rate limit, server error). */
 export class ApiError extends Error {
   public readonly status: number;
-  constructor(status: number, message: string) {
+  public readonly detail?: string;
+  constructor(status: number, message: string, detail?: string) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.detail = detail;
   }
 }
 
@@ -122,7 +124,7 @@ export async function apiPost<T = any>(url: string, body: unknown, signal?: Abor
   }
 
   if (!res.ok) {
-    throw new ApiError(res.status, (data && data.error) || `Request failed (${res.status}).`);
+    throw new ApiError(res.status, (data && data.error) || `Request failed (${res.status}).`, data?.detail);
   }
 
   return data as T;

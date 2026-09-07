@@ -174,4 +174,36 @@ describe("Warnings", () => {
     expect(parsed.customerName).toBeUndefined();
     expect(parsed.warnings.join(" ")).toMatch(/choose the account by hand/i);
   });
+
+  it("handles alternative quote labels and product code formats", () => {
+    const items: PositionedText[] = [
+      ...row(705, [[59, "Quote #: "], [161, "PL7788"]]),
+      ...row(690, [[285, "Date:"], [365, "15-05-2026"]]),
+      ...row(670, [[59, "To:"], [81, "Jane Doe"]]),
+      ...row(655, [[81, "Bayside City Council"]]),
+      ...row(640, [[81, "10 Ocean Road, St Kilda VIC 3182"]]),
+      ...row(610, [[59, "Quote For: Boardwalk replacement"]]),
+      ...row(500, [[59, "PIPE-100-HD"], [357, "10"], [381, "Lengths"], [427, "$50.00"], [497, "$500.00"]]),
+      ...row(485, [[59, "100mm Heavy Duty Recycled Plastic Pipe"]]),
+      ...row(400, [[380, "Total Ex GST:"], [497, "$500.00"]]),
+      ...row(385, [[380, "GST:"], [497, "$50.00"]]),
+      ...row(370, [[380, "Total Inc GST:"], [497, "$550.00"]])
+    ];
+
+    const parsed = parseQuoteFromPositionedText(items);
+
+    expect(parsed.quoteNumber).toBe("PL7788");
+    expect(parsed.quoteDate).toBe("2026-05-15");
+    expect(parsed.customerName).toBe("Bayside City Council");
+    expect(parsed.contactName).toBe("Jane Doe");
+    expect(parsed.projectName).toBe("Boardwalk replacement");
+    expect(parsed.lineItems).toHaveLength(1);
+    expect(parsed.lineItems[0].productCode).toBe("PIPE-100-HD");
+    expect(parsed.lineItems[0].quantity).toBe(10);
+    expect(parsed.lineItems[0].unitPrice).toBe(50);
+    expect(parsed.lineItems[0].extendedPrice).toBe(500);
+    expect(parsed.nettTotal).toBe(500);
+    expect(parsed.taxTotal).toBe(50);
+    expect(parsed.grossTotal).toBe(550);
+  });
 });

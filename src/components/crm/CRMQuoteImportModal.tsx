@@ -130,15 +130,20 @@ export const CRMQuoteImportModal: React.FC = () => {
     setError(null);
     setIsReading(true);
     try {
-      const buffer = await file.arrayBuffer();
-      let binary = "";
-      const bytes = new Uint8Array(buffer);
-      for (let i = 0; i < bytes.length; i += 0x8000) {
-        binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-      }
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const res = reader.result as string;
+          const base64 = res.includes(",") ? res.split(",")[1] : res;
+          resolve(base64);
+        };
+        reader.onerror = () => reject(new Error("Could not read the selected file."));
+        reader.readAsDataURL(file);
+      });
+
       const response = await apiPost<ImportResponse>("/api/quotes/import-pdf", {
         fileName: file.name,
-        fileBase64: btoa(binary)
+        fileBase64
       });
 
       setResult(response);
@@ -146,7 +151,10 @@ export const CRMQuoteImportModal: React.FC = () => {
       setFollowUpDate(response.suggestedFollowUpDate || "");
       setStep("review");
     } catch (err: any) {
-      setError(err?.message || "That quote could not be read. Try again, or enter it by hand.");
+      const errorMsg = err?.detail
+        ? `${err.message} (${err.detail})`
+        : (err?.message || "That quote could not be read. Try again, or enter it by hand.");
+      setError(errorMsg);
     } finally {
       setIsReading(false);
     }
@@ -163,8 +171,8 @@ export const CRMQuoteImportModal: React.FC = () => {
       const newAccount: Account = {
         id: `acc-${Date.now()}`,
         name: parsed.customerName || "Unknown customer",
-        accountType: "Customer",
-        status: "Customer",
+        accountType: "Account",
+        status: "Active",
         customerRelationshipStatus: "Developing",
         territory: "VIC/TAS",
         accountOwner: currentUser.name,

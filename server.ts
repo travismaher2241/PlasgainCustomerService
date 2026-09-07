@@ -8,7 +8,7 @@ import { competitorPricingStore } from "./src/server/competitorPricingStore";
 import { notificationStore } from "./src/server/notificationStore";
 import { knowledgeStore } from "./src/server/knowledgeStore";
 import { quoteDocumentStore, MAX_DOCUMENT_BYTES } from "./src/server/quoteDocumentStore";
-import { parseQuotePdf, followUpDateFor, PdfReaderUnavailableError } from "./src/server/quotePdfParser";
+import { parseQuotePdf, followUpDateFor, PdfReaderUnavailableError, ParsedQuote } from "./src/server/quotePdfParser";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2177,6 +2177,108 @@ CHAT HISTORY: ${JSON.stringify(resolvedHistory)}`;
 // QUOTE PDF IMPORT
 // -------------------------------------------------------------
 
+// Helper: AI document extraction for scanned or non-standard quote PDFs
+async function parseQuotePdfWithAI(buffer: Buffer): Promise<ParsedQuote | null> {
+  if (!isAIConfigured()) return null;
+  const prompt = `You are a data extraction assistant for Plasgain (an Australian composite civil infrastructure manufacturer).
+Extract the commercial quote details from this quote PDF document (which may be a scanned quote, Ostendo PDF, or invoice/estimate).
+Respond ONLY with a valid JSON object matching this schema:
+{
+  "quoteNumber": string or null,
+  "quoteDate": string or null,
+  "quoteExpiryDate": string or null,
+  "quoteTerms": string or null,
+  "customerName": string or null,
+  "contactName": string or null,
+  "customerAddress": string or null,
+  "customerAddressParts": {
+    "street": string,
+    "city": string,
+    "state": string,
+    "postcode": string,
+    "country": "Australia"
+  } or null,
+  "projectName": string or null,
+  "lineItems": [
+    {
+      "productCode": string,
+      "description": string,
+      "quantity": number,
+      "unit": string,
+      "unitPrice": number,
+      "extendedPrice": number,
+      "drawingNumber": string or null
+    }
+  ],
+  "nettTotal": number or null,
+  "taxTotal": number or null,
+  "grossTotal": number or null
+}
+
+Rules:
+- Dates MUST be ISO format "YYYY-MM-DD". Australian dates are Day/Month/Year.
+- Numeric fields (quantity, unitPrice, extendedPrice, nettTotal, taxTotal, grossTotal) MUST be numbers, not strings.
+- Only extract what is present on the document.`;
+
+  try {
+    const response = await generateContentWithFailover({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              inlineData: {
+                mimeType: "application/pdf",
+                data: buffer.toString("base64")
+              }
+            },
+            { text: prompt }
+          ]
+        }
+      ],
+      config: {
+        responseMimeType: "application/json"
+      }
+    });
+
+    let text = (response?.text || "").trim();
+    if (text.startsWith("```")) {
+      text = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+    }
+    if (!text) return null;
+    const data = JSON.parse(text);
+    return {
+      quoteNumber: data.quoteNumber || undefined,
+      quoteDate: data.quoteDate || undefined,
+      quoteExpiryDate: data.quoteExpiryDate || undefined,
+      quoteTerms: data.quoteTerms || undefined,
+      customerName: data.customerName || undefined,
+      contactName: data.contactName || undefined,
+      customerAddress: data.customerAddress || undefined,
+      customerAddressParts: data.customerAddressParts || undefined,
+      projectName: data.projectName || undefined,
+      lineItems: Array.isArray(data.lineItems)
+        ? data.lineItems.map((li: any) => ({
+            productCode: String(li.productCode || "ITEM"),
+            description: String(li.description || ""),
+            quantity: Number(li.quantity) || 1,
+            unit: String(li.unit || "Each"),
+            unitPrice: Number(li.unitPrice) || 0,
+            extendedPrice: Number(li.extendedPrice) || 0,
+            drawingNumber: li.drawingNumber || undefined
+          }))
+        : [],
+      nettTotal: typeof data.nettTotal === "number" ? data.nettTotal : undefined,
+      taxTotal: typeof data.taxTotal === "number" ? data.taxTotal : undefined,
+      grossTotal: typeof data.grossTotal === "number" ? data.grossTotal : undefined,
+      warnings: ["Extracted using AI document reading."]
+    };
+  } catch (err) {
+    console.warn("AI PDF quote extraction fallback failed:", err);
+    return null;
+  }
+}
+
 // POST /api/quotes/import-pdf
 // Stores the file and returns what was read from it. Nothing is written to the
 // CRM here - the workspace shows the result for confirmation first, because a
@@ -2208,11 +2310,14 @@ app.post("/api/quotes/import-pdf", async (req, res) => {
       return res.status(400).json({ error: "That file is not a PDF." });
     }
 
-    let parsed;
+    let parsed: ParsedQuote | null = null;
+    let parseError: any = null;
+
     try {
       parsed = await parseQuotePdf(buffer);
     } catch (err: any) {
-      console.error("Quote PDF parse failed:", err);
+      parseError = err;
+      console.warn("Deterministic quote PDF parse failed:", err);
 
       // A server that cannot load its PDF reader is a deployment problem, not a
       // problem with the file someone just chose. Saying "this might be a scan"
@@ -2225,9 +2330,29 @@ app.post("/api/quotes/import-pdf", async (req, res) => {
           detail: err.message
         });
       }
+    }
 
+    // If deterministic parsing failed or found 0 line items and missing key info,
+    // try Gemini AI document reading as a high-fidelity fallback.
+    const needsAiFallback =
+      !parsed ||
+      (parsed.lineItems.length === 0 && (!parsed.quoteNumber || !parsed.customerName));
+
+    if (needsAiFallback && isAIConfigured()) {
+      try {
+        const aiParsed = await parseQuotePdfWithAI(buffer);
+        if (aiParsed && (aiParsed.lineItems.length > 0 || aiParsed.quoteNumber || aiParsed.customerName)) {
+          parsed = aiParsed;
+        }
+      } catch (aiErr) {
+        console.warn("AI PDF quote fallback failed:", aiErr);
+      }
+    }
+
+    if (!parsed) {
       return res.status(422).json({
-        error: "This PDF could not be read. If it is a scan, the details will need entering by hand."
+        error: "This PDF could not be read. If it is a scan, the details will need entering by hand.",
+        detail: parseError?.message
       });
     }
 
@@ -2243,7 +2368,7 @@ app.post("/api/quotes/import-pdf", async (req, res) => {
     });
   } catch (err: any) {
     console.error("Quote import error:", err);
-    return res.status(500).json({ error: "The quote could not be imported." });
+    return res.status(500).json({ error: "The quote could not be imported.", detail: err?.message });
   }
 });
 
