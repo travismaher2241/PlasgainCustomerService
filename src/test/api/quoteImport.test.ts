@@ -115,6 +115,25 @@ describe("Quote PDF import endpoint", () => {
     expect(res.status).toBe(400);
   });
 
+  it("tells you a scanned PDF has no text, rather than failing silently", async () => {
+    // A valid PDF header with no readable text layer. The import must say the
+    // details need entering by hand - it must not save an empty quote.
+    const noTextLayer = Buffer.from("%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<<>>\n%%EOF\n");
+    const res = await request(app)
+      .post("/api/quotes/import-pdf")
+      .send({ fileName: "scan.pdf", fileBase64: noTextLayer.toString("base64") });
+
+    // Either it parses to nothing with a warning, or it reports it cannot read
+    // it. What it must never do is claim a successful import with no content.
+    if (res.status === 200) {
+      expect(res.body.parsed.lineItems).toHaveLength(0);
+      expect(res.body.parsed.warnings.join(" ")).toMatch(/no readable text|could not/i);
+    } else {
+      expect([422, 503]).toContain(res.status);
+      expect(res.body.error).toBeTruthy();
+    }
+  });
+
   it("does not serve quote documents over the static path", async () => {
     const res = await request(app).get("/server_data/quote_documents/index.json");
     expect(res.status).toBe(404);

@@ -8,7 +8,7 @@ import { competitorPricingStore } from "./src/server/competitorPricingStore";
 import { notificationStore } from "./src/server/notificationStore";
 import { knowledgeStore } from "./src/server/knowledgeStore";
 import { quoteDocumentStore, MAX_DOCUMENT_BYTES } from "./src/server/quoteDocumentStore";
-import { parseQuotePdf, followUpDateFor } from "./src/server/quotePdfParser";
+import { parseQuotePdf, followUpDateFor, PdfReaderUnavailableError } from "./src/server/quotePdfParser";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2213,6 +2213,19 @@ app.post("/api/quotes/import-pdf", async (req, res) => {
       parsed = await parseQuotePdf(buffer);
     } catch (err: any) {
       console.error("Quote PDF parse failed:", err);
+
+      // A server that cannot load its PDF reader is a deployment problem, not a
+      // problem with the file someone just chose. Saying "this might be a scan"
+      // there sends them off retyping a quote that would have imported fine.
+      if (err instanceof PdfReaderUnavailableError) {
+        return res.status(503).json({
+          error:
+            "Quote importing is not available on this server yet - its PDF reader is not installed. " +
+            "Run npm install in the workspace and restart, then try again.",
+          detail: err.message
+        });
+      }
+
       return res.status(422).json({
         error: "This PDF could not be read. If it is a scan, the details will need entering by hand."
       });

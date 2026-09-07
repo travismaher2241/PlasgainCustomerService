@@ -358,9 +358,34 @@ export function followUpDateFor(quoteDate: string, daysAfter = 2): string {
   return date.toISOString().split("T")[0];
 }
 
+/**
+ * Raised when the PDF reader itself is unavailable - a missing dependency or a
+ * build that cannot resolve it. Distinct from an unreadable PDF, because the
+ * fix is completely different: run npm install, rather than retype the quote.
+ */
+export class PdfReaderUnavailableError extends Error {
+  constructor(cause: unknown) {
+    super(
+      "The PDF reader (pdfjs-dist) could not be loaded. Run npm install in the " +
+        `workspace and restart the server. Underlying error: ${
+          cause instanceof Error ? cause.message : String(cause)
+        }`
+    );
+    this.name = "PdfReaderUnavailableError";
+  }
+}
+
 /** Extracts positioned text from a PDF buffer, then parses it. */
 export async function parseQuotePdf(buffer: Buffer | Uint8Array): Promise<ParsedQuote> {
-  const { getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  let getDocument: typeof import("pdfjs-dist/legacy/build/pdf.mjs")["getDocument"];
+  try {
+    ({ getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs"));
+  } catch (err) {
+    // Telling someone their quote "might be a scan" when the real problem is an
+    // uninstalled dependency sends them off retyping a perfectly good PDF.
+    throw new PdfReaderUnavailableError(err);
+  }
+
   const doc = await getDocument({
     data: new Uint8Array(buffer),
     isEvalSupported: false,
