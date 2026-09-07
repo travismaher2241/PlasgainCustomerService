@@ -265,6 +265,8 @@ interface AppContextType {
     candidateNotableEvents: ContactNotableEvent[];
     extractedKnowledge: CRMKnowledgeItem[];
   };
+  updateActivity: (id: string, updates: Partial<CRMActivity>) => void;
+  updateMeetingDate: (meetingOrTaskId: string, newDate: string, newTime?: string) => void;
 
   // Audit Logs & Workspace History (Append-Only)
   auditLogs: AuditLogRecord[];
@@ -2473,6 +2475,102 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newTask;
   };
 
+  const updateActivity = (id: string, updates: Partial<CRMActivity>) => {
+    let activityTitle = "Activity";
+    setActivities((prev) =>
+      prev.map((a) => {
+        if (a.id === id) {
+          activityTitle = a.title;
+          const updated = { ...a, ...updates };
+          saveDocToCloud("crm_activities", id, updated);
+          return updated;
+        }
+        return a;
+      })
+    );
+    recordAuditLog("UPDATE", "Activity", id, activityTitle, `Updated activity: ${activityTitle}`);
+    showToast("Activity updated", "success");
+  };
+
+  const updateMeetingDate = (meetingOrTaskId: string, newDate: string, newTime?: string) => {
+    const cleanActId = meetingOrTaskId.startsWith("act-")
+      ? meetingOrTaskId.replace("act-", "")
+      : meetingOrTaskId;
+
+    let meetingTitle = "Meeting";
+    let linkedActivityId: string | undefined;
+
+    // 1. Update matching task(s)
+    setTasks((prev) =>
+      prev.map((t) => {
+        const isMatch =
+          t.id === meetingOrTaskId ||
+          t.id === `meeting-log-${meetingOrTaskId}` ||
+          t.id === `meeting-log-${cleanActId}` ||
+          t.sourceActivityId === meetingOrTaskId ||
+          t.sourceActivityId === cleanActId;
+
+        if (isMatch) {
+          meetingTitle = t.title;
+          if (t.sourceActivityId) {
+            linkedActivityId = t.sourceActivityId;
+          }
+          const updated: CRMTask = {
+            ...t,
+            dueDate: newDate,
+            dueTime: newTime !== undefined && newTime !== "" ? newTime : t.dueTime
+          };
+          saveDocToCloud("crm_tasks", t.id, updated);
+          return updated;
+        }
+        return t;
+      })
+    );
+
+    // 2. Update matching activity/activities
+    setActivities((prev) =>
+      prev.map((a) => {
+        const isMatch =
+          a.id === meetingOrTaskId ||
+          a.id === cleanActId ||
+          a.id === linkedActivityId ||
+          (meetingOrTaskId.startsWith("meeting-log-") && a.id === meetingOrTaskId.replace("meeting-log-", ""));
+
+        if (isMatch) {
+          meetingTitle = a.title;
+          const timePart = newTime && newTime.trim() !== ""
+            ? (newTime.includes(":") ? newTime : "10:00")
+            : (a.metadata?.meetingTime || "10:00");
+          const candidate = new Date(`${newDate}T${timePart.padStart(5, "0")}:00`);
+          const newTimestamp = isNaN(candidate.getTime()) ? `${newDate}T10:00:00.000Z` : candidate.toISOString();
+
+          const updated: CRMActivity = {
+            ...a,
+            timestamp: newTimestamp,
+            metadata: {
+              ...a.metadata,
+              meetingDate: newDate,
+              activityDate: newDate,
+              ...(newTime ? { meetingTime: newTime, activityTime: newTime } : {})
+            }
+          };
+          saveDocToCloud("crm_activities", a.id, updated);
+          return updated;
+        }
+        return a;
+      })
+    );
+
+    recordAuditLog(
+      "UPDATE",
+      "Task",
+      meetingOrTaskId,
+      meetingTitle,
+      `Changed meeting date to ${newDate}${newTime ? ` at ${newTime}` : ""}`
+    );
+    showToast(`Meeting date changed to ${formatAuDate(newDate)}${newTime ? ` at ${newTime}` : ""}`, "success");
+  };
+
   const applyVoiceCaptureDiff = async (diff: VoiceLogDiffProposal): Promise<boolean> => {
     try {
       // 1. Log activity with full AI provenance
@@ -2823,6 +2921,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSelectedCrmOpportunityId,
         activities,
         logActivity,
+        updateActivity,
+        updateMeetingDate,
         auditLogs,
         recordAuditLog,
         refreshSharedData,

@@ -241,4 +241,55 @@ describe('Logged Meeting Auto-Add to Calendar', () => {
       expect(screen.getByTestId('latest-task-due')).toHaveTextContent('2026-09-03');
     });
   });
+
+  it('allows changing the date of an entered meeting directly from CRMCalendarView', async () => {
+    render(
+      <AppProvider>
+        <TestHarness />
+      </AppProvider>
+    );
+
+    // 1. Log a meeting (initially enters on today's date)
+    fireEvent.click(screen.getByTestId('log-meeting-btn'));
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Site Meeting with Sarah Jenkins — Substation Pole Upgrade/i).length).toBeGreaterThanOrEqual(1);
+    });
+
+    // 2. Click "Change Date" button on the entered meeting card
+    const changeDateBtn = screen.getByRole('button', { name: /change date/i });
+    expect(changeDateBtn).toBeInTheDocument();
+    fireEvent.click(changeDateBtn);
+
+    // 3. Change Meeting Date dialog is open
+    expect(screen.getByRole('dialog', { name: /change meeting date/i })).toBeInTheDocument();
+
+    // 4. Test "Last Thursday" quick preset button
+    const lastThuBtn = screen.getByRole('button', { name: /last thursday/i });
+    expect(lastThuBtn).toBeInTheDocument();
+    fireEvent.click(lastThuBtn);
+
+    // 5. Or specify an exact custom date (e.g. 2026-09-01)
+    const newDateInput = screen.getByLabelText(/new meeting date/i);
+    fireEvent.change(newDateInput, { target: { value: '2026-09-01' } });
+    expect(newDateInput).toHaveValue('2026-09-01');
+
+    // 6. Save Date
+    const saveDateBtn = screen.getByRole('button', { name: /save date/i });
+    fireEvent.click(saveDateBtn);
+
+    // Dialog should be closed
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /change meeting date/i })).not.toBeInTheDocument();
+    });
+
+    // Switch to Agenda view to verify the meeting has moved to 2026-09-01
+    const agendaBtn = screen.getByRole('button', { name: /^agenda$/i });
+    fireEvent.click(agendaBtn);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Site Meeting with Sarah Jenkins — Substation Pole Upgrade/i)).toBeInTheDocument();
+    });
+  });
 });
+

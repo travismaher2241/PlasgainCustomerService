@@ -65,8 +65,7 @@ import {
   CompetitorPricingStatus,
   AccountIntelligenceSummary
 } from "../../types/crm";
-import { resolveQuotingStage } from "../../data/crmMockData";
-import { getLocalDateInputValue, formatAuDate } from "../../utils/dateUtils";
+import { getLocalDateInputValue, formatAuDate, getLastThursdayDateString, addDaysLocal } from "../../utils/dateUtils";
 import { sortActivitiesChronological, formatActivityTimestamp } from "../../utils/activityUtils";
 import { CRMContactModal } from "./CRMContactModal";
 import { accountIntelligenceCache, generateAccountSourceHash } from "../../utils/accountIntelligenceCache";
@@ -110,7 +109,8 @@ export const CRMAccountsView: React.FC = () => {
     addCompetitorPricing,
     updateCompetitorPricing,
     showToast,
-    nextBestActions
+    nextBestActions,
+    updateMeetingDate
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -120,6 +120,11 @@ export const CRMAccountsView: React.FC = () => {
   const [activeAccountTab, setActiveAccountTab] = useState<
     "overview" | "contacts" | "deals" | "activity" | "brief" | "competitors"
   >("overview");
+
+  // Activity change date state
+  const [editingActivityDate, setEditingActivityDate] = useState<{ id: string; title: string; date: string; time?: string } | null>(null);
+  const [actNewDate, setActNewDate] = useState("");
+  const [actNewTime, setActNewTime] = useState("");
 
   // State for mobile drill-down
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
@@ -2275,7 +2280,29 @@ export const CRMAccountsView: React.FC = () => {
                                             Logged by <strong className="text-brand-deep">{act.performedBy || "Sales Rep"}</strong>
                                           </span>
                                         </div>
-                                        <span className="font-mono text-ink-dim">{formatActivityTimestamp(act.timestamp)}</span>
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-mono text-ink-dim">{formatActivityTimestamp(act.timestamp)}</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const d = act.metadata?.meetingDate || (act.timestamp ? act.timestamp.split("T")[0] : getLocalDateInputValue());
+                                                const t = act.metadata?.meetingTime || "10:00 AM";
+                                                setEditingActivityDate({
+                                                  id: act.id,
+                                                  title: act.title,
+                                                  date: d,
+                                                  time: t
+                                                });
+                                                setActNewDate(d);
+                                                setActNewTime(t);
+                                              }}
+                                              aria-label={`Change date for ${act.title}`}
+                                              className="text-[11px] font-semibold text-brand-deep hover:underline cursor-pointer flex items-center gap-0.5"
+                                            >
+                                              <Calendar className="w-3 h-3" />
+                                              <span>Change Date</span>
+                                            </button>
+                                          </div>
                                       </div>
 
                                       <p className="font-bold text-body">{act.title}</p>
@@ -3451,6 +3478,135 @@ export const CRMAccountsView: React.FC = () => {
               </div>
             </form>
           </section>
+        </div>
+      )}
+
+      {/* CHANGE ACTIVITY DATE MODAL */}
+      {editingActivityDate && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="change-activity-date-title"
+          className="fixed inset-0 z-50 bg-chrome/60 backdrop-blur-xs p-4 flex items-center justify-center animate-in fade-in duration-150"
+        >
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-line space-y-4">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-brand-wash text-brand-deep rounded-edge">
+                  <Calendar className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 id="change-activity-date-title" className="text-base font-bold text-body">
+                    Change Activity Date
+                  </h3>
+                  <p className="text-xs text-ink-dim truncate max-w-[260px]">
+                    {editingActivityDate.title}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingActivityDate(null)}
+                aria-label="Close"
+                className="text-ink-faint hover:text-ink-dim p-1 rounded-edge cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5">
+              <div>
+                <label className="block text-[11px] font-bold text-ink-dim uppercase mb-1.5">
+                  Quick Presets
+                </label>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setActNewDate(getLocalDateInputValue())}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded border cursor-pointer transition-colors ${
+                      actNewDate === getLocalDateInputValue()
+                        ? "bg-brand-deep text-white border-brand-deep font-bold"
+                        : "bg-paper text-ink-dim border-line hover:border-ink-dim"
+                    }`}
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActNewDate(addDaysLocal(-1))}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded border cursor-pointer transition-colors ${
+                      actNewDate === addDaysLocal(-1)
+                        ? "bg-brand-deep text-white border-brand-deep font-bold"
+                        : "bg-paper text-ink-dim border-line hover:border-ink-dim"
+                    }`}
+                  >
+                    Yesterday
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActNewDate(getLastThursdayDateString())}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded border cursor-pointer transition-colors ${
+                      actNewDate === getLastThursdayDateString()
+                        ? "bg-brand-deep text-white border-brand-deep font-bold"
+                        : "bg-paper text-ink-dim border-line hover:border-ink-dim"
+                    }`}
+                  >
+                    Last Thursday
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-ink-dim uppercase mb-1">
+                  Activity Date *
+                </label>
+                <input
+                  type="date"
+                  aria-label="New Activity Date"
+                  value={actNewDate}
+                  onChange={(e) => setActNewDate(e.target.value)}
+                  required
+                  className="w-full p-2 text-spec rounded-edge border border-line bg-white font-sans focus:outline-none focus:border-brand-deep"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-ink-dim uppercase mb-1">
+                  Time (Optional)
+                </label>
+                <input
+                  type="text"
+                  aria-label="New Activity Time"
+                  placeholder="e.g. 10:00 AM or 2:30 PM"
+                  value={actNewTime}
+                  onChange={(e) => setActNewTime(e.target.value)}
+                  className="w-full p-2 text-spec rounded-edge border border-line bg-white font-sans focus:outline-none focus:border-brand-deep"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 border-t border-line">
+              <button
+                type="button"
+                onClick={() => {
+                  if (actNewDate) {
+                    updateMeetingDate(editingActivityDate.id, actNewDate, actNewTime);
+                    setEditingActivityDate(null);
+                  }
+                }}
+                className="flex-1 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge shadow-xs transition-colors cursor-pointer"
+              >
+                Save Date
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingActivityDate(null)}
+                className="px-4 py-2 bg-paper hover:bg-line text-ink font-semibold text-spec rounded-edge border border-line transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

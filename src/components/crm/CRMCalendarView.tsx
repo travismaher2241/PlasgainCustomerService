@@ -16,10 +16,11 @@ import {
   FileText,
   Filter,
   Kanban,
-  Check
+  Check,
+  X
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
-import { formatAuDateLong, formatAuTime, formatAuDate } from "../../utils/dateUtils";
+import { formatAuDateLong, formatAuTime, formatAuDate, getLastThursdayDateString, addDaysLocal, getLocalDateInputValue } from "../../utils/dateUtils";
 import { CRMTask, TaskType } from "../../types/crm";
 import { getNextDayMeetings, getTomorrowDateString } from "../../utils/crmMeetingPreparation";
 
@@ -35,13 +36,17 @@ export const CRMCalendarView: React.FC = () => {
     toggleTaskComplete,
     openScheduleMeeting,
     openMeetingPrep,
-    openQuickLog
+    openQuickLog,
+    updateMeetingDate
   } = useApp();
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
-  const [selectedDateStr, setSelectedDateStr] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [selectedDateStr, setSelectedDateStr] = useState<string>(getLocalDateInputValue());
   const [viewMode, setViewMode] = useState<CalendarViewMode>("month");
   const [filter, setFilter] = useState<CalendarFilter>("all");
+  const [editingMeeting, setEditingMeeting] = useState<{ id: string; title: string; date: string; time?: string } | null>(null);
+  const [newMeetingDate, setNewMeetingDate] = useState("");
+  const [newMeetingTime, setNewMeetingTime] = useState("");
 
   const todayStr = new Date().toISOString().split("T")[0];
   const tomorrowStr = getTomorrowDateString();
@@ -708,19 +713,40 @@ export const CRMCalendarView: React.FC = () => {
                         </div>
                       )}
 
-                      {/* View Meeting Prep Plan Button (for scheduled upcoming meetings) */}
-                      {isMeeting && ev.originalTask && !ev.isCompleted && (
-                        <div className="pt-1.5">
+                      {/* Action buttons */}
+                      <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+                        {isMeeting && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingMeeting({
+                                id: ev.id,
+                                title: ev.title,
+                                date: ev.date,
+                                time: ev.time
+                              });
+                              setNewMeetingDate(ev.date);
+                              setNewMeetingTime(ev.time || "10:00 AM");
+                            }}
+                            className="px-2.5 py-1 bg-white hover:bg-brand-wash text-brand-deep text-xs font-bold rounded border border-brand-edge shadow-2xs cursor-pointer flex items-center gap-1 transition-colors"
+                          >
+                            <CalendarIcon className="w-3.5 h-3.5" />
+                            <span>Change Date</span>
+                          </button>
+                        )}
+
+                        {/* View Meeting Prep Plan Button (for scheduled upcoming meetings) */}
+                        {isMeeting && ev.originalTask && !ev.isCompleted && (
                           <button
                             type="button"
                             onClick={() => openMeetingPrep(ev.originalTask!.id)}
-                            className="w-full py-1.5 bg-brand-deep hover:bg-brand text-white text-xs font-bold rounded shadow-2xs cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
+                            className="flex-1 py-1 bg-brand-deep hover:bg-brand text-white text-xs font-bold rounded shadow-2xs cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
                           >
                             <FileText className="w-3.5 h-3.5" />
                             <span>View Meeting Prep Plan</span>
                           </button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -808,16 +834,38 @@ export const CRMCalendarView: React.FC = () => {
                       </div>
                     </div>
 
-                    {isMeeting && ev.originalTask && !ev.isCompleted && (
-                      <button
-                        type="button"
-                        onClick={() => openMeetingPrep(ev.originalTask!.id)}
-                        className="px-3 py-1.5 bg-brand-deep hover:bg-brand text-white text-xs font-bold rounded-edge shadow-xs cursor-pointer shrink-0 flex items-center gap-1"
-                      >
-                        <FileText className="w-3.5 h-3.5" />
-                        <span>Prep Plan</span>
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {isMeeting && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditingMeeting({
+                              id: ev.id,
+                              title: ev.title,
+                              date: ev.date,
+                              time: ev.time
+                            });
+                            setNewMeetingDate(ev.date);
+                            setNewMeetingTime(ev.time || "10:00 AM");
+                          }}
+                          className="px-2.5 py-1.5 bg-white hover:bg-brand-wash text-brand-deep text-xs font-bold rounded-edge border border-brand-edge shadow-2xs cursor-pointer flex items-center gap-1 transition-colors"
+                        >
+                          <CalendarIcon className="w-3.5 h-3.5" />
+                          <span>Change Date</span>
+                        </button>
+                      )}
+
+                      {isMeeting && ev.originalTask && !ev.isCompleted && (
+                        <button
+                          type="button"
+                          onClick={() => openMeetingPrep(ev.originalTask!.id)}
+                          className="px-3 py-1.5 bg-brand-deep hover:bg-brand text-white text-xs font-bold rounded-edge shadow-xs cursor-pointer flex items-center gap-1"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>Prep Plan</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })
@@ -826,6 +874,139 @@ export const CRMCalendarView: React.FC = () => {
                 No events found matching this filter.
               </p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* CHANGE MEETING DATE MODAL */}
+      {editingMeeting && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="change-meeting-date-title"
+          className="fixed inset-0 z-50 bg-chrome/60 backdrop-blur-xs p-4 flex items-center justify-center animate-in fade-in duration-150"
+        >
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-line space-y-4">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-brand-wash text-brand-deep rounded-edge">
+                  <CalendarIcon className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 id="change-meeting-date-title" className="text-base font-bold text-body">
+                    Change Meeting Date
+                  </h3>
+                  <p className="text-xs text-ink-dim truncate max-w-[260px]">
+                    {editingMeeting.title}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingMeeting(null)}
+                aria-label="Close"
+                className="text-ink-faint hover:text-ink-dim p-1 rounded-edge cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5">
+              {/* Quick Date Presets */}
+              <div>
+                <label className="block text-[11px] font-bold text-ink-dim uppercase mb-1.5">
+                  Quick Presets
+                </label>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setNewMeetingDate(todayStr)}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded border cursor-pointer transition-colors ${
+                      newMeetingDate === todayStr
+                        ? "bg-brand-deep text-white border-brand-deep font-bold"
+                        : "bg-paper text-ink-dim border-line hover:border-ink-dim"
+                    }`}
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewMeetingDate(addDaysLocal(-1))}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded border cursor-pointer transition-colors ${
+                      newMeetingDate === addDaysLocal(-1)
+                        ? "bg-brand-deep text-white border-brand-deep font-bold"
+                        : "bg-paper text-ink-dim border-line hover:border-ink-dim"
+                    }`}
+                  >
+                    Yesterday
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewMeetingDate(getLastThursdayDateString())}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded border cursor-pointer transition-colors ${
+                      newMeetingDate === getLastThursdayDateString()
+                        ? "bg-brand-deep text-white border-brand-deep font-bold"
+                        : "bg-paper text-ink-dim border-line hover:border-ink-dim"
+                    }`}
+                  >
+                    Last Thursday
+                  </button>
+                </div>
+              </div>
+
+              {/* Date Input */}
+              <div>
+                <label className="block text-[11px] font-bold text-ink-dim uppercase mb-1">
+                  Meeting Date *
+                </label>
+                <input
+                  type="date"
+                  aria-label="New Meeting Date"
+                  value={newMeetingDate}
+                  onChange={(e) => setNewMeetingDate(e.target.value)}
+                  required
+                  className="w-full p-2 text-spec rounded-edge border border-line bg-white font-sans focus:outline-none focus:border-brand-deep"
+                />
+              </div>
+
+              {/* Time Input */}
+              <div>
+                <label className="block text-[11px] font-bold text-ink-dim uppercase mb-1">
+                  Time (Optional)
+                </label>
+                <input
+                  type="text"
+                  aria-label="New Meeting Time"
+                  placeholder="e.g. 10:00 AM or 2:30 PM"
+                  value={newMeetingTime}
+                  onChange={(e) => setNewMeetingTime(e.target.value)}
+                  className="w-full p-2 text-spec rounded-edge border border-line bg-white font-sans focus:outline-none focus:border-brand-deep"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 border-t border-line">
+              <button
+                type="button"
+                onClick={() => {
+                  if (newMeetingDate) {
+                    updateMeetingDate(editingMeeting.id, newMeetingDate, newMeetingTime);
+                    setSelectedDateStr(newMeetingDate);
+                    setEditingMeeting(null);
+                  }
+                }}
+                className="flex-1 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge shadow-xs transition-colors cursor-pointer"
+              >
+                Save Date
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingMeeting(null)}
+                className="px-4 py-2 bg-paper hover:bg-line text-ink font-semibold text-spec rounded-edge border border-line transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
       )}
