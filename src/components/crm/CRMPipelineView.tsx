@@ -3,6 +3,7 @@ import {
   Kanban,
   ListFilter,
   Plus,
+  FileUp,
   Search,
   Filter,
   DollarSign,
@@ -58,7 +59,8 @@ export const CRMPipelineView: React.FC = () => {
     openEmailComposer,
     navigateToCRM,
     currentUser,
-    showToast
+    showToast,
+    openQuoteImport
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -210,14 +212,28 @@ export const CRMPipelineView: React.FC = () => {
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsNewDealModalOpen(true)}
-          className="px-4 py-2 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>New quote</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {/* The import lives here as well as in the mobile Log menu - this is
+              the screen a rep is on when they have a quote PDF in hand, and the
+              Log menu is hidden at desktop widths. */}
+          <button
+            type="button"
+            onClick={() => openQuoteImport()}
+            className="min-h-[44px] px-3 rounded-edge border border-line bg-white hover:bg-paper text-body font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-2xs"
+          >
+            <FileUp className="w-4 h-4 text-brand-deep" />
+            <span>Import quote PDF</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsNewDealModalOpen(true)}
+            className="min-h-[44px] px-4 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+          >
+            <Plus className="w-4 h-4" />
+            <span>New quote</span>
+          </button>
+        </div>
       </div>
 
       {/* CONSOLIDATED TOOLBAR (PART C) */}

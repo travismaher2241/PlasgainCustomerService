@@ -411,6 +411,9 @@ interface AppContextType {
   } | null;
   openEnquiryParser: (initialText?: string) => void;
   closeEnquiryParser: () => void;
+  quoteImportModal: { isOpen: boolean } | null;
+  openQuoteImport: () => void;
+  closeQuoteImport: () => void;
 
   // Feature 03: Inbound Email Ingestion Modal State
   inboundEmailModal: {
@@ -900,6 +903,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const closeEnquiryParser = () => {
     setEnquiryParserModal(null);
   };
+
+  // Quote PDF import modal state
+  const [quoteImportModal, setQuoteImportModal] = useState<{ isOpen: boolean } | null>(null);
+  const openQuoteImport = () => setQuoteImportModal({ isOpen: true });
+  const closeQuoteImport = () => setQuoteImportModal(null);
 
   // Feature 03: Inbound Email Ingestion Modal State
   const [inboundEmailModal, setInboundEmailModal] = useState<{
@@ -2813,6 +2821,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         enquiryParserModal,
         openEnquiryParser,
         closeEnquiryParser,
+        quoteImportModal,
+        openQuoteImport,
+        closeQuoteImport,
         inboundEmailModal,
         openInboundEmailModal,
         closeInboundEmailModal,

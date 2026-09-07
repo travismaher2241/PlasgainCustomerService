@@ -40,6 +40,7 @@ import {
   MessageSquare
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
+import { QuoteDocumentsPanel } from "./QuoteDocumentsPanel";
 import { CRMOpportunity, DealHealthRating, OpportunityProductLine, CRMActivity } from "../../types/crm";
 import { CustomerFollowUpModal } from "../CustomerFollowUpModal";
 import {
@@ -1413,6 +1414,8 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
         {/* ===================== TAB 3: QUOTE ===================== */}
         {activeTab === "quote" && (
           <div className="space-y-4">
+            {/* The PDF the customer actually received, kept with the deal. */}
+            <QuoteDocumentsPanel opportunityId={deal.id} />
             
             {/* Quote Readiness & Blockers Alert Banner */}
             <div className={`p-4 rounded-panel border space-y-2 ${

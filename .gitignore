@@ -17,4 +17,6 @@ server_data/knowledge/
 # timestamps and dirtied the tree. The stores seed an empty array and create
 # the file when it is missing, so nothing needs to be checked in.
 server_data/*.json
+# Uploaded quote PDFs are customer documents, not source.
+server_data/quote_documents/
 tmp/

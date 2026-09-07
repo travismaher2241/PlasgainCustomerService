@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   TrendingUp,
   Trophy,
+  FileText,
   ChevronDown,
   Phone,
   Plus,
@@ -69,6 +70,7 @@ export const CRMCommandCenter: React.FC = () => {
     openQuickLog,
     openVoiceCapture,
     openEnquiryParser,
+    openQuoteImport,
     openInboundEmailModal,
     competitorPricingRecords
   } = useApp();
@@ -394,6 +396,18 @@ export const CRMCommandCenter: React.FC = () => {
                     >
                       <Sparkles className="w-3.5 h-3.5 text-brand-deep shrink-0" />
                       <span>Turn an enquiry into a lead</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openQuoteImport();
+                        setIsLogMenuOpen(false);
+                      }}
+                      className="w-full min-h-[44px] px-3 py-2 text-left flex items-center gap-2 text-ink hover:bg-hover cursor-pointer"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-brand-deep shrink-0" />
+                      <span>Import a quote PDF</span>
                     </button>
                   </div>
                 )}

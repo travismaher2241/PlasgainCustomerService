@@ -7,6 +7,8 @@ import { GoogleGenAI } from "@google/genai";
 import { competitorPricingStore } from "./src/server/competitorPricingStore";
 import { notificationStore } from "./src/server/notificationStore";
 import { knowledgeStore } from "./src/server/knowledgeStore";
+import { quoteDocumentStore, MAX_DOCUMENT_BYTES } from "./src/server/quoteDocumentStore";
+import { parseQuotePdf, followUpDateFor } from "./src/server/quotePdfParser";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -2168,6 +2170,118 @@ CHAT HISTORY: ${JSON.stringify(resolvedHistory)}`;
   } catch (error: any) {
     console.error("Error in copilot chat:", error);
     res.status(500).json({ error: error.message || "Failed to process chat" });
+  }
+});
+
+// -------------------------------------------------------------
+// QUOTE PDF IMPORT
+// -------------------------------------------------------------
+
+// POST /api/quotes/import-pdf
+// Stores the file and returns what was read from it. Nothing is written to the
+// CRM here - the workspace shows the result for confirmation first, because a
+// quote filed against the wrong customer is worse than one filed by hand.
+app.post("/api/quotes/import-pdf", async (req, res) => {
+  try {
+    const { fileName, fileBase64 } = req.body || {};
+    if (!fileBase64 || typeof fileBase64 !== "string") {
+      return res.status(400).json({ error: "No file was received. Choose a quote PDF and try again." });
+    }
+
+    let buffer: Buffer;
+    try {
+      buffer = Buffer.from(fileBase64, "base64");
+    } catch {
+      return res.status(400).json({ error: "That file could not be read. Try uploading it again." });
+    }
+
+    if (buffer.length === 0) {
+      return res.status(400).json({ error: "That file is empty." });
+    }
+    if (buffer.length > MAX_DOCUMENT_BYTES) {
+      return res.status(413).json({
+        error: `That file is ${(buffer.length / 1048576).toFixed(1)}MB. The limit is ${MAX_DOCUMENT_BYTES / 1048576}MB.`
+      });
+    }
+    // Anything else parsed as a PDF yields nonsense rather than an error.
+    if (buffer.subarray(0, 5).toString("latin1") !== "%PDF-") {
+      return res.status(400).json({ error: "That file is not a PDF." });
+    }
+
+    let parsed;
+    try {
+      parsed = await parseQuotePdf(buffer);
+    } catch (err: any) {
+      console.error("Quote PDF parse failed:", err);
+      return res.status(422).json({
+        error: "This PDF could not be read. If it is a scan, the details will need entering by hand."
+      });
+    }
+
+    const document = quoteDocumentStore.save(buffer, {
+      fileName: typeof fileName === "string" ? fileName : "quote.pdf",
+      quoteNumber: parsed.quoteNumber
+    });
+
+    return res.json({
+      document,
+      parsed,
+      suggestedFollowUpDate: parsed.quoteDate ? followUpDateFor(parsed.quoteDate) : undefined
+    });
+  } catch (err: any) {
+    console.error("Quote import error:", err);
+    return res.status(500).json({ error: "The quote could not be imported." });
+  }
+});
+
+// POST /api/quotes/:id/attach - links a stored document to the deal it landed on.
+app.post("/api/quotes/:id/attach", (req, res) => {
+  try {
+    const { opportunityId, accountId } = req.body || {};
+    if (!opportunityId) {
+      return res.status(400).json({ error: "opportunityId is required." });
+    }
+    const doc = quoteDocumentStore.attachToOpportunity(req.params.id, opportunityId, accountId);
+    if (!doc) return res.status(404).json({ error: "That quote document no longer exists." });
+    return res.json({ document: doc });
+  } catch (err: any) {
+    console.error("Quote attach error:", err);
+    return res.status(500).json({ error: "The quote document could not be linked." });
+  }
+});
+
+// GET /api/quotes/by-opportunity/:opportunityId - every file held against a deal.
+app.get("/api/quotes/by-opportunity/:opportunityId", (req, res) => {
+  try {
+    return res.json({ documents: quoteDocumentStore.listForOpportunity(req.params.opportunityId) });
+  } catch (err: any) {
+    console.error("Quote list error:", err);
+    return res.status(500).json({ error: "The quote documents could not be listed." });
+  }
+});
+
+// GET /api/quotes/:id/file - the PDF itself, for viewing in the workspace.
+app.get("/api/quotes/:id/file", (req, res) => {
+  try {
+    const doc = quoteDocumentStore.get(req.params.id);
+    const bytes = doc ? quoteDocumentStore.readFile(doc.id) : undefined;
+    if (!doc || !bytes) {
+      return res.status(404).json({ error: "That quote document could not be found." });
+    }
+
+    res.setHeader("Content-Type", "application/pdf");
+    // inline so it opens in the viewer rather than downloading. The filename is
+    // quoted and stripped of quotes so it cannot break the header.
+    res.setHeader(
+      "Content-Disposition",
+      `inline; filename="${doc.fileName.replace(/["\r\n]/g, "")}"`
+    );
+    res.setHeader("Content-Length", String(bytes.length));
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    return res.end(bytes);
+  } catch (err: any) {
+    console.error("Quote file error:", err);
+    return res.status(500).json({ error: "That quote document could not be opened." });
   }
 });
 
