@@ -17,7 +17,7 @@ import {
 import { useApp } from "../../context/AppContext";
 import { useDialogDismiss } from "../../utils/useDialogDismiss";
 import { ActivityType, Account, CRMContact, CRMOpportunity, ActivityParticipant, ContactNotableEvent } from "../../types/crm";
-import { addDaysLocal } from "../../utils/dateUtils";
+import { addDaysLocal, getLocalDateInputValue } from "../../utils/dateUtils";
 import { detectDuplicateContact, DuplicateMatchResult } from "../../utils/duplicateDetector";
 
 export const OUTCOMES_BY_TYPE: Record<"call" | "email" | "meeting", string[]> = {
@@ -57,6 +57,8 @@ export const CRMQuickLogModal: React.FC = () => {
   const [outcomeError, setOutcomeError] = useState(false);
   const [scheduleFollowUp, setScheduleFollowUp] = useState(false);
   const [followUpDate, setFollowUpDate] = useState(() => addDaysLocal(3));
+  const [meetingDate, setMeetingDate] = useState(() => getLocalDateInputValue());
+  const [meetingTime, setMeetingTime] = useState("10:00 AM");
 
   // Inline Contact Creation State
   const [isInlineContactOpen, setIsInlineContactOpen] = useState(false);
@@ -150,6 +152,8 @@ export const CRMQuickLogModal: React.FC = () => {
       setOutcomeError(false);
       setScheduleFollowUp(false);
       setFollowUpDate(addDaysLocal(3));
+      setMeetingDate(getLocalDateInputValue());
+      setMeetingTime("10:00 AM");
       setIsInlineContactOpen(false);
       setStagedNotableEvent(null);
       setInlineDuplicateMatch(null);
@@ -296,9 +300,12 @@ export const CRMQuickLogModal: React.FC = () => {
       nextAction: scheduleFollowUp ? `Follow-up required by ${followUpDate}` : undefined,
       nextActionDate: scheduleFollowUp ? followUpDate : undefined,
       metadata: {
-        outcome: resolvedOutcome
-      }
-    });
+        outcome: resolvedOutcome,
+        meetingDate: type === "meeting" ? meetingDate : undefined,
+        meetingTime: type === "meeting" ? meetingTime : undefined
+      },
+      ...((type === "meeting") ? { meetingDate, meetingTime } : {})
+    } as any);
 
     if (scheduleFollowUp && followUpDate) {
       addTask({
@@ -569,6 +576,48 @@ export const CRMQuickLogModal: React.FC = () => {
                     Please select an outcome
                   </p>
                 )}
+              </div>
+            )}
+
+            {/* MEETING DATE & TIME (Specifically for Meeting activities to place accurately on Calendar) */}
+            {type === "meeting" && (
+              <div className="p-3 bg-brand-wash/40 rounded-edge border border-brand-edge/70 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-spec font-bold text-brand-deep flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5" />
+                    <span>Meeting Schedule</span>
+                  </span>
+                  <span className="text-[11px] font-semibold text-brand-deep bg-white px-2 py-0.5 rounded-full border border-brand-edge shadow-2xs">
+                    📅 Automatically adds to your Calendar
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-bold text-ink-dim uppercase mb-1">
+                      Meeting Date
+                    </label>
+                    <input
+                      type="date"
+                      value={meetingDate}
+                      onChange={(e) => setMeetingDate(e.target.value)}
+                      aria-label="Meeting Date"
+                      className="w-full p-1.5 text-spec rounded border border-line bg-white focus:outline-none focus:border-brand-deep font-sans"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-ink-dim uppercase mb-1">
+                      Meeting Time
+                    </label>
+                    <input
+                      type="text"
+                      value={meetingTime}
+                      onChange={(e) => setMeetingTime(e.target.value)}
+                      placeholder="e.g. 10:00 AM or 2:30 PM"
+                      aria-label="Meeting Time"
+                      className="w-full p-1.5 text-spec rounded border border-line bg-white focus:outline-none focus:border-brand-deep font-sans"
+                    />
+                  </div>
+                </div>
               </div>
             )}
 

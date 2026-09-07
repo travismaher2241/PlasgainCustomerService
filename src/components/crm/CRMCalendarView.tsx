@@ -31,6 +31,7 @@ export const CRMCalendarView: React.FC = () => {
     tasks,
     crmOpportunities,
     accounts,
+    activities,
     toggleTaskComplete,
     openScheduleMeeting,
     openMeetingPrep,
@@ -46,7 +47,7 @@ export const CRMCalendarView: React.FC = () => {
   const tomorrowStr = getTomorrowDateString();
 
   // 1. Gather all calendar scheduled items
-  // Meetings, follow-ups, tasks, quote deadlines
+  // Meetings, follow-ups, tasks, quote deadlines, and logged meetings
   const calendarEvents = useMemo(() => {
     const events: Array<{
       id: string;
@@ -62,25 +63,82 @@ export const CRMCalendarView: React.FC = () => {
       originalTask?: CRMTask;
       quoteNumber?: string;
       dealValue?: number;
+      isLoggedMeeting?: boolean;
+      description?: string;
+      outcome?: string;
+      nextAction?: string;
+      nextActionDate?: string;
+      sourceActivityId?: string;
+      performedBy?: string;
     }> = [];
+
+    const coveredActivityIds = new Set<string>();
 
     // Add tasks & meetings
     for (const t of tasks) {
       if (t.dueDate) {
         const isMeeting = t.type === "Meeting" || t.type === "Site Visit";
+        if (t.sourceActivityId) {
+          coveredActivityIds.add(t.sourceActivityId);
+        }
+        if (t.id.startsWith("meeting-log-")) {
+          coveredActivityIds.add(t.id.replace("meeting-log-", ""));
+        }
         events.push({
           id: t.id,
           title: t.title,
           date: t.dueDate,
           time: t.dueTime,
           type: isMeeting ? "meeting" : "task",
-          categoryLabel: t.type,
+          categoryLabel: isMeeting && t.outcome ? t.outcome : t.type,
           accountName: t.accountName,
           accountId: t.accountId,
           contactName: t.contactName,
           isCompleted: t.status === "Completed",
-          originalTask: t
+          originalTask: t,
+          isLoggedMeeting: Boolean(t.sourceActivityId || (isMeeting && t.status === "Completed")),
+          description: t.notes,
+          outcome: t.outcome,
+          sourceActivityId: t.sourceActivityId,
+          performedBy: t.assignedTo || t.createdBy
         });
+      }
+    }
+
+    // Add logged meetings from activities (not already covered by tasks)
+    if (activities && activities.length > 0) {
+      for (const act of activities) {
+        if (act.type === "meeting" && !coveredActivityIds.has(act.id)) {
+          const actDate =
+            act.metadata?.meetingDate ||
+            (act as any).meetingDate ||
+            (act as any).date ||
+            (act.timestamp ? act.timestamp.split("T")[0] : todayStr);
+          const actTime =
+            act.metadata?.meetingTime ||
+            (act as any).meetingTime ||
+            (act as any).time;
+
+          events.push({
+            id: `act-${act.id}`,
+            title: act.title,
+            date: actDate,
+            time: actTime,
+            type: "meeting",
+            categoryLabel: act.outcome || "Meeting Held",
+            accountName: act.accountName,
+            accountId: act.accountId,
+            contactName: act.contactName,
+            isCompleted: true,
+            isLoggedMeeting: true,
+            description: act.description,
+            outcome: act.outcome,
+            nextAction: act.nextAction,
+            nextActionDate: act.nextActionDate,
+            sourceActivityId: act.id,
+            performedBy: act.performedBy
+          });
+        }
       }
     }
 
@@ -103,7 +161,7 @@ export const CRMCalendarView: React.FC = () => {
     }
 
     return events;
-  }, [tasks, crmOpportunities]);
+  }, [tasks, crmOpportunities, activities, todayStr]);
 
   // Filter events
   const filteredEvents = useMemo(() => {
@@ -487,16 +545,14 @@ export const CRMCalendarView: React.FC = () => {
                             key={ev.id}
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (isMeeting && ev.originalTask) {
-                                openMeetingPrep(ev.originalTask.id);
-                              } else {
-                                setSelectedDateStr(day.dateStr);
-                              }
+                              setSelectedDateStr(day.dateStr);
                             }}
                             title={`${ev.title} (${ev.accountName || ""})`}
                             className={`px-1.5 py-0.5 rounded text-[10px] font-medium truncate flex items-center gap-1 ${
                               isMeeting
-                                ? "bg-brand-wash text-brand-deep border border-brand-edge font-semibold"
+                                ? ev.isLoggedMeeting
+                                  ? "bg-emerald-50 text-emerald-800 border border-emerald-300 font-semibold"
+                                  : "bg-brand-wash text-brand-deep border border-brand-edge font-semibold"
                                 : isQuote
                                 ? "bg-purple-100 text-purple-900 border border-purple-300"
                                 : ev.isCompleted
@@ -563,9 +619,11 @@ export const CRMCalendarView: React.FC = () => {
                   return (
                     <div
                       key={ev.id}
-                      className={`p-3 rounded-edge border text-xs space-y-1.5 ${
+                      className={`p-3 rounded-edge border text-xs space-y-2 ${
                         isMeeting
-                          ? "bg-brand-wash/40 border-brand-edge"
+                          ? ev.isLoggedMeeting
+                            ? "bg-emerald-50/40 border-emerald-200"
+                            : "bg-brand-wash/40 border-brand-edge"
                           : ev.type === "quote"
                           ? "bg-purple-50/70 border-purple-200"
                           : ev.isCompleted
@@ -574,19 +632,28 @@ export const CRMCalendarView: React.FC = () => {
                       }`}
                     >
                       <div className="flex items-start justify-between gap-1.5">
-                        <div>
-                          <span
-                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase inline-block mb-1 ${
-                              isMeeting
-                                ? "bg-brand-deep text-white"
-                                : ev.type === "quote"
-                                ? "bg-purple-200 text-purple-900"
-                                : "bg-amber-200 text-amber-900"
-                            }`}
-                          >
-                            {ev.categoryLabel}
-                          </span>
-                          <h4 className={`font-bold text-sm ${ev.isCompleted ? "line-through text-ink-dim" : "text-body"}`}>
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span
+                              className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase inline-block ${
+                                isMeeting
+                                  ? ev.isLoggedMeeting
+                                    ? "bg-emerald-700 text-white"
+                                    : "bg-brand-deep text-white"
+                                  : ev.type === "quote"
+                                  ? "bg-purple-200 text-purple-900"
+                                  : "bg-amber-200 text-amber-900"
+                              }`}
+                            >
+                              {ev.categoryLabel}
+                            </span>
+                            {ev.outcome && ev.outcome !== ev.categoryLabel && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white text-emerald-800 border border-emerald-200">
+                                {ev.outcome}
+                              </span>
+                            )}
+                          </div>
+                          <h4 className={`font-bold text-sm ${ev.isCompleted && !isMeeting ? "line-through text-ink-dim" : "text-body"}`}>
                             {ev.title}
                           </h4>
                         </div>
@@ -621,8 +688,28 @@ export const CRMCalendarView: React.FC = () => {
                         </p>
                       )}
 
-                      {/* View Meeting Prep Plan Button */}
-                      {isMeeting && ev.originalTask && (
+                      {/* What was done / Meeting notes & discussion */}
+                      {ev.description && (
+                        <div className="p-2.5 bg-white rounded border border-line/80 text-xs text-body space-y-1 mt-1 shadow-2xs">
+                          <span className="font-bold text-ink-dim block text-[10px] uppercase tracking-wider">
+                            What Was Done / Notes:
+                          </span>
+                          <p className="whitespace-pre-wrap leading-relaxed text-ink text-spec">
+                            {ev.description}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Next action if any */}
+                      {ev.nextAction && (
+                        <div className="text-[11px] text-brand-deep font-semibold flex items-center gap-1 pt-0.5">
+                          <span>Next Action:</span>
+                          <span className="font-normal text-body">{ev.nextAction}</span>
+                        </div>
+                      )}
+
+                      {/* View Meeting Prep Plan Button (for scheduled upcoming meetings) */}
+                      {isMeeting && ev.originalTask && !ev.isCompleted && (
                         <div className="pt-1.5">
                           <button
                             type="button"
@@ -683,9 +770,11 @@ export const CRMCalendarView: React.FC = () => {
                             {ev.title}
                           </span>
                           <span
-                            className={`text-[10px] font-bold px-1.5 py-0.2 rounded uppercase ${
+                            className={`text-[10px] font-bold px-1.5 py-0.5 rounded uppercase ${
                               isMeeting
-                                ? "bg-brand-wash text-brand-deep border border-brand-edge"
+                                ? ev.isLoggedMeeting
+                                  ? "bg-emerald-100 text-emerald-900 border border-emerald-300"
+                                  : "bg-brand-wash text-brand-deep border border-brand-edge"
                                 : ev.type === "quote"
                                 ? "bg-purple-100 text-purple-900 border border-purple-300"
                                 : "bg-amber-100 text-amber-900 border border-amber-300"
@@ -710,10 +799,16 @@ export const CRMCalendarView: React.FC = () => {
                             <span className="text-brand-deep font-bold">• Tomorrow</span>
                           )}
                         </p>
+
+                        {ev.description && (
+                          <p className="text-xs text-ink line-clamp-2 pt-0.5 italic">
+                            "{ev.description}"
+                          </p>
+                        )}
                       </div>
                     </div>
 
-                    {isMeeting && ev.originalTask && (
+                    {isMeeting && ev.originalTask && !ev.isCompleted && (
                       <button
                         type="button"
                         onClick={() => openMeetingPrep(ev.originalTask!.id)}
