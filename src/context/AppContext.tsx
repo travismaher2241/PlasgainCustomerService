@@ -256,6 +256,10 @@ interface AppContextType {
   addCrmOpportunity: (opp: CRMOpportunity) => void;
   updateCrmOpportunity: (id: string, updates: Partial<CRMOpportunity>) => void;
   deleteCrmOpportunity: (id: string) => Promise<void>;
+  markQuoteSent: (id: string, notes?: string) => void;
+  logFollowUpCompleted: (id: string, notes?: string) => void;
+  markQuoteWon: (id: string, notes?: string) => void;
+  markQuoteLost: (id: string, reason?: string, notes?: string) => void;
   selectedCrmOpportunityId: string | null;
   setSelectedCrmOpportunityId: (id: string | null) => void;
 
@@ -735,12 +739,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return false;
   };
 
-  // Load Relational CRM Data from LocalStorage (with sample filtering)
+  // Migration: Intelligent mapping to 6 standard quote stages:
+  // "Not Submitted" | "Submitted" | "Follow Up Required" | "Followed Up" | "Won" | "Lost"
+  const migrateOpportunityStage = (opp: CRMOpportunity): CRMOpportunity => {
+    const currentStageName = opp.stageName || "";
+    const currentStageId = opp.stageId || "";
+    const sLower = currentStageName.toLowerCase();
+    const idLower = currentStageId.toLowerCase();
+
+    // Already standard 6-stage ID?
+    if (currentStageId === "stage-not-submitted" || currentStageId === "stage-submitted" ||
+        currentStageId === "stage-followup-required" || currentStageId === "stage-followed-up" ||
+        currentStageId === "stage-won" || currentStageId === "stage-lost") {
+      return opp;
+    }
+
+    // Won
+    if (idLower.includes("won") || sLower.includes("won") || sLower.includes("order placed")) {
+      return { ...opp, stageId: "stage-won", stageName: "Won" };
+    }
+
+    // Lost
+    if (idLower.includes("lost") || sLower.includes("lost") || sLower.includes("abandoned") || sLower.includes("cancelled")) {
+      return { ...opp, stageId: "stage-lost", stageName: "Lost" };
+    }
+
+    // Submitted / Review / Proposal
+    if (idLower.includes("quote") || idLower.includes("review") || idLower.includes("proposal") || idLower.includes("pricing") ||
+        sLower.includes("submitted") || sLower.includes("review") || sLower.includes("proposal") || sLower.includes("pricing")) {
+      const subDate = opp.submittedAt || opp.quoteSentDate || opp.createdAt;
+      const isOld = subDate ? (Date.now() - new Date(subDate).getTime() >= 2 * 24 * 60 * 60 * 1000) : false;
+      if (isOld) {
+        return {
+          ...opp,
+          stageId: "stage-followup-required",
+          stageName: "Follow Up Required",
+          submittedAt: opp.submittedAt || subDate
+        };
+      }
+      return {
+        ...opp,
+        stageId: "stage-submitted",
+        stageName: "Submitted",
+        submittedAt: opp.submittedAt || subDate || new Date().toISOString()
+      };
+    }
+
+    // Follow-up
+    if (idLower.includes("followup") || sLower.includes("follow-up") || sLower.includes("followed up")) {
+      return { ...opp, stageId: "stage-followed-up", stageName: "Followed Up" };
+    }
+
+    // Default: Not Submitted
+    return {
+      ...opp,
+      stageId: "stage-not-submitted",
+      stageName: "Not Submitted"
+    };
+  };
+
+  // Load Relational CRM Data from LocalStorage (with sample filtering and stage migration)
 
   const [crmOpportunities, setCrmOpportunities] = useState<CRMOpportunity[]>(() => {
     const saved = localStorage.getItem("plasgain_crm_deals");
     const parsed = saved ? JSON.parse(saved) : INITIAL_OPPORTUNITIES;
-    return Array.isArray(parsed) ? parsed.filter((d: any) => !isSampleRecord(d)) : [];
+    const list = Array.isArray(parsed) ? parsed.filter((d: any) => !isSampleRecord(d)) : [];
+    return list.map(migrateOpportunityStage);
   });
 
   const [rawAccounts, setRawAccounts] = useState<Account[]>(() => {
@@ -1343,7 +1407,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
         const realDeals = cloudDeals.filter((d) => !isSampleRecord(d));
-        if (isMounted) setCrmOpportunities(realDeals);
+        if (isMounted) setCrmOpportunities(realDeals.map(migrateOpportunityStage));
 
         // 6. Activities
         const cloudActivities = await loadCollectionFromCloud<CRMActivity>("crm_activities");
@@ -1476,7 +1540,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (realLeads.length > 0) setLeads(realLeads);
 
       const realDeals = cloudDeals.filter((d) => !isSampleRecord(d));
-      if (realDeals.length > 0) setCrmOpportunities(realDeals);
+      if (realDeals.length > 0) setCrmOpportunities(realDeals.map(migrateOpportunityStage));
 
       const realActivities = cloudActivities.filter((a) => !isSampleRecord(a));
       if (realActivities.length > 0) setActivities(realActivities);
@@ -2452,6 +2516,215 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast("Task status updated", "success");
   };
 
+  // Automated 6-Stage Quote Lifecycle: 2-day follow-up check for "Submitted" quotes
+  useEffect(() => {
+    const checkSubmittedQuotes = () => {
+      const now = Date.now();
+      const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
+
+      setCrmOpportunities((prevOpportunities) => {
+        let hasChanges = false;
+        const updatedOpportunities = prevOpportunities.map((opp) => {
+          if (opp.stageId === "stage-submitted" || opp.stageName === "Submitted") {
+            const submittedTime = opp.submittedAt
+              ? new Date(opp.submittedAt).getTime()
+              : opp.createdAt
+              ? new Date(opp.createdAt).getTime()
+              : 0;
+
+            if (submittedTime > 0 && now - submittedTime >= TWO_DAYS_MS && !opp.followUpReminderTriggeredAt) {
+              hasChanges = true;
+              const todayStr = new Date().toISOString().split("T")[0];
+              const updatedOpp: CRMOpportunity = {
+                ...opp,
+                stageId: "stage-followup-required",
+                stageName: "Follow Up Required",
+                nextAction: opp.nextAction || `Follow up on submitted quote ${opp.quoteNumber || opp.name}`,
+                nextActionDate: todayStr,
+                followUpReminderTriggeredAt: new Date().toISOString()
+              };
+
+              // 1. Create a calendar follow-up task
+              const followUpTask: CRMTask = {
+                id: `task-followup-${opp.id}-${Date.now()}`,
+                title: `Follow up required: ${opp.name}`,
+                description: `Automated reminder: Quote was submitted 2 days ago to ${opp.accountName || "client"} and requires follow-up.`,
+                dueDate: todayStr,
+                dueTime: "09:00",
+                type: "Task",
+                priority: "High",
+                status: "Pending",
+                assignedTo: opp.assignedTo || currentUser.name,
+                accountId: opp.accountId,
+                opportunityId: opp.id,
+                createdAt: new Date().toISOString()
+              };
+              setTasks((prev) => [followUpTask, ...prev]);
+              saveDocToCloud("crm_tasks", followUpTask.id, followUpTask);
+
+              // 2. Add in-app notification
+              addNotification({
+                title: `Follow Up Required: ${opp.name}`,
+                message: `Quote for ${opp.accountName || "client"} was submitted 2 days ago and requires follow-up.`,
+                type: "action_required",
+                priority: "high",
+                entityType: "deal",
+                entityId: opp.id
+              });
+
+              // 3. Log activity on quote
+              const followUpAct: CRMActivity = {
+                id: `act-followup-${Date.now()}`,
+                type: "follow_up",
+                title: "Follow Up Required (2 days post-submission)",
+                description: `Quote automatically assigned 'Follow Up Required'. Calendar task scheduled for ${currentUser.name}. Email reminder notice addressed to ${currentUser.email}.`,
+                accountId: opp.accountId,
+                accountName: opp.accountName,
+                opportunityId: opp.id,
+                opportunityName: opp.name,
+                performedBy: "System Automation",
+                timestamp: new Date().toISOString(),
+                isImmutable: true
+              };
+              setActivities((prev) => [followUpAct, ...prev]);
+              saveDocToCloud("crm_activities", followUpAct.id, followUpAct);
+
+              saveDocToCloud("crm_deals", opp.id, updatedOpp);
+              return updatedOpp;
+            }
+          }
+          return opp;
+        });
+
+        return hasChanges ? updatedOpportunities : prevOpportunities;
+      });
+    };
+
+    checkSubmittedQuotes();
+    const timer = setInterval(checkSubmittedQuotes, 60 * 1000);
+    return () => clearInterval(timer);
+  }, [currentUser.name, currentUser.email]);
+
+  const markQuoteSent = (id: string, notes?: string) => {
+    const opp = crmOpportunities.find((d) => d.id === id);
+    if (!opp) return;
+
+    const today = new Date();
+    const twoDaysLater = new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000);
+    const twoDaysLaterStr = twoDaysLater.toISOString().split("T")[0];
+    const nowIso = today.toISOString();
+
+    const updates: Partial<CRMOpportunity> = {
+      stageId: "stage-submitted",
+      stageName: "Submitted",
+      quoteStatus: "Sent",
+      quoteSentDate: nowIso.split("T")[0],
+      submittedAt: nowIso,
+      nextAction: "Follow up on submitted quote",
+      nextActionDate: twoDaysLaterStr
+    };
+
+    updateCrmOpportunity(id, updates);
+
+    logActivity({
+      type: "email",
+      title: "Quote Sent to Client",
+      description: notes || `Official quote sent to client. Stage updated to Submitted. Automated 2-day follow-up reminder scheduled for ${twoDaysLaterStr}.`,
+      accountId: opp.accountId,
+      accountName: opp.accountName,
+      opportunityId: opp.id,
+      opportunityName: opp.name,
+      performedBy: currentUser.name
+    });
+
+    showToast(`Quote "${opp.name}" marked as Submitted. Follow-up scheduled for ${twoDaysLaterStr}.`, "success");
+  };
+
+  const logFollowUpCompleted = (id: string, notes?: string) => {
+    const opp = crmOpportunities.find((d) => d.id === id);
+    if (!opp) return;
+
+    const nowIso = new Date().toISOString();
+    const updates: Partial<CRMOpportunity> = {
+      stageId: "stage-followed-up",
+      stageName: "Followed Up",
+      followUpCompletedAt: nowIso,
+      nextAction: "Review feedback / awaiting decision",
+      nextActionDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+    };
+
+    updateCrmOpportunity(id, updates);
+
+    logActivity({
+      type: "call",
+      title: "Follow-Up Completed",
+      description: notes || "Client follow-up completed. Stage updated to Followed Up.",
+      accountId: opp.accountId,
+      accountName: opp.accountName,
+      opportunityId: opp.id,
+      opportunityName: opp.name,
+      performedBy: currentUser.name
+    });
+
+    showToast(`Follow-up logged. Quote "${opp.name}" moved to Followed Up.`, "success");
+  };
+
+  const markQuoteWon = (id: string, notes?: string) => {
+    const opp = crmOpportunities.find((d) => d.id === id);
+    if (!opp) return;
+
+    const updates: Partial<CRMOpportunity> = {
+      stageId: "stage-won",
+      stageName: "Won",
+      quoteStatus: "PO Received",
+      wonReason: notes || "Customer accepted quote / PO received"
+    };
+
+    updateCrmOpportunity(id, updates);
+
+    logActivity({
+      type: "note",
+      title: "Quote Won",
+      description: notes || "Quote marked as Won. Purchase order received or quotation accepted by customer.",
+      accountId: opp.accountId,
+      accountName: opp.accountName,
+      opportunityId: opp.id,
+      opportunityName: opp.name,
+      performedBy: currentUser.name
+    });
+
+    showToast(`Quote "${opp.name}" marked as Won!`, "success");
+  };
+
+  const markQuoteLost = (id: string, reason?: string, notes?: string) => {
+    const opp = crmOpportunities.find((d) => d.id === id);
+    if (!opp) return;
+
+    const reasonText = reason || "Project Cancelled";
+    const updates: Partial<CRMOpportunity> = {
+      stageId: "stage-lost",
+      stageName: "Lost",
+      quoteStatus: "Declined",
+      lostReason: reasonText as any,
+      lostReasonNotes: notes
+    };
+
+    updateCrmOpportunity(id, updates);
+
+    logActivity({
+      type: "note",
+      title: "Quote Lost",
+      description: `Quote marked as Lost. Reason: ${reasonText}. ${notes ? `Notes: ${notes}` : ""}`.trim(),
+      accountId: opp.accountId,
+      accountName: opp.accountName,
+      opportunityId: opp.id,
+      opportunityName: opp.name,
+      performedBy: currentUser.name
+    });
+
+    showToast(`Quote "${opp.name}" marked as Lost.`, "info");
+  };
+
   const scheduleCustomerMeeting = (meetingData: Partial<CRMTask>): CRMTask => {
     const newTask: CRMTask = {
       id: `meeting-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -2925,6 +3198,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addCrmOpportunity,
         updateCrmOpportunity,
         deleteCrmOpportunity,
+        markQuoteSent,
+        logFollowUpCompleted,
+        markQuoteWon,
+        markQuoteLost,
         selectedCrmOpportunityId,
         setSelectedCrmOpportunityId,
         activities,

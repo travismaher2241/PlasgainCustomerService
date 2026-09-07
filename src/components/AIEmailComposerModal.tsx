@@ -46,6 +46,8 @@ export const AIEmailComposerModal: React.FC<AIEmailComposerModalProps> = () => {
     contacts,
     leads,
     crmOpportunities,
+    markQuoteSent,
+    logFollowUpCompleted,
     logActivity,
     showToast
   } = useApp();
@@ -352,16 +354,37 @@ export const AIEmailComposerModal: React.FC<AIEmailComposerModalProps> = () => {
 
     window.location.href = mailtoUrl;
 
-    // Log CRM activity
-    logActivity({
-      type: "email",
-      title: "AI email opened in Outlook",
-      description: `Subject: "${selectedSubject}" opened in default mail client`,
-      performedBy: currentUser.name,
-      accountId: emailComposerLaunchContext?.accountId,
-      opportunityId: emailComposerLaunchContext?.opportunityId,
-      contactId: selectedContactId || emailComposerLaunchContext?.contactId
-    });
+    // Advance quote stage if linked to opportunity
+    const oppId = emailComposerLaunchContext?.opportunityId;
+    if (oppId) {
+      const opp = crmOpportunities.find((d) => d.id === oppId);
+      if (opp?.stageId === "stage-not-submitted") {
+        markQuoteSent(oppId, `Quote sent to client via Outlook: "${selectedSubject}"`);
+      } else if (opp?.stageId === "stage-followup-required" || opp?.stageId === "stage-submitted") {
+        logFollowUpCompleted(oppId, `Follow-up email sent via Outlook: "${selectedSubject}"`);
+      } else {
+        logActivity({
+          type: "email",
+          title: "AI email opened in Outlook",
+          description: `Subject: "${selectedSubject}" opened in default mail client`,
+          performedBy: currentUser.name,
+          accountId: emailComposerLaunchContext?.accountId,
+          opportunityId: oppId,
+          contactId: selectedContactId || emailComposerLaunchContext?.contactId
+        });
+      }
+    } else {
+      // Log CRM activity
+      logActivity({
+        type: "email",
+        title: "AI email opened in Outlook",
+        description: `Subject: "${selectedSubject}" opened in default mail client`,
+        performedBy: currentUser.name,
+        accountId: emailComposerLaunchContext?.accountId,
+        opportunityId: emailComposerLaunchContext?.opportunityId,
+        contactId: selectedContactId || emailComposerLaunchContext?.contactId
+      });
+    }
 
     showToast("Opening Outlook / email client...", "info");
   };

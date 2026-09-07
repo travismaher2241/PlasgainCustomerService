@@ -364,6 +364,9 @@ export interface CRMOpportunity {
   quoteExpiryDate?: string;
   latestActivity?: string;
   latestActivityDate?: string;
+  submittedAt?: string;
+  followUpReminderTriggeredAt?: string;
+  followUpCompletedAt?: string;
   nextAction?: string;
   nextActionDate?: string;
   daysInCurrentStage?: number;

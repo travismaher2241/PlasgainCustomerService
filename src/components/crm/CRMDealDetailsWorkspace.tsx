@@ -38,7 +38,8 @@ import {
   Archive,
   MoreHorizontal,
   MessageSquare,
-  Compass
+  Compass,
+  Send
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { QuoteDocumentsPanel } from "./QuoteDocumentsPanel";
@@ -69,6 +70,10 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
   const {
     updateCrmOpportunity,
     deleteCrmOpportunity,
+    markQuoteSent,
+    logFollowUpCompleted,
+    markQuoteWon,
+    markQuoteLost,
     pipelines,
     accounts,
     activities,
@@ -93,6 +98,13 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
   // Modals
   const [isFollowUpModalOpen, setIsFollowUpModalOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+  const [isFollowUpCompletedModalOpen, setIsFollowUpCompletedModalOpen] = useState(false);
+  const [followUpNotes, setFollowUpNotes] = useState("");
+  const [isWonModalOpen, setIsWonModalOpen] = useState(false);
+  const [wonNotes, setWonNotes] = useState("");
+  const [isLostModalOpen, setIsLostModalOpen] = useState(false);
+  const [lostReason, setLostReason] = useState<"Price" | "Competitor" | "Technical Fit" | "Project Cancelled" | "Timeline / Lead Time" | "No Response" | "Other">("Competitor");
+  const [lostNotes, setLostNotes] = useState("");
 
   // Products & Pricing local state
   const [targetMarginSlider, setTargetMarginSlider] = useState<number>(
@@ -306,6 +318,23 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
   const handleStageChange = (newStageId: string) => {
     const stageObj = currentPipeline.stages.find((s) => s.id === newStageId);
     if (!stageObj) return;
+
+    if (newStageId === "stage-submitted") {
+      markQuoteSent(deal.id);
+      return;
+    }
+    if (newStageId === "stage-followed-up") {
+      setIsFollowUpCompletedModalOpen(true);
+      return;
+    }
+    if (newStageId === "stage-won") {
+      setIsWonModalOpen(true);
+      return;
+    }
+    if (newStageId === "stage-lost") {
+      setIsLostModalOpen(true);
+      return;
+    }
 
     const isWon = newStageId === "stage-won" || stageObj.name.toLowerCase().includes("won");
     const isLost = newStageId === "stage-lost" || stageObj.name.toLowerCase().includes("lost");
@@ -536,6 +565,54 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
           {/* Streamlined Action Hierarchy */}
           <div className="flex flex-wrap items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
             <div className="flex flex-wrap items-center gap-2">
+              {/* Context-Sensitive Stage Lifecycle Action Button */}
+              {deal.stageId === "stage-not-submitted" && (
+                <button
+                  type="button"
+                  onClick={() => markQuoteSent(deal.id)}
+                  className="px-3.5 py-1.5 text-meta font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-edge shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                  title="Mark quote as sent to client and advance to Submitted"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Mark as Sent</span>
+                </button>
+              )}
+
+              {(deal.stageId === "stage-submitted" || deal.stageId === "stage-followup-required") && (
+                <button
+                  type="button"
+                  onClick={() => setIsFollowUpCompletedModalOpen(true)}
+                  className="px-3.5 py-1.5 text-meta font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-edge shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                  title="Log that client follow-up has been completed"
+                >
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Log Follow-Up Done</span>
+                </button>
+              )}
+
+              {deal.stageId === "stage-followed-up" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setIsWonModalOpen(true)}
+                    className="px-3 py-1.5 text-meta font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-edge shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                    title="Mark quote as Won (PO received)"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Mark Won</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsLostModalOpen(true)}
+                    className="px-3 py-1.5 text-meta font-semibold bg-white hover:bg-red-50 text-red-700 border border-red-200 rounded-edge shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
+                    title="Mark quote as Lost"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    <span>Mark Lost</span>
+                  </button>
+                </>
+              )}
+
               {/* 1. Frequent Primary Action: Log Activity */}
               <button
                 type="button"
@@ -576,7 +653,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                     <button
                       type="button"
                       onClick={() => {
-                        openAiComposer({
+                        openEmailComposer({
                           recipientEmail: deal.primaryContactEmail,
                           recipientName: deal.primaryContactName,
                           companyName: deal.accountName,
@@ -716,6 +793,34 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
 
                 {isMoreMenuOpen && (
                   <div className="absolute right-0 mt-1 w-48 bg-white rounded-panel shadow-lg border border-line py-1 z-30 animate-in fade-in zoom-in-95 duration-100">
+                    {deal.stageId !== "stage-won" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsWonModalOpen(true);
+                          setIsMoreMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-meta hover:bg-emerald-50 flex items-center gap-2 text-emerald-700"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Mark as Won</span>
+                      </button>
+                    )}
+
+                    {deal.stageId !== "stage-lost" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsLostModalOpen(true);
+                          setIsMoreMenuOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 text-meta hover:bg-red-50 flex items-center gap-2 text-red-600 border-b border-line"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        <span>Mark as Lost</span>
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => {
@@ -1789,6 +1894,180 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                 className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-meta rounded-edge cursor-pointer"
               >
                 Delete Quote
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Log Follow-Up Completed Dialog */}
+      {isFollowUpCompletedModalOpen && (
+        <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-panel max-w-md w-full p-5 border border-line shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-2 text-purple-700 font-bold">
+              <CheckCircle2 className="w-5 h-5" />
+              <span>Log Follow-Up Completed</span>
+            </div>
+            <p className="text-spec text-ink-dim">
+              Record the client conversation or response. This will advance the quote stage to <strong>"Followed Up"</strong> and log an activity record.
+            </p>
+            <div>
+              <label htmlFor="followup-notes-input" className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                Discussion Notes &amp; Outcome
+              </label>
+              <textarea
+                id="followup-notes-input"
+                rows={3}
+                value={followUpNotes}
+                onChange={(e) => setFollowUpNotes(e.target.value)}
+                placeholder="e.g. Spoke with project manager; reviewing quantities and awaiting final approval next week."
+                className="w-full p-2.5 text-meta bg-paper/60 rounded-edge border border-line text-body focus:ring-1 focus:ring-purple-600"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsFollowUpCompletedModalOpen(false);
+                  setFollowUpNotes("");
+                }}
+                className="px-3 py-1.5 text-meta text-ink-dim hover:text-ink cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  logFollowUpCompleted(deal.id, followUpNotes.trim() || undefined);
+                  setIsFollowUpCompletedModalOpen(false);
+                  setFollowUpNotes("");
+                }}
+                className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-meta rounded-edge cursor-pointer"
+              >
+                Confirm Follow-Up Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mark Won Dialog */}
+      {isWonModalOpen && (
+        <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-panel max-w-md w-full p-5 border border-line shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-2 text-emerald-700 font-bold">
+              <CheckCircle2 className="w-5 h-5" />
+              <span>Mark Quote as Won</span>
+            </div>
+            <p className="text-spec text-ink-dim">
+              Record purchase order or award details for <strong>"{deal.name}"</strong> (${deal.dealValue.toLocaleString()}). This will advance the quote stage to <strong>"Won"</strong> and log an activity record.
+            </p>
+            <div>
+              <label htmlFor="won-notes-input" className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                PO Reference &amp; Win Notes
+              </label>
+              <textarea
+                id="won-notes-input"
+                rows={3}
+                value={wonNotes}
+                onChange={(e) => setWonNotes(e.target.value)}
+                placeholder="e.g. Received PO-8921; delivery required in 4 weeks."
+                className="w-full p-2.5 text-meta bg-paper/60 rounded-edge border border-line text-body focus:ring-1 focus:ring-emerald-600"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsWonModalOpen(false);
+                  setWonNotes("");
+                }}
+                className="px-3 py-1.5 text-meta text-ink-dim hover:text-ink cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  markQuoteWon(deal.id, wonNotes.trim() || undefined);
+                  setIsWonModalOpen(false);
+                  setWonNotes("");
+                }}
+                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-meta rounded-edge cursor-pointer"
+              >
+                Confirm Won (PO Received)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mark Lost Dialog */}
+      {isLostModalOpen && (
+        <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-panel max-w-md w-full p-5 border border-line shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center gap-2 text-red-600 font-bold">
+              <XCircle className="w-5 h-5" />
+              <span>Mark Quote as Lost</span>
+            </div>
+            <p className="text-spec text-ink-dim">
+              Record why <strong>"{deal.name}"</strong> was lost. This will advance the quote stage to <strong>"Lost"</strong> and log an activity record.
+            </p>
+            <div className="space-y-3">
+              <div>
+                <label htmlFor="lost-reason-select" className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                  Primary Reason *
+                </label>
+                <select
+                  id="lost-reason-select"
+                  value={lostReason}
+                  onChange={(e) => setLostReason(e.target.value as any)}
+                  className="w-full p-2 text-meta bg-white rounded-edge border border-line font-bold"
+                >
+                  <option value="Price">Price (Too High)</option>
+                  <option value="Competitor">Competitor Won</option>
+                  <option value="Technical Fit">Technical Fit / Spec Not Met</option>
+                  <option value="Timeline / Lead Time">Timeline / Lead Time</option>
+                  <option value="Project Cancelled">Project Cancelled / Shelved</option>
+                  <option value="No Response">No Response / Ghosted</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label htmlFor="lost-notes-input" className="block text-spec font-bold uppercase text-ink-dim mb-1">
+                  Reason Details / Competitor Info
+                </label>
+                <textarea
+                  id="lost-notes-input"
+                  rows={2}
+                  value={lostNotes}
+                  onChange={(e) => setLostNotes(e.target.value)}
+                  placeholder="e.g. Went with competitor pricing; 12% lower on pole package."
+                  className="w-full p-2.5 text-meta bg-paper/60 rounded-edge border border-line text-body focus:ring-1 focus:ring-red-600"
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-line">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLostModalOpen(false);
+                  setLostNotes("");
+                }}
+                className="px-3 py-1.5 text-meta text-ink-dim hover:text-ink cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  markQuoteLost(deal.id, lostReason, lostNotes.trim() || undefined);
+                  setIsLostModalOpen(false);
+                  setLostNotes("");
+                }}
+                className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-meta rounded-edge cursor-pointer"
+              >
+                Confirm Lost
               </button>
             </div>
           </div>

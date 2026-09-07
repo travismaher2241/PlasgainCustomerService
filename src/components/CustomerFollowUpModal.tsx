@@ -58,6 +58,8 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
     currentUser,
     crmOpportunities,
     updateCrmOpportunity,
+    markQuoteSent,
+    logFollowUpCompleted,
     logActivity,
     addTask
   } = useApp();
@@ -242,10 +244,17 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
         outcome: "Follow-up email sent"
       });
       if (dealId) {
-        updateCrmOpportunity(dealId, {
-          latestActivity: `Follow-up email sent (${CADENCE_LABELS[cadence]})`,
-          latestActivityDate: getLocalDateInputValue(new Date())
-        });
+        const opp = crmOpportunities.find((d) => d.id === dealId);
+        if (opp?.stageId === "stage-not-submitted") {
+          markQuoteSent(dealId, `Follow-up email sent (${CADENCE_LABELS[cadence]}) to ${contactName}`);
+        } else if (opp?.stageId === "stage-followup-required" || opp?.stageId === "stage-submitted") {
+          logFollowUpCompleted(dealId, `Follow-up email sent (${CADENCE_LABELS[cadence]}) to ${contactName}`);
+        } else {
+          updateCrmOpportunity(dealId, {
+            latestActivity: `Follow-up email sent (${CADENCE_LABELS[cadence]})`,
+            latestActivityDate: getLocalDateInputValue(new Date())
+          });
+        }
       }
       setStepActivity("done");
     } catch {

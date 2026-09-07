@@ -90,6 +90,7 @@ export const CRMQuoteImportModal: React.FC = () => {
   const [result, setResult] = useState<ImportResponse | null>(null);
   const [accountChoice, setAccountChoice] = useState<string>("");
   const [followUpDate, setFollowUpDate] = useState("");
+  const [isAlreadySent, setIsAlreadySent] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
@@ -99,6 +100,7 @@ export const CRMQuoteImportModal: React.FC = () => {
     setIsReading(false);
     setAccountChoice("");
     setFollowUpDate("");
+    setIsAlreadySent(true);
   };
 
   const handleClose = () => {
@@ -200,18 +202,29 @@ export const CRMQuoteImportModal: React.FC = () => {
     const nextAction = `Follow up on quote ${parsed.quoteNumber || ""}`.trim();
     let opportunityId: string;
 
+    const stageId = isAlreadySent ? "stage-submitted" : "stage-not-submitted";
+    const stageName = isAlreadySent ? "Submitted" : "Not Submitted";
+    const probability = isAlreadySent ? 40 : 10;
+    const submittedAt = isAlreadySent
+      ? (parsed.quoteDate ? new Date(parsed.quoteDate).toISOString() : new Date().toISOString())
+      : undefined;
+
     if (existingDeal) {
       // A revision: update the deal in place and restart the follow-up clock.
       opportunityId = existingDeal.id;
       updateCrmOpportunity(existingDeal.id, {
         dealValue,
-        quoteStatus: "Sent",
-        quoteSentDate: parsed.quoteDate,
+        stageId,
+        stageName,
+        probability,
+        submittedAt: submittedAt || existingDeal.submittedAt,
+        quoteStatus: isAlreadySent ? "Sent" : "Draft",
+        quoteSentDate: isAlreadySent ? (parsed.quoteDate || new Date().toISOString().split("T")[0]) : undefined,
         quoteExpiryDate: parsed.quoteExpiryDate,
         products,
         nextAction,
         nextActionDate: followUpDate || undefined,
-        latestActivity: `Revised quote ${parsed.quoteNumber} imported`,
+        latestActivity: `Revised quote ${parsed.quoteNumber} imported (${stageName})`,
         latestActivityDate: new Date().toISOString().split("T")[0]
       } as Partial<CRMOpportunity>);
     } else {
@@ -224,21 +237,22 @@ export const CRMQuoteImportModal: React.FC = () => {
         primaryContactName: parsed.contactName,
         opportunityOwner: currentUser.name,
         pipelineId: "pipe-major-projects",
-        stageId: stage.id,
-        stageName: stage.name,
+        stageId,
+        stageName,
         dealValue,
         dealValueBasis: "Known",
-        probability: stage.probability,
+        probability,
         quoteNumber: parsed.quoteNumber,
         ostendoQuoteRef: parsed.quoteNumber,
-        quoteStatus: "Sent",
+        quoteStatus: isAlreadySent ? "Sent" : "Draft",
         quoteValue: dealValue,
-        quoteSentDate: parsed.quoteDate,
+        quoteSentDate: isAlreadySent ? (parsed.quoteDate || new Date().toISOString().split("T")[0]) : undefined,
+        submittedAt,
         quoteExpiryDate: parsed.quoteExpiryDate,
         products,
         nextAction,
         nextActionDate: followUpDate || undefined,
-        latestActivity: `Quote ${parsed.quoteNumber} imported from PDF`,
+        latestActivity: `Quote ${parsed.quoteNumber} imported from PDF (${stageName})`,
         latestActivityDate: new Date().toISOString().split("T")[0],
         daysInCurrentStage: 0,
         attachedDocumentIds: []
@@ -439,6 +453,23 @@ export const CRMQuoteImportModal: React.FC = () => {
                 <p className="mt-1 text-spec text-ink-dim">
                   Two days after the quote date, moved to the next weekday if that lands on a weekend.
                 </p>
+              </div>
+
+              <div className="p-3 bg-paper/60 rounded-edge border border-line">
+                <label className="flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isAlreadySent}
+                    onChange={(e) => setIsAlreadySent(e.target.checked)}
+                    className="rounded border-line text-brand-deep focus:ring-brand w-4 h-4"
+                  />
+                  <div>
+                    <span className="text-spec font-bold text-body block">Already sent to client</span>
+                    <span className="text-xs text-ink-dim block">
+                      Sets stage to <strong>"Submitted"</strong> and sets the 2-day follow-up clock. Uncheck if importing a draft.
+                    </span>
+                  </div>
+                </label>
               </div>
 
               {parsed.lineItems.length > 0 && (

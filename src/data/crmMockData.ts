@@ -11,35 +11,29 @@ import {
   CompetitorPricingAlert
 } from "../types/crm";
 
+export const STANDARD_QUOTE_STAGES: PipelineStageConfig[] = [
+  { id: "stage-not-submitted", name: "Not Submitted", order: 1, probability: 10, colorClass: "border-slate-300 bg-slate-50 text-slate-700", description: "Quote drafted or added, not yet issued to customer." },
+  { id: "stage-submitted", name: "Submitted", order: 2, probability: 40, colorClass: "border-blue-300 bg-blue-50 text-blue-700", description: "Quote sent to customer; awaiting initial review." },
+  { id: "stage-followup-required", name: "Follow Up Required", order: 3, probability: 50, colorClass: "border-amber-300 bg-amber-50 text-amber-800", description: "2+ days post-submission; customer follow-up required." },
+  { id: "stage-followed-up", name: "Followed Up", order: 4, probability: 70, colorClass: "border-purple-300 bg-purple-50 text-purple-700", description: "Customer contacted; feedback received or pending decision." },
+  { id: "stage-won", name: "Won", order: 5, probability: 100, colorClass: "border-emerald-400 bg-emerald-50 text-emerald-800", description: "Customer accepted quote or purchase order received." },
+  { id: "stage-lost", name: "Lost", order: 6, probability: 0, colorClass: "border-red-300 bg-red-50 text-red-700", description: "Project cancelled or awarded elsewhere." }
+];
+
 export const DEFAULT_PIPELINES: PipelineConfig[] = [
   {
     id: "pipe-major-projects",
     name: "Council & Infrastructure Projects",
-    description: "Standard pipeline for municipal, road authority, and infrastructure tenders.",
+    description: "Standard pipeline for municipal, road authority, and infrastructure quotes.",
     isDefault: true,
-    stages: [
-      { id: "stage-new", name: "New Opportunity", order: 1, probability: 10, colorClass: "border-slate-300 bg-slate-50 text-slate-700", description: "Fresh inbound project or preliminary spec received." },
-      { id: "stage-discovery", name: "Discovery & Qualification", order: 2, probability: 25, colorClass: "border-blue-300 bg-blue-50 text-blue-700", description: "Clarifying lighting standards, pole heights, site layout, and CCT requirements." },
-      { id: "stage-solution", name: "Solution & Photometrics", order: 3, probability: 45, colorClass: "border-indigo-300 bg-indigo-50 text-indigo-700", description: "Dialux calculation, luminaire/pole selection, and engineering checks." },
-      { id: "stage-quote", name: "Quote / Proposal Submitted", order: 4, probability: 65, colorClass: "border-amber-300 bg-amber-50 text-amber-700", description: "Official quote and technical datasheet schedule delivered to client." },
-      { id: "stage-review", name: "Client Review & Follow-Up", order: 5, probability: 75, colorClass: "border-purple-300 bg-purple-50 text-purple-700", description: "Council/contractor reviewing price and compliance; actively answering questions." },
-      { id: "stage-negotiation", name: "Negotiation / Preferred", order: 6, probability: 90, colorClass: "border-emerald-300 bg-emerald-50 text-emerald-700", description: "Selected as preferred supplier; finalizing freight, schedules, and delivery dates." },
-      { id: "stage-won", name: "Closed Won", order: 7, probability: 100, colorClass: "border-green-400 bg-green-50 text-green-800", description: "Purchase order received." },
-      { id: "stage-lost", name: "Closed Lost", order: 8, probability: 0, colorClass: "border-red-300 bg-red-50 text-red-700", description: "Project cancelled or went to competitor." }
-    ]
+    stages: STANDARD_QUOTE_STAGES
   },
   {
     id: "pipe-distributor",
     name: "Commercial & Electrical Wholesale",
     description: "Faster sales cycle for standard stock luminaires and contractor orders.",
     isDefault: false,
-    stages: [
-      { id: "stage-inquiry", name: "Enquiry Received", order: 1, probability: 15, colorClass: "border-slate-300 bg-slate-50 text-slate-700", description: "Price check or product availability request." },
-      { id: "stage-pricing", name: "Pricing Provided", order: 2, probability: 50, colorClass: "border-blue-300 bg-blue-50 text-blue-700", description: "Commercial pricing and ETA shared." },
-      { id: "stage-followup", name: "Follow-Up", order: 3, probability: 70, colorClass: "border-amber-300 bg-amber-50 text-amber-700", description: "Checking if contractor won the tender or needs stock held." },
-      { id: "stage-ordered", name: "Order Placed", order: 4, probability: 100, colorClass: "border-green-400 bg-green-50 text-green-800", description: "PO received." },
-      { id: "stage-lost", name: "Lost / Abandoned", order: 5, probability: 0, colorClass: "border-red-300 bg-red-50 text-red-700", description: "Lost to competitor or project didn't proceed." }
-    ]
+    stages: STANDARD_QUOTE_STAGES
   }
 ];
 
@@ -54,13 +48,7 @@ export const INITIAL_COMPETITOR_PRICING: CompetitorPricingRecord[] = [];
 export const INITIAL_COMPETITOR_ALERTS: CompetitorPricingAlert[] = [];
 
 /**
- * Resolves the stage a newly created quote belongs in.
- *
- * The three "New quote" paths used to hard-code stageId "stage-proposal" with
- * stageName "Proposal & Quoting" — a pair that exists in neither pipeline. The
- * list rendered the stored name while the deal screen's stage <select>, bound to
- * stageId, found no matching option and fell back to the first, so one record
- * reported two different stages. Both values now come from the pipeline config.
+ * Resolves the initial stage a newly created quote belongs in ("Not Submitted").
  */
 export function resolveQuotingStage(pipelineId: string = "pipe-major-projects"): PipelineStageConfig {
   const pipeline =
@@ -70,8 +58,8 @@ export function resolveQuotingStage(pipelineId: string = "pipe-major-projects"):
 
   const stages = pipeline.stages;
   return (
-    stages.find((s) => s.id === "stage-quote") ||
-    stages.find((s) => /quote|proposal|pricing/i.test(s.name)) ||
+    stages.find((s) => s.id === "stage-not-submitted") ||
+    stages.find((s) => /not submitted/i.test(s.name)) ||
     stages[0]
   );
 }

@@ -15,8 +15,8 @@ const mockDealPopulated: CRMOpportunity = {
   primaryContactEmail: "sarah@wyndhamcivil.com.au",
   opportunityOwner: "Travis Maher",
   pipelineId: "pipe-major-projects",
-  stageId: "stage-solution",
-  stageName: "Solution Scoping",
+  stageId: "stage-not-submitted",
+  stageName: "Not Submitted",
   dealValue: 68400,
   dealValueBasis: "Estimate",
   weightedValue: 34200,
@@ -113,7 +113,7 @@ describe('CRMDealDetailsWorkspace Component', () => {
 
     // 2. Current Value & Stage
     expect(screen.getAllByText(/\$68,400/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByLabelText(/Change (deal|quote) stage/i)).toHaveValue("stage-solution");
+    expect(screen.getByLabelText(/Change (deal|quote) stage/i)).toHaveValue("stage-not-submitted");
 
     // 3. Four Core Tabs Available
     expect(screen.getByRole('button', { name: /^Overview$/i })).toBeInTheDocument();
