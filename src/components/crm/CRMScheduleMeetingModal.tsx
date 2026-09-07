@@ -13,6 +13,7 @@ import {
   Check,
   Briefcase
 } from "lucide-react";
+import { useDialogDismiss } from "../../utils/useDialogDismiss";
 import { useApp } from "../../context/AppContext";
 import { getLocalDateInputValue, formatAuTime, getLastThursdayDateString, addDaysLocal } from "../../utils/dateUtils";
 import { getTomorrowDateString } from "../../utils/crmMeetingPreparation";

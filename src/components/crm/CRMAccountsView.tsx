@@ -43,6 +43,7 @@ import {
   ArrowRightLeft,
   History
 } from "lucide-react";
+import { resolveQuotingStage } from "../../data/crmMockData";
 import { useApp } from "../../context/AppContext";
 import {
   Account,

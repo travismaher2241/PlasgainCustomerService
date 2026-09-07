@@ -423,6 +423,8 @@ export interface CRMActivity {
     emailSubject?: string;
     meetingDate?: string;
     meetingTime?: string;
+    /** The date a logged activity actually happened, when back-dated. */
+    activityDate?: string;
     sentiment?: "Positive" | "Neutral" | "Negative" | "Concerned";
   };
 }

@@ -17,9 +17,10 @@ const TestHarness: React.FC = () => {
             id: 'acc-test-1',
             name: 'Blacktown City Council',
             industry: 'Government',
-            status: 'Active',
-            territory: 'NSW',
-            tier: 'Tier 1'
+            status: 'Customer',
+            territory: 'NSW/ACT',
+            accountType: 'Council',
+            accountOwner: 'Travis Maher'
           });
           addContact({
             id: 'con-test-1',
@@ -28,7 +29,9 @@ const TestHarness: React.FC = () => {
             firstName: 'Sarah',
             lastName: 'Jenkins',
             email: 'sarah.jenkins@blacktown.nsw.gov.au',
-            jobTitle: 'Senior Infrastructure Engineer'
+            jobTitle: 'Senior Infrastructure Engineer',
+            preferredContactMethod: 'Email',
+            contactOwner: 'Travis Maher'
           });
           logActivity({
             type: 'meeting',
@@ -177,9 +180,10 @@ describe('Logged Meeting Auto-Add to Calendar', () => {
                 id: 'acc-past-1',
                 name: 'Brisbane City Council',
                 industry: 'Government',
-                status: 'Active',
-                territory: 'QLD',
-                tier: 'Tier 1'
+                status: 'Customer',
+                territory: 'QLD/NT',
+                accountType: 'Council',
+                accountOwner: 'Travis Maher'
               });
               openQuickLog({ type: 'meeting', accountId: 'acc-past-1' });
             }}
