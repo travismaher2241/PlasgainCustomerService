@@ -35,7 +35,7 @@ import {
   Archive
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
-import { CRMOpportunity, DealHealthRating, OpportunityProductLine } from "../../types/crm";
+import { CRMOpportunity, OpportunityProductLine } from "../../types/crm";
 import { resolveQuotingStage } from "../../data/crmMockData";
 import { formatAuDate } from "../../utils/dateUtils";
 import { CustomerFollowUpModal } from "../CustomerFollowUpModal";
@@ -188,17 +188,60 @@ export const CRMPipelineView: React.FC = () => {
     showToast(`Quote "${newDeal.name}" created!`, "success");
   };
 
-  const getHealthBadge = (health?: DealHealthRating) => {
-    switch (health) {
-      case "Healthy":
-        return <span className="px-2 py-0.2 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">Healthy</span>;
-      case "Needs Attention":
-        return <span className="px-2 py-0.2 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-200">Attention</span>;
-      case "At Risk":
-        return <span className="px-2 py-0.2 rounded-full text-xs font-bold bg-red-50 text-red-800 border border-red-200">At Risk</span>;
-      default:
-        return <span className="px-2 py-0.2 rounded-full text-xs font-medium bg-slate-100 text-slate-700">{health || "Normal"}</span>;
+  const getFollowUpStatusBadge = (opp: CRMOpportunity) => {
+    const isWon = opp.stageId === "stage-won" || opp.stageName.toLowerCase().includes("won");
+    const isLost = opp.stageId === "stage-lost" || opp.stageName.toLowerCase().includes("lost");
+    if (isWon) {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          Won
+        </span>
+      );
     }
+    if (isLost) {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+          Closed
+        </span>
+      );
+    }
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (!opp.nextAction || !opp.nextAction.trim() || !opp.nextActionDate) {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+          Follow-Up Required
+        </span>
+      );
+    }
+
+    if (opp.nextActionDate < todayStr) {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-red-50 text-red-800 border border-red-200 inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+          Overdue
+        </span>
+      );
+    }
+
+    if (opp.nextActionDate === todayStr) {
+      return (
+        <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+          Due Today
+        </span>
+      );
+    }
+
+    return (
+      <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+        Scheduled
+      </span>
+    );
   };
 
   return (
@@ -308,7 +351,7 @@ export const CRMPipelineView: React.FC = () => {
                   <th className="py-2.5 px-4">Stage</th>
                   <th className="py-2.5 px-4">Value (Ex GST)</th>
                   <th className="py-2.5 px-4">Follow-Up &amp; Due</th>
-                  <th className="py-2.5 px-4">Health</th>
+                  <th className="py-2.5 px-4">Follow-Up</th>
                   <th className="py-2.5 px-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -366,9 +409,9 @@ export const CRMPipelineView: React.FC = () => {
                       </div>
                     </td>
 
-                    {/* HEALTH */}
+                    {/* FOLLOW-UP STATUS */}
                     <td className="py-3 px-4 whitespace-nowrap">
-                      {getHealthBadge(deal.dealHealth)}
+                      {getFollowUpStatusBadge(deal)}
                     </td>
 
                     {/* ROW ACTIONS */}
@@ -466,7 +509,7 @@ export const CRMPipelineView: React.FC = () => {
                     <span className="text-xs font-bold px-2 py-0.5 rounded bg-brand-wash text-brand-deep border border-brand-edge">
                       {deal.stageName}
                     </span>
-                    {getHealthBadge(deal.dealHealth)}
+                    {getFollowUpStatusBadge(deal)}
                     {(deal.quoteNumber || deal.ostendoQuoteRef) && (
                       <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-paper border border-line text-ink-dim">
                         {deal.quoteNumber || deal.ostendoQuoteRef}

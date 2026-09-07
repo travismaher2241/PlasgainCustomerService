@@ -37,11 +37,12 @@ import {
   Plus,
   Archive,
   MoreHorizontal,
-  MessageSquare
+  MessageSquare,
+  Compass
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { QuoteDocumentsPanel } from "./QuoteDocumentsPanel";
-import { CRMOpportunity, DealHealthRating, OpportunityProductLine, CRMActivity } from "../../types/crm";
+import { CRMOpportunity, OpportunityProductLine, CRMActivity } from "../../types/crm";
 import { CustomerFollowUpModal } from "../CustomerFollowUpModal";
 import {
   formatOstendoCSV,
@@ -244,38 +245,61 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
     return { isReady, blockers, warnings, confirmed };
   }, [deal]);
 
-  // Health Badge
-  const getHealthBadge = (health?: DealHealthRating) => {
-    switch (health) {
-      case "Healthy":
-        return (
-          <span className="text-spec font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Healthy
-          </span>
-        );
-      case "Needs Attention":
-        return (
-          <span className="text-spec font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 inline-flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-            Needs Attention
-          </span>
-        );
-      case "At Risk":
-      case "Stalled":
-        return (
-          <span className="text-spec font-bold px-2 py-0.5 rounded bg-red-50 text-red-800 border border-red-200 inline-flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
-            {health}
-          </span>
-        );
-      default:
-        return (
-          <span className="text-spec font-bold px-2 py-0.5 rounded bg-paper text-ink-dim border border-line">
-            Active
-          </span>
-        );
+  // Follow-up Status Badge (replaces generic Health with actionable follow-up requirement)
+  const getFollowUpStatusBadge = (opp: CRMOpportunity) => {
+    const isWon = opp.stageId === "stage-won" || opp.stageName.toLowerCase().includes("won");
+    const isLost = opp.stageId === "stage-lost" || opp.stageName.toLowerCase().includes("lost");
+    if (isWon) {
+      return (
+        <span className="text-spec font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+          Won
+        </span>
+      );
     }
+    if (isLost) {
+      return (
+        <span className="text-spec font-bold px-2 py-0.5 rounded bg-paper text-ink-dim border border-line inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-ink-faint" />
+          Closed
+        </span>
+      );
+    }
+
+    const todayStr = new Date().toISOString().split("T")[0];
+    if (!opp.nextAction || !opp.nextAction.trim() || !opp.nextActionDate) {
+      return (
+        <span className="text-spec font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+          Follow-Up Required
+        </span>
+      );
+    }
+
+    if (opp.nextActionDate < todayStr) {
+      return (
+        <span className="text-spec font-bold px-2 py-0.5 rounded bg-red-50 text-red-800 border border-red-200 inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+          Follow-Up Overdue
+        </span>
+      );
+    }
+
+    if (opp.nextActionDate === todayStr) {
+      return (
+        <span className="text-spec font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
+          Follow-Up Due Today
+        </span>
+      );
+    }
+
+    return (
+      <span className="text-spec font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 inline-flex items-center gap-1">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+        Follow-Up Scheduled
+      </span>
+    );
   };
 
   // Stage change handler
@@ -441,7 +465,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                 <span>{deal.accountName}</span>
               </button>
               <span className="text-ink-faint">•</span>
-              {getHealthBadge(deal.dealHealth)}
+              {getFollowUpStatusBadge(deal)}
               <span className="text-ink-faint">•</span>
               <span className="text-ink-dim">Owner: {deal.opportunityOwner}</span>
             </div>
@@ -508,259 +532,235 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
         </div>
 
         {/* Next Action Strip & Action Buttons Bar */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2.5 border-t border-line/70">
-          
-          {/* Next Action Highlight */}
-          <div className="flex items-center gap-2 text-meta min-w-0">
-            <span className="text-spec font-bold text-brand-deep uppercase tracking-wider shrink-0">
-              Next Action:
-            </span>
-            {deal.nextAction ? (
-              <div className="flex items-center gap-2 truncate">
-                <span className="font-semibold text-body truncate">{deal.nextAction}</span>
-                {deal.nextActionDate && (
-                  <span className="text-spec font-bold text-ink-dim bg-paper px-2 py-0.5 rounded border border-line shrink-0">
-                    Due {formatAuDate(deal.nextActionDate)}
-                  </span>
+        <div className="pt-2.5 border-t border-line/70 space-y-2.5">
+          {/* Streamlined Action Hierarchy */}
+          <div className="flex flex-wrap items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
+            <div className="flex flex-wrap items-center gap-2">
+              {/* 1. Frequent Primary Action: Log Activity */}
+              <button
+                type="button"
+                onClick={() => openQuickLog({ type: "call", accountId: deal.accountId, opportunityId: deal.id })}
+                className="px-3.5 py-1.5 text-meta font-bold bg-brand hover:bg-brand-deep text-white rounded-edge shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>Log activity</span>
+              </button>
+
+              {/* 2. Frequent Secondary Action: Follow Up */}
+              <button
+                type="button"
+                onClick={() => setIsFollowUpModalOpen(true)}
+                className="px-3.5 py-1.5 text-meta font-semibold bg-white hover:bg-raised text-body border border-line rounded-edge shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <Mail className="w-3.5 h-3.5 text-ink-dim" />
+                <span>Follow up</span>
+              </button>
+
+              {/* 3. Grouped Communication Dropdown */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCommMenuOpen((prev) => !prev);
+                    setIsExportMenuOpen(false);
+                    setIsMoreMenuOpen(false);
+                  }}
+                  className="px-2.5 py-1.5 text-meta font-semibold bg-white hover:bg-raised text-body border border-line rounded-edge shadow-2xs flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <span>Communicate</span>
+                  <ChevronDown className="w-3 h-3 text-ink-faint" />
+                </button>
+
+                {isCommMenuOpen && (
+                  <div className="absolute left-0 mt-1 w-56 bg-white rounded-panel shadow-lg border border-line py-1 z-30 animate-in fade-in zoom-in-95 duration-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openAiComposer({
+                          recipientEmail: deal.primaryContactEmail,
+                          recipientName: deal.primaryContactName,
+                          companyName: deal.accountName,
+                          projectName: deal.name,
+                          contextNotes: `${deal.customerNeed || ""} | ${deal.notes || ""}`,
+                          quoteRef: deal.ostendoQuoteRef || deal.quoteNumber,
+                          dealValue: deal.dealValue,
+                          products: (deal.products || []).map((p) => ({
+                            name: p.productName || p.productCode,
+                            qty: p.quantity,
+                            price: p.unitPrice
+                          }))
+                        });
+                        setIsCommMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-brand" />
+                      <span>Project Enquiry Email</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        openCallPrep({
+                          opportunityId: deal.id,
+                          accountId: deal.accountId,
+                          companyName: deal.accountName,
+                          contactId: deal.primaryContactId,
+                          contactName: deal.primaryContactName,
+                          contactEmail: deal.primaryContactEmail,
+                          projectName: deal.name,
+                          projectLocation: deal.location,
+                          projectNotes: `${deal.customerNeed || ""} | ${deal.notes || ""}`,
+                          productsQuoted: (deal.products || []).map((p) => ({
+                            productName: p.productName || p.productCode,
+                            quantity: p.quantity,
+                            unitPrice: p.unitPrice
+                          })),
+                          recentActivities: [deal.latestActivity || ""].filter(Boolean),
+                          quoteStatus: deal.quoteStatus
+                        });
+                        setIsCommMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body border-t border-line"
+                    >
+                      <Compass className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Prep Call / Talking Points</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigateToCRM("accounts", deal.accountId);
+                        setIsCommMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body border-t border-line"
+                    >
+                      <Building2 className="w-3.5 h-3.5 text-ink-dim" />
+                      <span>View Account 360°</span>
+                    </button>
+                  </div>
                 )}
               </div>
-            ) : (
-              <span className="text-spec text-ink-dim italic">
-                No immediate action scheduled
-              </span>
-            )}
+
+              {/* 4. Grouped Export Dropdown */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsExportMenuOpen((prev) => !prev);
+                    setIsCommMenuOpen(false);
+                    setIsMoreMenuOpen(false);
+                  }}
+                  className="px-2.5 py-1.5 text-meta font-semibold bg-white hover:bg-raised text-body border border-line rounded-edge shadow-2xs flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5 text-ink-dim" />
+                  <span>Export</span>
+                  <ChevronDown className="w-3 h-3 text-ink-faint" />
+                </button>
+
+                {isExportMenuOpen && (
+                  <div className="absolute left-0 mt-1 w-64 bg-white rounded-panel shadow-lg border border-line py-1 z-30 animate-in fade-in zoom-in-95 duration-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleExportOstendo();
+                        setIsExportMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Download Ostendo CSV</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await handleCopyOstendo();
+                        setIsExportMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body border-t border-line"
+                    >
+                      <Copy className="w-3.5 h-3.5 text-brand" />
+                      <span>Copy Ostendo Matrix</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleExportDealCSV();
+                        setIsExportMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body border-t border-line"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-ink-dim" />
+                      <span>Export Quote Summary CSV</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* 5. More Actions Dropdown */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMoreMenuOpen((prev) => !prev);
+                    setIsCommMenuOpen(false);
+                    setIsExportMenuOpen(false);
+                  }}
+                  className="p-1.5 text-meta bg-white hover:bg-raised text-ink-dim hover:text-body border border-line rounded-edge shadow-2xs flex items-center cursor-pointer transition-colors"
+                  title="More actions"
+                >
+                  <MoreHorizontal className="w-4 h-4" />
+                </button>
+
+                {isMoreMenuOpen && (
+                  <div className="absolute right-0 mt-1 w-48 bg-white rounded-panel shadow-lg border border-line py-1 z-30 animate-in fade-in zoom-in-95 duration-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDeleteConfirmOpen(true);
+                        setIsMoreMenuOpen(false);
+                      }}
+                      className="w-full text-left px-3 py-2 text-meta hover:bg-red-50 flex items-center gap-2 text-red-600"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Delete Quote</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Streamlined Action Hierarchy */}
-          <div className="flex flex-wrap items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-            
-            {/* 1. Frequent Primary Action: Log Activity */}
-            <button
-              type="button"
-              onClick={() => openQuickLog({ type: "call", accountId: deal.accountId, opportunityId: deal.id })}
-              className="px-3.5 py-1.5 text-meta font-bold bg-brand hover:bg-brand-deep text-white rounded-edge shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
-            >
-              <Phone className="w-3.5 h-3.5" />
-              <span>Log activity</span>
-            </button>
-
-            {/* 2. Frequent Secondary Action: Follow Up */}
-            <button
-              type="button"
-              onClick={() => setIsFollowUpModalOpen(true)}
-              className="px-3 py-1.5 text-meta font-semibold bg-white hover:bg-raised text-body border border-line rounded-edge shadow-2xs flex items-center gap-1.5 cursor-pointer transition-colors"
-            >
-              <Mail className="w-3.5 h-3.5 text-ink-dim" />
-              <span>Follow up</span>
-            </button>
-
-            {/* 3. Grouped Communication Dropdown */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCommMenuOpen((prev) => !prev);
-                  setIsExportMenuOpen(false);
-                  setIsMoreMenuOpen(false);
-                }}
-                className="px-2.5 py-1.5 text-meta font-semibold bg-white hover:bg-raised text-body border border-line rounded-edge shadow-2xs flex items-center gap-1 cursor-pointer transition-colors"
-              >
-                <span>Communicate</span>
-                <ChevronDown className="w-3 h-3 text-ink-faint" />
-              </button>
-
-              {isCommMenuOpen && (
-                <div className="absolute right-0 mt-1 w-56 bg-white rounded-panel shadow-lg border border-line py-1 z-30 animate-in fade-in zoom-in-95 duration-100">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      openEmailComposer({
-                        defaultMode: "project-enquiry",
-                        opportunityId: deal.id,
-                        accountId: deal.accountId,
-                        companyName: deal.accountName,
-                        contactId: deal.primaryContactId,
-                        contactName: deal.primaryContactName,
-                        contactEmail: deal.primaryContactEmail,
-                        projectName: deal.name,
-                        projectLocation: deal.location,
-                        projectNotes: `${deal.customerNeed || ""} | ${deal.notes || ""}`,
-                        productsQuoted: (deal.products || []).map((p) => ({
-                          productCode: p.productCode,
-                          productName: p.productName,
-                          quantity: p.quantity
-                        })),
-                        recentActivities: [deal.latestActivity || ""].filter(Boolean),
-                        desiredOutcome: "Ask about the lighting package"
-                      });
-                      setIsCommMenuOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 text-brand" />
-                    <span>Project Enquiry Email</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      openCallPrep({ accountId: deal.accountId, opportunityId: deal.id });
-                      setIsCommMenuOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body"
-                  >
-                    <Phone className="w-3.5 h-3.5 text-brand-deep" />
-                    <span>Prep Call / Talking Points</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigateToCRM("accounts", deal.accountId);
-                      setIsCommMenuOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body border-t border-line"
-                  >
-                    <Building2 className="w-3.5 h-3.5 text-ink-dim" />
-                    <span>View Account 360°</span>
-                  </button>
-                </div>
+          {/* Dedicated Next Action Highlight Strip - fully visible & unclipped */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-2.5 px-3 bg-brand-wash/40 border border-brand-edge/60 rounded-edge text-meta">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <CheckCircle2 className="w-4 h-4 text-brand-deep shrink-0" />
+              <span className="text-spec font-bold text-brand-deep uppercase tracking-wider shrink-0">
+                Next Action:
+              </span>
+              {deal.nextAction ? (
+                <span className="font-semibold text-body text-spec truncate" title={deal.nextAction}>
+                  {deal.nextAction}
+                </span>
+              ) : (
+                <span className="text-spec text-ink-dim italic">
+                  No immediate action scheduled — follow-up required
+                </span>
               )}
             </div>
 
-            {/* 4. Consolidated Export Dropdown */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsExportMenuOpen((prev) => !prev);
-                  setIsCommMenuOpen(false);
-                  setIsMoreMenuOpen(false);
-                }}
-                className="px-2.5 py-1.5 text-meta font-semibold bg-white hover:bg-raised text-body border border-line rounded-edge shadow-2xs flex items-center gap-1 cursor-pointer transition-colors"
-              >
-                <Download className="w-3.5 h-3.5 text-ink-dim" />
-                <span>Export</span>
-                <ChevronDown className="w-3 h-3 text-ink-faint" />
-              </button>
-
-              {isExportMenuOpen && (
-                <div className="absolute right-0 mt-1 w-56 bg-white rounded-panel shadow-lg border border-line py-1 z-30 animate-in fade-in zoom-in-95 duration-100">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const items = (deal.products || []).map((p) => ({
-                        itemCode: p.productCode,
-                        description: p.productName,
-                        quantity: p.quantity,
-                        unit: p.unit || "ea",
-                        lineNotes: p.notes,
-                        quoteRef: deal.ostendoQuoteRef || deal.quoteNumber
-                      }));
-                      const validation = validateOstendoItems(items);
-                      if (!validation.valid) {
-                        showToast(`Ostendo Export Blocked: ${validation.errors[0]}`, "error");
-                        return;
-                      }
-                      const csvData = formatOstendoCSV(items, deal.ostendoQuoteRef || deal.quoteNumber);
-                      downloadOstendoCSV(csvData, `Ostendo_Product_List_${deal.name.replace(/\s+/g, "_")}.csv`);
-                      showToast("Ostendo CSV downloaded", "success");
-                      setIsExportMenuOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body"
-                  >
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-brand-deep" />
-                    <span>Download Ostendo CSV</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const items = (deal.products || []).map((p) => ({
-                        itemCode: p.productCode,
-                        description: p.productName,
-                        quantity: p.quantity,
-                        unit: p.unit || "ea",
-                        lineNotes: p.notes,
-                        quoteRef: deal.ostendoQuoteRef || deal.quoteNumber
-                      }));
-                      const validation = validateOstendoItems(items);
-                      if (!validation.valid) {
-                        showToast(`Ostendo Export Blocked: ${validation.errors[0]}`, "error");
-                        return;
-                      }
-                      await copyOstendoProductList(items, deal.ostendoQuoteRef || deal.quoteNumber);
-                      showToast("Product matrix copied to clipboard (Ostendo format)", "success");
-                      setIsExportMenuOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body"
-                  >
-                    <Copy className="w-3.5 h-3.5 text-brand" />
-                    <span>Copy Ostendo Matrix</span>
-                  </button>
-
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleExportDealCSV();
-                      setIsExportMenuOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body"
-                  >
-                    <FileText className="w-3.5 h-3.5 text-ink-dim" />
-                    <span>Export Quote Summary CSV</span>
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* 5. More Actions Dropdown */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMoreMenuOpen((prev) => !prev);
-                  setIsCommMenuOpen(false);
-                  setIsExportMenuOpen(false);
-                }}
-                className="p-1.5 text-meta bg-white hover:bg-raised text-ink-dim hover:text-body border border-line rounded-edge shadow-2xs flex items-center cursor-pointer transition-colors"
-                title="More actions"
-              >
-                <MoreHorizontal className="w-4 h-4" />
-              </button>
-
-              {isMoreMenuOpen && (
-                <div className="absolute right-0 mt-1 w-48 bg-white rounded-panel shadow-lg border border-line py-1 z-30 animate-in fade-in zoom-in-95 duration-100">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateCrmOpportunity(deal.id, {
-                        dealHealth: deal.dealHealth === "Healthy" ? "Needs Attention" : "Healthy"
-                      });
-                      setIsMoreMenuOpen(false);
-                      showToast("Toggled quote health status", "info");
-                    }}
-                    className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body"
-                  >
-                    <ShieldCheck className="w-3.5 h-3.5 text-ink-dim" />
-                    <span>Toggle Health Flag</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsDeleteConfirmOpen(true);
-                      setIsMoreMenuOpen(false);
-                    }}
-                    className="w-full text-left px-3 py-2 text-meta hover:bg-red-50 flex items-center gap-2 text-red-600 border-t border-line"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete Quote</span>
-                  </button>
-                </div>
-              )}
-            </div>
+            {deal.nextActionDate && (
+              <span className={`text-spec font-bold px-2 py-0.5 rounded border shrink-0 ${
+                deal.nextActionDate < new Date().toISOString().split("T")[0]
+                  ? "bg-amber-100 text-amber-900 border-amber-300"
+                  : "bg-white text-ink-dim border-line"
+              }`}>
+                Due {formatAuDate(deal.nextActionDate)}
+                {deal.nextActionDate < new Date().toISOString().split("T")[0] ? " · Overdue" : ""}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -1002,7 +1002,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                   </p>
                   {Array.isArray(deal.dealHealthReasons) && deal.dealHealthReasons.length > 0 && (
                     <div className="pt-2 border-t border-line text-[11px] text-ink-dim space-y-0.5">
-                      <span className="font-bold text-body block">Quote Health Rationale:</span>
+                      <span className="font-bold text-body block">Follow-Up Attention Needed:</span>
                       <ul className="list-disc list-inside">
                         {deal.dealHealthReasons.map((r, i) => (
                           <li key={i}>{r}</li>
