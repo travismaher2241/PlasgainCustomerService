@@ -163,4 +163,82 @@ describe('Logged Meeting Auto-Add to Calendar', () => {
       expect(screen.getByText(/Reviewed cable pit configurations and agreed on batch delivery dates/i)).toBeInTheDocument();
     });
   });
+
+  it('allows changing the activity date in CRMQuickLogModal to a past date like last Thursday', async () => {
+    const HarnessWithModal: React.FC = () => {
+      const { openQuickLog, addAccount, activities, tasks } = useApp();
+      return (
+        <div>
+          <button
+            type="button"
+            data-testid="open-modal-btn"
+            onClick={() => {
+              addAccount({
+                id: 'acc-past-1',
+                name: 'Brisbane City Council',
+                industry: 'Government',
+                status: 'Active',
+                territory: 'QLD',
+                tier: 'Tier 1'
+              });
+              openQuickLog({ type: 'meeting', accountId: 'acc-past-1' });
+            }}
+          >
+            Open Quick Log
+          </button>
+          <button
+            type="button"
+            data-testid="open-call-modal-btn"
+            onClick={() => {
+              openQuickLog({ type: 'call', accountId: 'acc-past-1' });
+            }}
+          >
+            Open Call Quick Log
+          </button>
+          <span data-testid="activities-count">{activities.length}</span>
+          <span data-testid="tasks-count">{tasks.length}</span>
+          <span data-testid="latest-act-date">{activities[0]?.metadata?.activityDate || activities[0]?.timestamp.split('T')[0] || ''}</span>
+          <span data-testid="latest-task-due">{tasks[0]?.dueDate || ''}</span>
+          <CRMQuickLogModal />
+          <CRMCalendarView />
+        </div>
+      );
+    };
+
+    // Need to dynamically import CRMQuickLogModal
+    const { CRMQuickLogModal } = await import('../../components/crm/CRMQuickLogModal');
+
+    render(
+      <AppProvider>
+        <HarnessWithModal />
+      </AppProvider>
+    );
+
+    // Open Quick Log modal for meeting
+    fireEvent.click(screen.getByTestId('open-modal-btn'));
+
+    // Select outcome
+    const outcomeCheckbox = screen.getByLabelText(/meeting held/i);
+    fireEvent.click(outcomeCheckbox);
+
+    // Find the Activity Date input and set it to last Thursday (2026-09-03)
+    const dateInput = screen.getByLabelText(/activity date/i);
+    expect(dateInput).toBeInTheDocument();
+    fireEvent.change(dateInput, { target: { value: '2026-09-03' } });
+    expect(dateInput).toHaveValue('2026-09-03');
+
+    // Add notes
+    const notesInput = screen.getByPlaceholderText(/what did the customer say/i);
+    fireEvent.change(notesInput, { target: { value: 'Last Thursday discussion on light pole foundations.' } });
+
+    // Submit modal
+    const saveBtn = screen.getByRole('button', { name: /log activity/i });
+    fireEvent.click(saveBtn);
+
+    // Verify activity logged and calendar task created with date 2026-09-03
+    await waitFor(() => {
+      expect(screen.getByTestId('latest-act-date')).toHaveTextContent('2026-09-03');
+      expect(screen.getByTestId('latest-task-due')).toHaveTextContent('2026-09-03');
+    });
+  });
 });

@@ -2212,8 +2212,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
         });
 
-    const rawDate = activityData.metadata?.meetingDate || (activityData as any).meetingDate || (activityData as any).date;
-    const rawTime = activityData.metadata?.meetingTime || (activityData as any).meetingTime || (activityData as any).time;
+    const rawDate =
+      activityData.metadata?.meetingDate ||
+      (activityData as any).meetingDate ||
+      (activityData.metadata as any)?.activityDate ||
+      (activityData as any).activityDate ||
+      (activityData as any).date;
+    const rawTime =
+      activityData.metadata?.meetingTime ||
+      (activityData as any).meetingTime ||
+      (activityData.metadata as any)?.activityTime ||
+      (activityData as any).activityTime ||
+      (activityData as any).time;
 
     let actTimestamp = (activityData as any).timestamp;
     if (!actTimestamp) {
@@ -2281,13 +2291,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       `Logged ${activityData.type}: "${activityData.title}" (${activityData.outcome || "recorded"})${activityData.accountName ? ` for ${activityData.accountName}` : ""}`
     );
 
+    const effectiveDate = rawDate || getLocalDateInputValue(actTimestamp);
+
     // Update last interaction on related account
     if (activityData.accountId) {
       setAccounts((prev) =>
         prev.map((acc) => {
           if (acc.id === activityData.accountId) {
-            const updated = { ...acc, lastInteractionDate: new Date().toISOString().split("T")[0] };
-            saveDocToCloud("crm_accounts", acc.id, updated);
+            const shouldUpdate = !acc.lastInteractionDate || effectiveDate >= acc.lastInteractionDate;
+            const updated = shouldUpdate ? { ...acc, lastInteractionDate: effectiveDate } : acc;
+            if (shouldUpdate) {
+              saveDocToCloud("crm_accounts", acc.id, updated);
+            }
             return updated;
           }
           return acc;
@@ -2300,12 +2315,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCrmOpportunities((prev) =>
         prev.map((opp) => {
           if (opp.id === activityData.opportunityId) {
-            const updated = {
-              ...opp,
-              latestActivity: activityData.title,
-              latestActivityDate: new Date().toISOString().split("T")[0]
-            };
-            saveDocToCloud("crm_deals", opp.id, updated);
+            const shouldUpdate = !opp.latestActivityDate || effectiveDate >= opp.latestActivityDate;
+            const updated = shouldUpdate
+              ? {
+                  ...opp,
+                  latestActivity: activityData.title,
+                  latestActivityDate: effectiveDate
+                }
+              : opp;
+            if (shouldUpdate) {
+              saveDocToCloud("crm_deals", opp.id, updated);
+            }
             return updated;
           }
           return opp;
