@@ -204,7 +204,7 @@ export const CRMAccountsView: React.FC = () => {
   const [editAccountForm, setEditAccountForm] = useState({
     name: "",
     tradingName: "",
-    accountType: "Prospect" as AccountType,
+    accountType: "Account" as AccountType,
     status: "Prospect" as AccountStatus,
     industry: "Government & Public Infrastructure",
     territory: "VIC/TAS" as Account["territory"],
@@ -261,8 +261,8 @@ export const CRMAccountsView: React.FC = () => {
   }>({
     name: "",
     tradingName: "",
-    accountType: "Prospect",
-    status: "Prospect",
+    accountType: "Account",
+    status: "Customer",
     industry: "Government & Public Infrastructure",
     territory: "VIC/TAS",
     accountOwner: currentUser.name,
@@ -367,11 +367,15 @@ export const CRMAccountsView: React.FC = () => {
     if (accountTypeFilter === "all") {
       matchesTypeAndStatus = true;
     } else if (accountTypeFilter === "Prospect") {
-      const isProspect = (acc.accountType || "Prospect") === "Prospect";
+      const isProspect = (acc.accountType || "Account") === "Prospect";
       const matchesStage = statusFilter === "all" || (acc.prospectStage || "Identified") === statusFilter;
       matchesTypeAndStatus = isProspect && matchesStage;
+    } else if (accountTypeFilter === "Account") {
+      const isAccount = acc.accountType === "Account" || acc.accountType === "Customer" || !acc.accountType;
+      const matchesStatus = statusFilter === "all" || (acc.customerRelationshipStatus || "Active") === statusFilter;
+      matchesTypeAndStatus = isAccount && matchesStatus;
     } else {
-      const matchesType = (acc.accountType || "Prospect") === accountTypeFilter;
+      const matchesType = acc.accountType === accountTypeFilter;
       const matchesStatus = statusFilter === "all" || (acc.customerRelationshipStatus || "Active") === statusFilter;
       matchesTypeAndStatus = matchesType && matchesStatus;
     }
@@ -722,8 +726,8 @@ export const CRMAccountsView: React.FC = () => {
     setNewAccountForm({
       name: "",
       tradingName: "",
-      accountType: "Prospect",
-      status: "Prospect",
+      accountType: "Account",
+      status: "Customer",
       industry: "Government & Public Infrastructure",
       territory: "VIC/TAS",
       accountOwner: currentUser.name,
@@ -1167,10 +1171,9 @@ export const CRMAccountsView: React.FC = () => {
                 className="w-full p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-semibold"
               >
                 <option value="all">All Types</option>
-                <option value="Customer">Customer</option>
+                <option value="Account">Account</option>
                 <option value="Prospect">Prospect</option>
                 <option value="Council">Council</option>
-                <option value="Account">Account</option>
               </select>
 
               {accountTypeFilter === "Prospect" && (
@@ -2985,10 +2988,9 @@ export const CRMAccountsView: React.FC = () => {
                     }}
                     className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
                   >
-                    <option value="Prospect">Prospect</option>
-                    <option value="Customer">Customer</option>
-                    <option value="Council">Council</option>
                     <option value="Account">Account</option>
+                    <option value="Prospect">Prospect</option>
+                    <option value="Council">Council</option>
                   </select>
                 </div>
 
@@ -3124,7 +3126,6 @@ export const CRMAccountsView: React.FC = () => {
                   <select
                     required
                     aria-label="Edit Account Type"
-                    value={editAccountForm.accountType}
                     onChange={(e) => {
                       const nextType = e.target.value as AccountType;
                       setEditAccountForm((prev) => ({
@@ -3135,12 +3136,12 @@ export const CRMAccountsView: React.FC = () => {
                         customerRelationshipStatus: nextType !== "Prospect" ? (prev.customerRelationshipStatus || "Active") : prev.customerRelationshipStatus
                       }));
                     }}
+                    value={editAccountForm.accountType === "Customer" ? "Account" : editAccountForm.accountType}
                     className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
                   >
-                    <option value="Prospect">Prospect</option>
-                    <option value="Customer">Customer</option>
-                    <option value="Council">Council</option>
                     <option value="Account">Account</option>
+                    <option value="Prospect">Prospect</option>
+                    <option value="Council">Council</option>
                   </select>
                 </div>
 

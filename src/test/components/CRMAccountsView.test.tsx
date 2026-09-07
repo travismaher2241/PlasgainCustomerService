@@ -385,13 +385,13 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(screen.getAllByText("Apex Civil Contracting").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("Pioneer Roadworks").length).toBeGreaterThanOrEqual(1);
 
-    // 2. Select Customer -> reveals "All Relationship Statuses"
-    fireEvent.change(typeFilter, { target: { value: "Customer" } });
+    // 2. Select Account -> reveals "All Relationship Statuses"
+    fireEvent.change(typeFilter, { target: { value: "Account" } });
     const relStatusFilter = screen.getByLabelText(/Filter by relationship status/i);
     expect(relStatusFilter).toBeInTheDocument();
     expect(screen.queryByLabelText(/Filter by prospect stage/i)).not.toBeInTheDocument();
 
-    // Verify Customer filter contains ONLY Customer Relationship Status options
+    // Verify Account filter contains ONLY Customer Relationship Status options
     const relOptions = Array.from(relStatusFilter.querySelectorAll("option")).map((o) => o.textContent);
     expect(relOptions).toEqual([
       "All Relationship Statuses",
@@ -404,7 +404,7 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(relOptions).not.toContain("Identified");
     expect(relOptions).not.toContain("Engaged");
 
-    // Filter Customer + Developing
+    // Filter Account + Developing
     fireEvent.change(relStatusFilter, { target: { value: "Developing" } });
     expect(screen.queryByText("Brisbane City Council")).not.toBeInTheDocument();
     expect(screen.getAllByText("Sydney Metro Water").length).toBeGreaterThanOrEqual(1);
@@ -468,12 +468,25 @@ describe("CRMAccountsView Component (Step 5)", () => {
     const typeSelect = within(dialog).getByLabelText(/Account Type/i);
     expect(typeSelect).toBeInTheDocument();
 
-    // Initially Prospect -> shows Prospect Stage
+    // Verify there are exactly 3 options and "Customer" is NOT an option
+    const options = within(typeSelect).getAllByRole("option");
+    expect(options).toHaveLength(3);
+    expect(within(typeSelect).queryByRole("option", { name: /^Customer$/i })).not.toBeInTheDocument();
+    expect(within(typeSelect).getByRole("option", { name: /^Account$/i })).toBeInTheDocument();
+    expect(within(typeSelect).getByRole("option", { name: /^Prospect$/i })).toBeInTheDocument();
+    expect(within(typeSelect).getByRole("option", { name: /^Council$/i })).toBeInTheDocument();
+
+    // Initially Account -> shows Customer Relationship Status
+    expect(within(dialog).getByLabelText(/Customer Relationship Status/i)).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/Prospect Stage/i)).not.toBeInTheDocument();
+
+    // Switch Account Type to Prospect -> shows Prospect Stage
+    fireEvent.change(typeSelect, { target: { value: "Prospect" } });
     expect(within(dialog).getByLabelText(/Prospect Stage/i)).toBeInTheDocument();
     expect(within(dialog).queryByLabelText(/Customer Relationship Status/i)).not.toBeInTheDocument();
 
-    // Switch Account Type to Customer -> shows Customer Relationship Status
-    fireEvent.change(typeSelect, { target: { value: "Customer" } });
+    // Switch back to Account -> shows Customer Relationship Status
+    fireEvent.change(typeSelect, { target: { value: "Account" } });
     expect(within(dialog).queryByLabelText(/Prospect Stage/i)).not.toBeInTheDocument();
     expect(within(dialog).getByLabelText(/Customer Relationship Status/i)).toBeInTheDocument();
 
@@ -499,13 +512,17 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(screen.getByRole("dialog", { name: /Edit Account/i })).toBeInTheDocument();
     const editTypeSelect = screen.getByLabelText(/Edit Account Type/i);
 
+    // Verify Edit select also has only Account, Prospect, Council
+    expect(within(editTypeSelect).queryByRole("option", { name: /^Customer$/i })).not.toBeInTheDocument();
+    expect(within(editTypeSelect).getAllByRole("option")).toHaveLength(3);
+
     // Switch to Prospect
     fireEvent.change(editTypeSelect, { target: { value: "Prospect" } });
     expect(screen.getByLabelText(/Edit Prospect Stage/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Edit Customer Relationship Status/i)).not.toBeInTheDocument();
 
-    // Switch back to Customer
-    fireEvent.change(editTypeSelect, { target: { value: "Customer" } });
+    // Switch back to Account
+    fireEvent.change(editTypeSelect, { target: { value: "Account" } });
     expect(screen.queryByLabelText(/Edit Prospect Stage/i)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/Edit Customer Relationship Status/i)).toBeInTheDocument();
 
