@@ -146,11 +146,11 @@ describe("Multi-User Shared Database, Call Attribution & Admin Audit Trail", () 
 
     // Create Deal
     fireEvent.click(screen.getByText("Add Test Deal"));
-    expect(screen.getByText(/Created deal: Riverside Shared Path Lighting \(\$45,000\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Created quote: Riverside Shared Path Lighting \(\$45,000\)/i)).toBeInTheDocument();
 
     // Advance Deal Stage
     fireEvent.click(screen.getByText("Advance Deal Stage"));
-    expect(screen.getByText(/Moved deal "Riverside Shared Path Lighting" from Discovery & Qualification -> Quote Sent & Follow-up/i)).toBeInTheDocument();
+    expect(screen.getByText(/Moved quote "Riverside Shared Path Lighting" from Discovery & Qualification -> Quote Sent & Follow-up/i)).toBeInTheDocument();
   });
 
   it("2. provides filtering by user, action type, entity type, and search query in AdminAuditLogView", async () => {

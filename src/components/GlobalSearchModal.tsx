@@ -206,8 +206,8 @@ export const GlobalSearchModal: React.FC = () => {
             onKeyDown={handleKeyDown}
             placeholder={
               isCommandMode
-                ? "Type a command: call, task, deal, accounts, today, settings..."
-                : "Search accounts, deals, contacts, or type '>' for command shortcuts..."
+                ? "Type a command: call, task, quote, accounts, today, settings..."
+                : "Search accounts, quotes, contacts, or type '>' for command shortcuts..."
             }
             className="w-full text-body focus:outline-none placeholder:text-ink-faint font-sans text-base"
           />
@@ -253,8 +253,8 @@ export const GlobalSearchModal: React.FC = () => {
                   <KanbanSquare className="w-4 h-4 text-brand-deep" />
                   <div>
                     <div className="font-bold flex items-center gap-1.5">
-                      <span>View Pipeline</span>
-                      <span className="text-[10px] font-mono bg-paper px-1 rounded">&gt;deal</span>
+                      <span>View Quotes Pipeline</span>
+                      <span className="text-[10px] font-mono bg-paper px-1 rounded">&gt;quote</span>
                     </div>
                     <div className="text-spec text-ink-dim">Open active quote pipeline</div>
                   </div>
@@ -333,7 +333,7 @@ export const GlobalSearchModal: React.FC = () => {
               </div>
               <h3 className="font-bold text-body">No matching records or commands</h3>
               <p className="text-meta text-ink-dim max-w-sm mx-auto">
-                No accounts, contacts, deals, quotes, or commands matched "{query}".
+                No accounts, contacts, quotes, or commands matched "{query}".
               </p>
             </div>
           )}
@@ -362,11 +362,11 @@ export const GlobalSearchModal: React.FC = () => {
             </div>
           )}
 
-          {/* CRM Deals & Opportunities */}
+          {/* CRM Quotes & Opportunities */}
           {filteredDeals.length > 0 && (
             <div className="space-y-1.5">
               <span className="text-spec font-bold text-brand-deep uppercase tracking-wider flex items-center gap-1.5">
-                <KanbanSquare className="w-3.5 h-3.5" /> Deals &amp; Quotations ({filteredDeals.length})
+                <KanbanSquare className="w-3.5 h-3.5" /> Quotes ({filteredDeals.length})
               </span>
               <div className="space-y-1">
                 {filteredDeals.slice(0, 4).map((d) => (
@@ -444,7 +444,7 @@ export const GlobalSearchModal: React.FC = () => {
 
         {/* Footer */}
         <div className="p-3 bg-raised border-t border-line text-spec text-ink-faint flex items-center justify-between">
-          <span>Type <strong>&gt;</strong> for commands (e.g. <code>&gt;call</code>, <code>&gt;deal</code>, <code>&gt;accounts</code>, <code>&gt;today</code>)</span>
+          <span>Type <strong>&gt;</strong> for commands (e.g. <code>&gt;call</code>, <code>&gt;quote</code>, <code>&gt;accounts</code>, <code>&gt;today</code>)</span>
           <span>Plasgain Copilot Search · ⌘K</span>
         </div>
       </div>

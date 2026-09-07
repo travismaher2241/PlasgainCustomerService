@@ -364,7 +364,7 @@ export const CRMQuoteImportModal: React.FC = () => {
               {existingDeal && (
                 <div className="border border-brand-edge bg-brand-wash rounded-edge p-3 text-spec text-brand-deep">
                   Quote <strong>{parsed.quoteNumber}</strong> is already on “{existingDeal.name}”. Saving will
-                  update that deal and keep both PDFs, rather than adding a second one to the pipeline.
+                  update that quote and keep both PDFs, rather than adding a second one to the pipeline.
                 </div>
               )}
 

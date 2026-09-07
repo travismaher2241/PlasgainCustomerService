@@ -38,7 +38,7 @@ describe('FINAL PRIORITY 0 ACCEPTANCE AUDIT', () => {
       });
 
       expect(res.isOutlier).toBe(true);
-      expect(res.warningMessage).toContain('High Deal Value Notice');
+      expect(res.warningMessage).toMatch(/High (Deal|Quote) Value Notice/);
     });
   });
 });

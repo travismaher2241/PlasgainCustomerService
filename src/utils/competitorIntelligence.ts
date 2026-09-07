@@ -157,7 +157,7 @@ export function computeCompetitorIntelligence(
       activeRecords: 0,
       uniqueCompetitorsCount: 0,
       competitorBreakdown: [],
-      marketTakeaway: "No competitor pricing records logged yet. Log competitor observations to uncover cross-deal pricing patterns.",
+      marketTakeaway: "No competitor pricing records logged yet. Log competitor observations to uncover cross-quote pricing patterns.",
       battlecards: []
     };
   }

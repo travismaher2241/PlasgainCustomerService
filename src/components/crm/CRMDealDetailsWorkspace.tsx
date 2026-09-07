@@ -208,7 +208,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
     // 1. Line items & pricing check
     const products = deal.products || [];
     if (products.length === 0) {
-      blockers.push("No products or bill of materials added to deal");
+      blockers.push("No products or bill of materials added to quote");
     } else {
       const missingPrice = products.filter((p) => !p.unitPrice || p.unitPrice <= 0);
       if (missingPrice.length > 0) {
@@ -225,7 +225,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
 
     // 2. Customer & Contact check
     if (!deal.accountId) {
-      blockers.push("Deal not linked to a customer account");
+      blockers.push("Quote not linked to a customer account");
     } else {
       confirmed.push(`Linked to account: ${deal.accountName}`);
     }
@@ -295,7 +295,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
       latestActivity: `Stage updated to ${stageObj.name}`,
       latestActivityDate: new Date().toISOString().split("T")[0]
     });
-    showToast(`Moved deal to ${stageObj.name} (${stageObj.probability}%)`, "success");
+    showToast(`Moved quote to ${stageObj.name} (${stageObj.probability}%)`, "success");
   };
 
   // Save quote details edit form
@@ -369,14 +369,14 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
     showToast(`Purchase order received. Quote moved to ${wonStage.name}.`, "success");
   };
 
-  // Export full deal CSV
+  // Export full quote CSV
   const handleExportDealCSV = () => {
     const headers = [
-      "Deal ID",
-      "Deal Name",
+      "Quote ID",
+      "Quote Name",
       "Account Name",
       "Stage",
-      "Deal Value (ex GST)",
+      "Quote Value (ex GST)",
       "Target Gross Margin %",
       "Expected Decision Date",
       "Quote Ref",
@@ -404,12 +404,12 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `Deal_Summary_${deal.name.replace(/\s+/g, "_")}.csv`);
+    link.setAttribute("download", `Quote_Summary_${deal.name.replace(/\s+/g, "_")}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast("Downloaded Deal Summary CSV", "success");
+    showToast("Downloaded Quote Summary CSV", "success");
   };
 
   // Toggle activity notes expansion
@@ -463,7 +463,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
             <div className="flex flex-col">
               <span className="text-[10px] font-bold uppercase text-ink-faint tracking-wider">Stage</span>
               <select
-                aria-label="Change deal stage"
+                aria-label="Change quote stage"
                 value={deal.stageId}
                 onChange={(e) => handleStageChange(e.target.value)}
                 className="text-meta font-bold bg-white border border-line rounded-edge px-2.5 py-1 text-body focus:ring-1 focus:ring-brand cursor-pointer shadow-2xs"
@@ -498,10 +498,10 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                 type="button"
                 onClick={onClose}
                 className="px-2.5 py-1 text-xs font-bold text-ink-dim hover:text-ink hover:bg-hover rounded-edge border border-line cursor-pointer flex items-center gap-1.5 ml-1"
-                title="Close deal details"
-                aria-label="Back to deals"
+                title="Close quote details"
+                aria-label="Back to quotes"
               >
-                <span>← Back to deals</span>
+                <span>← Back to quotes</span>
               </button>
             )}
           </div>
@@ -709,7 +709,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                     className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body"
                   >
                     <FileText className="w-3.5 h-3.5 text-ink-dim" />
-                    <span>Export Deal Summary CSV</span>
+                    <span>Export Quote Summary CSV</span>
                   </button>
                 </div>
               )}
@@ -739,7 +739,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                         dealHealth: deal.dealHealth === "Healthy" ? "Needs Attention" : "Healthy"
                       });
                       setIsMoreMenuOpen(false);
-                      showToast("Toggled deal health status", "info");
+                      showToast("Toggled quote health status", "info");
                     }}
                     className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body"
                   >
@@ -756,7 +756,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                     className="w-full text-left px-3 py-2 text-meta hover:bg-red-50 flex items-center gap-2 text-red-600 border-t border-line"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>Delete Deal</span>
+                    <span>Delete Quote</span>
                   </button>
                 </div>
               )}
@@ -846,7 +846,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                   <span>Next Action Plan</span>
                 </div>
                 <div className="text-meta font-bold text-body">
-                  {deal.nextAction || "No scheduled action. Create one to keep deal momentum."}
+                  {deal.nextAction || "No scheduled action. Create one to keep quote momentum."}
                 </div>
                 <div className="text-spec text-ink-dim">
                   Target due: <span className="font-semibold text-body">{deal.nextActionDate ? formatAuDate(deal.nextActionDate) : "not set"}</span> • Owner: {deal.opportunityOwner}
@@ -925,7 +925,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
 
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-meta pt-1">
                     <div>
-                      <span className="text-spec text-ink-dim block">Deal Value (ex GST)</span>
+                      <span className="text-spec text-ink-dim block">Quote Value (ex GST)</span>
                       <span className="font-bold text-body font-mono text-base">
                         ${deal.dealValue.toLocaleString()}
                       </span>
@@ -1002,7 +1002,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                   </p>
                   {Array.isArray(deal.dealHealthReasons) && deal.dealHealthReasons.length > 0 && (
                     <div className="pt-2 border-t border-line text-[11px] text-ink-dim space-y-0.5">
-                      <span className="font-bold text-body block">Deal Health Rationale:</span>
+                      <span className="font-bold text-body block">Quote Health Rationale:</span>
                       <ul className="list-disc list-inside">
                         {deal.dealHealthReasons.map((r, i) => (
                           <li key={i}>{r}</li>
@@ -1243,8 +1243,8 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
             {(deal.products || []).length === 0 ? (
               <div className="p-8 text-center bg-paper rounded-panel border border-dashed border-line text-ink-dim">
                 <Package className="w-8 h-8 mx-auto text-ink-faint mb-2" />
-                <div className="font-semibold text-body">No line items in this deal BOM</div>
-                <p className="text-spec mt-1">Click "+ Add Item" above to add line items to this deal.</p>
+                <div className="font-semibold text-body">No line items in this quote BOM</div>
+                <p className="text-spec mt-1">Click "+ Add Item" above to add line items to this quote.</p>
               </div>
             ) : (
               <div className="overflow-x-auto rounded-panel border border-line">
@@ -1668,7 +1668,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
             {Object.keys(groupedActivities).length === 0 ? (
               <div className="p-8 text-center bg-paper rounded-panel border border-dashed border-line text-ink-dim">
                 <MessageSquare className="w-8 h-8 mx-auto text-ink-faint mb-2" />
-                <div className="font-semibold text-body">No activity recorded on this deal</div>
+                <div className="font-semibold text-body">No activity recorded on this quote</div>
                 <p className="text-spec mt-1">Use the "+ Log Activity" button above to record calls, emails, or meetings.</p>
               </div>
             ) : (
@@ -1765,7 +1765,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
           <div className="bg-white rounded-panel max-w-md w-full p-5 border border-line shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center gap-2 text-red-600 font-bold">
               <AlertTriangle className="w-5 h-5" />
-              <span>Confirm Delete Deal</span>
+              <span>Confirm Delete Quote</span>
             </div>
             <p className="text-meta text-body">
               Are you sure you want to permanently delete <strong>"{deal.name}"</strong>? This will remove all associated line items.
@@ -1783,12 +1783,12 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                 onClick={async () => {
                   await deleteCrmOpportunity(deal.id);
                   setIsDeleteConfirmOpen(false);
-                  showToast(`Deleted deal "${deal.name}"`, "info");
+                  showToast(`Deleted quote "${deal.name}"`, "info");
                   if (onClose) onClose();
                 }}
                 className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-meta rounded-edge cursor-pointer"
               >
-                Delete Deal
+                Delete Quote
               </button>
             </div>
           </div>

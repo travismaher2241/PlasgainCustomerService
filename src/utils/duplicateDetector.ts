@@ -285,7 +285,7 @@ export function detectDuplicateOpportunity(
     if (normRef && oppNormRef && normRef === oppNormRef) {
       return {
         confidence: "EXACT",
-        matchReason: `Tender / Quote reference "${candidate.tenderRef}" already exists on deal "${opp.project}"`,
+        matchReason: `Tender / Quote reference "${candidate.tenderRef}" already exists on quote "${opp.project}"`,
         existingRecord: opp
       };
     }

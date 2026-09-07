@@ -406,7 +406,7 @@ export function parseQuoteFromPositionedText(items: PositionedText[]): ParsedQuo
     readTotal("Total Inc GST:");
 
   if (nettTotal === undefined) {
-    warnings.push("Could not find the nett total, which is the figure used for deal value.");
+    warnings.push("Could not find the nett total, which is the figure used for quote value.");
   }
 
   // A quote whose lines do not add up to its own total usually means a row was

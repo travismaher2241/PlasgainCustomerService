@@ -273,7 +273,7 @@ export const GlobalCopilot: React.FC = () => {
     {
       role: "assistant",
       content:
-        "I'm your Plasgain Sales Assistant. Ask me about quotes, deal pipeline, customer accounts, or sales strategy."
+        "I'm your Plasgain Sales Assistant. Ask me about quotes, quotation pipeline, customer accounts, or sales strategy."
     }
   ]);
   const [input, setInput] = useState("");
@@ -666,15 +666,15 @@ export const GlobalCopilot: React.FC = () => {
             chips = [
               {
                 label: "Dark-Sky Clause",
-                prompt: `Draft a 3000K fauna-friendly / dark-sky compliance clause for deal "${currentDeal.name}" to satisfy council tender specifications.`
+                prompt: `Draft a 3000K fauna-friendly / dark-sky compliance clause for quote "${currentDeal.name}" to satisfy council tender specifications.`
               },
               {
                 label: "Follow-Up Strategy",
-                prompt: `Draft a tailored follow-up strategy and email for deal "${currentDeal.name}".`
+                prompt: `Draft a tailored follow-up strategy and email for quote "${currentDeal.name}".`
               },
               {
                 label: "Objection Handling",
-                prompt: `Suggest objection handling points for pricing and lead times for deal "${currentDeal.name}".`
+                prompt: `Suggest objection handling points for pricing and lead times for quote "${currentDeal.name}".`
               }
             ];
           } else if (currentAccount) {
@@ -696,7 +696,7 @@ export const GlobalCopilot: React.FC = () => {
             chips = [
               {
                 label: "Active Quote Status",
-                prompt: "What is the active quote reference, contact person, and deal value for our most urgent deals?"
+                prompt: "What is the active quote reference, contact person, and quote value for our most urgent quotes?"
               },
               {
                 label: "Sales Call Prep",

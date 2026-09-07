@@ -62,7 +62,7 @@ export const QuoteDocumentsPanel: React.FC<{ opportunityId: string }> = ({ oppor
           <span>No quote document</span>
         </p>
         <p className="mt-1 text-spec text-ink-dim">
-          Import the quote PDF from the Log menu and it will be kept here, alongside the deal.
+          Import the quote PDF from the Log menu and it will be kept here, alongside the quote.
         </p>
       </div>
     );

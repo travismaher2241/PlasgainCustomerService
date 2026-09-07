@@ -504,7 +504,7 @@ export const CRMQuickLogModal: React.FC = () => {
                   <select
                     value={selectedOppId}
                     onChange={(e) => setSelectedOppId(e.target.value)}
-                    aria-label="Select Linked Deal"
+                    aria-label="Select Linked Quote"
                     className="w-full p-1.5 rounded-edge border border-line bg-surface text-spec focus:outline-none focus:border-brand-deep"
                   >
                     <option value="">No specific quote</option>

@@ -112,7 +112,7 @@ export function executeCRMAction(
         stageName: targetStageName
       });
 
-      ctx.showToast(`Advanced "${deal?.name || "Deal"}" to ${targetStageName}`, "success");
+      ctx.showToast(`Advanced "${deal?.name || "Quote"}" to ${targetStageName}`, "success");
       return { success: true, message: `Advanced stage to ${targetStageName}` };
     }
 

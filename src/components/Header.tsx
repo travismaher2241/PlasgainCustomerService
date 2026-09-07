@@ -118,7 +118,7 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           className="min-h-[44px] min-w-[44px] sm:min-h-0 sm:min-w-0 flex items-center justify-center gap-2 text-meta text-ink-faint bg-paper hover:bg-raised px-2.5 py-2 sm:py-1.5 rounded-edge border border-line hover:border-line-strong transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-brand-deep focus-visible:outline-none"
         >
           <Search className="w-4 h-4 sm:w-3.5 sm:h-3.5 text-ink-dim" />
-          <span className="hidden sm:inline">Search accounts, deals &amp; contacts</span>
+          <span className="hidden sm:inline">Search accounts, quotes &amp; contacts</span>
           <kbd className="u-data hidden sm:inline-block ml-1 px-1 text-[0.625rem] text-ink-faint border border-line-strong rounded-[2px]">
             ⌘K
           </kbd>

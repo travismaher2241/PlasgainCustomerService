@@ -299,7 +299,7 @@ export const CRMInboundEmailModal: React.FC = () => {
                 </span>
               </div>
               <p className="text-xs text-ink-dim mt-0.5">
-                Paste an email response to match CRM records, update next actions, and advance deal status.
+                Paste an email response to match CRM records, update next actions, and advance quote status.
               </p>
             </div>
           </div>
@@ -667,7 +667,7 @@ export const CRMInboundEmailModal: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-brand-deep" />
                         <span className="text-xs font-bold text-body">
-                          Advance Deal Stage to "{parseResult.stageRecommendation.targetStageName}"
+                          Advance Quote Stage to "{parseResult.stageRecommendation.targetStageName}"
                         </span>
                       </div>
                       <p className="text-[11px] text-ink-dim">

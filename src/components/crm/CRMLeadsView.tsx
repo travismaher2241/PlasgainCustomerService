@@ -175,7 +175,7 @@ export const CRMLeadsView: React.FC = () => {
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-body tracking-tight">Leads</h1>
           <p className="text-spec text-ink-dim mt-0.5">
-            Qualify incoming customer enquiries, evaluate compliance scope, and convert to active deals.
+            Qualify incoming customer enquiries, evaluate compliance scope, and convert to active quotes.
           </p>
         </div>
 
@@ -340,7 +340,7 @@ export const CRMLeadsView: React.FC = () => {
                       onClick={() => setIsConvertModalOpen(true)}
                       className="px-3.5 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs shrink-0"
                     >
-                      <span>Convert to deal</span>
+                      <span>Convert to quote</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   )}
@@ -554,7 +554,7 @@ export const CRMLeadsView: React.FC = () => {
             className="bg-surface rounded-panel max-w-md w-full p-5 border border-line shadow-2xl space-y-4"
           >
             <div className="flex items-center justify-between border-b border-line pb-3">
-              <h3 className="font-bold text-body text-base">Convert Lead to Deal</h3>
+              <h3 className="font-bold text-body text-base">Convert Lead to Quote</h3>
               <button onClick={() => setIsConvertModalOpen(false)} className="text-ink-dim hover:text-body">
                 <X className="w-5 h-5" />
               </button>

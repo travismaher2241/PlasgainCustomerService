@@ -557,7 +557,7 @@ export const CRMTodayWorkspace: React.FC = () => {
           <Sun className="w-10 h-10 text-ink-faint mx-auto" />
           <h2 className="text-base font-bold text-body">No sales activity has been created yet</h2>
           <p className="text-spec text-ink-dim max-w-md mx-auto">
-            Create an account, enquiry, or deal to begin populating your daily action queue.
+            Create an account, enquiry, or quote to begin populating your daily action queue.
           </p>
         </div>
       ) : workItems.length === 0 ? (

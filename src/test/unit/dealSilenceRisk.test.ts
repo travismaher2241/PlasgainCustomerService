@@ -231,7 +231,7 @@ describe("Deal Silence Risk & Reason Diagnosis (Feature 05)", () => {
 
     const stalledAction = actions.find((a) => a.ruleId === "RULE_STALLED_HIGH_VALUE");
     expect(stalledAction).toBeDefined();
-    expect(stalledAction?.title).toContain("Re-energise High Value Stalled Deal ($145,000)");
+    expect(stalledAction?.title).toMatch(/Re-energise High Value Stalled (Deal|Quote) \(\$145,000\)/);
     expect(stalledAction?.category).toBe("Deal Silence Risk");
     expect(stalledAction?.description).toContain("Council Procurement Silence");
   });

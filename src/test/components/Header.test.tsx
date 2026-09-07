@@ -13,7 +13,7 @@ describe('Header Component', () => {
     );
 
     expect(screen.getByText(/^Home$/i)).toBeInTheDocument();
-    expect(screen.getByText(/Search accounts, deals & contacts/i)).toBeInTheDocument();
+    expect(screen.getByText(/Search accounts, quotes & contacts/i)).toBeInTheDocument();
     expect(screen.getByText(/Write AI Email/i)).toBeInTheDocument();
     expect(screen.queryByText(/Lighting terms/i)).not.toBeInTheDocument();
     expect(screen.getByText('Ask Copilot')).toBeInTheDocument();

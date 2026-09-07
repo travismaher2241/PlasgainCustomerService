@@ -235,8 +235,8 @@ describe("CRMAccountsView Component (Step 5)", () => {
       </AppProvider>
     );
 
-    // Switch to Deals tab
-    const dealsTab = screen.getByRole("tab", { name: /Deals Tab/i });
+    // Switch to Quotes tab
+    const dealsTab = screen.getByRole("tab", { name: /(Deals|Quotes) Tab/i });
     fireEvent.click(dealsTab);
 
     // Active deal is visible

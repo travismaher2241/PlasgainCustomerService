@@ -95,9 +95,9 @@ describe('Phase 2 — Wrong data and invented data tests', () => {
       </AppProvider>
     );
 
-    const backButton = screen.getByRole('button', { name: /Back to deals/i });
+    const backButton = screen.getByRole('button', { name: /Back to (deals|quotes)/i });
     expect(backButton).toBeInTheDocument();
-    expect(backButton).toHaveTextContent('← Back to deals');
+    expect(backButton).toHaveTextContent('← Back to quotes');
   });
 
   it('2.3 — Customer accounts render a Customer badge instead of Prospect', () => {

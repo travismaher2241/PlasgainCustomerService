@@ -113,7 +113,7 @@ describe('CRMDealDetailsWorkspace Component', () => {
 
     // 2. Current Value & Stage
     expect(screen.getAllByText(/\$68,400/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByLabelText(/Change deal stage/i)).toHaveValue("stage-solution");
+    expect(screen.getByLabelText(/Change (deal|quote) stage/i)).toHaveValue("stage-solution");
 
     // 3. Four Core Tabs Available
     expect(screen.getByRole('button', { name: /^Overview$/i })).toBeInTheDocument();
@@ -230,7 +230,7 @@ describe('CRMDealDetailsWorkspace Component', () => {
 
     expect(screen.getByText(/Download Ostendo CSV/i)).toBeInTheDocument();
     expect(screen.getByText(/Copy Ostendo Matrix/i)).toBeInTheDocument();
-    expect(screen.getByText(/Export Deal Summary CSV/i)).toBeInTheDocument();
+    expect(screen.getByText(/Export (Deal|Quote) Summary CSV/i)).toBeInTheDocument();
   });
 
   it('Test 10 — renders Activity tab with filters and expandable chronology', () => {

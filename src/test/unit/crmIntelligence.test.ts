@@ -106,7 +106,7 @@ describe('CRMIntelligenceEngine', () => {
       const actions = CRMIntelligenceEngine.generateNextBestActions([mockAccount], [mockDeal], [], [], []);
       const stalledAction = actions.find(a => a.ruleId === 'RULE_STALLED_HIGH_VALUE');
       expect(stalledAction).toBeDefined();
-      expect(stalledAction?.title).toContain('Re-energise High Value Stalled Deal');
+      expect(stalledAction?.title).toMatch(/Re-energise High Value Stalled (Deal|Quote)/);
     });
 
     it('should flag hot leads with score >= 75 awaiting initial contact', () => {

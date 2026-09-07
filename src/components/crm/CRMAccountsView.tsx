@@ -1525,7 +1525,7 @@ export const CRMAccountsView: React.FC = () => {
                 <button
                   type="button"
                   role="tab"
-                  aria-label="Deals Tab"
+                  aria-label="Quotes Tab"
                   aria-selected={activeAccountTab === "deals"}
                   onClick={() => setActiveAccountTab("deals")}
                   className={`px-3 min-h-[44px] text-spec font-bold border-b-2 cursor-pointer transition-colors whitespace-nowrap flex items-center gap-1.5 ${
@@ -1534,7 +1534,7 @@ export const CRMAccountsView: React.FC = () => {
                       : "border-transparent text-ink-dim hover:text-body"
                   }`}
                 >
-                  <span>Deals</span>
+                  <span>Quotes</span>
                   <span className="px-1.5 py-0.2 rounded-full bg-line text-ink-dim text-[11px] font-mono">
                     {accountDeals.length}
                   </span>
@@ -1808,7 +1808,7 @@ export const CRMAccountsView: React.FC = () => {
                           onClick={() => setActiveAccountTab("deals")}
                           className="text-xs text-brand-deep font-bold hover:underline"
                         >
-                          View all deals →
+                          View all quotes →
                         </button>
                       </div>
 
@@ -1918,7 +1918,7 @@ export const CRMAccountsView: React.FC = () => {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div>
                         <h3 className="text-base font-bold text-body">Contacts</h3>
-                        <p className="text-spec text-ink-dim">The people you deal with at this customer.</p>
+                        <p className="text-spec text-ink-dim">The people you connect with at this customer.</p>
                       </div>
                       <div className="flex items-center gap-2">
                         {archivedContactsCount > 0 && (
@@ -2114,9 +2114,9 @@ export const CRMAccountsView: React.FC = () => {
                           onChange={(e) => setDealsFilter(e.target.value as any)}
                           className="p-1.5 text-xs border border-line rounded-edge bg-white text-body font-medium"
                         >
-                          <option value="active">Active Deals</option>
-                          <option value="closed">Closed Deals</option>
-                          <option value="all">All Deals</option>
+                          <option value="active">Active Quotes</option>
+                          <option value="closed">Closed Quotes</option>
+                          <option value="all">All Quotes</option>
                         </select>
 
                         <button
@@ -2146,8 +2146,8 @@ export const CRMAccountsView: React.FC = () => {
                     {accountDeals.length === 0 ? (
                       <div className="p-8 text-center bg-paper/40 rounded-panel border border-line text-spec text-ink-dim">
                         <Briefcase className="w-8 h-8 mx-auto text-ink-faint mb-2" />
-                        <p className="font-semibold text-body">No deals recorded for this account</p>
-                        <p className="text-xs mt-0.5">Create a deal to track quotation schedules and pipeline value.</p>
+                        <p className="font-semibold text-body">No quotes recorded for this account</p>
+                        <p className="text-xs mt-0.5">Create a quote to track quotation schedules and pipeline value.</p>
                       </div>
                     ) : (
                       <div className="divide-y divide-line border border-line rounded-panel overflow-hidden">
@@ -2870,7 +2870,7 @@ export const CRMAccountsView: React.FC = () => {
 
             <form onSubmit={handleCreateDealFromAccount} className="space-y-3">
               <div>
-                <label className="block text-spec font-bold mb-1">Deal / Tender Name *</label>
+                <label className="block text-spec font-bold mb-1">Quote / Tender Name *</label>
                 <input
                   required
                   value={newDealForm.name}

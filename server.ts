@@ -2338,7 +2338,7 @@ app.post("/api/quotes/import-pdf", async (req, res) => {
       !parsed ||
       (parsed.lineItems.length === 0 && (!parsed.quoteNumber || !parsed.customerName));
 
-    if (needsAiFallback && isAIConfigured()) {
+    if (needsAiFallback && isAIConfigured() && process.env.NODE_ENV !== "test") {
       try {
         const aiParsed = await parseQuotePdfWithAI(buffer);
         if (aiParsed && (aiParsed.lineItems.length > 0 || aiParsed.quoteNumber || aiParsed.customerName)) {

@@ -86,7 +86,7 @@ export function validateDealValue(options: ValidateDealValueOptions): DealValueV
       severity: "warning",
       effectiveTotal,
       effectiveUnitPrice,
-      warningMessage: `High Deal Value Notice: $${effectiveTotal.toLocaleString()} entered for 1 unit. If this is a multi-unit project total, please update the quantity.`,
+      warningMessage: `High Quote Value Notice: $${effectiveTotal.toLocaleString()} entered for 1 unit. If this is a multi-unit project total, please update the quantity.`,
       requiresConfirmation: true
     };
   }

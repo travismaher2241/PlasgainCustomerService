@@ -366,7 +366,7 @@ export const CRMEnquiryParserModal: React.FC = () => {
       const { oppId, accountId } = convertLead(lead.id);
       if (accountId) setSelectedAccountId(accountId);
       if (oppId) setSelectedOpportunityId(oppId);
-      showToast(`Created lead and converted to deal "${lead.leadName}"`, "success");
+      showToast(`Created lead and converted to quote "${lead.leadName}"`, "success");
     } catch (err: any) {
       console.error("[CRMEnquiryParserModal] Error converting lead:", err);
       showToast("Created lead, but failed to auto-convert to opportunity", "warning");
@@ -878,7 +878,7 @@ export const CRMEnquiryParserModal: React.FC = () => {
                   className="px-4 py-2 rounded-edge bg-brand-deep hover:bg-brand text-white text-xs sm:text-spec font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
                   <ArrowRight className="w-4 h-4" />
-                  <span>Create & Convert to Deal</span>
+                  <span>Create & Convert to Quote</span>
                 </button>
               </div>
             </>

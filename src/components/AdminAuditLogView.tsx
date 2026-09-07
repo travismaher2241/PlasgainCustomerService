@@ -222,7 +222,7 @@ export const AdminAuditLogView: React.FC = () => {
             </h1>
           </div>
           <p className="text-spec text-ink-dim mt-1">
-            Immutable, central log of all customer calls, account edits, deal movements, and records entered across team members.
+            Immutable, central log of all customer calls, account edits, quote movements, and records entered across team members.
           </p>
         </div>
 
@@ -265,7 +265,7 @@ export const AdminAuditLogView: React.FC = () => {
         <div className="p-3.5 bg-white rounded-panel border border-line shadow-2xs space-y-1">
           <span className="text-xs font-semibold text-amber-800 uppercase">Updates &amp; Movements</span>
           <p className="text-2xl font-extrabold text-amber-700">{stats.updates}</p>
-          <span className="text-[11px] text-amber-700/80 block">Deal &amp; contact revisions</span>
+          <span className="text-[11px] text-amber-700/80 block">Quote &amp; contact revisions</span>
         </div>
 
         <div className="p-3.5 bg-white rounded-panel border border-line shadow-2xs space-y-1">
@@ -319,7 +319,7 @@ export const AdminAuditLogView: React.FC = () => {
               <option value="CALL_LOGGED">Customer Calls Logged</option>
               <option value="CREATE">New Records Created</option>
               <option value="UPDATE">Record Details Updated</option>
-              <option value="STAGE_CHANGE">Deal Stage Changes</option>
+              <option value="STAGE_CHANGE">Quote Stage Changes</option>
               <option value="CONVERT">Lead Conversions</option>
               <option value="DELETE">Record Deletions</option>
             </select>
@@ -336,7 +336,7 @@ export const AdminAuditLogView: React.FC = () => {
               <option value="all">All Entity Types</option>
               <option value="Account">Accounts</option>
               <option value="Contact">Contacts</option>
-              <option value="Deal">Deals / Opportunities</option>
+              <option value="Deal">Quotes / Opportunities</option>
               <option value="Lead">Leads</option>
               <option value="Activity">Activities</option>
               <option value="Task">Tasks</option>
@@ -372,7 +372,7 @@ export const AdminAuditLogView: React.FC = () => {
                     {getActionBadge(log.action)}
                     <div className="flex items-center gap-1.5 text-spec font-bold text-body">
                       {getEntityIcon(log.entityType)}
-                      <span>{log.entityType}:</span>
+                      <span>{log.entityType === "Deal" ? "Quote" : log.entityType}:</span>
                       <span className="text-brand-deep">{log.entityName}</span>
                     </div>
                   </div>

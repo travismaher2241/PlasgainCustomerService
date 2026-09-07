@@ -2125,13 +2125,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const addCrmOpportunity = (opp: CRMOpportunity) => {
     setCrmOpportunities((prev) => [opp, ...prev]);
     saveDocToCloud("crm_deals", opp.id, opp);
-    recordAuditLog("CREATE", "Deal", opp.id, opp.name, `Created deal: ${opp.name} ($${opp.dealValue?.toLocaleString() || 0}) for ${opp.accountName}`);
+    recordAuditLog("CREATE", "Deal", opp.id, opp.name, `Created quote: ${opp.name} ($${opp.dealValue?.toLocaleString() || 0}) for ${opp.accountName}`);
     showToast(`Quote "${opp.name}" created.`, "success");
   };
 
   const updateCrmOpportunity = (id: string, updates: Partial<CRMOpportunity>) => {
     const existing = crmOpportunities.find((d) => d.id === id);
-    const dealName = updates.name || existing?.name || "Deal";
+    const dealName = updates.name || existing?.name || "Quote";
     const isStageMove = Boolean(updates.stageName && existing && updates.stageName !== existing.stageName);
     const oldStage = existing?.stageName || "";
     const newStage = updates.stageName || "";
@@ -2152,9 +2152,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     if (isStageMove) {
-      recordAuditLog("STAGE_CHANGE", "Deal", id, dealName, `Moved deal "${dealName}" from ${oldStage} -> ${newStage}`);
+      recordAuditLog("STAGE_CHANGE", "Deal", id, dealName, `Moved quote "${dealName}" from ${oldStage} -> ${newStage}`);
     } else {
-      recordAuditLog("UPDATE", "Deal", id, dealName, `Updated deal details for "${dealName}"`);
+      recordAuditLog("UPDATE", "Deal", id, dealName, `Updated quote details for "${dealName}"`);
     }
 
     showToast("Quote updated.", "success");

@@ -267,7 +267,7 @@ export const CRMCompetitorPricingView: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-bold text-body flex items-center gap-2">
-                  <span>Cross-Deal Competitor Intelligence & Positioning</span>
+                  <span>Cross-Quote Competitor Intelligence & Positioning</span>
                   <span className="px-1.5 py-0.5 text-3xs font-bold uppercase rounded-full bg-amber-100 text-amber-900 border border-amber-200">
                     Live Market Benchmarks
                   </span>

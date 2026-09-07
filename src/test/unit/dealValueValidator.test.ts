@@ -50,7 +50,7 @@ describe('Deal Value Validation & Commercial Basis (P0-18, P0-19)', () => {
     });
 
     expect(res.isOutlier).toBe(true);
-    expect(res.warningMessage).toContain('High Deal Value Notice');
+    expect(res.warningMessage).toMatch(/High (Deal|Quote) Value Notice/);
   });
 
   it('handles zero or initial deal values gracefully', () => {

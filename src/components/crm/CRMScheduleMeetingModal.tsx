@@ -408,7 +408,7 @@ export const CRMScheduleMeetingModal: React.FC = () => {
           {accountDeals.length > 0 && (
             <div>
               <label className="block text-spec font-bold uppercase text-ink-dim mb-1">
-                Linked Deal / Opportunity (Optional)
+                Linked Quote / Opportunity (Optional)
               </label>
               <div className="relative">
                 <Briefcase className="w-4 h-4 text-ink-dim absolute left-3 top-3" />
@@ -417,7 +417,7 @@ export const CRMScheduleMeetingModal: React.FC = () => {
                   onChange={(e) => setOpportunityId(e.target.value)}
                   className="w-full pl-9 pr-3 py-2 text-spec rounded-edge border border-line focus:outline-none focus:border-brand-deep bg-white"
                 >
-                  <option value="">-- No specific deal --</option>
+                  <option value="">-- No specific quote --</option>
                   {accountDeals.map((d) => (
                     <option key={d.id} value={d.id}>
                       {d.name} (${(d.dealValue || 0).toLocaleString()} · {d.stageName})

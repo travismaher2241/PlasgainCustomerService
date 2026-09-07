@@ -162,7 +162,7 @@ export function evaluateDealSilenceRisk(
     daysSilent,
     riskLevel: "None",
     reasonCategory: "Normal Cadence",
-    diagnosis: "Deal cadence is active with regular stakeholder touchpoints.",
+    diagnosis: "Quote cadence is active with regular stakeholder touchpoints.",
     recommendedAction: {
       actionLabel: "Review & Re-engage",
       actionType: "schedule_meeting",
@@ -228,7 +228,7 @@ export class CRMIntelligenceEngine {
             title: `Schedule Next Action for "${deal.name}"`,
             description: deal.nextActionDate && deal.nextActionDate < todayStr
               ? `Action "${deal.nextAction}" was due on ${deal.nextActionDate} and is overdue.`
-              : `This active deal has no scheduled next step.`,
+              : `This active quote has no scheduled next step.`,
             reason: `Every active sales opportunity must have an unambiguous forward momentum date.`,
             urgency: "Immediate",
             category: "Missing Action",
@@ -270,13 +270,13 @@ export class CRMIntelligenceEngine {
           actions.push({
             id: `nba-stalled-${deal.id}`,
             ruleId: "RULE_STALLED_HIGH_VALUE",
-            title: `Re-energise High Value Stalled Deal ($${(deal.dealValue || 0).toLocaleString()})`,
+            title: `Re-energise High Value Stalled Quote ($${(deal.dealValue || 0).toLocaleString()})`,
             description: silenceRisk.isSilent
               ? silenceRisk.diagnosis
               : `Opportunity has remained in ${deal.stageName} for ${deal.daysInCurrentStage} days without stage progression.`,
             reason: silenceRisk.isSilent
               ? silenceRisk.diagnosis
-              : `High value infrastructure deals risk losing project budget if not actively championed with council or head contractors.`,
+              : `High value infrastructure quotes risk losing project budget if not actively championed with council or head contractors.`,
             urgency: silenceRisk.riskLevel === "Critical" ? "Immediate" : "Today",
             category: silenceRisk.isSilent ? "Deal Silence Risk" : "Stalled Deal",
             relatedEntityType: "Opportunity",
@@ -421,7 +421,7 @@ export class CRMIntelligenceEngine {
         const daysToClose = this.daysBetween(todayStr, deal.expectedCloseDate);
         if (daysToClose <= 5 && deal.stageId !== "stage-negotiation" && deal.stageId !== "stage-won") {
           riskPoints += 2;
-          reasons.push(`Close date is in ${daysToClose} days but deal is only in ${deal.stageName}`);
+          reasons.push(`Close date is in ${daysToClose} days but quote is only in ${deal.stageName}`);
         }
       }
     }

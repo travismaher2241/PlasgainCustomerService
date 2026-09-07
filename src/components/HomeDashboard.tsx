@@ -230,7 +230,7 @@ export const HomeDashboard: React.FC = () => {
             {!hasAnyData
               ? "No sales activity has been logged yet."
               : totalNeedingAction === 0
-              ? "Everything is up to date across your accounts and deals."
+              ? "Everything is up to date across your accounts and quotes."
               : `${totalNeedingAction} item${totalNeedingAction === 1 ? " needs" : "s need"} attention today.`}
           </p>
         </div>
@@ -310,7 +310,7 @@ export const HomeDashboard: React.FC = () => {
           </div>
           <h2 className="text-base font-bold text-body">No sales records yet</h2>
           <p className="text-spec text-ink-dim max-w-md mx-auto">
-            Start by adding your first customer account or creating a quote to track projects and deals.
+            Start by adding your first customer account or creating a quote to track projects and quotes.
           </p>
           <div className="pt-2 flex justify-center gap-2">
             <button
