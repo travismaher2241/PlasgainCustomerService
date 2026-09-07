@@ -298,8 +298,17 @@ function sendAIUnavailable(res: express.Response, context: string, err: any) {
 
 // Model ladder. Keep DEFAULT_MODEL to a currently released id; the failover list
 // below is what actually protects us when a model id is retired or unavailable.
-const DEFAULT_MODEL = "gemini-2.5-flash";
-const FALLBACK_MODELS = ["gemini-2.0-flash"];
+//
+// GEMINI_MODEL overrides the default without a code change, so a model can be
+// pinned or rolled back from the environment if one regresses.
+//
+// Older generations stay on the ladder deliberately. generateContentWithFailover
+// treats 404/NOT_FOUND as "try the next model", so if a newer id is not enabled
+// for this key the workspace keeps working on an older one instead of erroring.
+export const DEFAULT_MODEL = (process.env.GEMINI_MODEL || "gemini-3.8-flash").trim();
+export const FALLBACK_MODELS = ["gemini-3.7-flash", "gemini-2.5-flash", "gemini-2.0-flash"].filter(
+  (m) => m !== DEFAULT_MODEL
+);
 
 // Multi-tier resilient Gemini model caller with automatic failover
 async function generateContentWithFailover(options: {
@@ -321,6 +330,8 @@ async function generateContentWithFailover(options: {
         contents: options.contents,
         config: options.config,
       });
+      // Non-enumerable so it never leaks into a JSON.stringify of the response.
+      Object.defineProperty(response, "__servedByModel", { value: model, enumerable: false });
       return response;
     } catch (err: any) {
       lastError = err;
@@ -606,11 +617,18 @@ app.get("/api/health/ai", async (_req, res) => {
       contents: "Reply with the single word: ok",
       config: { temperature: 0 }
     });
+    // Report the model that actually answered. Reporting DEFAULT_MODEL here hid
+    // the case where the preferred id was unavailable and a fallback served the
+    // request - the one thing this endpoint exists to reveal.
+    const servedBy = response?.__servedByModel || DEFAULT_MODEL;
     return res.json({
       configured: true,
       reachable: true,
       state: "Active",
-      model: DEFAULT_MODEL,
+      model: servedBy,
+      preferredModel: DEFAULT_MODEL,
+      usingFallback: servedBy !== DEFAULT_MODEL,
+      modelLadder: [DEFAULT_MODEL, ...FALLBACK_MODELS],
       detail: (response?.text || "").trim().slice(0, 40) || "Model responded."
     });
   } catch (err: any) {
