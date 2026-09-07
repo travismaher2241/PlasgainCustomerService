@@ -52,6 +52,20 @@ export function addDaysLocal(
 }
 
 /**
+ * Returns the YYYY-MM-DD string for the most recent past Thursday.
+ */
+export function getLastThursdayDateString(
+  baseDateInput: Date | string = new Date(),
+  timezone: string = DEFAULT_AUSTRALIAN_TIMEZONE
+): string {
+  const baseDate = typeof baseDateInput === "string" ? new Date(baseDateInput) : baseDateInput;
+  const currentDay = baseDate.getDay(); // 0 = Sun, 1 = Mon, ..., 4 = Thu, ..., 6 = Sat
+  const daysAgo = ((currentDay - 4 + 7) % 7) || 7;
+  const lastThu = new Date(baseDate.getTime() - daysAgo * 24 * 60 * 60 * 1000);
+  return getLocalDateInputValue(lastThu, timezone);
+}
+
+/**
  * Adds N business days (excluding Saturday and Sunday) in the target Australian timezone.
  */
 export function addBusinessDaysLocal(

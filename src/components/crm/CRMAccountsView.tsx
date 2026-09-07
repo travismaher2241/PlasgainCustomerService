@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Building2,
   Users,
@@ -65,8 +65,7 @@ import {
   CompetitorPricingStatus,
   AccountIntelligenceSummary
 } from "../../types/crm";
-import { resolveQuotingStage } from "../../data/crmMockData";
-import { getLocalDateInputValue, formatAuDate } from "../../utils/dateUtils";
+import { getLocalDateInputValue, formatAuDate, getLastThursdayDateString, addDaysLocal } from "../../utils/dateUtils";
 import { sortActivitiesChronological, formatActivityTimestamp } from "../../utils/activityUtils";
 import { CRMContactModal } from "./CRMContactModal";
 import { accountIntelligenceCache, generateAccountSourceHash } from "../../utils/accountIntelligenceCache";
@@ -109,7 +108,9 @@ export const CRMAccountsView: React.FC = () => {
     competitorPricingRecords,
     addCompetitorPricing,
     updateCompetitorPricing,
-    showToast
+    showToast,
+    nextBestActions,
+    updateMeetingDate
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -119,6 +120,11 @@ export const CRMAccountsView: React.FC = () => {
   const [activeAccountTab, setActiveAccountTab] = useState<
     "overview" | "contacts" | "deals" | "activity" | "brief" | "competitors"
   >("overview");
+
+  // Activity change date state
+  const [editingActivityDate, setEditingActivityDate] = useState<{ id: string; title: string; date: string; time?: string } | null>(null);
+  const [actNewDate, setActNewDate] = useState("");
+  const [actNewTime, setActNewTime] = useState("");
 
   // State for mobile drill-down
   const [mobileShowDetail, setMobileShowDetail] = useState(false);
@@ -193,12 +199,17 @@ export const CRMAccountsView: React.FC = () => {
     notes: ""
   });
 
+  // Inline Next Action editing state
+  const [isEditingNextAction, setIsEditingNextAction] = useState(false);
+  const [nextActionInput, setNextActionInput] = useState("");
+  const [nextActionDateInput, setNextActionDateInput] = useState("");
+
   // Account Edit Modal State
   const [isEditAccountModalOpen, setIsEditAccountModalOpen] = useState(false);
   const [editAccountForm, setEditAccountForm] = useState({
     name: "",
     tradingName: "",
-    accountType: "Prospect" as AccountType,
+    accountType: "Account" as AccountType,
     status: "Prospect" as AccountStatus,
     industry: "Government & Public Infrastructure",
     territory: "VIC/TAS" as Account["territory"],
@@ -208,7 +219,9 @@ export const CRMAccountsView: React.FC = () => {
     website: "",
     notes: "",
     customerRelationshipStatus: "Active" as CustomerRelationshipStatus,
-    prospectStage: "Identified" as ProspectStage
+    prospectStage: "Identified" as ProspectStage,
+    nextAction: "",
+    nextActionDate: ""
   });
 
   // AI Account Summary / Account Brief
@@ -248,11 +261,13 @@ export const CRMAccountsView: React.FC = () => {
     notes: string;
     customerRelationshipStatus: CustomerRelationshipStatus;
     prospectStage: ProspectStage;
+    nextAction: string;
+    nextActionDate: string;
   }>({
     name: "",
     tradingName: "",
-    accountType: "Prospect",
-    status: "Prospect",
+    accountType: "Account",
+    status: "Customer",
     industry: "Government & Public Infrastructure",
     territory: "VIC/TAS",
     accountOwner: currentUser.name,
@@ -261,7 +276,9 @@ export const CRMAccountsView: React.FC = () => {
     website: "",
     notes: "",
     customerRelationshipStatus: "Active",
-    prospectStage: "Identified"
+    prospectStage: "Identified",
+    nextAction: "",
+    nextActionDate: ""
   });
 
   // Contact modal state
@@ -355,11 +372,15 @@ export const CRMAccountsView: React.FC = () => {
     if (accountTypeFilter === "all") {
       matchesTypeAndStatus = true;
     } else if (accountTypeFilter === "Prospect") {
-      const isProspect = (acc.accountType || "Prospect") === "Prospect";
+      const isProspect = (acc.accountType || "Account") === "Prospect";
       const matchesStage = statusFilter === "all" || (acc.prospectStage || "Identified") === statusFilter;
       matchesTypeAndStatus = isProspect && matchesStage;
+    } else if (accountTypeFilter === "Account") {
+      const isAccount = acc.accountType === "Account" || acc.accountType === "Customer" || !acc.accountType;
+      const matchesStatus = statusFilter === "all" || (acc.customerRelationshipStatus || "Active") === statusFilter;
+      matchesTypeAndStatus = isAccount && matchesStatus;
     } else {
-      const matchesType = (acc.accountType || "Prospect") === accountTypeFilter;
+      const matchesType = acc.accountType === accountTypeFilter;
       const matchesStatus = statusFilter === "all" || (acc.customerRelationshipStatus || "Active") === statusFilter;
       matchesTypeAndStatus = matchesType && matchesStatus;
     }
@@ -399,6 +420,117 @@ export const CRMAccountsView: React.FC = () => {
     "newest"
   );
   const accountCompetitorPricing = competitorPricingRecords.filter((r) => r.accountId === selectedAccount?.id);
+
+  // Dynamic Next Step resolution cascade for selected account
+  const accountNextStepInfo = useMemo(() => {
+    if (!selectedAccount) return null;
+
+    // 1. Explicit account next action
+    if (selectedAccount.nextAction && selectedAccount.nextAction.trim()) {
+      return {
+        text: selectedAccount.nextAction.trim(),
+        date: selectedAccount.nextActionDate,
+        type: "account" as const,
+        badgeLabel: "Account Action",
+        badgeStyle: "bg-brand-wash text-brand-deep border-brand-edge/60"
+      };
+    }
+
+    // 2. AI Next Best Action recommendation
+    const nba = nextBestActions?.find(
+      (item) => item.relatedEntityId === selectedAccount.id || (item.relatedEntityType === "Account" && item.relatedEntityName === selectedAccount.name)
+    );
+    if (nba) {
+      const description = nba.description ? ` — ${nba.description}` : "";
+      return {
+        text: `${nba.title}${description}`,
+        date: nba.urgency === "Today" ? "Due Today" : nba.urgency === "Immediate" ? "Immediate Priority" : undefined,
+        type: "nba" as const,
+        badgeLabel: "AI Recommendation",
+        badgeStyle: "bg-indigo-50 text-indigo-700 border-indigo-200"
+      };
+    }
+
+    // 3. Open task or scheduled meeting
+    const openTasks = tasks
+      .filter(
+        (t) =>
+          t.accountId === selectedAccount.id &&
+          t.status !== "Completed" &&
+          t.status !== "Cancelled"
+      )
+      .sort((a, b) => (a.dueDate || "").localeCompare(b.dueDate || ""));
+
+    if (openTasks.length > 0) {
+      const task = openTasks[0];
+      const prefix = task.type === "Meeting" ? "Meeting: " : task.type === "Call" ? "Call: " : "Task: ";
+      const formattedDate = task.dueDate ? `${task.dueDate}${task.dueTime ? ` at ${task.dueTime}` : ""}` : undefined;
+      return {
+        text: `${prefix}${task.title}${task.location ? ` (${task.location})` : ""}`,
+        date: formattedDate,
+        type: "task" as const,
+        badgeLabel: task.type === "Meeting" ? "Scheduled Meeting" : "Scheduled Task",
+        badgeStyle: "bg-amber-50 text-amber-800 border-amber-200"
+      };
+    }
+
+    // 4. Open opportunity next action
+    const openDealWithNextAction = accountDeals.find(
+      (deal) =>
+        deal.nextAction &&
+        deal.nextAction.trim() &&
+        !deal.stageName?.toLowerCase().includes("won") &&
+        !deal.stageName?.toLowerCase().includes("lost")
+    );
+    if (openDealWithNextAction) {
+      return {
+        text: `${openDealWithNextAction.name ? `${openDealWithNextAction.name}: ` : ""}${openDealWithNextAction.nextAction!.trim()}`,
+        date: openDealWithNextAction.expectedCloseDate ? `Target Close: ${openDealWithNextAction.expectedCloseDate}` : undefined,
+        type: "deal" as const,
+        badgeLabel: "Opportunity Next Step",
+        badgeStyle: "bg-emerald-50 text-emerald-800 border-emerald-200"
+      };
+    }
+
+    // 5. Honest empty state
+    return {
+      text: "No next action scheduled",
+      date: undefined,
+      type: "none" as const,
+      badgeLabel: "No Action Set",
+      badgeStyle: "bg-line/40 text-ink-dim border-line"
+    };
+  }, [selectedAccount, nextBestActions, tasks, accountDeals]);
+
+  // Account list row next action preview helper
+  const getAccountNextActionPreview = (acc: Account) => {
+    if (acc.nextAction && acc.nextAction.trim()) {
+      return acc.nextAction.trim();
+    }
+    const accTasks = tasks.filter(
+      (t) => t.accountId === acc.id && t.status !== "Completed" && t.status !== "Cancelled"
+    );
+    if (accTasks.length > 0) {
+      const task = accTasks[0];
+      return `${task.type === "Meeting" ? "Meeting: " : ""}${task.title}`;
+    }
+    const nba = nextBestActions?.find((item) => item.relatedEntityId === acc.id);
+    if (nba) {
+      return nba.title;
+    }
+    const opp = crmOpportunities.find(
+      (o) =>
+        o.accountId === acc.id &&
+        o.nextAction &&
+        o.nextAction.trim() &&
+        !o.stageName?.toLowerCase().includes("won") &&
+        !o.stageName?.toLowerCase().includes("lost")
+    );
+    if (opp?.nextAction) {
+      return opp.nextAction.trim();
+    }
+    return "Log follow-up activity";
+  };
 
   // Fetch Account Brief
   const handleFetchAiSummary = async (acc: Account, forceRefresh = false) => {
@@ -580,6 +712,8 @@ export const CRMAccountsView: React.FC = () => {
       website: newAccountForm.website,
       notes: newAccountForm.notes,
       tags: [newAccountForm.accountType],
+      nextAction: newAccountForm.nextAction.trim() || undefined,
+      nextActionDate: newAccountForm.nextActionDate || undefined,
       metrics: {
         openPipelineValue: 0,
         totalDealsWon: 0,
@@ -594,6 +728,23 @@ export const CRMAccountsView: React.FC = () => {
     // re-select the account the app had just created.
     setMobileShowDetail(true);
     setIsNewAccountModalOpen(false);
+    setNewAccountForm({
+      name: "",
+      tradingName: "",
+      accountType: "Account",
+      status: "Customer",
+      industry: "Government & Public Infrastructure",
+      territory: "VIC/TAS",
+      accountOwner: currentUser.name,
+      mainPhone: "",
+      generalEmail: "",
+      website: "",
+      notes: "",
+      customerRelationshipStatus: "Active",
+      prospectStage: "Identified",
+      nextAction: "",
+      nextActionDate: ""
+    });
     showToast(`Added "${newAcc.name}".`, "success");
   };
 
@@ -614,7 +765,9 @@ export const CRMAccountsView: React.FC = () => {
       website: selectedAccount.website || "",
       notes: selectedAccount.notes || "",
       customerRelationshipStatus: selectedAccount.customerRelationshipStatus || "Active",
-      prospectStage: selectedAccount.prospectStage || "Identified"
+      prospectStage: selectedAccount.prospectStage || "Identified",
+      nextAction: selectedAccount.nextAction || "",
+      nextActionDate: selectedAccount.nextActionDate || ""
     });
     setIsEditAccountModalOpen(true);
   };
@@ -639,11 +792,35 @@ export const CRMAccountsView: React.FC = () => {
       mainPhone: editAccountForm.mainPhone,
       generalEmail: editAccountForm.generalEmail,
       website: editAccountForm.website,
-      notes: editAccountForm.notes
+      notes: editAccountForm.notes,
+      nextAction: editAccountForm.nextAction.trim() || undefined,
+      nextActionDate: editAccountForm.nextActionDate || undefined
     });
 
     setIsEditAccountModalOpen(false);
     showToast(`Saved changes to "${editAccountForm.name}".`, "success");
+  };
+
+  // Inline Next Action editing handlers
+  const handleStartEditNextAction = () => {
+    if (!selectedAccount) return;
+    setNextActionInput(selectedAccount.nextAction || "");
+    setNextActionDateInput(selectedAccount.nextActionDate || "");
+    setIsEditingNextAction(true);
+  };
+
+  const handleSaveNextAction = () => {
+    if (!selectedAccount) return;
+    updateAccount(selectedAccount.id, {
+      nextAction: nextActionInput.trim() || undefined,
+      nextActionDate: nextActionDateInput || undefined
+    });
+    setIsEditingNextAction(false);
+    showToast("Account next step updated.", "success");
+  };
+
+  const handleCancelEditNextAction = () => {
+    setIsEditingNextAction(false);
   };
 
   // Handle New Deal Creation (Context preselected!)
@@ -999,10 +1176,9 @@ export const CRMAccountsView: React.FC = () => {
                 className="w-full p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-semibold"
               >
                 <option value="all">All Types</option>
-                <option value="Customer">Customer</option>
+                <option value="Account">Account</option>
                 <option value="Prospect">Prospect</option>
                 <option value="Council">Council</option>
-                <option value="Account">Account</option>
               </select>
 
               {accountTypeFilter === "Prospect" && (
@@ -1080,8 +1256,8 @@ export const CRMAccountsView: React.FC = () => {
                             {acc.territory}
                           </span>
                         </div>
-                        <p className="text-[11px] text-brand-deep font-medium truncate mt-1">
-                          Next: {acc.nextAction || "Log follow-up activity"}
+                        <p className="text-[11px] text-brand-deep font-medium truncate mt-1" title={`Next: ${getAccountNextActionPreview(acc)}`}>
+                          Next: {getAccountNextActionPreview(acc)}
                         </p>
                       </div>
 
@@ -1461,18 +1637,127 @@ export const CRMAccountsView: React.FC = () => {
                     )}
 
                     {/* CURRENT PRIORITY / NEXT BEST ACTION */}
-                    <div className="bg-brand-wash/40 border border-brand-edge/60 rounded-panel p-4 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-brand-deep">
-                          Current Priority &amp; Next Step
-                        </span>
-                        <span className="text-[11px] font-mono text-ink-dim">
-                          {selectedAccount.lastInteractionDate ? `Last contact ${formatAuDate(selectedAccount.lastInteractionDate)}` : "Recent"}
-                        </span>
+                    <div className="bg-brand-wash/40 border border-brand-edge/60 rounded-panel p-4 space-y-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold uppercase tracking-wider text-brand-deep">
+                            Current Priority &amp; Next Step
+                          </span>
+                          {accountNextStepInfo && (
+                            <span
+                              className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full border ${accountNextStepInfo.badgeStyle}`}
+                            >
+                              {accountNextStepInfo.badgeLabel}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[11px] font-mono text-ink-dim">
+                            {selectedAccount.lastInteractionDate ? `Last contact ${formatAuDate(selectedAccount.lastInteractionDate)}` : "Recent"}
+                          </span>
+                          {!isEditingNextAction && (
+                            <button
+                              type="button"
+                              onClick={handleStartEditNextAction}
+                              className="px-2 py-0.5 hover:bg-white/80 rounded text-brand-deep transition-colors text-xs flex items-center gap-1 font-medium border border-transparent hover:border-brand-edge/40"
+                              title="Edit account next step"
+                              aria-label="Edit Next Step"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                              <span className="text-[11px]">Edit Next Step</span>
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-body font-bold text-base">
-                        {selectedAccount.nextAction || "Review open tender requirements and schedule technical design consultation."}
-                      </p>
+
+                      {isEditingNextAction ? (
+                        <form
+                          onSubmit={(e) => {
+                            e.preventDefault();
+                            handleSaveNextAction();
+                          }}
+                          className="space-y-3 bg-white p-3 rounded-edge border border-brand-edge/60 shadow-sm"
+                        >
+                          <div>
+                            <label className="block text-xs font-bold text-ink-dim mb-1">Next Action / Priority</label>
+                            <input
+                              type="text"
+                              autoFocus
+                              value={nextActionInput}
+                              onChange={(e) => setNextActionInput(e.target.value)}
+                              placeholder="e.g. Schedule technical review or issue revised photometric report"
+                              className="w-full p-2 border border-line rounded-edge bg-white text-body text-sm focus:outline-none focus:border-brand"
+                            />
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1">
+                              <label className="block text-xs font-bold text-ink-dim mb-1">Target Date (Optional)</label>
+                              <input
+                                type="date"
+                                value={nextActionDateInput}
+                                onChange={(e) => setNextActionDateInput(e.target.value)}
+                                className="w-full p-1.5 border border-line rounded-edge bg-white text-spec text-xs focus:outline-none focus:border-brand"
+                              />
+                            </div>
+                            <div className="flex items-end gap-2 pt-4">
+                              <button
+                                type="button"
+                                onClick={handleCancelEditNextAction}
+                                className="px-3 py-1.5 border border-line rounded-edge text-xs font-medium hover:bg-paper"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="submit"
+                                className="px-3 py-1.5 bg-brand-deep hover:bg-brand text-white text-xs font-bold rounded-edge flex items-center gap-1 shadow-sm"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                Save
+                              </button>
+                            </div>
+                          </div>
+                        </form>
+                      ) : (
+                        <div className="space-y-2">
+                          {accountNextStepInfo && accountNextStepInfo.type !== "none" ? (
+                            <>
+                              <p className="text-body font-bold text-base leading-snug">
+                                {accountNextStepInfo.text}
+                              </p>
+                              {accountNextStepInfo.date && (
+                                <div className="flex items-center gap-1.5 text-xs text-brand-deep font-medium">
+                                  <Calendar className="w-3.5 h-3.5" />
+                                  <span>{accountNextStepInfo.date}</span>
+                                </div>
+                              )}
+                            </>
+                          ) : (
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1">
+                              <p className="text-ink-dim italic text-sm">
+                                No next action scheduled for this account.
+                              </p>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={handleStartEditNextAction}
+                                  className="px-2.5 py-1 text-xs font-bold bg-white border border-brand-edge text-brand-deep rounded-edge hover:bg-brand-wash transition-colors flex items-center gap-1 shadow-xs"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                  Set Next Step
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openQuickLog({ type: "call", accountId: selectedAccount.id })}
+                                  className="px-2.5 py-1 text-xs font-medium bg-white border border-line text-body rounded-edge hover:bg-paper transition-colors flex items-center gap-1"
+                                >
+                                  <PhoneCall className="w-3.5 h-3.5" />
+                                  Log Activity
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* ACCUMULATED CRM KNOWLEDGE BASE */}
@@ -1995,7 +2280,29 @@ export const CRMAccountsView: React.FC = () => {
                                             Logged by <strong className="text-brand-deep">{act.performedBy || "Sales Rep"}</strong>
                                           </span>
                                         </div>
-                                        <span className="font-mono text-ink-dim">{formatActivityTimestamp(act.timestamp)}</span>
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-mono text-ink-dim">{formatActivityTimestamp(act.timestamp)}</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const d = act.metadata?.meetingDate || (act.timestamp ? act.timestamp.split("T")[0] : getLocalDateInputValue());
+                                                const t = act.metadata?.meetingTime || "10:00 AM";
+                                                setEditingActivityDate({
+                                                  id: act.id,
+                                                  title: act.title,
+                                                  date: d,
+                                                  time: t
+                                                });
+                                                setActNewDate(d);
+                                                setActNewTime(t);
+                                              }}
+                                              aria-label={`Change date for ${act.title}`}
+                                              className="text-[11px] font-semibold text-brand-deep hover:underline cursor-pointer flex items-center gap-0.5"
+                                            >
+                                              <Calendar className="w-3 h-3" />
+                                              <span>Change Date</span>
+                                            </button>
+                                          </div>
                                       </div>
 
                                       <p className="font-bold text-body">{act.title}</p>
@@ -2708,10 +3015,9 @@ export const CRMAccountsView: React.FC = () => {
                     }}
                     className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
                   >
-                    <option value="Prospect">Prospect</option>
-                    <option value="Customer">Customer</option>
-                    <option value="Council">Council</option>
                     <option value="Account">Account</option>
+                    <option value="Prospect">Prospect</option>
+                    <option value="Council">Council</option>
                   </select>
                 </div>
 
@@ -2767,6 +3073,28 @@ export const CRMAccountsView: React.FC = () => {
                       <option>SA</option>
                     <option>National</option>
                   </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-spec font-bold mb-1">Next Action / Priority</label>
+                  <input
+                    type="text"
+                    value={newAccountForm.nextAction}
+                    onChange={(e) => setNewAccountForm({ ...newAccountForm, nextAction: e.target.value })}
+                    placeholder="e.g. Schedule introductory meeting"
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-spec font-bold mb-1">Next Action Date</label>
+                  <input
+                    type="date"
+                    value={newAccountForm.nextActionDate}
+                    onChange={(e) => setNewAccountForm({ ...newAccountForm, nextActionDate: e.target.value })}
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec text-xs"
+                  />
                 </div>
               </div>
               <div className="flex justify-end gap-2 pt-3 border-t border-line">
@@ -2825,7 +3153,6 @@ export const CRMAccountsView: React.FC = () => {
                   <select
                     required
                     aria-label="Edit Account Type"
-                    value={editAccountForm.accountType}
                     onChange={(e) => {
                       const nextType = e.target.value as AccountType;
                       setEditAccountForm((prev) => ({
@@ -2836,12 +3163,12 @@ export const CRMAccountsView: React.FC = () => {
                         customerRelationshipStatus: nextType !== "Prospect" ? (prev.customerRelationshipStatus || "Active") : prev.customerRelationshipStatus
                       }));
                     }}
+                    value={editAccountForm.accountType === "Customer" ? "Account" : editAccountForm.accountType}
                     className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
                   >
-                    <option value="Prospect">Prospect</option>
-                    <option value="Customer">Customer</option>
-                    <option value="Council">Council</option>
                     <option value="Account">Account</option>
+                    <option value="Prospect">Prospect</option>
+                    <option value="Council">Council</option>
                   </select>
                 </div>
 
@@ -2932,6 +3259,28 @@ export const CRMAccountsView: React.FC = () => {
                   placeholder="e.g. https://www.melton.vic.gov.au"
                   className="w-full p-2 border border-line rounded-edge bg-white text-spec"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-spec font-bold mb-1">Next Action / Priority</label>
+                  <input
+                    type="text"
+                    value={editAccountForm.nextAction}
+                    onChange={(e) => setEditAccountForm({ ...editAccountForm, nextAction: e.target.value })}
+                    placeholder="e.g. Issue revised photometric design"
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-spec font-bold mb-1">Next Action Date</label>
+                  <input
+                    type="date"
+                    value={editAccountForm.nextActionDate}
+                    onChange={(e) => setEditAccountForm({ ...editAccountForm, nextActionDate: e.target.value })}
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec text-xs"
+                  />
+                </div>
               </div>
 
               <div>
@@ -3129,6 +3478,135 @@ export const CRMAccountsView: React.FC = () => {
               </div>
             </form>
           </section>
+        </div>
+      )}
+
+      {/* CHANGE ACTIVITY DATE MODAL */}
+      {editingActivityDate && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="change-activity-date-title"
+          className="fixed inset-0 z-50 bg-chrome/60 backdrop-blur-xs p-4 flex items-center justify-center animate-in fade-in duration-150"
+        >
+          <div className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-line space-y-4">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-brand-wash text-brand-deep rounded-edge">
+                  <Calendar className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 id="change-activity-date-title" className="text-base font-bold text-body">
+                    Change Activity Date
+                  </h3>
+                  <p className="text-xs text-ink-dim truncate max-w-[260px]">
+                    {editingActivityDate.title}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingActivityDate(null)}
+                aria-label="Close"
+                className="text-ink-faint hover:text-ink-dim p-1 rounded-edge cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5">
+              <div>
+                <label className="block text-[11px] font-bold text-ink-dim uppercase mb-1.5">
+                  Quick Presets
+                </label>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setActNewDate(getLocalDateInputValue())}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded border cursor-pointer transition-colors ${
+                      actNewDate === getLocalDateInputValue()
+                        ? "bg-brand-deep text-white border-brand-deep font-bold"
+                        : "bg-paper text-ink-dim border-line hover:border-ink-dim"
+                    }`}
+                  >
+                    Today
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActNewDate(addDaysLocal(-1))}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded border cursor-pointer transition-colors ${
+                      actNewDate === addDaysLocal(-1)
+                        ? "bg-brand-deep text-white border-brand-deep font-bold"
+                        : "bg-paper text-ink-dim border-line hover:border-ink-dim"
+                    }`}
+                  >
+                    Yesterday
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActNewDate(getLastThursdayDateString())}
+                    className={`px-2.5 py-1 text-xs font-semibold rounded border cursor-pointer transition-colors ${
+                      actNewDate === getLastThursdayDateString()
+                        ? "bg-brand-deep text-white border-brand-deep font-bold"
+                        : "bg-paper text-ink-dim border-line hover:border-ink-dim"
+                    }`}
+                  >
+                    Last Thursday
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-ink-dim uppercase mb-1">
+                  Activity Date *
+                </label>
+                <input
+                  type="date"
+                  aria-label="New Activity Date"
+                  value={actNewDate}
+                  onChange={(e) => setActNewDate(e.target.value)}
+                  required
+                  className="w-full p-2 text-spec rounded-edge border border-line bg-white font-sans focus:outline-none focus:border-brand-deep"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-ink-dim uppercase mb-1">
+                  Time (Optional)
+                </label>
+                <input
+                  type="text"
+                  aria-label="New Activity Time"
+                  placeholder="e.g. 10:00 AM or 2:30 PM"
+                  value={actNewTime}
+                  onChange={(e) => setActNewTime(e.target.value)}
+                  className="w-full p-2 text-spec rounded-edge border border-line bg-white font-sans focus:outline-none focus:border-brand-deep"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 border-t border-line">
+              <button
+                type="button"
+                onClick={() => {
+                  if (actNewDate) {
+                    updateMeetingDate(editingActivityDate.id, actNewDate, actNewTime);
+                    setEditingActivityDate(null);
+                  }
+                }}
+                className="flex-1 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge shadow-xs transition-colors cursor-pointer"
+              >
+                Save Date
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingActivityDate(null)}
+                className="px-4 py-2 bg-paper hover:bg-line text-ink font-semibold text-spec rounded-edge border border-line transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -421,6 +421,8 @@ export interface CRMActivity {
     previousStage?: string;
     newStage?: string;
     emailSubject?: string;
+    meetingDate?: string;
+    meetingTime?: string;
     sentiment?: "Positive" | "Neutral" | "Negative" | "Concerned";
   };
 }
@@ -479,6 +481,8 @@ export interface CRMTask {
   meetingFormat?: "In Person" | "Teams/Zoom" | "Phone" | "Site Visit";
   durationMinutes?: number;
   agenda?: string;
+  outcome?: string;
+  sourceActivityId?: string;
 }
 
 export interface MeetingPreparationPlan {

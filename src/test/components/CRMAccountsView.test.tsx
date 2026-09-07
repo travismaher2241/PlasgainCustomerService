@@ -385,13 +385,13 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(screen.getAllByText("Apex Civil Contracting").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("Pioneer Roadworks").length).toBeGreaterThanOrEqual(1);
 
-    // 2. Select Customer -> reveals "All Relationship Statuses"
-    fireEvent.change(typeFilter, { target: { value: "Customer" } });
+    // 2. Select Account -> reveals "All Relationship Statuses"
+    fireEvent.change(typeFilter, { target: { value: "Account" } });
     const relStatusFilter = screen.getByLabelText(/Filter by relationship status/i);
     expect(relStatusFilter).toBeInTheDocument();
     expect(screen.queryByLabelText(/Filter by prospect stage/i)).not.toBeInTheDocument();
 
-    // Verify Customer filter contains ONLY Customer Relationship Status options
+    // Verify Account filter contains ONLY Customer Relationship Status options
     const relOptions = Array.from(relStatusFilter.querySelectorAll("option")).map((o) => o.textContent);
     expect(relOptions).toEqual([
       "All Relationship Statuses",
@@ -404,7 +404,7 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(relOptions).not.toContain("Identified");
     expect(relOptions).not.toContain("Engaged");
 
-    // Filter Customer + Developing
+    // Filter Account + Developing
     fireEvent.change(relStatusFilter, { target: { value: "Developing" } });
     expect(screen.queryByText("Brisbane City Council")).not.toBeInTheDocument();
     expect(screen.getAllByText("Sydney Metro Water").length).toBeGreaterThanOrEqual(1);
@@ -468,12 +468,25 @@ describe("CRMAccountsView Component (Step 5)", () => {
     const typeSelect = within(dialog).getByLabelText(/Account Type/i);
     expect(typeSelect).toBeInTheDocument();
 
-    // Initially Prospect -> shows Prospect Stage
+    // Verify there are exactly 3 options and "Customer" is NOT an option
+    const options = within(typeSelect).getAllByRole("option");
+    expect(options).toHaveLength(3);
+    expect(within(typeSelect).queryByRole("option", { name: /^Customer$/i })).not.toBeInTheDocument();
+    expect(within(typeSelect).getByRole("option", { name: /^Account$/i })).toBeInTheDocument();
+    expect(within(typeSelect).getByRole("option", { name: /^Prospect$/i })).toBeInTheDocument();
+    expect(within(typeSelect).getByRole("option", { name: /^Council$/i })).toBeInTheDocument();
+
+    // Initially Account -> shows Customer Relationship Status
+    expect(within(dialog).getByLabelText(/Customer Relationship Status/i)).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/Prospect Stage/i)).not.toBeInTheDocument();
+
+    // Switch Account Type to Prospect -> shows Prospect Stage
+    fireEvent.change(typeSelect, { target: { value: "Prospect" } });
     expect(within(dialog).getByLabelText(/Prospect Stage/i)).toBeInTheDocument();
     expect(within(dialog).queryByLabelText(/Customer Relationship Status/i)).not.toBeInTheDocument();
 
-    // Switch Account Type to Customer -> shows Customer Relationship Status
-    fireEvent.change(typeSelect, { target: { value: "Customer" } });
+    // Switch back to Account -> shows Customer Relationship Status
+    fireEvent.change(typeSelect, { target: { value: "Account" } });
     expect(within(dialog).queryByLabelText(/Prospect Stage/i)).not.toBeInTheDocument();
     expect(within(dialog).getByLabelText(/Customer Relationship Status/i)).toBeInTheDocument();
 
@@ -499,13 +512,17 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(screen.getByRole("dialog", { name: /Edit Account/i })).toBeInTheDocument();
     const editTypeSelect = screen.getByLabelText(/Edit Account Type/i);
 
+    // Verify Edit select also has only Account, Prospect, Council
+    expect(within(editTypeSelect).queryByRole("option", { name: /^Customer$/i })).not.toBeInTheDocument();
+    expect(within(editTypeSelect).getAllByRole("option")).toHaveLength(3);
+
     // Switch to Prospect
     fireEvent.change(editTypeSelect, { target: { value: "Prospect" } });
     expect(screen.getByLabelText(/Edit Prospect Stage/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Edit Customer Relationship Status/i)).not.toBeInTheDocument();
 
-    // Switch back to Customer
-    fireEvent.change(editTypeSelect, { target: { value: "Customer" } });
+    // Switch back to Account
+    fireEvent.change(editTypeSelect, { target: { value: "Account" } });
     expect(screen.queryByLabelText(/Edit Prospect Stage/i)).not.toBeInTheDocument();
     expect(screen.getByLabelText(/Edit Customer Relationship Status/i)).toBeInTheDocument();
 
@@ -513,4 +530,90 @@ describe("CRMAccountsView Component (Step 5)", () => {
 
     expect(screen.getByText(/Account Type:/i)).toBeInTheDocument();
   });
+
+  it("Test 15 — Displays honest empty state when an account has no next action, instead of hardcoded fallback", () => {
+    const emptyAccount = {
+      id: "acc-no-action",
+      name: "Mildura Rural City Council",
+      accountType: "Council",
+      status: "Customer",
+      industry: "Government & Public Infrastructure",
+      territory: "VIC/TAS",
+      accountOwner: "Travis Maher",
+      customerRelationshipStatus: "Active",
+      nextAction: undefined,
+      nextActionDate: undefined
+    };
+
+    render(
+      <AppProvider>
+        <AccountsTestWrapper initialAccounts={[emptyAccount]} />
+      </AppProvider>
+    );
+
+    // Verify hardcoded fallback is NOT rendered anywhere
+    expect(
+      screen.queryByText(/Review open tender requirements and schedule technical design consultation/i)
+    ).not.toBeInTheDocument();
+
+    // Verify honest empty state is rendered
+    expect(screen.getByText(/No next action scheduled for this account/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Set Next Step/i })).toBeInTheDocument();
+  });
+
+  it("Test 16 — Inline editing allows setting and saving Next Action directly from the priority card", () => {
+    const emptyAccount = {
+      id: "acc-inline-test",
+      name: "Ballarat City Council",
+      accountType: "Council",
+      status: "Customer",
+      industry: "Government & Public Infrastructure",
+      territory: "VIC/TAS",
+      accountOwner: "Travis Maher",
+      customerRelationshipStatus: "Active",
+      nextAction: undefined
+    };
+
+    render(
+      <AppProvider>
+        <AccountsTestWrapper initialAccounts={[emptyAccount]} />
+      </AppProvider>
+    );
+
+    // Click "Set Next Step" button
+    fireEvent.click(screen.getByRole("button", { name: /Set Next Step/i }));
+
+    // Input new next action
+    const input = screen.getByPlaceholderText(/Schedule technical review or issue revised/i);
+    fireEvent.change(input, { target: { value: "Submit revised tender photometric layout" } });
+
+    // Click Save
+    fireEvent.click(screen.getByRole("button", { name: /Save/i }));
+
+    // Verify it is updated and displayed with Account Action badge
+    expect(screen.getByText("Submit revised tender photometric layout")).toBeInTheDocument();
+    expect(screen.getByText("Account Action")).toBeInTheDocument();
+  });
+
+  it("Test 17 — Editing Next Action via Edit Account Modal saves successfully", () => {
+    render(
+      <AppProvider>
+        <AccountsTestWrapper />
+      </AppProvider>
+    );
+
+    // Open Edit modal using header Edit button
+    const editBtn = screen.getAllByRole("button", { name: /^Edit$/i })[0];
+    fireEvent.click(editBtn);
+
+    expect(screen.getByRole("dialog", { name: /Edit Account/i })).toBeInTheDocument();
+
+    const nextActionInput = screen.getByPlaceholderText(/e\.g\. Issue revised photometric design/i);
+    fireEvent.change(nextActionInput, { target: { value: "Finalize engineering compliance signoff" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    expect(screen.getByText("Finalize engineering compliance signoff")).toBeInTheDocument();
+  });
 });
+

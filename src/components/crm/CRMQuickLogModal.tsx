@@ -17,7 +17,7 @@ import {
 import { useApp } from "../../context/AppContext";
 import { useDialogDismiss } from "../../utils/useDialogDismiss";
 import { ActivityType, Account, CRMContact, CRMOpportunity, ActivityParticipant, ContactNotableEvent } from "../../types/crm";
-import { addDaysLocal } from "../../utils/dateUtils";
+import { addDaysLocal, getLocalDateInputValue, getLastThursdayDateString } from "../../utils/dateUtils";
 import { detectDuplicateContact, DuplicateMatchResult } from "../../utils/duplicateDetector";
 
 export const OUTCOMES_BY_TYPE: Record<"call" | "email" | "meeting", string[]> = {
@@ -57,6 +57,8 @@ export const CRMQuickLogModal: React.FC = () => {
   const [outcomeError, setOutcomeError] = useState(false);
   const [scheduleFollowUp, setScheduleFollowUp] = useState(false);
   const [followUpDate, setFollowUpDate] = useState(() => addDaysLocal(3));
+  const [activityDate, setActivityDate] = useState(() => getLocalDateInputValue());
+  const [activityTime, setActivityTime] = useState("10:00 AM");
 
   // Inline Contact Creation State
   const [isInlineContactOpen, setIsInlineContactOpen] = useState(false);
@@ -150,6 +152,8 @@ export const CRMQuickLogModal: React.FC = () => {
       setOutcomeError(false);
       setScheduleFollowUp(false);
       setFollowUpDate(addDaysLocal(3));
+      setActivityDate(getLocalDateInputValue());
+      setActivityTime("10:00 AM");
       setIsInlineContactOpen(false);
       setStagedNotableEvent(null);
       setInlineDuplicateMatch(null);
@@ -296,9 +300,16 @@ export const CRMQuickLogModal: React.FC = () => {
       nextAction: scheduleFollowUp ? `Follow-up required by ${followUpDate}` : undefined,
       nextActionDate: scheduleFollowUp ? followUpDate : undefined,
       metadata: {
-        outcome: resolvedOutcome
-      }
-    });
+        outcome: resolvedOutcome,
+        activityDate,
+        activityTime,
+        meetingDate: type === "meeting" ? activityDate : undefined,
+        meetingTime: type === "meeting" ? activityTime : undefined
+      },
+      activityDate,
+      activityTime,
+      ...((type === "meeting") ? { meetingDate: activityDate, meetingTime: activityTime } : {})
+    } as any);
 
     if (scheduleFollowUp && followUpDate) {
       addTask({
@@ -571,6 +582,97 @@ export const CRMQuickLogModal: React.FC = () => {
                 )}
               </div>
             )}
+
+            {/* ACTIVITY DATE & TIME (Available for all activity types so users can log past interactions like last Thursday) */}
+            <div className={`p-3 rounded-edge border space-y-2 ${
+              type === "meeting"
+                ? "bg-brand-wash/40 border-brand-edge/70"
+                : "bg-paper border-line"
+            }`}>
+              <div className="flex items-center justify-between">
+                <span className="text-spec font-bold text-body flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-brand-deep" />
+                  <span>
+                    {type === "meeting"
+                      ? "Meeting Date & Time"
+                      : type === "call"
+                      ? "Call Date & Time"
+                      : type === "email"
+                      ? "Email Date & Time"
+                      : "Activity Date & Time"}
+                  </span>
+                </span>
+                {type === "meeting" && (
+                  <span className="text-[11px] font-semibold text-brand-deep bg-white px-2 py-0.5 rounded-full border border-brand-edge shadow-2xs">
+                    📅 Automatically adds to your Calendar
+                  </span>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-bold text-ink-dim uppercase">
+                      Date *
+                    </label>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setActivityDate(getLocalDateInputValue())}
+                        className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
+                          activityDate === getLocalDateInputValue()
+                            ? "bg-brand-deep text-white border-brand-deep font-bold"
+                            : "bg-white text-ink-dim border-line hover:border-ink-dim"
+                        }`}
+                      >
+                        Today
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActivityDate(addDaysLocal(-1))}
+                        className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
+                          activityDate === addDaysLocal(-1)
+                            ? "bg-brand-deep text-white border-brand-deep font-bold"
+                            : "bg-white text-ink-dim border-line hover:border-ink-dim"
+                        }`}
+                      >
+                        Yesterday
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActivityDate(getLastThursdayDateString())}
+                        className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
+                          activityDate === getLastThursdayDateString()
+                            ? "bg-brand-deep text-white border-brand-deep font-bold"
+                            : "bg-white text-ink-dim border-line hover:border-ink-dim"
+                        }`}
+                      >
+                        Last Thu
+                      </button>
+                    </div>
+                  </div>
+                  <input
+                    type="date"
+                    value={activityDate}
+                    onChange={(e) => setActivityDate(e.target.value)}
+                    aria-label="Activity Date"
+                    className="w-full p-1.5 text-spec rounded border border-line bg-white focus:outline-none focus:border-brand-deep font-sans"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-ink-dim uppercase mb-1">
+                    Time (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={activityTime}
+                    onChange={(e) => setActivityTime(e.target.value)}
+                    placeholder="e.g. 10:00 AM or 2:30 PM"
+                    aria-label="Activity Time"
+                    className="w-full p-1.5 text-spec rounded border border-line bg-white focus:outline-none focus:border-brand-deep font-sans"
+                  />
+                </div>
+              </div>
+            </div>
 
             {/* 2. CONTACT PARTICIPANT SELECTION (Dynamic per Activity Type) */}
             <div className="space-y-2">

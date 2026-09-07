@@ -42,7 +42,7 @@ import {
 } from "../data/crmMockData";
 import { CRMIntelligenceEngine } from "../utils/crmIntelligence";
 import { normalizeNotification, getUnreadNotificationsCount } from "../utils/notificationUtils";
-import { formatAuDate, formatAuTime } from "../utils/dateUtils";
+import { formatAuDate, formatAuTime, getLocalDateInputValue } from "../utils/dateUtils";
 import { setSessionToken } from "../utils/apiClient";
 import {
   saveDocToCloud,
@@ -265,6 +265,8 @@ interface AppContextType {
     candidateNotableEvents: ContactNotableEvent[];
     extractedKnowledge: CRMKnowledgeItem[];
   };
+  updateActivity: (id: string, updates: Partial<CRMActivity>) => void;
+  updateMeetingDate: (meetingOrTaskId: string, newDate: string, newTime?: string) => void;
 
   // Audit Logs & Workspace History (Append-Only)
   auditLogs: AuditLogRecord[];
@@ -2220,6 +2222,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
         });
 
+    const rawDate =
+      activityData.metadata?.meetingDate ||
+      (activityData as any).meetingDate ||
+      (activityData.metadata as any)?.activityDate ||
+      (activityData as any).activityDate ||
+      (activityData as any).date;
+    const rawTime =
+      activityData.metadata?.meetingTime ||
+      (activityData as any).meetingTime ||
+      (activityData.metadata as any)?.activityTime ||
+      (activityData as any).activityTime ||
+      (activityData as any).time;
+
+    let actTimestamp = (activityData as any).timestamp;
+    if (!actTimestamp) {
+      if (rawDate) {
+        const timePart = rawTime ? (rawTime.includes(":") ? rawTime : "10:00") : "10:00";
+        const candidate = new Date(`${rawDate}T${timePart.padStart(5, "0")}:00`);
+        actTimestamp = isNaN(candidate.getTime()) ? new Date().toISOString() : candidate.toISOString();
+      } else {
+        actTimestamp = new Date().toISOString();
+      }
+    }
+
     const newAct: CRMActivity = {
       ...activityData,
       id: `act-${Date.now()}`,
@@ -2230,10 +2256,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       performedBy: currentUser.name,
       authorId: currentUser.id,
       isImmutable: true,
-      timestamp: new Date().toISOString()
+      timestamp: actTimestamp
     };
     setActivities((prev) => [newAct, ...prev]);
     saveDocToCloud("crm_activities", newAct.id, newAct);
+
+    // Automatically add logged meeting (not call or email) to calendar
+    if (activityData.type === "meeting") {
+      const meetingDate = rawDate || getLocalDateInputValue(actTimestamp);
+      const meetingTime = rawTime || "10:00 AM";
+      const meetingTask: CRMTask = {
+        id: `meeting-log-${newAct.id}`,
+        title: newAct.title,
+        type: "Meeting",
+        status: "Completed",
+        priority: "Medium",
+        dueDate: meetingDate,
+        dueTime: meetingTime,
+        accountId: newAct.accountId,
+        accountName: newAct.accountName,
+        contactId: primaryContactId,
+        contactName: primaryContactName,
+        contactIds: resolvedContactIds,
+        opportunityId: newAct.opportunityId,
+        opportunityName: newAct.opportunityName,
+        notes: newAct.description,
+        outcome: newAct.outcome,
+        sourceActivityId: newAct.id,
+        meetingFormat: (activityData as any).meetingFormat || "In Person",
+        assignedTo: currentUser.name,
+        createdBy: currentUser.name,
+        completedAt: actTimestamp
+      };
+      setTasks((prev) => [meetingTask, ...prev]);
+      saveDocToCloud("crm_tasks", meetingTask.id, meetingTask);
+    }
 
     const isCall = activityData.type === "call" || activityData.title.toLowerCase().includes("call");
     recordAuditLog(
@@ -2244,13 +2301,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       `Logged ${activityData.type}: "${activityData.title}" (${activityData.outcome || "recorded"})${activityData.accountName ? ` for ${activityData.accountName}` : ""}`
     );
 
+    const effectiveDate = rawDate || getLocalDateInputValue(actTimestamp);
+
     // Update last interaction on related account
     if (activityData.accountId) {
       setAccounts((prev) =>
         prev.map((acc) => {
           if (acc.id === activityData.accountId) {
-            const updated = { ...acc, lastInteractionDate: new Date().toISOString().split("T")[0] };
-            saveDocToCloud("crm_accounts", acc.id, updated);
+            const shouldUpdate = !acc.lastInteractionDate || effectiveDate >= acc.lastInteractionDate;
+            const updated = shouldUpdate ? { ...acc, lastInteractionDate: effectiveDate } : acc;
+            if (shouldUpdate) {
+              saveDocToCloud("crm_accounts", acc.id, updated);
+            }
             return updated;
           }
           return acc;
@@ -2263,12 +2325,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCrmOpportunities((prev) =>
         prev.map((opp) => {
           if (opp.id === activityData.opportunityId) {
-            const updated = {
-              ...opp,
-              latestActivity: activityData.title,
-              latestActivityDate: new Date().toISOString().split("T")[0]
-            };
-            saveDocToCloud("crm_deals", opp.id, updated);
+            const shouldUpdate = !opp.latestActivityDate || effectiveDate >= opp.latestActivityDate;
+            const updated = shouldUpdate
+              ? {
+                  ...opp,
+                  latestActivity: activityData.title,
+                  latestActivityDate: effectiveDate
+                }
+              : opp;
+            if (shouldUpdate) {
+              saveDocToCloud("crm_deals", opp.id, updated);
+            }
             return updated;
           }
           return opp;
@@ -2414,6 +2481,102 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     recordAuditLog("CREATE", "Task", newTask.id, newTask.title, `Scheduled customer meeting: ${newTask.title}`);
     showToast(`Meeting booked for ${formatAuDate(newTask.dueDate)}${newTask.dueTime ? ` at ${formatAuTime(newTask.dueTime)}` : ""}.`, "success");
     return newTask;
+  };
+
+  const updateActivity = (id: string, updates: Partial<CRMActivity>) => {
+    let activityTitle = "Activity";
+    setActivities((prev) =>
+      prev.map((a) => {
+        if (a.id === id) {
+          activityTitle = a.title;
+          const updated = { ...a, ...updates };
+          saveDocToCloud("crm_activities", id, updated);
+          return updated;
+        }
+        return a;
+      })
+    );
+    recordAuditLog("UPDATE", "Activity", id, activityTitle, `Updated activity: ${activityTitle}`);
+    showToast("Activity updated", "success");
+  };
+
+  const updateMeetingDate = (meetingOrTaskId: string, newDate: string, newTime?: string) => {
+    const cleanActId = meetingOrTaskId.startsWith("act-")
+      ? meetingOrTaskId.replace("act-", "")
+      : meetingOrTaskId;
+
+    let meetingTitle = "Meeting";
+    let linkedActivityId: string | undefined;
+
+    // 1. Update matching task(s)
+    setTasks((prev) =>
+      prev.map((t) => {
+        const isMatch =
+          t.id === meetingOrTaskId ||
+          t.id === `meeting-log-${meetingOrTaskId}` ||
+          t.id === `meeting-log-${cleanActId}` ||
+          t.sourceActivityId === meetingOrTaskId ||
+          t.sourceActivityId === cleanActId;
+
+        if (isMatch) {
+          meetingTitle = t.title;
+          if (t.sourceActivityId) {
+            linkedActivityId = t.sourceActivityId;
+          }
+          const updated: CRMTask = {
+            ...t,
+            dueDate: newDate,
+            dueTime: newTime !== undefined && newTime !== "" ? newTime : t.dueTime
+          };
+          saveDocToCloud("crm_tasks", t.id, updated);
+          return updated;
+        }
+        return t;
+      })
+    );
+
+    // 2. Update matching activity/activities
+    setActivities((prev) =>
+      prev.map((a) => {
+        const isMatch =
+          a.id === meetingOrTaskId ||
+          a.id === cleanActId ||
+          a.id === linkedActivityId ||
+          (meetingOrTaskId.startsWith("meeting-log-") && a.id === meetingOrTaskId.replace("meeting-log-", ""));
+
+        if (isMatch) {
+          meetingTitle = a.title;
+          const timePart = newTime && newTime.trim() !== ""
+            ? (newTime.includes(":") ? newTime : "10:00")
+            : (a.metadata?.meetingTime || "10:00");
+          const candidate = new Date(`${newDate}T${timePart.padStart(5, "0")}:00`);
+          const newTimestamp = isNaN(candidate.getTime()) ? `${newDate}T10:00:00.000Z` : candidate.toISOString();
+
+          const updated: CRMActivity = {
+            ...a,
+            timestamp: newTimestamp,
+            metadata: {
+              ...a.metadata,
+              meetingDate: newDate,
+              activityDate: newDate,
+              ...(newTime ? { meetingTime: newTime, activityTime: newTime } : {})
+            }
+          };
+          saveDocToCloud("crm_activities", a.id, updated);
+          return updated;
+        }
+        return a;
+      })
+    );
+
+    recordAuditLog(
+      "UPDATE",
+      "Task",
+      meetingOrTaskId,
+      meetingTitle,
+      `Changed meeting date to ${newDate}${newTime ? ` at ${newTime}` : ""}`
+    );
+    showToast(`Meeting date changed to ${formatAuDate(newDate)}${newTime ? ` at ${newTime}` : ""}`, "success");
   };
 
   const applyVoiceCaptureDiff = async (diff: VoiceLogDiffProposal): Promise<boolean> => {
@@ -2766,6 +2929,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSelectedCrmOpportunityId,
         activities,
         logActivity,
+        updateActivity,
+        updateMeetingDate,
         auditLogs,
         recordAuditLog,
         refreshSharedData,

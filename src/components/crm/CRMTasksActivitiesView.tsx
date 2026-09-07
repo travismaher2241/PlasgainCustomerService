@@ -21,7 +21,8 @@ export const CRMTasksActivitiesView: React.FC = () => {
     setSelectedCrmOpportunityId,
     navigateToCRM,
     currentUser,
-    showToast
+    showToast,
+    updateMeetingDate
   } = useApp();
 
   const [taskStatusFilter, setTaskStatusFilter] = useState<"open" | "completed" | "all">("open");
@@ -317,10 +318,25 @@ export const CRMTasksActivitiesView: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className={`text-xs font-mono font-medium ${isOverdue ? "text-red-700 font-bold" : "text-ink-dim"}`}>
-                        {formatAuDate(task.dueDate)}
-                      </span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <input
+                        type="date"
+                        aria-label={`Change date for ${task.title}`}
+                        value={task.dueDate}
+                        onChange={(e) => {
+                          const newD = e.target.value;
+                          if (newD) {
+                            if (task.type === "Meeting") {
+                              updateMeetingDate(task.id, newD, task.dueTime);
+                            } else {
+                              updateTask(task.id, { dueDate: newD });
+                            }
+                          }
+                        }}
+                        className={`text-xs p-1 rounded border border-line bg-white font-mono cursor-pointer hover:border-brand-deep ${
+                          isOverdue ? "text-red-700 font-bold border-red-300 bg-red-50/50" : "text-ink-dim"
+                        }`}
+                      />
                     </div>
                   </div>
                 );
