@@ -513,4 +513,90 @@ describe("CRMAccountsView Component (Step 5)", () => {
 
     expect(screen.getByText(/Account Type:/i)).toBeInTheDocument();
   });
+
+  it("Test 15 — Displays honest empty state when an account has no next action, instead of hardcoded fallback", () => {
+    const emptyAccount = {
+      id: "acc-no-action",
+      name: "Mildura Rural City Council",
+      accountType: "Council",
+      status: "Customer",
+      industry: "Government & Public Infrastructure",
+      territory: "VIC/TAS",
+      accountOwner: "Travis Maher",
+      customerRelationshipStatus: "Active",
+      nextAction: undefined,
+      nextActionDate: undefined
+    };
+
+    render(
+      <AppProvider>
+        <AccountsTestWrapper initialAccounts={[emptyAccount]} />
+      </AppProvider>
+    );
+
+    // Verify hardcoded fallback is NOT rendered anywhere
+    expect(
+      screen.queryByText(/Review open tender requirements and schedule technical design consultation/i)
+    ).not.toBeInTheDocument();
+
+    // Verify honest empty state is rendered
+    expect(screen.getByText(/No next action scheduled for this account/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Set Next Step/i })).toBeInTheDocument();
+  });
+
+  it("Test 16 — Inline editing allows setting and saving Next Action directly from the priority card", () => {
+    const emptyAccount = {
+      id: "acc-inline-test",
+      name: "Ballarat City Council",
+      accountType: "Council",
+      status: "Customer",
+      industry: "Government & Public Infrastructure",
+      territory: "VIC/TAS",
+      accountOwner: "Travis Maher",
+      customerRelationshipStatus: "Active",
+      nextAction: undefined
+    };
+
+    render(
+      <AppProvider>
+        <AccountsTestWrapper initialAccounts={[emptyAccount]} />
+      </AppProvider>
+    );
+
+    // Click "Set Next Step" button
+    fireEvent.click(screen.getByRole("button", { name: /Set Next Step/i }));
+
+    // Input new next action
+    const input = screen.getByPlaceholderText(/Schedule technical review or issue revised/i);
+    fireEvent.change(input, { target: { value: "Submit revised tender photometric layout" } });
+
+    // Click Save
+    fireEvent.click(screen.getByRole("button", { name: /Save/i }));
+
+    // Verify it is updated and displayed with Account Action badge
+    expect(screen.getByText("Submit revised tender photometric layout")).toBeInTheDocument();
+    expect(screen.getByText("Account Action")).toBeInTheDocument();
+  });
+
+  it("Test 17 — Editing Next Action via Edit Account Modal saves successfully", () => {
+    render(
+      <AppProvider>
+        <AccountsTestWrapper />
+      </AppProvider>
+    );
+
+    // Open Edit modal using header Edit button
+    const editBtn = screen.getAllByRole("button", { name: /^Edit$/i })[0];
+    fireEvent.click(editBtn);
+
+    expect(screen.getByRole("dialog", { name: /Edit Account/i })).toBeInTheDocument();
+
+    const nextActionInput = screen.getByPlaceholderText(/e\.g\. Issue revised photometric design/i);
+    fireEvent.change(nextActionInput, { target: { value: "Finalize engineering compliance signoff" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    expect(screen.getByText("Finalize engineering compliance signoff")).toBeInTheDocument();
+  });
 });
+
