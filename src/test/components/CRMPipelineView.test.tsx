@@ -111,4 +111,32 @@ describe('CRM Deals Global Table Suite (Step 6)', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
     expect(screen.getByText(/Follow up on this quote/i)).toBeInTheDocument();
   });
+
+  it('Test 5 — 3-dots action menu opens portaled options without clipping and triggers View Details', () => {
+    render(
+      <AppProvider>
+        <PipelineTestWrapper />
+      </AppProvider>
+    );
+
+    const actionBtn = screen.getByRole('button', { name: /Actions for Coastal Pathway Solar Lighting/i });
+    expect(actionBtn).toBeInTheDocument();
+
+    // Menu options should not be visible before clicking
+    expect(screen.queryByRole('menuitem', { name: /View Details/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /Log Activity/i })).not.toBeInTheDocument();
+
+    // Click the 3-dots button
+    fireEvent.click(actionBtn);
+
+    // Options should now be immediately visible in the portaled menu
+    const viewDetailsBtn = screen.getByRole('menuitem', { name: /View Details/i });
+    const logActivityBtn = screen.getByRole('menuitem', { name: /Log Activity/i });
+    expect(viewDetailsBtn).toBeInTheDocument();
+    expect(logActivityBtn).toBeInTheDocument();
+
+    // Clicking View Details navigates to deal details
+    fireEvent.click(viewDetailsBtn);
+    expect(screen.getByRole('button', { name: /Back to quotes/i })).toBeInTheDocument();
+  });
 });

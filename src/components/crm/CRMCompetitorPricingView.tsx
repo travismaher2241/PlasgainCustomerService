@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   TrendingUp,
   Search,
@@ -74,7 +75,40 @@ export const CRMCompetitorPricingView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [competitorFilter, setCompetitorFilter] = useState("all");
   const [statusScope, setStatusScope] = useState<"current" | "superseded" | "all">("current");
-  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+  const [activeMenu, setActiveMenu] = useState<{
+    record: CompetitorPricingRecord;
+    top?: number;
+    bottom?: number;
+    right: number;
+  } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Auto-dismiss floating action menu on window resize, scroll, or outside click
+  useEffect(() => {
+    if (!activeMenu) return;
+    const handleClose = () => setActiveMenu(null);
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        const trigger = (e.target as HTMLElement).closest?.(`[data-competitor-menu-trigger="${activeMenu.record.id}"]`);
+        if (!trigger) {
+          setActiveMenu(null);
+        }
+      }
+    };
+    window.addEventListener("scroll", handleClose, true);
+    window.addEventListener("resize", handleClose);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      window.removeEventListener("scroll", handleClose, true);
+      window.removeEventListener("resize", handleClose);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [activeMenu]);
+
+  // Close floating menu when filters or search change
+  useEffect(() => {
+    setActiveMenu(null);
+  }, [searchQuery, competitorFilter, statusScope]);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -520,39 +554,27 @@ export const CRMCompetitorPricingView: React.FC = () => {
                         <button
                           type="button"
                           aria-label={`Actions for ${record.competitorName}`}
-                          onClick={() => setActiveMenuId(activeMenuId === record.id ? null : record.id)}
+                          data-competitor-menu-trigger={record.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (activeMenu?.record.id === record.id) {
+                              setActiveMenu(null);
+                            } else {
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const spaceBelow = typeof window !== "undefined" ? window.innerHeight - rect.bottom : 200;
+                              const openUp = spaceBelow < 120 && rect.top > 120;
+                              setActiveMenu({
+                                record,
+                                top: openUp ? undefined : rect.bottom + 4,
+                                bottom: openUp ? Math.max(0, (typeof window !== "undefined" ? window.innerHeight : 800) - rect.top + 4) : undefined,
+                                right: Math.max(8, (typeof window !== "undefined" ? window.innerWidth : 1200) - rect.right),
+                              });
+                            }
+                          }}
                           className="p-1 rounded hover:bg-line text-ink-dim hover:text-body transition-colors cursor-pointer"
                         >
                           <MoreVertical className="w-4 h-4" />
                         </button>
-
-                        {activeMenuId === record.id && (
-                          <div className="absolute right-0 top-full mt-1 w-40 bg-white border border-line rounded-panel shadow-lg py-1 z-30 text-spec text-left animate-in fade-in zoom-in-95 duration-100">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveMenuId(null);
-                                handleOpenEdit(record);
-                              }}
-                              className="w-full px-3 py-1.5 hover:bg-raised flex items-center gap-2 text-body"
-                            >
-                              <Edit3 className="w-3.5 h-3.5 text-ink-dim" />
-                              <span>Edit record</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveMenuId(null);
-                                handleToggleSuperseded(record);
-                              }}
-                              className="w-full px-3 py-1.5 hover:bg-raised flex items-center gap-2 text-body"
-                            >
-                              <Archive className="w-3.5 h-3.5 text-ink-dim" />
-                              <span>{record.status === "Superseded" ? "Mark Current" : "Supersede"}</span>
-                            </button>
-                          </div>
-                        )}
                       </div>
                     </td>
                   </tr>
@@ -738,6 +760,57 @@ export const CRMCompetitorPricingView: React.FC = () => {
           </section>
         </div>
       )}
+
+      {/* Portaled Row Action Dropdown Menu to prevent table overflow clipping */}
+      {activeMenu &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label={`Actions for ${activeMenu.record.competitorName}`}
+            style={{
+              position: "fixed",
+              top: activeMenu.top !== undefined ? `${activeMenu.top}px` : undefined,
+              bottom: activeMenu.bottom !== undefined ? `${activeMenu.bottom}px` : undefined,
+              right: `${activeMenu.right}px`,
+              zIndex: 9999,
+            }}
+            className="w-40 bg-white border border-line rounded-panel shadow-xl py-1 text-spec text-left animate-in fade-in zoom-in-95 duration-100 select-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                const rec = activeMenu.record;
+                setActiveMenu(null);
+                handleOpenEdit(rec);
+              }}
+              className="w-full px-3 py-2 hover:bg-raised flex items-center gap-2 text-body transition-colors cursor-pointer text-left"
+            >
+              <Edit3 className="w-3.5 h-3.5 text-ink-dim" />
+              <span className="font-medium">Edit record</span>
+            </button>
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                const rec = activeMenu.record;
+                setActiveMenu(null);
+                handleToggleSuperseded(rec);
+              }}
+              className="w-full px-3 py-2 hover:bg-raised flex items-center gap-2 text-body transition-colors cursor-pointer text-left"
+            >
+              <Archive className="w-3.5 h-3.5 text-ink-dim" />
+              <span className="font-medium">
+                {activeMenu.record.status === "Superseded" ? "Mark Current" : "Supersede"}
+              </span>
+            </button>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };

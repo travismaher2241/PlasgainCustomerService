@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   Kanban,
   ListFilter,
@@ -65,7 +66,40 @@ export const CRMPipelineView: React.FC = () => {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"active" | "closed" | "all">("active");
-  const [activeMenuDealId, setActiveMenuDealId] = useState<string | null>(null);
+  const [activeMenu, setActiveMenu] = useState<{
+    deal: CRMOpportunity;
+    top?: number;
+    bottom?: number;
+    right: number;
+  } | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // Auto-dismiss floating action menu on window resize, scroll, or outside click
+  useEffect(() => {
+    if (!activeMenu) return;
+    const handleClose = () => setActiveMenu(null);
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        const trigger = (e.target as HTMLElement).closest?.(`[data-action-menu-trigger="${activeMenu.deal.id}"]`);
+        if (!trigger) {
+          setActiveMenu(null);
+        }
+      }
+    };
+    window.addEventListener("scroll", handleClose, true);
+    window.addEventListener("resize", handleClose);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      window.removeEventListener("scroll", handleClose, true);
+      window.removeEventListener("resize", handleClose);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [activeMenu]);
+
+  // Close floating menu when filters or search change
+  useEffect(() => {
+    setActiveMenu(null);
+  }, [searchQuery, statusFilter, activePipelineId]);
   const [followUpModalProps, setFollowUpModalProps] = useState<{
     isOpen: boolean;
     dealId?: string;
@@ -444,39 +478,27 @@ export const CRMPipelineView: React.FC = () => {
                           <button
                             type="button"
                             aria-label={`Actions for ${deal.name}`}
-                            onClick={() => setActiveMenuDealId(activeMenuDealId === deal.id ? null : deal.id)}
+                            data-action-menu-trigger={deal.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (activeMenu?.deal.id === deal.id) {
+                                setActiveMenu(null);
+                              } else {
+                                const rect = e.currentTarget.getBoundingClientRect();
+                                const spaceBelow = typeof window !== "undefined" ? window.innerHeight - rect.bottom : 200;
+                                const openUp = spaceBelow < 120 && rect.top > 120;
+                                setActiveMenu({
+                                  deal,
+                                  top: openUp ? undefined : rect.bottom + 4,
+                                  bottom: openUp ? Math.max(0, (typeof window !== "undefined" ? window.innerHeight : 800) - rect.top + 4) : undefined,
+                                  right: Math.max(8, (typeof window !== "undefined" ? window.innerWidth : 1200) - rect.right),
+                                });
+                              }
+                            }}
                             className="p-1 rounded hover:bg-line text-ink-dim hover:text-body transition-colors cursor-pointer"
                           >
                             <MoreVertical className="w-4 h-4" />
                           </button>
-
-                          {activeMenuDealId === deal.id && (
-                            <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-line rounded-panel shadow-lg py-1 z-30 text-spec text-left animate-in fade-in zoom-in-95 duration-100">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setActiveMenuDealId(null);
-                                  setSelectedCrmOpportunityId(deal.id);
-                                }}
-                                className="w-full px-3 py-1.5 hover:bg-raised flex items-center gap-2 text-body"
-                              >
-                                <FileText className="w-3.5 h-3.5 text-ink-dim" />
-                                <span>View Details</span>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setActiveMenuDealId(null);
-                                  openQuickLog({ type: "call", accountId: deal.accountId, opportunityId: deal.id });
-                                }}
-                                className="w-full px-3 py-1.5 hover:bg-raised flex items-center gap-2 text-body"
-                              >
-                                <Phone className="w-3.5 h-3.5 text-ink-dim" />
-                                <span>Log Activity</span>
-                              </button>
-                            </div>
-                          )}
                         </div>
                       </div>
                     </td>
@@ -743,6 +765,55 @@ export const CRMPipelineView: React.FC = () => {
           initialContactEmail={followUpModalProps.initialContactEmail}
         />
       )}
+
+      {/* Portaled Row Action Dropdown Menu to prevent table overflow clipping */}
+      {activeMenu &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label={`Actions for ${activeMenu.deal.name}`}
+            style={{
+              position: "fixed",
+              top: activeMenu.top !== undefined ? `${activeMenu.top}px` : undefined,
+              bottom: activeMenu.bottom !== undefined ? `${activeMenu.bottom}px` : undefined,
+              right: `${activeMenu.right}px`,
+              zIndex: 9999,
+            }}
+            className="w-44 bg-white border border-line rounded-panel shadow-xl py-1 text-spec text-left animate-in fade-in zoom-in-95 duration-100 select-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                const dealId = activeMenu.deal.id;
+                setActiveMenu(null);
+                setSelectedCrmOpportunityId(dealId);
+              }}
+              className="w-full px-3 py-2 hover:bg-raised flex items-center gap-2 text-body transition-colors cursor-pointer text-left"
+            >
+              <FileText className="w-4 h-4 text-ink-dim" />
+              <span className="font-medium">View Details</span>
+            </button>
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                const deal = activeMenu.deal;
+                setActiveMenu(null);
+                openQuickLog({ type: "call", accountId: deal.accountId, opportunityId: deal.id });
+              }}
+              className="w-full px-3 py-2 hover:bg-raised flex items-center gap-2 text-body transition-colors cursor-pointer text-left"
+            >
+              <Phone className="w-4 h-4 text-ink-dim" />
+              <span className="font-medium">Log Activity</span>
+            </button>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
