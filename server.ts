@@ -10,6 +10,8 @@ import { knowledgeStore } from "./src/server/knowledgeStore";
 import { quoteDocumentStore, MAX_DOCUMENT_BYTES } from "./src/server/quoteDocumentStore";
 import { parseQuotePdf, followUpDateFor, PdfReaderUnavailableError, ParsedQuote } from "./src/server/quotePdfParser";
 import { userProfileStore, hashPinWithScrypt, verifyPinWithScrypt } from "./src/server/userProfileStore";
+import { auditLogStore } from "./src/server/auditLogStore";
+import { AuditLogRecord } from "./src/types/crm";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -302,6 +304,53 @@ app.get("/api/auth/session", (req, res) => {
     isAdmin: session.isAdmin,
     expiresAt: session.expiresAt
   });
+});
+
+// -------------------------------------------------------------
+// SERVER-CONTROLLED IMMUTABLE AUDIT TRAIL
+// -------------------------------------------------------------
+
+app.post("/api/audit", (req, res) => {
+  const session = requireSession(req, res);
+  if (!session) return;
+
+  const { action, entityType, entityId, entityName, details, changes, metadata } = req.body || {};
+
+  if (!action || !entityType || !entityId) {
+    return res.status(400).json({
+      error: "action, entityType, and entityId are required for audit logging."
+    });
+  }
+
+  // Security guarantee: userId, userName, userRole, and timestamp MUST be derived
+  // exclusively from the verified server session, ignoring any client-asserted values.
+  const id = `audit-${Date.now()}-${randomBytes(4).toString("hex")}`;
+  const record: AuditLogRecord = {
+    id,
+    timestamp: new Date().toISOString(),
+    userId: session.userId,
+    userName: session.name,
+    userRole: session.role || (session.isAdmin ? "Administrator" : "Sales Team"),
+    action: String(action) as any,
+    entityType: String(entityType) as any,
+    entityId: String(entityId),
+    entityName: String(entityName || entityId),
+    details: String(details || `${action} ${entityType}`),
+    changes: changes && typeof changes === "object" ? changes : undefined,
+    metadata: metadata && typeof metadata === "object" ? metadata : undefined
+  };
+
+  auditLogStore.append(record);
+  return res.status(201).json({ success: true, ok: true, record });
+});
+
+app.get("/api/audit", (req, res) => {
+  const session = requireSession(req, res);
+  if (!session) return;
+
+  const limit = Math.min(Number(req.query.limit) || 200, 1000);
+  const logs = auditLogStore.getAll(limit);
+  return res.json({ success: true, ok: true, logs, records: logs });
 });
 
 
@@ -2957,5 +3006,6 @@ export {
   readSession,
   requireSession,
   hashPinWithScrypt,
-  verifyPinWithScrypt
+  verifyPinWithScrypt,
+  auditLogStore
 };
