@@ -11,6 +11,14 @@ import { quoteDocumentStore, MAX_DOCUMENT_BYTES } from "./src/server/quoteDocume
 import { parseQuotePdf, followUpDateFor, PdfReaderUnavailableError, ParsedQuote } from "./src/server/quotePdfParser";
 import { userProfileStore, hashPinWithScrypt, verifyPinWithScrypt } from "./src/server/userProfileStore";
 import { auditLogStore } from "./src/server/auditLogStore";
+import { opportunityStore, ConcurrencyConflictError } from "./src/server/opportunityStore";
+import {
+  createOpportunitySchema,
+  updateOpportunitySchema,
+  opportunityQuerySchema
+} from "./src/validators/opportunityValidator";
+import { diffFields } from "./src/utils/diffUtils";
+import { getSystemRole, requireRole } from "./src/server/authMiddleware";
 import { AuditLogRecord } from "./src/types/crm";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -351,6 +359,197 @@ app.get("/api/audit", (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 200, 1000);
   const logs = auditLogStore.getAll(limit);
   return res.json({ success: true, ok: true, logs, records: logs });
+});
+
+// -------------------------------------------------------------
+// OPPORTUNITY (DEAL) REST API (SHARED-DATABASE INTEGRITY)
+// -------------------------------------------------------------
+
+// 1. GET /api/opportunities (list with pagination, search, and filtering)
+// SYSTEM POLICY: Everyone sees everything — open to all authenticated users.
+app.get("/api/opportunities", (req, res) => {
+  const session = requireSession(req, res);
+  if (!session) return;
+
+  const parsed = opportunityQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "Invalid query parameters.",
+      details: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`)
+    });
+  }
+
+  const result = opportunityStore.list(parsed.data);
+  return res.json({
+    success: true,
+    data: result.data,
+    pagination: {
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      totalPages: result.totalPages
+    }
+  });
+});
+
+// 2. GET /api/opportunities/:id (read single opportunity)
+// SYSTEM POLICY: Everyone sees everything — open to all authenticated users.
+app.get("/api/opportunities/:id", (req, res) => {
+  const session = requireSession(req, res);
+  if (!session) return;
+
+  const opp = opportunityStore.getById(req.params.id);
+  const includeArchived = req.query.includeArchived === "true";
+  if (!opp || (opp.isArchived && !includeArchived)) {
+    return res.status(404).json({ error: `Opportunity with ID "${req.params.id}" not found.` });
+  }
+
+  return res.json({ success: true, data: opp });
+});
+
+// 3. POST /api/opportunities (create opportunity with Zod validation and auto-audit)
+app.post("/api/opportunities", (req, res) => {
+  const session = requireSession(req, res);
+  if (!session) return;
+
+  const parsed = createOpportunitySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "Validation failed for opportunity creation.",
+      details: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`)
+    });
+  }
+
+  const created = opportunityStore.create(parsed.data, session);
+
+  // Automatic audit emission (derived from verified server session)
+  const changes = diffFields(null, created);
+  const auditId = `audit-${Date.now()}-${randomBytes(4).toString("hex")}`;
+  auditLogStore.append({
+    id: auditId,
+    timestamp: new Date().toISOString(),
+    userId: session.userId,
+    userName: session.name,
+    userRole: session.role || (session.isAdmin ? "Administrator" : "Sales Team"),
+    action: "CREATE",
+    entityType: "Deal",
+    entityId: created.id,
+    entityName: created.name,
+    details: `Created quote/opportunity "${created.name}" ($${(created.dealValue || 0).toLocaleString()})`,
+    changes
+  });
+
+  return res.status(201).json({ success: true, data: created });
+});
+
+// 4. PUT /api/opportunities/:id (field-level updates with optimistic concurrency control and auto-audit)
+app.put("/api/opportunities/:id", (req, res) => {
+  const session = requireSession(req, res);
+  if (!session) return;
+
+  const parsed = updateOpportunitySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "Validation failed for opportunity update.",
+      details: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`)
+    });
+  }
+
+  // Extract expected concurrency token from body or standard HTTP headers
+  const rawIfMatch = req.headers["if-match"];
+  const headerVersion = rawIfMatch ? parseInt(String(rawIfMatch).replace(/["']/g, ""), 10) : undefined;
+  const expectedVersion = parsed.data.version !== undefined ? parsed.data.version : (Number.isInteger(headerVersion) ? headerVersion : undefined);
+  const rawIfUnmodified = req.headers["if-unmodified-since"];
+  const expectedUpdatedAt = parsed.data.updatedAt || (rawIfUnmodified ? String(rawIfUnmodified) : undefined);
+
+  try {
+    const { updated, previous } = opportunityStore.update(
+      req.params.id,
+      parsed.data,
+      expectedVersion,
+      expectedUpdatedAt
+    );
+
+    // Automatic audit record with precise field-level diffs
+    const changes = diffFields(previous, updated);
+    const isStageMove = Boolean(updated.stageName && updated.stageName !== previous.stageName);
+    const auditId = `audit-${Date.now()}-${randomBytes(4).toString("hex")}`;
+    auditLogStore.append({
+      id: auditId,
+      timestamp: new Date().toISOString(),
+      userId: session.userId,
+      userName: session.name,
+      userRole: session.role || (session.isAdmin ? "Administrator" : "Sales Team"),
+      action: isStageMove ? "STAGE_CHANGE" : "UPDATE",
+      entityType: "Deal",
+      entityId: updated.id,
+      entityName: updated.name,
+      details: isStageMove
+        ? `Moved quote "${updated.name}" from ${previous.stageName || "Initial"} -> ${updated.stageName}`
+        : `Updated quote details for "${updated.name}"`,
+      changes
+    });
+
+    return res.json({ success: true, data: updated });
+  } catch (err: any) {
+    if (err instanceof ConcurrencyConflictError) {
+      return res.status(409).json({
+        error: err.message,
+        currentVersion: err.currentVersion,
+        currentUpdatedAt: err.currentUpdatedAt,
+        providedVersion: err.providedVersion
+      });
+    }
+    if (err.message?.includes("not found")) {
+      return res.status(404).json({ error: err.message });
+    }
+    return res.status(500).json({ error: "Failed to update opportunity." });
+  }
+});
+
+// 5. DELETE /api/opportunities/:id (soft-delete governed by Role: Manager or Admin only)
+app.delete("/api/opportunities/:id", (req, res) => {
+  const session = requireSession(req, res);
+  if (!session) return;
+
+  const role = getSystemRole(session);
+  if (role !== "Manager" && role !== "Admin") {
+    return res.status(403).json({
+      error: `Forbidden: Deleting opportunities requires Manager or Admin privileges. Current role: ${role}.`
+    });
+  }
+
+  const reason = req.body?.reason ? String(req.body.reason) : "Deleted by user";
+
+  try {
+    const deleted = opportunityStore.softDelete(req.params.id, reason, session);
+
+    // Audit emission
+    const auditId = `audit-${Date.now()}-${randomBytes(4).toString("hex")}`;
+    auditLogStore.append({
+      id: auditId,
+      timestamp: new Date().toISOString(),
+      userId: session.userId,
+      userName: session.name,
+      userRole: session.role || (session.isAdmin ? "Administrator" : "Sales Team"),
+      action: "DELETE",
+      entityType: "Deal",
+      entityId: deleted.id,
+      entityName: deleted.name,
+      details: `Soft-deleted quote/opportunity "${deleted.name}": ${reason}`,
+      changes: {
+        isArchived: { from: false, to: true },
+        archivedReason: { from: null, to: reason }
+      }
+    });
+
+    return res.json({ success: true, message: "Opportunity deleted successfully.", data: deleted });
+  } catch (err: any) {
+    if (err.message?.includes("not found")) {
+      return res.status(404).json({ error: err.message });
+    }
+    return res.status(500).json({ error: "Failed to delete opportunity." });
+  }
 });
 
 
@@ -3007,5 +3206,7 @@ export {
   requireSession,
   hashPinWithScrypt,
   verifyPinWithScrypt,
-  auditLogStore
+  auditLogStore,
+  opportunityStore
 };
+
