@@ -474,7 +474,13 @@ export class PdfReaderUnavailableError extends Error {
 export async function parseQuotePdf(buffer: Buffer | Uint8Array): Promise<ParsedQuote> {
   let getDocument: typeof import("pdfjs-dist/legacy/build/pdf.mjs")["getDocument"];
   try {
-    ({ getDocument } = await import("pdfjs-dist/legacy/build/pdf.mjs"));
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    getDocument = pdfjs.getDocument;
+    try {
+      await import("pdfjs-dist/legacy/build/pdf.worker.mjs");
+    } catch {
+      // Fallback handled by pdfjs internal fake worker
+    }
   } catch (err) {
     // Telling someone their quote "might be a scan" when the real problem is an
     // uninstalled dependency sends them off retyping a perfectly good PDF.
@@ -482,12 +488,14 @@ export async function parseQuotePdf(buffer: Buffer | Uint8Array): Promise<Parsed
   }
 
   const assetOptions = getPdfjsAssetOptions();
-  const doc = await getDocument({
+  const loadingTask = getDocument({
     data: new Uint8Array(buffer),
     isEvalSupported: false,
     useSystemFonts: true,
+    disableFontFace: true,
     ...assetOptions
-  }).promise;
+  });
+  const doc = await loadingTask.promise;
 
   const items: PositionedText[] = [];
   // Later pages are offset downward so their rows never merge with page one's.

@@ -14,7 +14,13 @@ import { createHash, randomUUID } from "crypto";
  * whatever access rules the workspace grows later.
  */
 
-const DATA_DIR = process.env.VERCEL ? path.join("/tmp", "server_data") : path.resolve(process.cwd(), "server_data");
+const isServerless = Boolean(
+  process.env.VERCEL ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.LAMBDA_TASK_ROOT ||
+  process.env.NETLIFY
+);
+const DATA_DIR = isServerless ? path.join("/tmp", "server_data") : path.resolve(process.cwd(), "server_data");
 const DOCUMENTS_DIR = path.join(DATA_DIR, "quote_documents");
 const INDEX_FILE = path.join(DOCUMENTS_DIR, "index.json");
 
@@ -99,8 +105,13 @@ class QuoteDocumentStore {
     if (isTestEnv()) {
       this.memoryFiles.set(id, buffer);
     } else {
-      if (!fs.existsSync(DOCUMENTS_DIR)) fs.mkdirSync(DOCUMENTS_DIR, { recursive: true });
-      fs.writeFileSync(this.filePathFor(id), buffer);
+      try {
+        if (!fs.existsSync(DOCUMENTS_DIR)) fs.mkdirSync(DOCUMENTS_DIR, { recursive: true });
+        fs.writeFileSync(this.filePathFor(id), buffer);
+      } catch (err) {
+        console.warn("[QuoteDocumentStore] Disk write failed, saving in memory:", err);
+        this.memoryFiles.set(id, buffer);
+      }
     }
 
     this.documents.push(doc);
@@ -120,7 +131,7 @@ class QuoteDocumentStore {
   }
 
   public readFile(id: string): Buffer | undefined {
-    if (isTestEnv()) return this.memoryFiles.get(id);
+    if (this.memoryFiles.has(id)) return this.memoryFiles.get(id);
     const filePath = this.filePathFor(id);
     if (!fs.existsSync(filePath)) return undefined;
     return fs.readFileSync(filePath);

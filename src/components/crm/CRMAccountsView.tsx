@@ -118,7 +118,8 @@ export const CRMAccountsView: React.FC = () => {
     updateCompetitorPricing,
     showToast,
     nextBestActions,
-    updateMeetingDate
+    updateMeetingDate,
+    deleteActivity
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -2012,7 +2013,22 @@ export const CRMAccountsView: React.FC = () => {
                             <div key={act.id} className="p-3 bg-paper/40 rounded-panel border border-line text-spec space-y-1">
                               <div className="flex items-center justify-between text-xs text-ink-dim">
                                 <span className="font-bold text-body capitalize">{act.type.replace("_", " ")}</span>
-                                <span>{formatActivityTimestamp(act.timestamp)}</span>
+                                <div className="flex items-center gap-2">
+                                  <span>{formatActivityTimestamp(act.timestamp)}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (window.confirm(`Delete activity "${act.title}"?\n\nThis will remove it from the timeline and cannot be undone.`)) {
+                                        deleteActivity(act.id);
+                                      }
+                                    }}
+                                    aria-label={`Delete activity ${act.title}`}
+                                    className="text-rose-600 hover:text-rose-700 cursor-pointer p-0.5"
+                                    title="Delete activity"
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
                               </div>
                               <p className="font-bold text-body">{act.title}</p>
                               {act.description && (
@@ -2437,6 +2453,22 @@ export const CRMAccountsView: React.FC = () => {
                                             >
                                               <Calendar className="w-3 h-3" />
                                               <span>Change Date</span>
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                if (window.confirm(`Delete activity "${act.title}"?\n\nThis will remove it from the timeline and cannot be undone.`)) {
+                                                  if (editingActivityDate?.id === act.id) {
+                                                    setEditingActivityDate(null);
+                                                  }
+                                                  deleteActivity(act.id);
+                                                }
+                                              }}
+                                              aria-label={`Delete activity ${act.title}`}
+                                              className="text-[11px] font-semibold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer flex items-center gap-0.5 ml-1"
+                                            >
+                                              <Trash2 className="w-3 h-3" />
+                                              <span>Delete</span>
                                             </button>
                                           </div>
                                       </div>

@@ -95,6 +95,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
     openEmailComposer,
     navigateToCRM,
     logActivity,
+    deleteActivity,
     addTask,
     currentUser,
     showToast
@@ -1864,6 +1865,20 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                               </div>
 
                               <div className="flex items-center gap-2 text-spec text-ink-dim shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm(`Delete activity "${act.title}"?\n\nThis will remove it from the quote activity feed and cannot be undone.`)) {
+                                      deleteActivity(act.id);
+                                    }
+                                  }}
+                                  aria-label={`Delete activity ${act.title}`}
+                                  className="p-1 hover:bg-rose-50 text-ink-dim hover:text-rose-600 rounded transition-colors cursor-pointer"
+                                  title="Delete activity"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
                                 <ChevronDown
                                   className={`w-3.5 h-3.5 transition-transform ${isExpanded ? "rotate-180" : ""}`}
                                 />

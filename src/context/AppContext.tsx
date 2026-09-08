@@ -285,6 +285,7 @@ interface AppContextType {
     extractedKnowledge: CRMKnowledgeItem[];
   };
   updateActivity: (id: string, updates: Partial<CRMActivity>) => void;
+  deleteActivity: (id: string) => void;
   updateMeetingDate: (meetingOrTaskId: string, newDate: string, newTime?: string) => void;
 
   // Audit Logs & Workspace History (Append-Only)
@@ -3147,6 +3148,106 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast(`Meeting date changed to ${formatAuDate(newDate)}${newTime ? ` at ${newTime}` : ""}`, "success");
   };
 
+  const deleteActivity = (id: string) => {
+    const act = activities.find((a) => a.id === id);
+    if (!act) return;
+
+    // 1. Remove from activities state and cloud
+    setActivities((prev) => prev.filter((a) => a.id !== id));
+    deleteDocFromCloud("crm_activities", id);
+
+    // 2. Remove any linked auto-created calendar meeting task
+    setTasks((prev) => {
+      const cleanActId = id.startsWith("act-") ? id.replace("act-", "") : id;
+      const matchingTasks = prev.filter(
+        (t) =>
+          t.id === `meeting-log-${id}` ||
+          t.id === `meeting-log-${cleanActId}` ||
+          t.sourceActivityId === id ||
+          t.sourceActivityId === cleanActId
+      );
+      matchingTasks.forEach((t) => deleteDocFromCloud("crm_tasks", t.id));
+      return prev.filter(
+        (t) =>
+          t.id !== `meeting-log-${id}` &&
+          t.id !== `meeting-log-${cleanActId}` &&
+          t.sourceActivityId !== id &&
+          t.sourceActivityId !== cleanActId
+      );
+    });
+
+    // 3. Update account lastInteractionDate / lastContactDate if needed
+    if (act.accountId) {
+      const remainingActs = activities.filter(
+        (a) => a.id !== id && a.accountId === act.accountId && a.timestamp
+      );
+      let latestDateStr: string | undefined = undefined;
+      let latestTime = 0;
+      for (const a of remainingActs) {
+        const t = new Date(a.timestamp).getTime();
+        if (!isNaN(t) && t > latestTime) {
+          latestTime = t;
+          latestDateStr = a.metadata?.activityDate || a.metadata?.meetingDate || (a.timestamp ? a.timestamp.split("T")[0] : "");
+        }
+      }
+
+      setAccounts((prev) =>
+        prev.map((acc) => {
+          if (acc.id === act.accountId) {
+            const updated = {
+              ...acc,
+              lastInteractionDate: latestDateStr,
+              lastContactDate: latestDateStr
+            };
+            saveDocToCloud("crm_accounts", acc.id, updated);
+            return updated;
+          }
+          return acc;
+        })
+      );
+    }
+
+    // 4. Update opportunity latestActivity / latestActivityDate if linked
+    if (act.opportunityId) {
+      const remainingOppActs = activities.filter(
+        (a) => a.id !== id && a.opportunityId === act.opportunityId && a.timestamp
+      );
+      let latestOppAct: CRMActivity | undefined;
+      let latestOppTime = 0;
+      for (const a of remainingOppActs) {
+        const t = new Date(a.timestamp).getTime();
+        if (!isNaN(t) && t > latestOppTime) {
+          latestOppTime = t;
+          latestOppAct = a;
+        }
+      }
+      const opp = crmOpportunities.find((d) => d.id === act.opportunityId);
+      if (opp) {
+        updateOpportunityMutation.mutate({
+          id: opp.id,
+          updates: {
+            latestActivity: latestOppAct ? latestOppAct.title : undefined,
+            latestActivityDate: latestOppAct
+              ? latestOppAct.metadata?.activityDate || latestOppAct.timestamp.split("T")[0]
+              : undefined,
+            version: opp.version
+          }
+        });
+      }
+    }
+
+    // 5. Record audit log
+    recordAuditLog(
+      "DELETE",
+      "Activity",
+      id,
+      act.title,
+      `Deleted logged activity: "${act.title}" (${act.type})`
+    );
+
+    showToast(`Activity "${act.title}" deleted`, "info");
+  };
+
   const applyVoiceCaptureDiff = async (diff: VoiceLogDiffProposal): Promise<boolean> => {
     try {
       // 1. Log activity with full AI provenance
@@ -3498,6 +3599,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
         activities,
         logActivity,
         updateActivity,
+        deleteActivity,
         updateMeetingDate,
         auditLogs,
         recordAuditLog,

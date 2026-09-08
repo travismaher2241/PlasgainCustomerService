@@ -138,4 +138,14 @@ describe("Quote PDF import endpoint", () => {
     const res = await request(app).get("/server_data/quote_documents/index.json");
     expect(res.status).toBe(404);
   });
+
+  it("handles pre-parsed body safely as received in serverless runtimes", async () => {
+    const res = await request(app)
+      .post("/api/quotes/import-pdf")
+      .set("Content-Type", "application/json")
+      .send({ fileName: "PL9001.pdf", fileBase64: fixtureBase64() });
+
+    expect(res.status).toBe(200);
+    expect(res.body.parsed.quoteNumber).toBe("PL9001");
+  });
 });

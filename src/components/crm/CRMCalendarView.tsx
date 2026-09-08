@@ -17,7 +17,8 @@ import {
   Filter,
   Kanban,
   Check,
-  X
+  X,
+  Trash2
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { formatAuDateLong, formatAuTime, formatAuDate, addDaysLocal, getLocalDateInputValue } from "../../utils/dateUtils";
@@ -37,7 +38,8 @@ export const CRMCalendarView: React.FC = () => {
     openScheduleMeeting,
     openMeetingPrep,
     openQuickLog,
-    updateMeetingDate
+    updateMeetingDate,
+    deleteActivity
   } = useApp();
 
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -741,6 +743,23 @@ export const CRMCalendarView: React.FC = () => {
                           </button>
                         )}
 
+                        {/* Delete Logged Meeting Button */}
+                        {isMeeting && ev.sourceActivityId && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (window.confirm(`Delete logged meeting "${ev.title}"?\n\nThis will remove it and cannot be undone.`)) {
+                                deleteActivity(ev.sourceActivityId!);
+                              }
+                            }}
+                            className="px-2.5 py-1 bg-white hover:bg-rose-50 text-rose-600 text-xs font-bold rounded border border-rose-200 shadow-2xs cursor-pointer flex items-center gap-1 transition-colors"
+                            title="Delete logged meeting"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Delete</span>
+                          </button>
+                        )}
+
                         {/* View Meeting Prep Plan Button (for scheduled upcoming meetings) */}
                         {isMeeting && ev.originalTask && !ev.isCompleted && (
                           <button
@@ -875,6 +894,23 @@ export const CRMCalendarView: React.FC = () => {
                         >
                           <CalendarIcon className="w-3.5 h-3.5" />
                           <span>Change Date</span>
+                        </button>
+                      )}
+
+                      {/* Delete Logged Meeting Button */}
+                      {isMeeting && ev.sourceActivityId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(`Delete logged meeting "${ev.title}"?\n\nThis will remove it and cannot be undone.`)) {
+                              deleteActivity(ev.sourceActivityId!);
+                            }
+                          }}
+                          className="px-2.5 py-1.5 bg-white hover:bg-rose-50 text-rose-600 text-xs font-bold rounded-edge border border-rose-200 shadow-2xs cursor-pointer flex items-center gap-1 transition-colors"
+                          title="Delete logged meeting"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete</span>
                         </button>
                       )}
 
