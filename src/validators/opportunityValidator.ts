@@ -1,6 +1,11 @@
 import { z } from "zod";
 
 export const createOpportunitySchema = z.object({
+  // Optional client-supplied id. Existing quotes already carry ids that tasks,
+  // activities and imported Ostendo documents reference by `opportunityId`.
+  // Letting the server mint a fresh id when migrating those records would sever
+  // every one of those links, so a caller may pass the id it already holds.
+  id: z.string().min(1).optional(),
   name: z.string().min(1, "Opportunity name is required").trim(),
   accountId: z.string().min(1, "Account ID is required").trim(),
   accountName: z.string().optional(),

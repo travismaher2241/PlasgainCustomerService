@@ -201,6 +201,50 @@ describe('Opportunity REST API & Shared-Database Integrity', () => {
       expect(updated.updatedAt).not.toBe(original.updatedAt);
     });
 
+    it('preserves a client-supplied id so records referencing the quote stay attached', async () => {
+      const res = await request(app)
+        .post('/api/opportunities')
+        .set('Authorization', `Bearer ${repToken}`)
+        .send({
+          id: 'opp-legacy-cardinia',
+          name: 'Cardinia Shared Trail',
+          accountId: 'acc-cardinia',
+          dealValue: 42000
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.id).toBe('opp-legacy-cardinia');
+    });
+
+    it('is idempotent on a supplied id — two browsers migrating the same quote do not duplicate it', async () => {
+      const payload = {
+        id: 'opp-legacy-shared',
+        name: 'Wyndham Pathway',
+        accountId: 'acc-wyndham',
+        dealValue: 88000
+      };
+
+      const first = await request(app)
+        .post('/api/opportunities')
+        .set('Authorization', `Bearer ${repToken}`)
+        .send(payload);
+      const second = await request(app)
+        .post('/api/opportunities')
+        .set('Authorization', `Bearer ${repToken}`)
+        .send({ ...payload, dealValue: 99999 });
+
+      expect(first.body.data.id).toBe('opp-legacy-shared');
+      expect(second.body.data.id).toBe('opp-legacy-shared');
+      // The existing record is returned untouched rather than overwritten.
+      expect(second.body.data.dealValue).toBe(88000);
+      expect(second.body.data.version).toBe(1);
+
+      const list = await request(app)
+        .get('/api/opportunities?limit=100')
+        .set('Authorization', `Bearer ${repToken}`);
+      expect(list.body.data.filter((d: any) => d.id === 'opp-legacy-shared')).toHaveLength(1);
+    });
+
     it('rejects an update carrying no concurrency token with 428 rather than silently overwriting', async () => {
       const createRes = await request(app)
         .post('/api/opportunities')

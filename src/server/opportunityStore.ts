@@ -159,7 +159,19 @@ export class OpportunityStore {
 
   public create(data: CreateOpportunityInput, creator: { userId: string; name: string }): StoredOpportunity {
     this.init();
-    const id = `opp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+    // A caller may supply the id of a quote that already exists elsewhere (the
+    // one-time migration of records created before this store existed). Honour
+    // it so referencing records keep pointing at the right quote, and return
+    // the existing record rather than a duplicate if it is already here — the
+    // migration must be safe to run more than once, from more than one browser.
+    const suppliedId = data.id?.trim();
+    if (suppliedId) {
+      const existing = this.opportunities.get(suppliedId);
+      if (existing) return existing;
+    }
+
+    const id = suppliedId || `opp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const now = new Date().toISOString();
 
     const record: StoredOpportunity = {

@@ -4,6 +4,8 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import {
   fetchOpportunities,
+  fetchAllOpportunities,
+  migrateLegacyDeals,
   fetchOpportunityById,
   createOpportunityApi,
   updateOpportunityApi,
@@ -54,6 +56,78 @@ describe("Opportunity API Client & React Query Hooks Suite", () => {
   afterEach(() => {
     queryClient.clear();
     vi.restoreAllMocks();
+  });
+
+  describe("Paging and legacy quote migration", () => {
+    const page = (data: any[], pageNo: number, totalPages: number, total: number) => ({
+      ok: true,
+      json: async () => ({ success: true, data, pagination: { page: pageNo, limit: 100, total, totalPages } })
+    }) as Response;
+
+    it("fetches every page, not just the first — quote 101 must not vanish", async () => {
+      const pageOne = Array.from({ length: 100 }, (_, i) => ({ id: `opp-${i + 1}`, name: `Quote ${i + 1}` }));
+      const pageTwo = [{ id: "opp-101", name: "Quote 101" }];
+
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce(page(pageOne, 1, 2, 101))
+        .mockResolvedValueOnce(page(pageTwo, 2, 2, 101));
+
+      const res = await fetchAllOpportunities();
+
+      expect(res.data).toHaveLength(101);
+      expect(res.data.map((d) => d.id)).toContain("opp-101");
+    });
+
+    it("migrates browser-cached quotes under their existing ids so linked records stay attached", async () => {
+      localStorage.setItem(
+        "plasgain_crm_deals",
+        JSON.stringify([
+          { id: "opp-legacy-1", name: "Cardinia Shared Trail", accountId: "acc-1", accountName: "Cardinia", dealValue: 42000 }
+        ])
+      );
+
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue({
+        ok: true,
+        json: async () => ({ success: true, data: { id: "opp-legacy-1" } })
+      } as Response);
+
+      const result = await migrateLegacyDeals([]);
+
+      expect(result).toEqual({ migrated: 1, failed: 0 });
+      const body = JSON.parse((fetchSpy.mock.calls[0][1] as RequestInit).body as string);
+      expect(body.id).toBe("opp-legacy-1");
+    });
+
+    it("does not re-migrate a quote the server already holds", async () => {
+      localStorage.setItem(
+        "plasgain_crm_deals",
+        JSON.stringify([{ id: "opp-legacy-1", name: "Cardinia", accountId: "acc-1", dealValue: 1 }])
+      );
+      const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+      const result = await migrateLegacyDeals([{ id: "opp-legacy-1" } as CRMOpportunity]);
+
+      expect(result).toEqual({ migrated: 0, failed: 0 });
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("skips a quote that fails to migrate rather than blocking the rest", async () => {
+      localStorage.setItem(
+        "plasgain_crm_deals",
+        JSON.stringify([
+          { id: "opp-a", name: "A", accountId: "acc-1", dealValue: 1 },
+          { id: "opp-b", name: "B", accountId: "acc-1", dealValue: 2 }
+        ])
+      );
+
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce({ ok: false, status: 400, json: async () => ({ error: "bad" }) } as Response)
+        .mockResolvedValueOnce({ ok: true, json: async () => ({ success: true, data: { id: "opp-b" } }) } as Response);
+
+      const result = await migrateLegacyDeals([]);
+
+      expect(result).toEqual({ migrated: 1, failed: 1 });
+    });
   });
 
   describe("API Client: /api/opportunities", () => {
