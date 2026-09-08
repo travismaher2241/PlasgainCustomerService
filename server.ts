@@ -12,6 +12,7 @@ import { parseQuotePdf, followUpDateFor, PdfReaderUnavailableError, ParsedQuote 
 import { userProfileStore, hashPinWithScrypt, verifyPinWithScrypt } from "./src/server/userProfileStore";
 import { auditLogStore } from "./src/server/auditLogStore";
 import { opportunityStore, ConcurrencyConflictError } from "./src/server/opportunityStore";
+import { runFollowUpSweep, startFollowUpSweepSchedule } from "./src/server/followUpSweep";
 import {
   createOpportunitySchema,
   updateOpportunitySchema,
@@ -359,6 +360,28 @@ app.get("/api/audit", (req, res) => {
   const limit = Math.min(Number(req.query.limit) || 200, 1000);
   const logs = auditLogStore.getAll(limit);
   return res.json({ success: true, ok: true, logs, records: logs });
+});
+
+/**
+ * Runs the two-day follow-up rule on demand.
+ *
+ * The sweep also runs on a timer inside the server process, so this endpoint is
+ * not what makes the rule work — it exists so the rule can be triggered from
+ * outside (a scheduler, or an admin who wants it applied now) and so its result
+ * is inspectable rather than only visible in logs. Flagging is idempotent, so
+ * calling it repeatedly is harmless.
+ */
+app.post("/api/automation/follow-up-sweep", (req, res) => {
+  const session = requireSession(req, res);
+  if (!session) return;
+
+  try {
+    const result = runFollowUpSweep();
+    return res.json({ success: true, ...result });
+  } catch (err: any) {
+    console.error("[FollowUpSweep] On-demand sweep failed:", err);
+    return res.status(500).json({ error: "Follow-up sweep failed." });
+  }
 });
 
 // -------------------------------------------------------------
@@ -3205,6 +3228,10 @@ async function startServer() {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Plasgain Lighting Sales Copilot Server running on http://localhost:${PORT}`);
   });
+
+  // The two-day follow-up rule. Started here rather than at module scope so
+  // importing `app` in tests does not start a timer that mutates stored quotes.
+  startFollowUpSweepSchedule();
 }
 
 if (process.env.NODE_ENV !== "test" && !process.env.VERCEL) {

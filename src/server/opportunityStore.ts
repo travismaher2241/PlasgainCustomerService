@@ -90,6 +90,16 @@ export class OpportunityStore {
     return this.opportunities.get(id) || null;
   }
 
+  /**
+   * Every stored quote, unpaged. For server-side sweeps that must consider the
+   * whole book rather than a page of it — `list()` is the paginated read for
+   * callers with a query.
+   */
+  public getAll(): StoredOpportunity[] {
+    this.init();
+    return Array.from(this.opportunities.values());
+  }
+
   public list(query: OpportunityQueryInput): { data: StoredOpportunity[]; total: number; page: number; limit: number; totalPages: number } {
     this.init();
     let records = Array.from(this.opportunities.values());

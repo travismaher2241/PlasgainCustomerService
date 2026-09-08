@@ -40,9 +40,15 @@ export function useOpportunities(filters?: Partial<OpportunityQueryInput>) {
       // and Firestore. Without this the first successful fetch replaced them
       // with the server's empty list and every quote vanished from the screen.
       // Runs only for the unfiltered list, and no-ops once everything is across.
+      // Migration is best-effort: it must never be able to stop the quote list
+      // rendering. If it fails, the rep still sees whatever the server holds.
       if (!filters || Object.keys(filters).length === 0) {
-        const { migrated } = await migrateLegacyDeals(res.data);
-        if (migrated > 0) return await fetchAllOpportunities(filters);
+        try {
+          const { migrated } = await migrateLegacyDeals(res.data);
+          if (migrated > 0) return await fetchAllOpportunities(filters);
+        } catch (err) {
+          console.warn("[Migration] Legacy quote migration skipped:", err);
+        }
       }
 
       return res;
