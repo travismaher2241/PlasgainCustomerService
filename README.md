@@ -171,6 +171,42 @@ For isolated local UI testing, set both `PLASGAIN_DISABLE_CLOUD=1` and
 `VITE_PLASGAIN_DISABLE_CLOUD=1`, choose a temporary `PLASGAIN_KNOWLEDGE_DIR`, and
 optionally set `PORT`. Vitest always disables live cloud I/O.
 
+## Importing accounts from a CSV
+
+Open **Accounts → Import CSV** to load an existing customer list. The columns
+the importer reads are:
+
+| Column | Used for |
+| --- | --- |
+| `Customer Name` | Account name. Required — a row without one is skipped. |
+| `Customer Style` | `Account`, `Customer`, `Prospect` or `Council`. Anything else is treated as a prospect. |
+| `Address 1`, `Address 2` | Billing address, split into street, suburb, state and postcode. |
+| `Contact` | Added as a contact on the account. An email address here becomes the account's general email instead. |
+| `Phone` | Account main phone, and the contact's phone. |
+
+Common header spellings (`Company Name`, `Type`, `Address Line 1`) are accepted,
+and any column the importer does not recognise is listed in the preview and left
+alone.
+
+Nothing is written until **Import** is pressed. The preview shows how many
+accounts and contacts will be created and which rows will be skipped: a row is
+skipped when its name matches an account already in the CRM, when it shares a
+landline with one, or when the same customer appears twice in the file.
+**Existing accounts are never overwritten by an import.**
+
+Two things are worth setting before importing:
+
+- **Territory when the address has no state.** Australian states in the address
+  map to the sales territory that covers them; rows with no state fall back to
+  this, `National` by default.
+- **Contact frequency for imported customers.** Imported customers have no call
+  history, so this defaults to `As needed` (quarterly) rather than making several
+  hundred accounts overdue on day one.
+
+The whole import is recorded as a single audit entry naming the file, not one
+entry per row. Files exported from accounting systems are often Windows-1252
+rather than UTF-8; both are read correctly, so names like O'Brien survive.
+
 ## Firestore access (CRM and older reference records)
 
 `firestore.rules` requires an authenticated caller on every collection and denies

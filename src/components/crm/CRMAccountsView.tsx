@@ -41,7 +41,8 @@ import {
   PhoneCall,
   Check,
   ArrowRightLeft,
-  History
+  History,
+  Upload
 } from "lucide-react";
 import { resolveQuotingStage } from "../../data/crmMockData";
 import { useApp } from "../../context/AppContext";
@@ -79,6 +80,7 @@ import { CRMContactModal } from "./CRMContactModal";
 import { accountIntelligenceCache, generateAccountSourceHash } from "../../utils/accountIntelligenceCache";
 import { detectDuplicateAccount, DuplicateMatchResult } from "../../utils/duplicateDetector";
 import { CRMDuplicateWarningModal } from "./CRMDuplicateWarningModal";
+import { CRMAccountImportModal } from "./CRMAccountImportModal";
 
 export const CRMAccountsView: React.FC = () => {
   const {
@@ -256,6 +258,7 @@ export const CRMAccountsView: React.FC = () => {
 
   // Create new account modal state
   const [isNewAccountModalOpen, setIsNewAccountModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [newAccountForm, setNewAccountForm] = useState<{
     name: string;
     tradingName: string;
@@ -377,7 +380,9 @@ export const CRMAccountsView: React.FC = () => {
     const matchesSearch =
       acc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (acc.tradingName && acc.tradingName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      acc.industry.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      // Industry is optional on Account — imported rows do not claim one — so
+      // searching must not assume it is there.
+      Boolean(acc.industry?.toLowerCase().includes(searchQuery.toLowerCase())) ||
       acc.territory.toLowerCase().includes(searchQuery.toLowerCase());
     let matchesTypeAndStatus = true;
     if (accountTypeFilter === "all") {
@@ -1098,23 +1103,37 @@ export const CRMAccountsView: React.FC = () => {
   // Empty state when no accounts exist
   if (accounts.length === 0) {
     return (
-      <div className="space-y-6 max-w-7xl mx-auto pb-16 w-full min-w-0">
+      // The import dialog sits beside the page, not inside it: importing the
+      // first account swaps this branch for the populated one, and a dialog
+      // nested in either branch would be torn down mid-import.
+      <>
+        <div className="space-y-6 max-w-7xl mx-auto pb-16 w-full min-w-0">
         <div className="flex items-center justify-between gap-3 border-b border-line pb-4">
           <h1 className="text-xl sm:text-2xl font-bold text-body tracking-tight">Accounts</h1>
-          <button
-            onClick={() => setIsNewAccountModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-spec font-bold text-white bg-brand-deep hover:bg-brand rounded-edge transition-colors shadow-xs cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add account</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsImportModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 text-spec font-bold text-body bg-white border border-line hover:border-brand-deep hover:text-brand-deep rounded-edge transition-colors shadow-2xs cursor-pointer"
+            >
+              <Upload className="w-4 h-4" />
+              <span>Import CSV</span>
+            </button>
+            <button
+              onClick={() => setIsNewAccountModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-spec font-bold text-white bg-brand-deep hover:bg-brand rounded-edge transition-colors shadow-xs cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add account</span>
+            </button>
+          </div>
         </div>
 
         <div className="p-12 text-center space-y-3 bg-white rounded-panel border border-line shadow-2xs">
           <Building2 className="w-10 h-10 text-ink-faint mx-auto" />
           <h2 className="text-base font-bold text-body">No accounts yet</h2>
           <p className="text-spec text-ink-dim max-w-md mx-auto">
-            Add an account to keep its people, quotes and call history in one place.
+            Add an account to keep its people, quotes and call history in one place, or import an
+            existing customer list as a CSV.
           </p>
           <button
             onClick={() => setIsNewAccountModalOpen(true)}
@@ -1201,12 +1220,16 @@ export const CRMAccountsView: React.FC = () => {
             </section>
           </div>
         )}
-      </div>
+
+        </div>
+        <CRMAccountImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />
+      </>
     );
   }
 
   return (
-    <div className="space-y-5 max-w-7xl mx-auto pb-16 w-full min-w-0">
+    <>
+      <div className="space-y-5 max-w-7xl mx-auto pb-16 w-full min-w-0">
       {/* PART A: SINGLE CONSISTENT PAGE HEADING & TOP ACTION */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-4">
         <div>
@@ -1215,13 +1238,22 @@ export const CRMAccountsView: React.FC = () => {
             Customers and prospects, the people at them, their quotes and what has been discussed.
           </p>
         </div>
-        <button
-          onClick={() => setIsNewAccountModalOpen(true)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 text-spec font-bold text-white bg-brand-deep hover:bg-brand rounded-edge transition-colors shadow-xs cursor-pointer self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Add account</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-spec font-bold text-body bg-white border border-line hover:border-brand-deep hover:text-brand-deep rounded-edge transition-colors shadow-2xs cursor-pointer"
+          >
+            <Upload className="w-4 h-4" />
+            <span>Import CSV</span>
+          </button>
+          <button
+            onClick={() => setIsNewAccountModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 text-spec font-bold text-white bg-brand-deep hover:bg-brand rounded-edge transition-colors shadow-xs cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Add account</span>
+          </button>
+        </div>
       </div>
 
       {/* PART D: 2-COLUMN DIRECTORY / DETAIL WORKSPACE */}
@@ -3828,6 +3860,9 @@ export const CRMAccountsView: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+
+      </div>
+      <CRMAccountImportModal isOpen={isImportModalOpen} onClose={() => setIsImportModalOpen(false)} />
+    </>
   );
 };

@@ -214,6 +214,11 @@ interface AppContextType {
   accounts: Account[];
   setAccounts: React.Dispatch<React.SetStateAction<Account[]>>;
   addAccount: (account: Account) => void;
+  importAccounts: (
+    newAccounts: Account[],
+    newContacts: CRMContact[],
+    sourceLabel?: string
+  ) => Promise<{ accounts: number; contacts: number }>;
   updateAccount: (id: string, updates: Partial<Account>) => void;
   deleteAccount: (id: string) => Promise<void>;
   selectedAccountId: string | null;
@@ -1911,6 +1916,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // The calling screen reports the outcome; two toasts meant the first was never seen.
   };
 
+  /**
+   * Bulk import of accounts and their contacts.
+   *
+   * Deliberately not a loop over addAccount: a 800-row customer list would fire
+   * 2,800 individual cloud writes in one tick and push 1,400 audit entries into
+   * a log that only keeps the last 500, burying everything that came before it.
+   * One state update, throttled cloud writes, one audit entry naming the file.
+   */
+  const importAccounts = async (
+    newAccounts: Account[],
+    newContacts: CRMContact[],
+    sourceLabel?: string
+  ): Promise<{ accounts: number; contacts: number }> => {
+    if (newAccounts.length === 0 && newContacts.length === 0) {
+      return { accounts: 0, contacts: 0 };
+    }
+
+    if (newAccounts.length > 0) {
+      setAccounts((prev) => [...newAccounts, ...prev]);
+    }
+    if (newContacts.length > 0) {
+      setContacts((prev) => [...newContacts, ...prev]);
+    }
+
+    const writes: Array<() => Promise<unknown>> = [
+      ...newAccounts.map((acc) => () => saveDocToCloud("crm_accounts", acc.id, acc)),
+      ...newContacts.map((con) => () => saveDocToCloud("crm_contacts", con.id, con))
+    ];
+
+    const BATCH_SIZE = 20;
+    for (let i = 0; i < writes.length; i += BATCH_SIZE) {
+      await Promise.all(writes.slice(i, i + BATCH_SIZE).map((run) => run()));
+    }
+
+    const contactSuffix = newContacts.length
+      ? ` and ${newContacts.length} ${newContacts.length === 1 ? "contact" : "contacts"}`
+      : "";
+    recordAuditLog(
+      "CREATE",
+      "Account",
+      `import-${Date.now()}`,
+      sourceLabel || "CSV import",
+      `Imported ${newAccounts.length} ${newAccounts.length === 1 ? "account" : "accounts"}${contactSuffix} from ${sourceLabel || "a CSV file"}`,
+      undefined,
+      { accountIds: newAccounts.map((a) => a.id), contactIds: newContacts.map((c) => c.id) }
+    );
+
+    return { accounts: newAccounts.length, contacts: newContacts.length };
+  };
+
   const updateAccount = (id: string, updates: Partial<Account>) => {
     const existing = accounts.find((a) => a.id === id);
     const targetName = updates.name || existing?.name || "Account";
@@ -3402,6 +3457,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         accounts,
         setAccounts,
         addAccount,
+        importAccounts,
         updateAccount,
         deleteAccount,
         selectedAccountId,
