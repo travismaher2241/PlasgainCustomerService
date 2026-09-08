@@ -186,7 +186,12 @@ export const CRMQuoteImportModal: React.FC = () => {
         id: `acc-${Date.now()}`,
         name: parsed.customerName || "Unknown customer",
         accountType: "Account",
-        status: "Active",
+        // "Active" is a member of AccountCommercialStatus, not AccountStatus —
+        // the two were being conflated. An account created from an imported
+        // Ostendo quote is someone we have formally quoted, so the lifecycle
+        // status is Customer; "Active" belongs on the commercial field.
+        status: "Customer",
+        accountCommercialStatus: "Active",
         contactFrequency: "Opportunity",
         customerRelationshipStatus: "Active",
         territory: "VIC/TAS",

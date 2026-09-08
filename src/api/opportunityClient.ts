@@ -104,6 +104,96 @@ export async function fetchOpportunityById(id: string): Promise<CRMOpportunity> 
   return result.data;
 }
 
+/** localStorage key holding quotes written before the REST store existed. */
+const LEGACY_DEALS_KEY = "plasgain_crm_deals";
+
+/**
+ * Every page of the opportunity list, not just the first.
+ *
+ * The list endpoint defaults to 20 records per page. Calling it without an
+ * explicit page size therefore returned only the 20 most recently updated
+ * quotes, and every screen built on that list — pipeline, dashboard, calendar,
+ * account totals, win/loss — silently described a 20-quote subset as if it were
+ * the whole business. Pages through to `totalPages` instead.
+ */
+export async function fetchAllOpportunities(
+  filters?: Partial<OpportunityQueryInput>
+): Promise<{ data: CRMOpportunity[]; total: number; page: number; limit: number; totalPages: number }> {
+  const pageSize = filters?.limit ?? 100;
+  const first = await fetchOpportunities({ ...filters, page: 1, limit: pageSize });
+
+  if (first.totalPages <= 1) return first;
+
+  const rest = await Promise.all(
+    Array.from({ length: first.totalPages - 1 }, (_, i) =>
+      fetchOpportunities({ ...filters, page: i + 2, limit: pageSize })
+    )
+  );
+
+  const data = rest.reduce((acc, r) => acc.concat(r.data), first.data);
+  return { ...first, data, page: 1, limit: data.length || pageSize, totalPages: 1 };
+}
+
+/** Quotes cached in this browser by the pre-REST version of the app. */
+export function readLegacyLocalDeals(): CRMOpportunity[] {
+  if (typeof localStorage === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(LEGACY_DEALS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((d) => d && typeof d.id === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * One-time migration of quotes that predate the REST store.
+ *
+ * Those quotes live in this browser (and in Firestore) but were never written
+ * to the server store, so once the app started reading the list from the API
+ * they stopped appearing at all. Each is posted under **its existing id**, so
+ * the tasks, activities and imported quote documents that reference it stay
+ * attached. Re-running is safe: the server returns the existing record rather
+ * than creating a second one, so two reps migrating the same quote converge
+ * instead of duplicating it.
+ *
+ * Failures are deliberately not fatal — a quote that cannot be migrated is
+ * reported and skipped rather than blocking the rest of the list from loading.
+ */
+export async function migrateLegacyDeals(
+  serverDeals: CRMOpportunity[]
+): Promise<{ migrated: number; failed: number }> {
+  const local = readLegacyLocalDeals();
+  if (local.length === 0) return { migrated: 0, failed: 0 };
+
+  const onServer = new Set(serverDeals.map((d) => d.id));
+  const missing = local.filter((d) => !onServer.has(d.id));
+  if (missing.length === 0) return { migrated: 0, failed: 0 };
+
+  let migrated = 0;
+  let failed = 0;
+
+  for (const deal of missing) {
+    try {
+      await createOpportunityApi({
+        ...(deal as unknown as CreateOpportunityInput),
+        id: deal.id,
+        name: deal.name || "Untitled quote",
+        accountId: deal.accountId || "",
+        accountName: deal.accountName || "Account",
+        dealValue: typeof deal.dealValue === "number" ? deal.dealValue : 0
+      });
+      migrated++;
+    } catch (err) {
+      failed++;
+      console.warn(`[Migration] Could not migrate quote ${deal.id}:`, err);
+    }
+  }
+
+  return { migrated, failed };
+}
+
 export async function createOpportunityApi(data: CreateOpportunityInput): Promise<CRMOpportunity> {
   const url = getApiUrl("/api/opportunities");
   let res: Response;

@@ -400,12 +400,22 @@ export interface CRMOpportunity {
   archivedAt?: string;
   archivedBy?: string;
   archivedReason?: string;
-  version?: number;
+  /**
+   * Record lifecycle and win timestamps.
+   *
+   * These were already being read (accountStatusUtils, the follow-up
+   * automation, opportunityStore) and written (the REST API stamps
+   * createdAt/updatedAt/version) while absent from the type, so the reads
+   * resolved to undefined and silently fell through to weaker signals —
+   * `actualCloseDate || wonAt || expectedCloseDate` never got past the first
+   * two. Declared here so the intended signal is actually available.
+   */
   createdAt?: string;
   updatedAt?: string;
+  version?: number;
   isWon?: boolean;
-  actualCloseDate?: string;
   wonAt?: string;
+  actualCloseDate?: string;
 }
 
 export interface ActivityParticipant {
@@ -520,6 +530,9 @@ export interface CRMTask {
   archivedAt?: string;
   archivedBy?: string;
   archivedReason?: string;
+  /** Written by the automated follow-up and check-in task builders. */
+  description?: string;
+  createdAt?: string;
 }
 
 export interface MeetingPreparationPlan {
@@ -636,6 +649,14 @@ export interface ServerNotification {
     id?: string;
   };
   createdAt: string;
+  /**
+   * Set by the follow-up automation when it raises a notification. Undeclared
+   * until now, so these were stripped before reaching the notification store
+   * and every automated alert arrived with no priority and nothing to link to.
+   */
+  priority?: "high" | "medium" | "low";
+  entityType?: "deal" | "account" | "lead" | "task" | "contact";
+  entityId?: string;
 }
 
 export type CRMNotification = ServerNotification;

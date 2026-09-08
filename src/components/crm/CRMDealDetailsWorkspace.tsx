@@ -727,18 +727,25 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                     <button
                       type="button"
                       onClick={() => {
+                        // Field names must match EmailComposerLaunchContext.
+                        // recipientEmail/recipientName/contextNotes/quoteRef/
+                        // dealValue are not on that type, so every one of them
+                        // was dropped on the way in and the composer opened
+                        // with no recipient and no project context.
                         openEmailComposer({
-                          recipientEmail: deal.primaryContactEmail,
-                          recipientName: deal.primaryContactName,
+                          defaultMode: "project-enquiry",
+                          opportunityId: deal.id,
+                          accountId: deal.accountId,
+                          contactId: deal.primaryContactId,
+                          contactEmail: deal.primaryContactEmail,
+                          contactName: deal.primaryContactName,
                           companyName: deal.accountName,
                           projectName: deal.name,
-                          contextNotes: `${deal.customerNeed || ""} | ${deal.notes || ""}`,
-                          quoteRef: deal.ostendoQuoteRef || deal.quoteNumber,
-                          dealValue: deal.dealValue,
-                          products: (deal.products || []).map((p) => ({
-                            name: p.productName || p.productCode,
-                            qty: p.quantity,
-                            price: p.unitPrice
+                          projectNotes: [deal.customerNeed, deal.notes].filter(Boolean).join(" | "),
+                          productsQuoted: (deal.products || []).map((p) => ({
+                            productCode: p.productCode,
+                            productName: p.productName || p.productCode,
+                            quantity: p.quantity
                           }))
                         });
                         setIsCommMenuOpen(false);
@@ -752,6 +759,12 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                     <button
                       type="button"
                       onClick={() => {
+                        // CRMCallPrepModal resolves the account, contact and
+                        // opportunity from these three ids. The company name,
+                        // contact details, products and quote status passed
+                        // here previously were not on the context type, so they
+                        // were dropped before the modal ever saw them — the
+                        // modal already looks all of it up itself.
                         openCallPrep({
                           opportunityId: currentDeal.id,
                           accountId: currentDeal.accountId,
@@ -1337,7 +1350,13 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                         unitPrice: lineSell,
                         totalPrice: lineSell * newBomLine.quantity,
                         marginPercent: lineMargin,
-                        isOstendoVerified: true
+                        // Typed by hand, not resolved against the Ostendo item
+                        // master — there is no catalogue in this app to resolve
+                        // against yet. Marking it verified put a "✓ Verified —
+                        // Ostendo Registered" badge on a line nothing had
+                        // checked. It renders as "Custom" until a real
+                        // catalogue lookup can set this.
+                        isOstendoVerified: false
                       };
 
                       const updatedProducts = [...(deal.products || []), newLine];

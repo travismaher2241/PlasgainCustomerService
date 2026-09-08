@@ -7,6 +7,8 @@ import {
 } from "../validators/opportunityValidator";
 import {
   fetchOpportunities,
+  fetchAllOpportunities,
+  migrateLegacyDeals,
   fetchOpportunityById,
   createOpportunityApi,
   updateOpportunityApi,
@@ -32,7 +34,23 @@ export function useOpportunities(filters?: Partial<OpportunityQueryInput>) {
   return useQuery({
     queryKey: OPPORTUNITY_KEYS.list(filters),
     queryFn: async () => {
-      const res = await fetchOpportunities(filters);
+      const res = await fetchAllOpportunities(filters);
+
+      // Quotes created before this store existed are only in the browser cache
+      // and Firestore. Without this the first successful fetch replaced them
+      // with the server's empty list and every quote vanished from the screen.
+      // Runs only for the unfiltered list, and no-ops once everything is across.
+      // Migration is best-effort: it must never be able to stop the quote list
+      // rendering. If it fails, the rep still sees whatever the server holds.
+      if (!filters || Object.keys(filters).length === 0) {
+        try {
+          const { migrated } = await migrateLegacyDeals(res.data);
+          if (migrated > 0) return await fetchAllOpportunities(filters);
+        } catch (err) {
+          console.warn("[Migration] Legacy quote migration skipped:", err);
+        }
+      }
+
       return res;
     },
     initialData: () => {
@@ -245,7 +263,14 @@ export function useMarkQuoteLost() {
 
   return {
     ...updateMutation,
-    markQuoteLost: async (deal: CRMOpportunity, reason: string, notes?: string) => {
+    // `reason` is the loss-reason union, not a free string: it is the field
+    // win/loss analysis groups on, so an arbitrary value would fragment it.
+    // Callers already hold the union (the lost-quote modal's own state).
+    markQuoteLost: async (
+      deal: CRMOpportunity,
+      reason: NonNullable<CRMOpportunity["lostReason"]>,
+      notes?: string
+    ) => {
       const updates: UpdateOpportunityInput = {
         version: deal.version,
         stageId: "stage-lost",

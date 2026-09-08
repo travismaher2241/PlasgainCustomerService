@@ -172,11 +172,13 @@ describe('Opportunity REST API & Shared-Database Integrity', () => {
       const original = createRes.body.data;
       expect(original.version).toBe(1);
 
-      // Partial update: update ONLY dealValue and stageName
+      // Partial update: update ONLY dealValue and stageName. The version read
+      // back from the create is echoed so the concurrency precondition is met.
       const updateRes = await request(app)
         .put(`/api/opportunities/${original.id}`)
         .set('Authorization', `Bearer ${repToken}`)
         .send({
+          version: original.version,
           dealValue: 275000,
           stageName: 'Submitted'
         });
@@ -197,6 +199,99 @@ describe('Opportunity REST API & Shared-Database Integrity', () => {
       expect(updated.pipelineId).toBe('pipe-major-projects');
       expect(updated.createdAt).toBe(original.createdAt);
       expect(updated.updatedAt).not.toBe(original.updatedAt);
+    });
+
+    it('preserves a client-supplied id so records referencing the quote stay attached', async () => {
+      const res = await request(app)
+        .post('/api/opportunities')
+        .set('Authorization', `Bearer ${repToken}`)
+        .send({
+          id: 'opp-legacy-cardinia',
+          name: 'Cardinia Shared Trail',
+          accountId: 'acc-cardinia',
+          dealValue: 42000
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.id).toBe('opp-legacy-cardinia');
+    });
+
+    it('is idempotent on a supplied id — two browsers migrating the same quote do not duplicate it', async () => {
+      const payload = {
+        id: 'opp-legacy-shared',
+        name: 'Wyndham Pathway',
+        accountId: 'acc-wyndham',
+        dealValue: 88000
+      };
+
+      const first = await request(app)
+        .post('/api/opportunities')
+        .set('Authorization', `Bearer ${repToken}`)
+        .send(payload);
+      const second = await request(app)
+        .post('/api/opportunities')
+        .set('Authorization', `Bearer ${repToken}`)
+        .send({ ...payload, dealValue: 99999 });
+
+      expect(first.body.data.id).toBe('opp-legacy-shared');
+      expect(second.body.data.id).toBe('opp-legacy-shared');
+      // The existing record is returned untouched rather than overwritten.
+      expect(second.body.data.dealValue).toBe(88000);
+      expect(second.body.data.version).toBe(1);
+
+      const list = await request(app)
+        .get('/api/opportunities?limit=100')
+        .set('Authorization', `Bearer ${repToken}`);
+      expect(list.body.data.filter((d: any) => d.id === 'opp-legacy-shared')).toHaveLength(1);
+    });
+
+    it('rejects an update carrying no concurrency token with 428 rather than silently overwriting', async () => {
+      const createRes = await request(app)
+        .post('/api/opportunities')
+        .set('Authorization', `Bearer ${repToken}`)
+        .send({
+          name: 'Ballarat Ring Road',
+          accountId: 'acc-ballarat',
+          dealValue: 64000
+        });
+      const original = createRes.body.data;
+
+      // No `version` in the body, no If-Match / If-Unmodified-Since header.
+      const res = await request(app)
+        .put(`/api/opportunities/${original.id}`)
+        .set('Authorization', `Bearer ${repToken}`)
+        .send({ dealValue: 71000 });
+
+      expect(res.status).toBe(428);
+      expect(res.body.error).toMatch(/precondition required/i);
+
+      // The record must be untouched — no partial write, no version bump.
+      const after = await request(app)
+        .get(`/api/opportunities/${original.id}`)
+        .set('Authorization', `Bearer ${repToken}`);
+      expect(after.body.data.dealValue).toBe(64000);
+      expect(after.body.data.version).toBe(original.version);
+    });
+
+    it('accepts an If-Unmodified-Since token as the concurrency precondition', async () => {
+      const createRes = await request(app)
+        .post('/api/opportunities')
+        .set('Authorization', `Bearer ${repToken}`)
+        .send({
+          name: 'Shepparton Bypass',
+          accountId: 'acc-shepparton',
+          dealValue: 40000
+        });
+      const original = createRes.body.data;
+
+      const res = await request(app)
+        .put(`/api/opportunities/${original.id}`)
+        .set('Authorization', `Bearer ${repToken}`)
+        .set('If-Unmodified-Since', original.updatedAt)
+        .send({ dealValue: 45000 });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.dealValue).toBe(45000);
     });
 
     it('enforces optimistic concurrency control using version number and rejects stale updates with 409 Conflict', async () => {

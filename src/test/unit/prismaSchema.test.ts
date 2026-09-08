@@ -6,9 +6,13 @@ describe('Prisma Schema Definition (Prompt 1.1)', () => {
   const schemaPath = path.resolve(process.cwd(), 'prisma/schema.prisma');
   const rootSchemaPath = path.resolve(process.cwd(), 'schema.prisma');
 
-  it('provides valid schema.prisma files in both prisma/ and root directories', () => {
+  // One schema, in the location Prisma actually reads. The root copy was a
+  // byte-identical duplicate: Prisma resolves prisma/schema.prisma by default,
+  // so the root file was never read and would have drifted silently into a
+  // second, wrong source of truth for the database shape.
+  it('keeps a single canonical schema at prisma/schema.prisma', () => {
     expect(fs.existsSync(schemaPath)).toBe(true);
-    expect(fs.existsSync(rootSchemaPath)).toBe(true);
+    expect(fs.existsSync(rootSchemaPath)).toBe(false);
   });
 
   const schemaContent = fs.readFileSync(schemaPath, 'utf-8');

@@ -90,6 +90,16 @@ export class OpportunityStore {
     return this.opportunities.get(id) || null;
   }
 
+  /**
+   * Every stored quote, unpaged. For server-side sweeps that must consider the
+   * whole book rather than a page of it — `list()` is the paginated read for
+   * callers with a query.
+   */
+  public getAll(): StoredOpportunity[] {
+    this.init();
+    return Array.from(this.opportunities.values());
+  }
+
   public list(query: OpportunityQueryInput): { data: StoredOpportunity[]; total: number; page: number; limit: number; totalPages: number } {
     this.init();
     let records = Array.from(this.opportunities.values());
@@ -159,15 +169,31 @@ export class OpportunityStore {
 
   public create(data: CreateOpportunityInput, creator: { userId: string; name: string }): StoredOpportunity {
     this.init();
-    const id = `opp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+    // A caller may supply the id of a quote that already exists elsewhere (the
+    // one-time migration of records created before this store existed). Honour
+    // it so referencing records keep pointing at the right quote, and return
+    // the existing record rather than a duplicate if it is already here — the
+    // migration must be safe to run more than once, from more than one browser.
+    const suppliedId = data.id?.trim();
+    if (suppliedId) {
+      const existing = this.opportunities.get(suppliedId);
+      if (existing) return existing;
+    }
+
+    const id = suppliedId || `opp-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const now = new Date().toISOString();
 
     const record: StoredOpportunity = {
       ...data,
       id,
-      accountName: data.accountName || "Account",
       version: 1,
       isArchived: false,
+      // accountName is optional on the create payload but required on the
+      // record, so it is resolved here rather than leaving the stored shape
+      // disagreeing with its own type. (Both sides of the merge added this
+      // line; the duplicate key silently made the later "" win over "Account".)
+      accountName: data.accountName || "Account",
       opportunityOwner: data.opportunityOwner || creator.name,
       assignedTo: data.assignedTo || creator.name,
       createdAt: now,

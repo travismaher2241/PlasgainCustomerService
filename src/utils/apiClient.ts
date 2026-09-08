@@ -34,11 +34,18 @@ export function getSessionToken(): string | null {
   }
 }
 
-/** Request headers including the session token when one is held. */
+/**
+ * Request headers including the session token when one is held.
+ *
+ * Deliberately no `X-User-Id`. The server used to accept that header as proof
+ * of identity, which let any caller assert any user — including an admin. The
+ * fallback is gone (`authSecurity.test.ts` pins that), so sending the header
+ * achieves nothing and its hardcoded default profile would quietly become a
+ * real identity again if anyone restored the server-side branch.
+ */
 export function authHeaders(base: Record<string, string> = {}): Record<string, string> {
   const token = getSessionToken();
-  const userId = typeof localStorage !== "undefined" ? localStorage.getItem("plasgain_active_user_id") || "user-travis-maher" : "user-travis-maher";
-  const headers: Record<string, string> = { "X-User-Id": userId, ...base };
+  const headers: Record<string, string> = { ...base };
   if (token) headers.Authorization = `Bearer ${token}`;
   return headers;
 }

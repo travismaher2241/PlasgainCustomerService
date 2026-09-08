@@ -1259,11 +1259,14 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const addNotification = (notif: Omit<CRMNotification, "id" | "isRead" | "createdAt">) => {
+  const addNotification = (
+    notif: Omit<CRMNotification, "id" | "isRead" | "createdAt" | "isArchived">
+  ) => {
     const newN = normalizeNotification({
       ...notif,
       id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       isRead: false,
+      isArchived: false,
       createdAt: new Date().toISOString()
     });
     setLocalNotifications((prev) => [newN, ...prev]);

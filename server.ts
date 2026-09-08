@@ -12,6 +12,7 @@ import { parseQuotePdf, followUpDateFor, PdfReaderUnavailableError, ParsedQuote 
 import { userProfileStore, hashPinWithScrypt, verifyPinWithScrypt } from "./src/server/userProfileStore";
 import { auditLogStore } from "./src/server/auditLogStore";
 import { opportunityStore, ConcurrencyConflictError } from "./src/server/opportunityStore";
+import { runFollowUpSweep, startFollowUpSweepSchedule } from "./src/server/followUpSweep";
 import {
   createOpportunitySchema,
   updateOpportunitySchema,
@@ -361,6 +362,28 @@ app.get("/api/audit", (req, res) => {
   return res.json({ success: true, ok: true, logs, records: logs });
 });
 
+/**
+ * Runs the two-day follow-up rule on demand.
+ *
+ * The sweep also runs on a timer inside the server process, so this endpoint is
+ * not what makes the rule work — it exists so the rule can be triggered from
+ * outside (a scheduler, or an admin who wants it applied now) and so its result
+ * is inspectable rather than only visible in logs. Flagging is idempotent, so
+ * calling it repeatedly is harmless.
+ */
+app.post("/api/automation/follow-up-sweep", (req, res) => {
+  const session = requireSession(req, res);
+  if (!session) return;
+
+  try {
+    const result = runFollowUpSweep();
+    return res.json({ success: true, ...result });
+  } catch (err: any) {
+    console.error("[FollowUpSweep] On-demand sweep failed:", err);
+    return res.status(500).json({ error: "Follow-up sweep failed." });
+  }
+});
+
 // -------------------------------------------------------------
 // OPPORTUNITY (DEAL) REST API (SHARED-DATABASE INTEGRITY)
 // -------------------------------------------------------------
@@ -461,6 +484,19 @@ app.put("/api/opportunities/:id", (req, res) => {
   const expectedVersion = parsed.data.version !== undefined ? parsed.data.version : (Number.isInteger(headerVersion) ? headerVersion : undefined);
   const rawIfUnmodified = req.headers["if-unmodified-since"];
   const expectedUpdatedAt = parsed.data.updatedAt || (rawIfUnmodified ? String(rawIfUnmodified) : undefined);
+
+  // A concurrency token is mandatory, not advisory. opportunityStore.update()
+  // skips the version check entirely when neither token is supplied, so an
+  // update sent without one silently reverts to last-write-wins — the exact
+  // failure this endpoint exists to prevent. Reject it rather than accept a
+  // write we cannot prove is based on current data.
+  if (expectedVersion === undefined && !expectedUpdatedAt) {
+    return res.status(428).json({
+      error:
+        "Precondition required: send the version you read (body `version`, or an If-Match header) so a concurrent edit cannot be silently overwritten.",
+      hint: "GET the opportunity, then resubmit with the version it returns."
+    });
+  }
 
   try {
     const { updated, previous } = opportunityStore.update(
@@ -3192,6 +3228,10 @@ async function startServer() {
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Plasgain Lighting Sales Copilot Server running on http://localhost:${PORT}`);
   });
+
+  // The two-day follow-up rule. Started here rather than at module scope so
+  // importing `app` in tests does not start a timer that mutates stored quotes.
+  startFollowUpSweepSchedule();
 }
 
 if (process.env.NODE_ENV !== "test" && !process.env.VERCEL) {
