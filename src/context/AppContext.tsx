@@ -49,7 +49,6 @@ import {
   saveDocToCloud,
   loadDocFromCloud,
   loadCollectionFromCloud,
-  syncBatchToCloud,
   deleteDocFromCloud,
   clearCollectionFromCloud,
   checkCloudHealth,
@@ -58,6 +57,17 @@ import {
   getLastSyncTime,
   recordSuccessfulSync
 } from "../utils/firebase";
+import {
+  QueryClient,
+  QueryClientProvider,
+  QueryClientContext
+} from "@tanstack/react-query";
+import {
+  useOpportunities,
+  useCreateOpportunity,
+  useUpdateOpportunity,
+  useDeleteOpportunity
+} from "../hooks/useOpportunities";
 import { computeAccountContactCadence, buildAccountCheckInTask } from "../utils/accountStatusUtils";
 
 export type NavTab = "home" | "crm" | "settings";
@@ -471,7 +481,7 @@ export function getApiUrl(endpoint: string): string {
   return endpoint;
 }
 
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeTab, setActiveTabState] = useState<NavTab>("home");
   const [activeCRMTab, setActiveCRMTab] = useState<CRMSubTab>("today");
 
@@ -965,14 +975,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   };
 
-  // Load Relational CRM Data from LocalStorage (with sample filtering and stage migration)
+  // CRM Deals loaded dynamically via React Query from shared database API (no localStorage read cache)
+  const { data: opportunitiesQueryResult } = useOpportunities();
+  const crmOpportunities: CRMOpportunity[] = opportunitiesQueryResult?.data || [];
+  const createOpportunityMutation = useCreateOpportunity();
+  const updateOpportunityMutation = useUpdateOpportunity();
+  const deleteOpportunityMutation = useDeleteOpportunity();
 
-  const [crmOpportunities, setCrmOpportunities] = useState<CRMOpportunity[]>(() => {
-    const saved = localStorage.getItem("plasgain_crm_deals");
-    const parsed = saved ? JSON.parse(saved) : INITIAL_OPPORTUNITIES;
-    const list = Array.isArray(parsed) ? parsed.filter((d: any) => !isSampleRecord(d) && !d.isArchived) : [];
-    return list.map(migrateOpportunityStage);
-  });
+  const setCrmOpportunities: React.Dispatch<React.SetStateAction<CRMOpportunity[]>> = () => {
+    console.warn("setCrmOpportunities is deprecated. Deals are managed via React Query hooks.");
+  };
 
   const [rawAccounts, setRawAccounts] = useState<Account[]>(() => {
     const saved = localStorage.getItem("plasgain_crm_accounts");
@@ -1448,10 +1460,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [leads]);
 
   useEffect(() => {
-    localStorage.setItem("plasgain_crm_deals", JSON.stringify(crmOpportunities));
-  }, [crmOpportunities]);
-
-  useEffect(() => {
     localStorage.setItem("plasgain_crm_activities", JSON.stringify(activities));
   }, [activities]);
 
@@ -1462,10 +1470,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     localStorage.setItem("plasgain_crm_knowledge", JSON.stringify(knowledge));
   }, [knowledge]);
-
-  useEffect(() => {
-    localStorage.setItem("plasgain_opportunities", JSON.stringify(opportunities));
-  }, [opportunities]);
 
 
   // Automatic Cloud Firestore Initialization & Bidirectional Sync
@@ -1600,20 +1604,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const realLeads = cloudLeads.filter((l) => !isSampleRecord(l) && !l.isArchived);
         if (isMounted) setLeads(realLeads);
 
-        // 5. CRM Deals
-        const cloudDeals = await loadCollectionFromCloud<CRMOpportunity>("crm_deals");
-        if (isMigrationPurgeNeeded) {
-          const sampleDeals = cloudDeals.filter(isSampleRecord);
-          sampleDeals.forEach((d) => {
-            console.warn('[Data Safety] Purged legacy sample record:', d.id);
-            deleteDocFromCloud("crm_deals", d.id);
-            totalPurged++;
-          });
-        }
-        const realDeals = cloudDeals.filter((d) => !isSampleRecord(d) && !d.isArchived);
-        if (isMounted) setCrmOpportunities(realDeals.map(migrateOpportunityStage));
-
-        // 6. Activities
+        // 5. Activities (CRM Deals are managed exclusively via React Query and the REST API)
         const cloudActivities = await loadCollectionFromCloud<CRMActivity>("crm_activities");
         if (isMigrationPurgeNeeded) {
           const sampleActivities = cloudActivities.filter(isSampleRecord);
@@ -1720,7 +1711,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         cloudAccounts,
         cloudContacts,
         cloudLeads,
-        cloudDeals,
         cloudActivities,
         cloudTasks,
         cloudAuditLogs,
@@ -1729,7 +1719,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loadCollectionFromCloud<Account>("crm_accounts"),
         loadCollectionFromCloud<CRMContact>("crm_contacts"),
         loadCollectionFromCloud<CRMLead>("crm_leads"),
-        loadCollectionFromCloud<CRMOpportunity>("crm_deals"),
         loadCollectionFromCloud<CRMActivity>("crm_activities"),
         loadCollectionFromCloud<CRMTask>("crm_tasks"),
         loadCollectionFromCloud<AuditLogRecord>("audit_logs"),
@@ -1759,9 +1748,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const realLeads = cloudLeads.filter((l) => !isSampleRecord(l) && !l.isArchived);
       if (realLeads.length > 0) setLeads(realLeads);
-
-      const realDeals = cloudDeals.filter((d) => !isSampleRecord(d) && !d.isArchived);
-      if (realDeals.length > 0) setCrmOpportunities(realDeals.map(migrateOpportunityStage));
 
       const realActivities = cloudActivities.filter((a) => !isSampleRecord(a));
       if (realActivities.length > 0) setActivities(realActivities);
@@ -1814,20 +1800,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (getQueuedWritesCount() > 0) {
         await flushOfflineQueue();
       }
-      await Promise.all([
-        saveDocToCloud("settings", "user_profile", currentUser),
-        syncBatchToCloud("crm_accounts", accounts),
-        syncBatchToCloud("crm_contacts", contacts),
-        syncBatchToCloud("crm_leads", leads),
-        syncBatchToCloud("crm_deals", crmOpportunities),
-        syncBatchToCloud("crm_activities", activities),
-        syncBatchToCloud("crm_tasks", tasks),
-        syncBatchToCloud("opportunities", opportunities)
-      ]);
+      await refreshSharedData();
       setCloudSyncStatus("synced");
       setLastCloudSyncTime(getLastSyncTime());
       setQueuedWritesCount(getQueuedWritesCount());
-      showToast("Everything is saved to the team database.", "success");
+      showToast("Synced with team database.", "success");
     } catch (err) {
       console.error("Manual cloud sync error:", err);
       setCloudSyncStatus("error");
@@ -2490,8 +2467,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addCrmOpportunity = (opp: CRMOpportunity) => {
-    setCrmOpportunities((prev) => [opp, ...prev]);
-    saveDocToCloud("crm_deals", opp.id, opp);
+    createOpportunityMutation.mutate(opp as any);
     recordAuditLog("CREATE", "Deal", opp.id, opp.name, `Created quote: ${opp.name} ($${opp.dealValue?.toLocaleString() || 0}) for ${opp.accountName}`);
     showToast(`Quote "${opp.name}" created.`, "success");
   };
@@ -2504,20 +2480,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newStage = updates.stageName || "";
     const changes = diffFields(existing, updates);
 
-    setCrmOpportunities((prev) =>
-      prev.map((opp) => {
-        if (opp.id === id) {
-          const updated = { ...opp, ...updates };
-          // Re-evaluate deal health
-          const healthEval = CRMIntelligenceEngine.evaluateDealHealth(updated);
-          updated.dealHealth = healthEval.rating;
-          updated.dealHealthReasons = healthEval.reasons;
-          saveDocToCloud("crm_deals", id, updated);
-          return updated;
-        }
-        return opp;
-      })
-    );
+    updateOpportunityMutation.mutate({
+      id,
+      updates: {
+        ...updates,
+        version: existing?.version
+      }
+    });
 
     if (isStageMove) {
       recordAuditLog("STAGE_CHANGE", "Deal", id, dealName, `Moved quote "${dealName}" from ${oldStage} -> ${newStage}`, changes);
@@ -2531,32 +2500,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteCrmOpportunity = async (id: string, reason?: string) => {
     const opp = crmOpportunities.find((d) => d.id === id);
     const oppName = opp?.name || id;
-    const now = new Date().toISOString();
-    const updatedOpp: CRMOpportunity = {
-      ...(opp || ({} as CRMOpportunity)),
-      id,
-      name: oppName,
-      isArchived: true,
-      archivedAt: now,
-      archivedBy: currentUser.id || "user-unknown",
-      archivedReason: reason || "Deleted by user"
-    };
 
-    // Soft delete: remove from active opportunities list
-    setCrmOpportunities((prev) => prev.filter((d) => d.id !== id));
-    // Historical integrity: attached tasks and activities are retained, NOT deleted
     if (selectedCrmOpportunityId === id) {
       setSelectedCrmOpportunityId(null);
     }
     if (selectedOpportunityId === id) {
       setSelectedOpportunityId(null);
     }
-    await saveDocToCloud("crm_deals", id, updatedOpp);
-    recordAuditLog("DELETE", "Deal", id, oppName, `Soft-deleted opportunity ${oppName}${reason ? `: ${reason}` : ""}`, {
-      isArchived: { from: false, to: true },
-      archivedReason: { from: undefined, to: reason || "Deleted by user" }
-    });
-    showToast("Quote deleted.", "info");
+
+    try {
+      await deleteOpportunityMutation.mutateAsync({ id, reason });
+      recordAuditLog("DELETE", "Deal", id, oppName, `Soft-deleted opportunity ${oppName}${reason ? `: ${reason}` : ""}`, {
+        isArchived: { from: false, to: true },
+        archivedReason: { from: undefined, to: reason || "Deleted by user" }
+      });
+      showToast("Quote deleted.", "info");
+    } catch (err) {
+      console.error("Failed to delete opportunity:", err);
+      showToast("Failed to delete quote. Please try again.", "error");
+    }
   };
 
   const logActivity = (activityData: Omit<CRMActivity, "id" | "timestamp">) => {
@@ -2721,25 +2683,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Update last activity on related opportunity
     if (activityData.opportunityId) {
-      setCrmOpportunities((prev) =>
-        prev.map((opp) => {
-          if (opp.id === activityData.opportunityId) {
-            const shouldUpdate = !opp.latestActivityDate || effectiveDate >= opp.latestActivityDate;
-            const updated = shouldUpdate
-              ? {
-                  ...opp,
-                  latestActivity: activityData.title,
-                  latestActivityDate: effectiveDate
-                }
-              : opp;
-            if (shouldUpdate) {
-              saveDocToCloud("crm_deals", opp.id, updated);
-            }
-            return updated;
+      const opp = crmOpportunities.find((d) => d.id === activityData.opportunityId);
+      const shouldUpdate = opp && (!opp.latestActivityDate || effectiveDate >= opp.latestActivityDate);
+      if (shouldUpdate && opp) {
+        updateOpportunityMutation.mutate({
+          id: opp.id,
+          updates: {
+            latestActivity: activityData.title,
+            latestActivityDate: effectiveDate,
+            version: opp.version
           }
-          return opp;
-        })
-      );
+        });
+      }
     }
 
     // AI Analysis: Candidate Notable Events & CRM Knowledge
@@ -2861,94 +2816,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast("Task status updated", "success");
   };
 
-  // Automated 6-Stage Quote Lifecycle: 2-day follow-up check for "Submitted" quotes
-  useEffect(() => {
-    const checkSubmittedQuotes = () => {
-      const now = Date.now();
-      const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000;
 
-      setCrmOpportunities((prevOpportunities) => {
-        let hasChanges = false;
-        const updatedOpportunities = prevOpportunities.map((opp) => {
-          if (opp.stageId === "stage-submitted" || opp.stageName === "Submitted") {
-            const submittedTime = opp.submittedAt
-              ? new Date(opp.submittedAt).getTime()
-              : opp.createdAt
-              ? new Date(opp.createdAt).getTime()
-              : 0;
-
-            if (submittedTime > 0 && now - submittedTime >= TWO_DAYS_MS && !opp.followUpReminderTriggeredAt) {
-              hasChanges = true;
-              const todayStr = new Date().toISOString().split("T")[0];
-              const updatedOpp: CRMOpportunity = {
-                ...opp,
-                stageId: "stage-followup-required",
-                stageName: "Follow Up Required",
-                nextAction: opp.nextAction || `Follow up on submitted quote ${opp.quoteNumber || opp.name}`,
-                nextActionDate: todayStr,
-                followUpReminderTriggeredAt: new Date().toISOString()
-              };
-
-              // 1. Create a calendar follow-up task
-              const followUpTask: CRMTask = {
-                id: `task-followup-${opp.id}-${Date.now()}`,
-                title: `Follow up required: ${opp.name}`,
-                description: `Automated reminder: Quote was submitted 2 days ago to ${opp.accountName || "client"} and requires follow-up.`,
-                dueDate: todayStr,
-                dueTime: "09:00",
-                type: "Task",
-                priority: "High",
-                status: "Pending",
-                assignedTo: opp.assignedTo || currentUser.name,
-                accountId: opp.accountId,
-                opportunityId: opp.id,
-                createdAt: new Date().toISOString()
-              };
-              setTasks((prev) => [followUpTask, ...prev]);
-              saveDocToCloud("crm_tasks", followUpTask.id, followUpTask);
-
-              // 2. Add in-app notification
-              addNotification({
-                title: `Follow Up Required: ${opp.name}`,
-                message: `Quote for ${opp.accountName || "client"} was submitted 2 days ago and requires follow-up.`,
-                type: "action_required",
-                priority: "high",
-                entityType: "deal",
-                entityId: opp.id
-              });
-
-              // 3. Log activity on quote
-              const followUpAct: CRMActivity = {
-                id: `act-followup-${Date.now()}`,
-                type: "follow_up",
-                title: "Follow Up Required (2 days post-submission)",
-                description: `Quote automatically assigned 'Follow Up Required'. Calendar task scheduled for ${currentUser.name}. Email reminder notice addressed to ${currentUser.email}.`,
-                accountId: opp.accountId,
-                accountName: opp.accountName,
-                opportunityId: opp.id,
-                opportunityName: opp.name,
-                performedBy: "System Automation",
-                timestamp: new Date().toISOString(),
-                isImmutable: true
-              };
-              setActivities((prev) => [followUpAct, ...prev]);
-              saveDocToCloud("crm_activities", followUpAct.id, followUpAct);
-
-              saveDocToCloud("crm_deals", opp.id, updatedOpp);
-              return updatedOpp;
-            }
-          }
-          return opp;
-        });
-
-        return hasChanges ? updatedOpportunities : prevOpportunities;
-      });
-    };
-
-    checkSubmittedQuotes();
-    const timer = setInterval(checkSubmittedQuotes, 60 * 1000);
-    return () => clearInterval(timer);
-  }, [currentUser.name, currentUser.email]);
 
   // Automated Routine Check-in Task creation for accounts overdue for contact
   useEffect(() => {
@@ -2969,7 +2837,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const hasOpenTask = prevTasks.some(
             (t) => t.accountId === acc.id && t.isCheckInTask && t.status !== "Completed"
           );
-          if (!hasOpenTask) {
+          const hasSameIdTask = prevTasks.some(
+            (t) => t.id === `checkin-${acc.id}`
+          );
+          if (!hasOpenTask && !hasSameIdTask) {
             const cadence = computeAccountContactCadence(acc, activities);
             const checkInTask = buildAccountCheckInTask(acc, cadence);
             newTasks.unshift(checkInTask);
@@ -3281,23 +3152,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // 3. Update Opportunity if present
       if (diff.opportunityId) {
-        setCrmOpportunities((prev) =>
-          prev.map((opp) => {
-            if (opp.id === diff.opportunityId) {
-              const updated = {
-                ...opp,
-                nextAction: diff.nextAction || opp.nextAction,
-                nextActionDate: diff.nextActionDate || opp.nextActionDate,
-                latestActivity: diff.activityTitle,
-                latestActivityDate: new Date().toISOString().split("T")[0],
-                dealValue: diff.updateOpportunityValue && diff.estimatedValue ? diff.estimatedValue : opp.dealValue
-              };
-              saveDocToCloud("crm_deals", opp.id, updated);
-              return updated;
+        const opp = crmOpportunities.find((d) => d.id === diff.opportunityId);
+        if (opp) {
+          updateOpportunityMutation.mutate({
+            id: diff.opportunityId,
+            updates: {
+              nextAction: diff.nextAction || opp.nextAction,
+              nextActionDate: diff.nextActionDate || opp.nextActionDate,
+              latestActivity: diff.activityTitle,
+              latestActivityDate: new Date().toISOString().split("T")[0],
+              dealValue: diff.updateOpportunityValue && diff.estimatedValue ? diff.estimatedValue : opp.dealValue,
+              version: opp.version
             }
-            return opp;
-          })
-        );
+          });
+        }
       }
 
       // 4. Create Task if toggled
@@ -3390,28 +3258,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // 3. Update Opportunity if present
       if (diff.opportunityId) {
-        setCrmOpportunities((prev) =>
-          prev.map((opp) => {
-            if (opp.id === diff.opportunityId) {
-              const updated: CRMOpportunity = {
-                ...opp,
-                nextAction: diff.nextAction || opp.nextAction,
-                nextActionDate: diff.nextActionDate || opp.nextActionDate,
-                latestActivity: `Inbound Email: ${diff.emailSubject || "Client Response"}`,
-                latestActivityDate: todayStr,
-                ...(diff.updateStage && diff.targetStageId
-                  ? {
-                      stageId: diff.targetStageId,
-                      stageName: diff.targetStageName || opp.stageName
-                    }
-                  : {})
-              };
-              saveDocToCloud("crm_deals", opp.id, updated);
-              return updated;
+        const opp = crmOpportunities.find((d) => d.id === diff.opportunityId);
+        if (opp) {
+          updateOpportunityMutation.mutate({
+            id: diff.opportunityId,
+            updates: {
+              nextAction: diff.nextAction || opp.nextAction,
+              nextActionDate: diff.nextActionDate || opp.nextActionDate,
+              latestActivity: `Inbound Email: ${diff.emailSubject || "Client Response"}`,
+              latestActivityDate: todayStr,
+              ...(diff.updateStage && diff.targetStageId
+                ? {
+                    stageId: diff.targetStageId,
+                    stageName: diff.targetStageName || opp.stageName
+                  }
+                : {}),
+              version: opp.version
             }
-            return opp;
-          })
-        );
+          });
+        }
       }
 
       // 4. Create Task if toggled
@@ -3670,6 +3535,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       {children}
     </AppContext.Provider>
   );
+};
+
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const existingClient = useContext(QueryClientContext);
+  const [internalClient] = useState(
+    () =>
+      new QueryClient({
+        defaultOptions: {
+          queries: {
+            retry: false,
+            staleTime: 30 * 1000
+          }
+        }
+      })
+  );
+
+  if (!existingClient) {
+    return (
+      <QueryClientProvider client={internalClient}>
+        <AppProviderContent>{children}</AppProviderContent>
+      </QueryClientProvider>
+    );
+  }
+
+  return <AppProviderContent>{children}</AppProviderContent>;
 };
 
 export const useApp = () => {

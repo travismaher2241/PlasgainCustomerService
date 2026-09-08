@@ -43,6 +43,16 @@ import {
 import { useApp } from "../../context/AppContext";
 import { QuoteDocumentsPanel } from "./QuoteDocumentsPanel";
 import { CRMOpportunity, OpportunityProductLine, CRMActivity } from "../../types/crm";
+import {
+  useOpportunity,
+  useUpdateOpportunity,
+  useDeleteOpportunity,
+  useMarkQuoteSent,
+  useMarkQuoteWon,
+  useMarkQuoteLost,
+  useLogFollowUpCompleted,
+  ApiConflictError
+} from "../../hooks/useOpportunities";
 import { CustomerFollowUpModal } from "../CustomerFollowUpModal";
 import {
   formatOstendoCSV,
@@ -66,13 +76,16 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
   onClose,
   initialTab = "overview"
 }) => {
+  const { data: liveDeal } = useOpportunity(deal.id);
+  const currentDeal = liveDeal || deal;
+  const updateOpportunityMutation = useUpdateOpportunity();
+  const deleteOpportunityMutation = useDeleteOpportunity();
+  const { markQuoteSent: markSent } = useMarkQuoteSent();
+  const { markQuoteWon: markWon } = useMarkQuoteWon();
+  const { markQuoteLost: markLost } = useMarkQuoteLost();
+  const { logFollowUpCompleted: logFollowUpDone } = useLogFollowUpCompleted();
+
   const {
-    updateCrmOpportunity,
-    deleteCrmOpportunity,
-    markQuoteSent,
-    logFollowUpCompleted,
-    markQuoteWon,
-    markQuoteLost,
     pipelines,
     accounts,
     activities,
@@ -86,6 +99,66 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
     currentUser,
     showToast
   } = useApp();
+
+  const updateDeal = async (updates: Partial<CRMOpportunity>) => {
+    try {
+      await updateOpportunityMutation.mutateAsync({
+        id: currentDeal.id,
+        updates: {
+          ...updates,
+          version: currentDeal.version
+        }
+      });
+    } catch (err: any) {
+      if (err instanceof ApiConflictError) {
+        showToast("Conflict: This quote was updated concurrently by another user. Reloading latest details...", "error");
+      } else {
+        showToast(err.message || "Failed to update quote", "error");
+      }
+      throw err;
+    }
+  };
+
+  const handleExportOstendo = () => {
+    const rawItems = (currentDeal.products || []).map((p) => ({
+      itemCode: p.productCode,
+      description: p.productName,
+      quantity: p.quantity,
+      unit: "ea",
+      lineNotes: p.notes,
+      quoteRef: currentDeal.quoteNumber || currentDeal.name
+    }));
+    const validation = validateOstendoItems(rawItems);
+    if (!validation.valid) {
+      showToast(validation.errors[0] || "Invalid Ostendo items", "error");
+      return;
+    }
+    const csv = formatOstendoCSV(rawItems, currentDeal.quoteNumber || currentDeal.name);
+    downloadOstendoCSV(csv, `Ostendo-${currentDeal.quoteNumber || currentDeal.id}.csv`);
+    showToast("Ostendo CSV downloaded", "success");
+  };
+
+  const handleCopyOstendo = async () => {
+    const rawItems = (currentDeal.products || []).map((p) => ({
+      itemCode: p.productCode,
+      description: p.productName,
+      quantity: p.quantity,
+      unit: "ea",
+      lineNotes: p.notes,
+      quoteRef: currentDeal.quoteNumber || currentDeal.name
+    }));
+    const validation = validateOstendoItems(rawItems);
+    if (!validation.valid) {
+      showToast(validation.errors[0] || "Invalid Ostendo items", "error");
+      return;
+    }
+    const copied = await copyOstendoProductList(rawItems, currentDeal.quoteNumber || currentDeal.name);
+    if (copied) {
+      showToast("Ostendo matrix copied to clipboard", "success");
+    } else {
+      showToast("Failed to copy to clipboard", "error");
+    }
+  };
 
   const [activeTab, setActiveTab] = useState<DealDetailsTab>(initialTab);
 
@@ -316,7 +389,9 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
     if (!stageObj) return;
 
     if (newStageId === "stage-submitted") {
-      markQuoteSent(deal.id);
+      markSent(currentDeal).then(() => {
+        showToast("Quote marked as Submitted", "success");
+      });
       return;
     }
     if (newStageId === "stage-followed-up") {
@@ -335,12 +410,12 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
     const isWon = newStageId === "stage-won" || stageObj.name.toLowerCase().includes("won");
     const isLost = newStageId === "stage-lost" || stageObj.name.toLowerCase().includes("lost");
 
-    updateCrmOpportunity(deal.id, {
+    updateDeal({
       stageId: stageObj.id,
       stageName: stageObj.name,
       probability: stageObj.probability,
-      weightedValue: (deal.dealValue || 0) * (stageObj.probability / 100),
-      quoteStatus: isWon ? "PO Received" : isLost ? "Declined" : deal.quoteStatus,
+      weightedValue: (currentDeal.dealValue || 0) * (stageObj.probability / 100),
+      quoteStatus: isWon ? "PO Received" : isLost ? "Declined" : currentDeal.quoteStatus,
       latestActivity: `Stage updated to ${stageObj.name}`,
       latestActivityDate: new Date().toISOString().split("T")[0]
     });
@@ -349,7 +424,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
 
   // Save quote details edit form
   const handleSaveQuoteDetails = () => {
-    updateCrmOpportunity(deal.id, {
+    updateDeal({
       ostendoQuoteRef: quoteFormData.ostendoQuoteRef,
       quoteNumber: quoteFormData.ostendoQuoteRef,
       quoteRevision: quoteFormData.quoteRevision,
@@ -366,13 +441,13 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
 
   // Create new Quote Revision
   const handleCreateRevision = () => {
-    const currentRev = deal.quoteRevision || "Rev A";
+    const currentRev = currentDeal.quoteRevision || "Rev A";
     const nextRev =
       currentRev === "Rev A" ? "Rev B" : currentRev === "Rev B" ? "Rev C" : "Rev D";
-    const baseRef = (deal.ostendoQuoteRef || "Q-88200").replace(/-Rev[A-D]/, "");
+    const baseRef = (currentDeal.ostendoQuoteRef || "Q-88200").replace(/-Rev[A-D]/, "");
     const newQuoteRef = `${baseRef}-${nextRev}`;
 
-    updateCrmOpportunity(deal.id, {
+    updateDeal({
       quoteRevision: nextRev,
       ostendoQuoteRef: newQuoteRef,
       quoteStatus: "Revising",
@@ -405,7 +480,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
       return;
     }
 
-    updateCrmOpportunity(deal.id, {
+    updateDeal({
       quoteStatus: "PO Received",
       stageId: wonStage.id,
       stageName: wonStage.name,
@@ -565,7 +640,10 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
               {deal.stageId === "stage-not-submitted" && (
                 <button
                   type="button"
-                  onClick={() => markQuoteSent(deal.id)}
+                  onClick={async () => {
+                    await markSent(currentDeal);
+                    showToast("Quote marked as Submitted", "success");
+                  }}
                   className="px-3.5 py-1.5 text-meta font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-edge shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
                   title="Mark quote as sent to client and advance to Submitted"
                 >
@@ -675,22 +753,9 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                       type="button"
                       onClick={() => {
                         openCallPrep({
-                          opportunityId: deal.id,
-                          accountId: deal.accountId,
-                          companyName: deal.accountName,
-                          contactId: deal.primaryContactId,
-                          contactName: deal.primaryContactName,
-                          contactEmail: deal.primaryContactEmail,
-                          projectName: deal.name,
-                          projectLocation: deal.location,
-                          projectNotes: `${deal.customerNeed || ""} | ${deal.notes || ""}`,
-                          productsQuoted: (deal.products || []).map((p) => ({
-                            productName: p.productName || p.productCode,
-                            quantity: p.quantity,
-                            unitPrice: p.unitPrice
-                          })),
-                          recentActivities: [deal.latestActivity || ""].filter(Boolean),
-                          quoteStatus: deal.quoteStatus
+                          opportunityId: currentDeal.id,
+                          accountId: currentDeal.accountId,
+                          contactId: currentDeal.primaryContactId
                         });
                         setIsCommMenuOpen(false);
                       }}
@@ -1280,12 +1345,12 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                       const newTotalCost = updatedProducts.reduce((sum, p) => sum + ((p.costPrice || 0) * p.quantity), 0);
                       const overallMargin = newTotal > 0 ? Math.round(((newTotal - newTotalCost) / newTotal) * 100) : 35;
 
-                      updateCrmOpportunity(deal.id, {
+                      updateDeal({
                         products: updatedProducts,
                         dealValue: newTotal,
                         totalCostValue: newTotalCost,
                         grossMarginPercent: overallMargin,
-                        weightedValue: newTotal * (deal.probability / 100)
+                        weightedValue: newTotal * (currentDeal.probability / 100)
                       });
 
                       showToast(`Added ${newLine.productName} to BOM`, "success");
@@ -1406,12 +1471,12 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                                 const newTotalCost = hasCost ? costedItems.reduce((sum, item) => sum + ((item.costPrice || 0) * item.quantity), 0) : undefined;
                                 const overallMargin = hasCost && newTotal > 0 && newTotalCost !== undefined ? Math.round(((newTotal - newTotalCost) / newTotal) * 100) : undefined;
 
-                                updateCrmOpportunity(deal.id, {
+                                updateDeal({
                                   products: updatedProducts,
                                   dealValue: newTotal,
                                   totalCostValue: newTotalCost,
                                   grossMarginPercent: overallMargin,
-                                  weightedValue: newTotal * (deal.probability / 100)
+                                  weightedValue: newTotal * (currentDeal.probability / 100)
                                 });
                                 showToast(`Removed line item from BOM`, "info");
                               }}
@@ -1841,10 +1906,14 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
               <button
                 type="button"
                 onClick={async () => {
-                  await deleteCrmOpportunity(deal.id);
-                  setIsDeleteConfirmOpen(false);
-                  showToast(`Deleted quote "${deal.name}"`, "info");
-                  if (onClose) onClose();
+                  try {
+                    await deleteOpportunityMutation.mutateAsync({ id: currentDeal.id });
+                    setIsDeleteConfirmOpen(false);
+                    showToast(`Deleted quote "${currentDeal.name}"`, "info");
+                    if (onClose) onClose();
+                  } catch (err: any) {
+                    showToast(err.message || "Failed to delete quote", "error");
+                  }
                 }}
                 className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-meta rounded-edge cursor-pointer"
               >
@@ -1892,10 +1961,15 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  logFollowUpCompleted(deal.id, followUpNotes.trim() || undefined);
-                  setIsFollowUpCompletedModalOpen(false);
-                  setFollowUpNotes("");
+                onClick={async () => {
+                  try {
+                    await logFollowUpDone(currentDeal);
+                    showToast(`Follow-up logged. Quote "${currentDeal.name}" moved to Followed Up.`, "success");
+                    setIsFollowUpCompletedModalOpen(false);
+                    setFollowUpNotes("");
+                  } catch (err: any) {
+                    showToast(err.message || "Failed to log follow-up", "error");
+                  }
                 }}
                 className="px-4 py-1.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-meta rounded-edge cursor-pointer"
               >
@@ -1915,7 +1989,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
               <span>Mark Quote as Won</span>
             </div>
             <p className="text-spec text-ink-dim">
-              Record purchase order or award details for <strong>"{deal.name}"</strong> (${deal.dealValue.toLocaleString()}). This will advance the quote stage to <strong>"Won"</strong> and log an activity record.
+              Record purchase order or award details for <strong>"{currentDeal.name}"</strong> (${(currentDeal.dealValue || 0).toLocaleString()}). This will advance the quote stage to <strong>"Won"</strong> and log an activity record.
             </p>
             <div>
               <label htmlFor="won-notes-input" className="block text-spec font-bold uppercase text-ink-dim mb-1">
@@ -1943,10 +2017,15 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  markQuoteWon(deal.id, wonNotes.trim() || undefined);
-                  setIsWonModalOpen(false);
-                  setWonNotes("");
+                onClick={async () => {
+                  try {
+                    await markWon(currentDeal, wonNotes.trim() || undefined);
+                    showToast(`Quote "${currentDeal.name}" marked as Won!`, "success");
+                    setIsWonModalOpen(false);
+                    setWonNotes("");
+                  } catch (err: any) {
+                    showToast(err.message || "Failed to mark won", "error");
+                  }
                 }}
                 className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-meta rounded-edge cursor-pointer"
               >
@@ -1966,7 +2045,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
               <span>Mark Quote as Lost</span>
             </div>
             <p className="text-spec text-ink-dim">
-              Record why <strong>"{deal.name}"</strong> was lost. This will advance the quote stage to <strong>"Lost"</strong> and log an activity record.
+              Record why <strong>"{currentDeal.name}"</strong> was lost. This will advance the quote stage to <strong>"Lost"</strong> and log an activity record.
             </p>
             <div className="space-y-3">
               <div>
@@ -2015,10 +2094,15 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  markQuoteLost(deal.id, lostReason, lostNotes.trim() || undefined);
-                  setIsLostModalOpen(false);
-                  setLostNotes("");
+                onClick={async () => {
+                  try {
+                    await markLost(currentDeal, lostReason, lostNotes.trim() || undefined);
+                    showToast(`Quote "${currentDeal.name}" marked as Lost`, "info");
+                    setIsLostModalOpen(false);
+                    setLostNotes("");
+                  } catch (err: any) {
+                    showToast(err.message || "Failed to mark lost", "error");
+                  }
                 }}
                 className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white font-bold text-meta rounded-edge cursor-pointer"
               >

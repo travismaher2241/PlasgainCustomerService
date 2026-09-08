@@ -26,7 +26,7 @@ export interface Opportunity {
   [key: string]: unknown;
 }
 
-export type AccountStatus = "Customer" | "Prospect" | "Former Customer" | "Partner" | "Distributor" | "Archived";
+export type AccountStatus = "Customer" | "Prospect" | "Former Customer" | "Partner" | "Distributor" | "Archived" | "Active";
 export type AccountType = "Prospect" | "Customer" | "Account" | "Council";
 
 export type CustomerRelationshipStatus =
@@ -110,7 +110,8 @@ export interface Account {
   phone?: string;
   generalEmail?: string;
   billingAddress?: {
-    street: string;
+    street?: string;
+    address1?: string;
     city: string;
     state: string;
     postcode: string;
@@ -399,6 +400,12 @@ export interface CRMOpportunity {
   archivedAt?: string;
   archivedBy?: string;
   archivedReason?: string;
+  version?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  isWon?: boolean;
+  actualCloseDate?: string;
+  wonAt?: string;
 }
 
 export interface ActivityParticipant {
@@ -736,6 +743,12 @@ export interface EmailComposerLaunchContext {
   industry?: string;
   territory?: string;
   desiredOutcome?: string;
+  recipientEmail?: string;
+  recipientName?: string;
+  contextNotes?: string;
+  quoteRef?: string;
+  dealValue?: number;
+  products?: any[];
 }
 
 export interface ResearchConfirmedFact {

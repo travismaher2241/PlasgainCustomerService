@@ -47,13 +47,22 @@ export const createOpportunitySchema = z.object({
   dealHealthReasons: z.array(z.string()).optional(),
   notes: z.string().optional().nullable(),
   products: z.array(z.any()).optional(),
+  latestActivity: z.string().optional().nullable(),
+  latestActivityDate: z.string().optional().nullable(),
+  followUpReminderTriggeredAt: z.string().optional().nullable(),
+  followUpCompletedAt: z.string().optional().nullable(),
+  isArchived: z.boolean().optional(),
+  archivedAt: z.string().optional().nullable(),
+  archivedBy: z.string().optional().nullable(),
+  archivedReason: z.string().optional().nullable(),
   wonReason: z.string().optional().nullable(),
   lossReasonId: z.string().optional().nullable(),
   lostReason: z.string().optional().nullable(),
   lostReasonNotes: z.string().optional().nullable()
 });
 
-export type CreateOpportunityInput = z.infer<typeof createOpportunitySchema>;
+export type CreateOpportunityInput = z.input<typeof createOpportunitySchema>;
+export type CreateOpportunityOutput = z.output<typeof createOpportunitySchema>;
 
 export const updateOpportunitySchema = createOpportunitySchema.partial().extend({
   // Concurrency check fields

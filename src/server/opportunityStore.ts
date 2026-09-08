@@ -165,13 +165,14 @@ export class OpportunityStore {
     const record: StoredOpportunity = {
       ...data,
       id,
+      accountName: data.accountName || "Account",
       version: 1,
       isArchived: false,
       opportunityOwner: data.opportunityOwner || creator.name,
       assignedTo: data.assignedTo || creator.name,
       createdAt: now,
       updatedAt: now
-    };
+    } as StoredOpportunity;
 
     this.opportunities.set(id, record);
     this.save();
@@ -222,7 +223,7 @@ export class OpportunityStore {
       ...cleanUpdates,
       version: existing.version + 1,
       updatedAt: now
-    };
+    } as StoredOpportunity;
 
     this.opportunities.set(id, updated);
     this.save();
