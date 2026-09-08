@@ -143,4 +143,36 @@ describe("Account CSV import", () => {
     await waitFor(() => expect(screen.getByText(/Import finished/i)).toBeInTheDocument());
     expect(screen.getByText(/Added 3 accounts\./i)).toBeInTheDocument();
   });
+
+  it("respects the Sales Rep column and previews account owner", async () => {
+    const csvWithRep = [
+      "Customer Name,Customer Style,Sales Rep,Contact",
+      "Apex Group,Account,Bilal Akhtar,Sarah Connor"
+    ].join("\n");
+
+    render(
+      <AppProvider>
+        <CRMAccountsView />
+      </AppProvider>
+    );
+
+    openImportModal();
+    await uploadCsv(csvWithRep, "rep_test.csv");
+
+    const dialog = screen.getByRole("dialog", { name: /Import accounts from a CSV/i });
+    expect(within(dialog).getByText("Apex Group")).toBeInTheDocument();
+    expect(within(dialog).getByText("Bilal Akhtar")).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /Import 1 account/i }));
+    await waitFor(() => expect(screen.getByText(/Import finished/i)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /^Done$/i }));
+    const listEl = screen.getByPlaceholderText(/Search accounts/i).parentElement?.parentElement?.nextElementSibling;
+    expect(listEl?.textContent).toContain("Apex Group");
+
+    const storedAccounts = JSON.parse(localStorage.getItem("plasgain_crm_accounts") || "[]");
+    const apex = storedAccounts.find((a: any) => a.name === "Apex Group");
+    expect(apex).toBeDefined();
+    expect(apex?.accountOwner).toBe("Bilal Akhtar");
+  });
 });

@@ -10,6 +10,7 @@ test-results/
 playwright-report/
 server_data_*.json
 controlled-documents-backup-*.json
+imported-accounts-backup-*.json
 .claude/
 server_data/knowledge/
 # Runtime state written by the server as it runs, not source. These were

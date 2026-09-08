@@ -127,7 +127,7 @@ export function parseDelimitedText(text: string): DelimitedTable {
 /* Header mapping                                                      */
 /* ------------------------------------------------------------------ */
 
-export type AccountCsvField = "name" | "style" | "address1" | "address2" | "contact" | "phone" | "email" | "website";
+export type AccountCsvField = "name" | "style" | "address1" | "address2" | "contact" | "phone" | "email" | "website" | "owner";
 
 const HEADER_ALIASES: Record<AccountCsvField, string[]> = {
   name: ["customer name", "account name", "company name", "customer", "account", "company", "name", "business name"],
@@ -137,7 +137,21 @@ const HEADER_ALIASES: Record<AccountCsvField, string[]> = {
   contact: ["contact", "contact name", "primary contact", "contact person"],
   phone: ["phone", "phone number", "telephone", "main phone", "contact phone"],
   email: ["email", "email address", "general email", "contact email"],
-  website: ["website", "web", "url", "web address"]
+  website: ["website", "web", "url", "web address"],
+  owner: [
+    "owner",
+    "account owner",
+    "sales rep",
+    "sales representative",
+    "sales person",
+    "salesperson",
+    "rep",
+    "allocated to",
+    "assigned to",
+    "lead owner",
+    "staff",
+    "user"
+  ]
 };
 
 function normalizeHeader(header: string): string {
@@ -389,6 +403,7 @@ export interface AccountImportOptions {
   accountOwner: string;
   defaultTerritory?: Account["territory"];
   contactFrequency?: ContactFrequency;
+  teamMembers?: Array<{ id?: string; name: string }>;
   /** Deterministic id seed; defaults to the current clock. */
   idSeed?: string;
   today?: string;
@@ -502,6 +517,27 @@ export function buildAccountImportPlan(
     const generalEmail = cell("email") || (contactCell.includes("@") ? contactCell : "");
     const person = splitPersonName(contactCell);
 
+    // Resolve owner: check row's owner column, optionally match team member, or fallback to default
+    const rawOwner = cell("owner");
+    let rowOwner = options.accountOwner || "";
+    if (rawOwner) {
+      if (options.teamMembers && options.teamMembers.length > 0) {
+        const clean = rawOwner.trim().toLowerCase();
+        const matched = options.teamMembers.find((m) => {
+          const mClean = m.name.toLowerCase();
+          return (
+            mClean === clean ||
+            mClean.split(" ")[0] === clean ||
+            mClean.includes(clean) ||
+            clean.includes(mClean)
+          );
+        });
+        rowOwner = matched ? matched.name : rawOwner.trim();
+      } else {
+        rowOwner = rawOwner.trim();
+      }
+    }
+
     const accountId = `acc-imp-${seed}-${index}`;
     const account: Account = {
       id: accountId,
@@ -509,7 +545,7 @@ export function buildAccountImportPlan(
       accountType,
       status: statusForType(accountType),
       territory,
-      accountOwner: options.accountOwner,
+      accountOwner: rowOwner,
       // No industry: a customer list says nothing about it, and defaulting
       // several hundred accounts to one industry is a claim, not a blank.
       leadSource: "Imported List",
@@ -545,7 +581,7 @@ export function buildAccountImportPlan(
         jobTitle: "",
         email: "",
         preferredContactMethod: phone ? "Phone" : "Email",
-        contactOwner: options.accountOwner
+        contactOwner: rowOwner
       };
       if (phone) contact.phone = phone;
     }

@@ -334,6 +334,53 @@ describe("buildAccountImportPlan", () => {
     expect(plan.readyCount).toBe(0);
   });
 
+  it("maps owner column and allocates accounts and contacts to specified rep", () => {
+    const csv = [
+      "Customer Name,Customer Style,Sales Rep,Contact",
+      "Alpha Civil,Account,Bilal Akhtar,John Doe",
+      "Beta Pipe,Account,Travis Maher,Jane Smith",
+      "Gamma Ltd,Account,,Bob White"
+    ].join("\n");
+
+    const plan = buildAccountImportPlan(csv, [], {
+      ...baseOptions,
+      accountOwner: "Default Owner",
+      teamMembers: [
+        { name: "Bilal Akhtar" },
+        { name: "Travis Maher" }
+      ]
+    });
+
+    expect(plan.readyRows[0].account!.accountOwner).toBe("Bilal Akhtar");
+    expect(plan.readyRows[0].contact!.contactOwner).toBe("Bilal Akhtar");
+
+    expect(plan.readyRows[1].account!.accountOwner).toBe("Travis Maher");
+    expect(plan.readyRows[1].contact!.contactOwner).toBe("Travis Maher");
+
+    // Falls back to default owner when column is empty
+    expect(plan.readyRows[2].account!.accountOwner).toBe("Default Owner");
+    expect(plan.readyRows[2].contact!.contactOwner).toBe("Default Owner");
+  });
+
+  it("fuzzy matches first names in owner column to team members", () => {
+    const csv = [
+      "Customer Name,Customer Style,Owner",
+      "Alpha Civil,Account,Bilal",
+      "Beta Pipe,Account,Travis"
+    ].join("\n");
+
+    const plan = buildAccountImportPlan(csv, [], {
+      ...baseOptions,
+      teamMembers: [
+        { name: "Bilal Akhtar" },
+        { name: "Travis Maher" }
+      ]
+    });
+
+    expect(plan.readyRows[0].account!.accountOwner).toBe("Bilal Akhtar");
+    expect(plan.readyRows[1].account!.accountOwner).toBe("Travis Maher");
+  });
+
   it("refuses an empty file", () => {
     expect(buildAccountImportPlan("", [], baseOptions).error).toBe("That file is empty.");
   });

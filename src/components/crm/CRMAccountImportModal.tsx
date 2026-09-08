@@ -28,7 +28,7 @@ const FREQUENCIES: ContactFrequency[] = ["As needed", "Occasional", "Opportunity
 const PREVIEW_LIMIT = 25;
 
 export const CRMAccountImportModal: React.FC<CRMAccountImportModalProps> = ({ isOpen, onClose }) => {
-  const { accounts, importAccounts, currentUser, showToast } = useApp();
+  const { accounts, importAccounts, currentUser, teamMembers, showToast } = useApp();
 
   const [fileName, setFileName] = useState("");
   const [isReading, setIsReading] = useState(false);
@@ -37,6 +37,7 @@ export const CRMAccountImportModal: React.FC<CRMAccountImportModalProps> = ({ is
   const [readError, setReadError] = useState("");
   const [defaultTerritory, setDefaultTerritory] = useState<Account["territory"]>("National");
   const [contactFrequency, setContactFrequency] = useState<ContactFrequency>("As needed");
+  const [defaultOwner, setDefaultOwner] = useState<string>("");
   const [createContacts, setCreateContacts] = useState(true);
   const [result, setResult] = useState<{ accounts: number; contacts: number; skipped: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -50,16 +51,18 @@ export const CRMAccountImportModal: React.FC<CRMAccountImportModalProps> = ({ is
     // preview, so stop.
     if (!csvText || result) return null;
     return buildAccountImportPlan(csvText, accounts, {
-      accountOwner: currentUser.name,
+      accountOwner: defaultOwner || currentUser.name,
       defaultTerritory,
-      contactFrequency
+      contactFrequency,
+      teamMembers
     });
-  }, [csvText, accounts, currentUser.name, defaultTerritory, contactFrequency, result]);
+  }, [csvText, accounts, defaultOwner, currentUser.name, defaultTerritory, contactFrequency, teamMembers, result]);
 
   const reset = () => {
     setFileName("");
     setCsvText("");
     setReadError("");
+    setDefaultOwner("");
     setResult(null);
     setIsReading(false);
     setIsImporting(false);
@@ -228,10 +231,27 @@ export const CRMAccountImportModal: React.FC<CRMAccountImportModalProps> = ({ is
                     </p>
                   )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label htmlFor="import-owner" className="block text-spec font-bold mb-1">
+                        Default account owner
+                      </label>
+                      <select
+                        id="import-owner"
+                        value={defaultOwner || currentUser.name}
+                        onChange={(e) => setDefaultOwner(e.target.value)}
+                        className="w-full p-2 border border-line rounded-edge bg-white text-spec"
+                      >
+                        {teamMembers.map((m) => (
+                          <option key={m.id || m.name} value={m.name}>
+                            {m.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     <div>
                       <label htmlFor="import-territory" className="block text-spec font-bold mb-1">
-                        Territory when the address has no state
+                        Territory when address has no state
                       </label>
                       <select
                         id="import-territory"
@@ -288,6 +308,7 @@ export const CRMAccountImportModal: React.FC<CRMAccountImportModalProps> = ({ is
                           <tr className="text-left text-ink-dim">
                             <th className="p-2 font-bold">Account</th>
                             <th className="p-2 font-bold">Type</th>
+                            <th className="p-2 font-bold">Owner</th>
                             <th className="p-2 font-bold">Suburb / State</th>
                             <th className="p-2 font-bold">Contact</th>
                             <th className="p-2 font-bold">Outcome</th>
@@ -298,6 +319,7 @@ export const CRMAccountImportModal: React.FC<CRMAccountImportModalProps> = ({ is
                             <tr key={row.rowNumber} className="border-t border-line align-top">
                               <td className="p-2 text-body font-medium">{row.sourceName || `Row ${row.rowNumber}`}</td>
                               <td className="p-2 text-ink-dim">{row.account?.accountType || "—"}</td>
+                              <td className="p-2 text-ink-dim">{row.account?.accountOwner || "—"}</td>
                               <td className="p-2 text-ink-dim">
                                 {[row.account?.billingAddress?.city, row.account?.billingAddress?.state]
                                   .filter(Boolean)
