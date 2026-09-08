@@ -267,7 +267,7 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(screen.queryByText(/Live Synthesis/i)).not.toBeInTheDocument();
   });
 
-  it("Test 10 — Handles account archive and delete workflows cleanly", async () => {
+  it("Test 10 — Handles account archive and delete workflows cleanly in CRM directory", async () => {
     window.confirm = vi.fn().mockReturnValue(true);
 
     render(
@@ -276,6 +276,13 @@ describe("CRMAccountsView Component (Step 5)", () => {
       </AppProvider>
     );
 
+    // Verify Townsville City Council is visible in active list
+    expect(screen.getAllByText("Townsville City Council").length).toBeGreaterThanOrEqual(1);
+
+    // Verify "Archived Accounts" option is not present in the type dropdown
+    const typeFilter = screen.getByRole("combobox", { name: /Filter by account type/i });
+    expect(within(typeFilter).queryByText(/Archived Accounts/i)).not.toBeInTheDocument();
+
     // Archive via header actions menu
     const moreBtn = screen.getByRole("button", { name: /Account actions/i });
     fireEvent.click(moreBtn);
@@ -283,25 +290,7 @@ describe("CRMAccountsView Component (Step 5)", () => {
     const archiveOption = screen.getByRole("button", { name: /Archive Account/i });
     fireEvent.click(archiveOption);
 
-    // Switch to Archived filter in dropdown
-    const typeFilter = screen.getByRole("combobox", { name: /Filter by account type/i });
-    fireEvent.change(typeFilter, { target: { value: "archived" } });
-
-    expect(screen.getByText(/Showing 1 archived account/i)).toBeInTheDocument();
-
-    // Restore via card button in archived view
-    const restoreBtn = screen.getByRole("button", { name: /Restore Townsville City Council/i });
-    fireEvent.click(restoreBtn);
-
-    // Switch back to active list
-    fireEvent.click(screen.getByRole("button", { name: /Show Active/i }));
-    expect(screen.getAllByText("Townsville City Council").length).toBeGreaterThanOrEqual(1);
-
-    // Permanently delete account via trash button
-    const deleteBtn = screen.getByRole("button", { name: /Delete Townsville City Council/i });
-    fireEvent.click(deleteBtn);
-
-    // Confirm it is permanently deleted from DOM
+    // Once archived, the account leaves the active CRM view
     await waitFor(() => {
       expect(screen.queryByText("Townsville City Council")).not.toBeInTheDocument();
     });

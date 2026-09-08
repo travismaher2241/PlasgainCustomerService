@@ -26,7 +26,6 @@ import {
   Edit3,
   Trash2,
   Archive,
-  ArchiveRestore,
   Smartphone,
   TrendingUp,
   MoreVertical,
@@ -126,15 +125,9 @@ export const CRMAccountsView: React.FC = () => {
   const [accountTypeFilter, setAccountTypeFilter] = useState<"all" | AccountType>("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [ownerFilter, setOwnerFilter] = useState("all");
-  const [archiveFilter, setArchiveFilter] = useState<"active" | "archived" | "all">("active");
   const [activeAccountTab, setActiveAccountTab] = useState<
     "overview" | "contacts" | "deals" | "activity" | "brief" | "competitors"
   >("overview");
-
-  const archivedAccountsCount = useMemo(
-    () => accounts.filter((a) => Boolean(a.isArchived || a.status === "Archived")).length,
-    [accounts]
-  );
 
   // Activity change date state
   const [editingActivityDate, setEditingActivityDate] = useState<{ id: string; title: string; date: string; time?: string } | null>(null);
@@ -354,11 +347,10 @@ export const CRMAccountsView: React.FC = () => {
     );
   };
 
-  // Filter accounts
+  // Filter accounts (only active accounts are shown in CRM directory; archived accounts are managed in Settings)
   const filteredAccounts = accounts.filter((acc) => {
     const isArchived = Boolean(acc.isArchived || acc.status === "Archived");
-    const matchesArchive =
-      archiveFilter === "all" ? true : archiveFilter === "archived" ? isArchived : !isArchived;
+    if (isArchived) return false;
 
     const matchesSearch =
       acc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -403,13 +395,13 @@ export const CRMAccountsView: React.FC = () => {
     const matchesOwner =
       ownerFilter === "all" || (acc.accountOwner || currentUser.name) === ownerFilter;
 
-    return matchesArchive && matchesSearch && matchesTypeAndStatus && matchesOwner;
+    return matchesSearch && matchesTypeAndStatus && matchesOwner;
   });
 
   const selectedAccount =
-    accounts.find((a) => a.id === selectedAccountId) ||
+    accounts.find((a) => a.id === selectedAccountId && !a.isArchived && a.status !== "Archived") ||
     filteredAccounts[0] ||
-    accounts[0];
+    null;
 
   const accountContacts = contacts.filter(
     (c) =>
@@ -649,9 +641,15 @@ export const CRMAccountsView: React.FC = () => {
       archivedReason: isNowArchived ? "Manually archived by user" : undefined,
       status: isNowArchived ? "Archived" : (accountToToggle.accountType === "Prospect" ? "Prospect" : "Customer")
     });
+    if (isNowArchived && selectedAccountId === accountToToggle.id) {
+      const nextActive = accounts.find(
+        (a) => a.id !== accountToToggle.id && !a.isArchived && a.status !== "Archived"
+      );
+      setSelectedAccountId(nextActive ? nextActive.id : null);
+    }
     showToast(
       isNowArchived
-        ? `Account "${accountToToggle.name}" archived.`
+        ? `Account "${accountToToggle.name}" archived. You can view or restore it in Settings.`
         : `Account "${accountToToggle.name}" restored to active list.`,
       "info"
     );
@@ -1232,16 +1230,9 @@ export const CRMAccountsView: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <select
                 aria-label="Filter by account type"
-                value={archiveFilter === "archived" ? "archived" : accountTypeFilter}
+                value={accountTypeFilter}
                 onChange={(e) => {
-                  const val = e.target.value as any;
-                  if (val === "archived") {
-                    setArchiveFilter("archived");
-                    setAccountTypeFilter("all");
-                  } else {
-                    setArchiveFilter("active");
-                    setAccountTypeFilter(val);
-                  }
+                  setAccountTypeFilter(e.target.value as any);
                   setStatusFilter("all");
                 }}
                 className="w-full p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-semibold"
@@ -1250,7 +1241,6 @@ export const CRMAccountsView: React.FC = () => {
                 <option value="Account">Account</option>
                 <option value="Prospect">Prospect</option>
                 <option value="Council">Council</option>
-                <option value="archived">Archived Accounts{archivedAccountsCount > 0 ? ` (${archivedAccountsCount})` : ""}</option>
               </select>
 
               <select
@@ -1304,22 +1294,6 @@ export const CRMAccountsView: React.FC = () => {
                 <option value="Overdue">⚠️ Contact Overdue</option>
               </select>
             )}
-
-            {archiveFilter === "archived" && (
-              <div className="p-2 bg-amber-50 border border-amber-200 rounded-edge text-xs text-amber-900 flex items-center justify-between">
-                <span className="font-semibold">Showing {filteredAccounts.length} archived {filteredAccounts.length === 1 ? "account" : "accounts"}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setArchiveFilter("active");
-                    setAccountTypeFilter("all");
-                  }}
-                  className="font-bold underline hover:text-amber-950 cursor-pointer ml-2"
-                >
-                  Show Active
-                </button>
-              </div>
-            )}
           </div>
 
           {/* SCROLLABLE COMPACT ACCOUNT ROWS */}
@@ -1333,7 +1307,6 @@ export const CRMAccountsView: React.FC = () => {
             ) : (
               filteredAccounts.map((acc) => {
                 const isSelected = selectedAccount?.id === acc.id;
-                const isArchived = Boolean(acc.isArchived || acc.status === "Archived");
 
                 return (
                   <div
@@ -1389,18 +1362,6 @@ export const CRMAccountsView: React.FC = () => {
                         )}
 
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                          {isArchived && (
-                            <button
-                              type="button"
-                              aria-label={`Restore ${acc.name}`}
-                              title="Restore account"
-                              onClick={() => handleArchiveToggle(acc)}
-                              className="p-1 text-ink-dim hover:text-emerald-700 rounded hover:bg-emerald-50 transition-colors cursor-pointer"
-                            >
-                              <ArchiveRestore className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-
                           <button
                             type="button"
                             aria-label={`Delete ${acc.name}`}

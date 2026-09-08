@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
+  Archive,
   LogIn,
   User
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { initialsOf } from "../context/AppContext";
 import { AdminAuditLogView } from "./AdminAuditLogView";
+import { ArchivedAccountsSettings } from "./ArchivedAccountsSettings";
 
 export const SettingsView: React.FC = () => {
   const {
@@ -13,10 +15,16 @@ export const SettingsView: React.FC = () => {
     currentUser,
     updateCurrentUser,
     openLoginModal,
-    auditLogs
+    auditLogs,
+    accounts
   } = useApp();
 
-  const [subTab, setSubTab] = useState<"general" | "audit">("general");
+  const [subTab, setSubTab] = useState<"general" | "archived" | "audit">("general");
+
+  const archivedAccountsCount = useMemo(
+    () => accounts.filter((a) => Boolean(a.isArchived || a.status === "Archived")).length,
+    [accounts]
+  );
 
   // Profile Edit State (PART I: Summary by default with Edit toggle)
   const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -50,11 +58,17 @@ export const SettingsView: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-line pb-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-body">
-            {subTab === "general" ? "Settings" : "Admin Audit Trail"}
+            {subTab === "general"
+              ? "Settings"
+              : subTab === "archived"
+              ? "Archived Accounts"
+              : "Admin Audit Trail"}
           </h1>
           <p className="text-spec text-ink-dim mt-0.5">
             {subTab === "general"
               ? "User profile and account preferences."
+              : subTab === "archived"
+              ? "Manage archived accounts. Restore them back to active CRM or delete them permanently."
               : "Track all customer calls, record changes, stage moves, and user actions across the shared database."}
           </p>
         </div>
@@ -68,6 +82,27 @@ export const SettingsView: React.FC = () => {
             }`}
           >
             General &amp; Profile
+          </button>
+          <button
+            type="button"
+            onClick={() => setSubTab("archived")}
+            className={`px-3.5 py-1.5 cursor-pointer transition-colors flex items-center gap-1.5 ${
+              subTab === "archived" ? "bg-brand-deep text-white" : "text-ink-dim hover:text-body"
+            }`}
+          >
+            <Archive className="w-3.5 h-3.5" />
+            <span>Archived Accounts</span>
+            {archivedAccountsCount > 0 && (
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  subTab === "archived"
+                    ? "bg-white text-brand-deep"
+                    : "bg-amber-100 text-amber-900 border border-amber-300"
+                }`}
+              >
+                {archivedAccountsCount}
+              </span>
+            )}
           </button>
           {currentUser.isAdmin && (
             <button
@@ -90,6 +125,8 @@ export const SettingsView: React.FC = () => {
 
       {subTab === "audit" && currentUser.isAdmin ? (
         <AdminAuditLogView />
+      ) : subTab === "archived" ? (
+        <ArchivedAccountsSettings />
       ) : (
         <>
           {/* 1. PROFILE SECTION (PART I: COMPACT SUMMARY WITH EDIT ACTION) */}
