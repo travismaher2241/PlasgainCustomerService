@@ -9,7 +9,17 @@ import { notificationStore } from "./src/server/notificationStore";
 import { knowledgeStore } from "./src/server/knowledgeStore";
 import { quoteDocumentStore, MAX_DOCUMENT_BYTES } from "./src/server/quoteDocumentStore";
 import { parseQuotePdf, followUpDateFor, PdfReaderUnavailableError, ParsedQuote } from "./src/server/quotePdfParser";
-import { userProfileStore } from "./src/server/userProfileStore";
+import { userProfileStore, hashPinWithScrypt, verifyPinWithScrypt } from "./src/server/userProfileStore";
+import { auditLogStore } from "./src/server/auditLogStore";
+import { opportunityStore, ConcurrencyConflictError } from "./src/server/opportunityStore";
+import {
+  createOpportunitySchema,
+  updateOpportunitySchema,
+  opportunityQuerySchema
+} from "./src/validators/opportunityValidator";
+import { diffFields } from "./src/utils/diffUtils";
+import { getSystemRole, requireRole } from "./src/server/authMiddleware";
+import { AuditLogRecord } from "./src/types/crm";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -73,14 +83,49 @@ app.use("/api", (req, res, next) => {
   return next();
 });
 
-// Keep profile credentials out of the browser bundle and local storage. Set
-// PLASGAIN_PIN_* environment variables in deployed environments to replace the
-// local development values without committing secrets.
-const profilePinHashes: Record<string, Buffer> = {
-  "user-travis-maher": createHash("sha256").update(process.env.PLASGAIN_PIN_TRAVIS || "1234").digest(),
-  "user-sarah-reed": createHash("sha256").update(process.env.PLASGAIN_PIN_SARAH || "2468").digest(),
-  "user-rob-mitchell": createHash("sha256").update(process.env.PLASGAIN_PIN_ROB || "9900").digest()
-};
+/**
+ * Ensures the server fails to boot (fails closed) if PLASGAIN_PIN_* environment
+ * variables are missing in production, rather than falling back to default PINs.
+ */
+function assertProductionSecurityConfig(): void {
+  const isProduction = process.env.NODE_ENV === "production" || (typeof __filename !== "undefined" && __filename.includes("dist"));
+  if (!isProduction) return;
+
+  const missingPins: string[] = [];
+  const travisPin = process.env.PLASGAIN_PIN_TRAVIS || process.env.PLASGAIN_PIN_TRAVIS_MAHER;
+  const sarahPin = process.env.PLASGAIN_PIN_SARAH || process.env.PLASGAIN_PIN_SARAH_REED;
+  const robPin = process.env.PLASGAIN_PIN_ROB || process.env.PLASGAIN_PIN_ROB_MITCHELL;
+
+  if (!travisPin) missingPins.push("PLASGAIN_PIN_TRAVIS");
+  if (!sarahPin) missingPins.push("PLASGAIN_PIN_SARAH");
+  if (!robPin) missingPins.push("PLASGAIN_PIN_ROB");
+
+  if (missingPins.length > 0) {
+    const errorMsg = `[FATAL] Missing required PIN environment variables in production: ${missingPins.join(", ")}. Server cannot boot with default credentials.`;
+    console.error(errorMsg);
+    throw new Error(errorMsg);
+  }
+}
+
+// In production, validate immediately so the server fails closed on boot
+if (process.env.NODE_ENV === "production") {
+  assertProductionSecurityConfig();
+}
+
+function initProfilePinHashes(): Record<string, string> {
+  const isProduction = process.env.NODE_ENV === "production";
+  const travisPin = process.env.PLASGAIN_PIN_TRAVIS || process.env.PLASGAIN_PIN_TRAVIS_MAHER || (!isProduction ? "1234" : undefined);
+  const sarahPin = process.env.PLASGAIN_PIN_SARAH || process.env.PLASGAIN_PIN_SARAH_REED || (!isProduction ? "2468" : undefined);
+  const robPin = process.env.PLASGAIN_PIN_ROB || process.env.PLASGAIN_PIN_ROB_MITCHELL || (!isProduction ? "9900" : undefined);
+
+  const hashes: Record<string, string> = {};
+  if (travisPin) hashes["user-travis-maher"] = hashPinWithScrypt(travisPin);
+  if (sarahPin) hashes["user-sarah-reed"] = hashPinWithScrypt(sarahPin);
+  if (robPin) hashes["user-rob-mitchell"] = hashPinWithScrypt(robPin);
+  return hashes;
+}
+
+const profilePinHashes: Record<string, string> = initProfilePinHashes();
 const authAttempts = new Map<string, { failures: number; lockedUntil: number }>();
 
 /**
@@ -141,21 +186,6 @@ function readSession(req: express.Request): WorkspaceSession | null {
     }
     sessions.delete(token);
   }
-  // Fallback to active profile if explicit X-User-Id header is provided
-  const userIdHeader = String(req.headers["x-user-id"] || "");
-  if (userIdHeader) {
-    const profile = getProfileById(userIdHeader);
-    if (profile) {
-      return {
-        userId: userIdHeader,
-        name: profile.name,
-        role: profile.role,
-        isAdmin: profile.isAdmin,
-        issuedAt: Date.now(),
-        expiresAt: Date.now() + SESSION_TTL_MS
-      };
-    }
-  }
   return null;
 }
 
@@ -185,15 +215,14 @@ app.post("/api/auth/verify-profile", (req, res) => {
 
   const customEnvKey = `PLASGAIN_PIN_${userId.replace(/^user-/, "").replace(/[^a-z0-9]/gi, "_").toUpperCase()}`;
   const configuredCustomPin = process.env[customEnvKey];
-  const expected = profilePinHashes[userId] || (configuredCustomPin ? createHash("sha256").update(configuredCustomPin).digest() : undefined);
-  const supplied = createHash("sha256").update(pin).digest();
-  let valid = Boolean(expected && pin.length >= 4 && timingSafeEqual(expected, supplied));
+  const expectedHash = profilePinHashes[userId] || (configuredCustomPin ? hashPinWithScrypt(configuredCustomPin) : undefined);
+  let valid = Boolean(expectedHash && pin.length >= 4 && verifyPinWithScrypt(pin, expectedHash));
 
   // Check persistent userProfileStore if not matched by env/preset
   if (!valid && pin.length >= 4) {
     if (userProfileStore.verifyPin(userId, pin)) {
       valid = true;
-    } else if (clientPinHash && clientPinHash === createHash("sha256").update(pin.trim()).digest("hex")) {
+    } else if (clientPinHash && (clientPinHash === createHash("sha256").update(pin.trim()).digest("hex") || verifyPinWithScrypt(pin.trim(), clientPinHash))) {
       valid = true;
       userProfileStore.setPin(userId, pin.trim());
     }
@@ -223,7 +252,7 @@ app.post("/api/auth/register-profile", (req, res) => {
     return res.status(400).json({ error: "userId and name are required." });
   }
   const calculatedPinHash = pin
-    ? createHash("sha256").update(String(pin).trim()).digest("hex")
+    ? hashPinWithScrypt(String(pin).trim())
     : (pinHash ? String(pinHash).toLowerCase() : "");
 
   const stored = userProfileStore.setProfile({
@@ -252,7 +281,7 @@ app.post("/api/auth/set-pin", (req, res) => {
       name: String(req.body?.name || userId),
       role: String(req.body?.role || "Internal Sales"),
       isAdmin: Boolean(req.body?.isAdmin),
-      pinHash: createHash("sha256").update(String(pin).trim()).digest("hex")
+      pinHash: hashPinWithScrypt(String(pin).trim())
     });
   }
   return res.json({ success: true });
@@ -274,8 +303,8 @@ app.post("/api/auth/sign-out", (req, res) => {
 });
 
 app.get("/api/auth/session", (req, res) => {
-  const session = readSession(req);
-  if (!session) return res.status(401).json({ error: "No active session." });
+  const session = requireSession(req, res);
+  if (!session) return;
   return res.json({
     userId: session.userId,
     name: session.name,
@@ -283,6 +312,244 @@ app.get("/api/auth/session", (req, res) => {
     isAdmin: session.isAdmin,
     expiresAt: session.expiresAt
   });
+});
+
+// -------------------------------------------------------------
+// SERVER-CONTROLLED IMMUTABLE AUDIT TRAIL
+// -------------------------------------------------------------
+
+app.post("/api/audit", (req, res) => {
+  const session = requireSession(req, res);
+  if (!session) return;
+
+  const { action, entityType, entityId, entityName, details, changes, metadata } = req.body || {};
+
+  if (!action || !entityType || !entityId) {
+    return res.status(400).json({
+      error: "action, entityType, and entityId are required for audit logging."
+    });
+  }
+
+  // Security guarantee: userId, userName, userRole, and timestamp MUST be derived
+  // exclusively from the verified server session, ignoring any client-asserted values.
+  const id = `audit-${Date.now()}-${randomBytes(4).toString("hex")}`;
+  const record: AuditLogRecord = {
+    id,
+    timestamp: new Date().toISOString(),
+    userId: session.userId,
+    userName: session.name,
+    userRole: session.role || (session.isAdmin ? "Administrator" : "Sales Team"),
+    action: String(action) as any,
+    entityType: String(entityType) as any,
+    entityId: String(entityId),
+    entityName: String(entityName || entityId),
+    details: String(details || `${action} ${entityType}`),
+    changes: changes && typeof changes === "object" ? changes : undefined,
+    metadata: metadata && typeof metadata === "object" ? metadata : undefined
+  };
+
+  auditLogStore.append(record);
+  return res.status(201).json({ success: true, ok: true, record });
+});
+
+app.get("/api/audit", (req, res) => {
+  const session = requireSession(req, res);
+  if (!session) return;
+
+  const limit = Math.min(Number(req.query.limit) || 200, 1000);
+  const logs = auditLogStore.getAll(limit);
+  return res.json({ success: true, ok: true, logs, records: logs });
+});
+
+// -------------------------------------------------------------
+// OPPORTUNITY (DEAL) REST API (SHARED-DATABASE INTEGRITY)
+// -------------------------------------------------------------
+
+// 1. GET /api/opportunities (list with pagination, search, and filtering)
+// SYSTEM POLICY: Everyone sees everything — open to all authenticated users.
+app.get("/api/opportunities", (req, res) => {
+  const session = requireSession(req, res);
+  if (!session) return;
+
+  const parsed = opportunityQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "Invalid query parameters.",
+      details: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`)
+    });
+  }
+
+  const result = opportunityStore.list(parsed.data);
+  return res.json({
+    success: true,
+    data: result.data,
+    pagination: {
+      page: result.page,
+      limit: result.limit,
+      total: result.total,
+      totalPages: result.totalPages
+    }
+  });
+});
+
+// 2. GET /api/opportunities/:id (read single opportunity)
+// SYSTEM POLICY: Everyone sees everything — open to all authenticated users.
+app.get("/api/opportunities/:id", (req, res) => {
+  const session = requireSession(req, res);
+  if (!session) return;
+
+  const opp = opportunityStore.getById(req.params.id);
+  const includeArchived = req.query.includeArchived === "true";
+  if (!opp || (opp.isArchived && !includeArchived)) {
+    return res.status(404).json({ error: `Opportunity with ID "${req.params.id}" not found.` });
+  }
+
+  return res.json({ success: true, data: opp });
+});
+
+// 3. POST /api/opportunities (create opportunity with Zod validation and auto-audit)
+app.post("/api/opportunities", (req, res) => {
+  const session = requireSession(req, res);
+  if (!session) return;
+
+  const parsed = createOpportunitySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "Validation failed for opportunity creation.",
+      details: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`)
+    });
+  }
+
+  const created = opportunityStore.create(parsed.data, session);
+
+  // Automatic audit emission (derived from verified server session)
+  const changes = diffFields(null, created);
+  const auditId = `audit-${Date.now()}-${randomBytes(4).toString("hex")}`;
+  auditLogStore.append({
+    id: auditId,
+    timestamp: new Date().toISOString(),
+    userId: session.userId,
+    userName: session.name,
+    userRole: session.role || (session.isAdmin ? "Administrator" : "Sales Team"),
+    action: "CREATE",
+    entityType: "Deal",
+    entityId: created.id,
+    entityName: created.name,
+    details: `Created quote/opportunity "${created.name}" ($${(created.dealValue || 0).toLocaleString()})`,
+    changes
+  });
+
+  return res.status(201).json({ success: true, data: created });
+});
+
+// 4. PUT /api/opportunities/:id (field-level updates with optimistic concurrency control and auto-audit)
+app.put("/api/opportunities/:id", (req, res) => {
+  const session = requireSession(req, res);
+  if (!session) return;
+
+  const parsed = updateOpportunitySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      error: "Validation failed for opportunity update.",
+      details: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`)
+    });
+  }
+
+  // Extract expected concurrency token from body or standard HTTP headers
+  const rawIfMatch = req.headers["if-match"];
+  const headerVersion = rawIfMatch ? parseInt(String(rawIfMatch).replace(/["']/g, ""), 10) : undefined;
+  const expectedVersion = parsed.data.version !== undefined ? parsed.data.version : (Number.isInteger(headerVersion) ? headerVersion : undefined);
+  const rawIfUnmodified = req.headers["if-unmodified-since"];
+  const expectedUpdatedAt = parsed.data.updatedAt || (rawIfUnmodified ? String(rawIfUnmodified) : undefined);
+
+  try {
+    const { updated, previous } = opportunityStore.update(
+      req.params.id,
+      parsed.data,
+      expectedVersion,
+      expectedUpdatedAt
+    );
+
+    // Automatic audit record with precise field-level diffs
+    const changes = diffFields(previous, updated);
+    const isStageMove = Boolean(updated.stageName && updated.stageName !== previous.stageName);
+    const auditId = `audit-${Date.now()}-${randomBytes(4).toString("hex")}`;
+    auditLogStore.append({
+      id: auditId,
+      timestamp: new Date().toISOString(),
+      userId: session.userId,
+      userName: session.name,
+      userRole: session.role || (session.isAdmin ? "Administrator" : "Sales Team"),
+      action: isStageMove ? "STAGE_CHANGE" : "UPDATE",
+      entityType: "Deal",
+      entityId: updated.id,
+      entityName: updated.name,
+      details: isStageMove
+        ? `Moved quote "${updated.name}" from ${previous.stageName || "Initial"} -> ${updated.stageName}`
+        : `Updated quote details for "${updated.name}"`,
+      changes
+    });
+
+    return res.json({ success: true, data: updated });
+  } catch (err: any) {
+    if (err instanceof ConcurrencyConflictError) {
+      return res.status(409).json({
+        error: err.message,
+        currentVersion: err.currentVersion,
+        currentUpdatedAt: err.currentUpdatedAt,
+        providedVersion: err.providedVersion
+      });
+    }
+    if (err.message?.includes("not found")) {
+      return res.status(404).json({ error: err.message });
+    }
+    return res.status(500).json({ error: "Failed to update opportunity." });
+  }
+});
+
+// 5. DELETE /api/opportunities/:id (soft-delete governed by Role: Manager or Admin only)
+app.delete("/api/opportunities/:id", (req, res) => {
+  const session = requireSession(req, res);
+  if (!session) return;
+
+  const role = getSystemRole(session);
+  if (role !== "Manager" && role !== "Admin") {
+    return res.status(403).json({
+      error: `Forbidden: Deleting opportunities requires Manager or Admin privileges. Current role: ${role}.`
+    });
+  }
+
+  const reason = req.body?.reason ? String(req.body.reason) : "Deleted by user";
+
+  try {
+    const deleted = opportunityStore.softDelete(req.params.id, reason, session);
+
+    // Audit emission
+    const auditId = `audit-${Date.now()}-${randomBytes(4).toString("hex")}`;
+    auditLogStore.append({
+      id: auditId,
+      timestamp: new Date().toISOString(),
+      userId: session.userId,
+      userName: session.name,
+      userRole: session.role || (session.isAdmin ? "Administrator" : "Sales Team"),
+      action: "DELETE",
+      entityType: "Deal",
+      entityId: deleted.id,
+      entityName: deleted.name,
+      details: `Soft-deleted quote/opportunity "${deleted.name}": ${reason}`,
+      changes: {
+        isArchived: { from: false, to: true },
+        archivedReason: { from: null, to: reason }
+      }
+    });
+
+    return res.json({ success: true, message: "Opportunity deleted successfully.", data: deleted });
+  } catch (err: any) {
+    if (err.message?.includes("not found")) {
+      return res.status(404).json({ error: err.message });
+    }
+    return res.status(500).json({ error: "Failed to delete opportunity." });
+  }
 });
 
 
@@ -2899,6 +3166,7 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
 // VITE MIDDLEWARE SETUP
 // -------------------------------------------------------------
 async function startServer() {
+  assertProductionSecurityConfig();
   const isProduction = process.env.NODE_ENV === "production" || __filename.includes("dist");
   if (!isProduction) {
     const { createServer: createViteServer } = await import("vite");
@@ -2930,4 +3198,15 @@ if (process.env.NODE_ENV !== "test" && !process.env.VERCEL) {
   startServer();
 }
 
-export { app, startServer };
+export {
+  app,
+  startServer,
+  assertProductionSecurityConfig,
+  readSession,
+  requireSession,
+  hashPinWithScrypt,
+  verifyPinWithScrypt,
+  auditLogStore,
+  opportunityStore
+};
+

@@ -1,0 +1,654 @@
+// Prisma schema for Plasgain Customer Service CRM
+// Database: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------------------------------------------
+// REFERENCE TABLES (Lookup / Enumerations)
+// -------------------------------------------------------------
+
+model Territory {
+  id          String    @id @default(cuid())
+  code        String    @unique // e.g. "NSW/ACT", "VIC/TAS", "QLD/NT", "WA", "SA", "National"
+  name        String // e.g. "New South Wales and ACT"
+  description String?
+  accounts    Account[]
+  leads       Lead[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("territories")
+}
+
+model ContactRole {
+  id          String    @id @default(cuid())
+  code        String    @unique // e.g. "DECISION_MAKER", "INFLUENCER", "TECHNICAL_CONTACT"
+  name        String // e.g. "Decision Maker", "Influencer"
+  description String?
+  contacts    Contact[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("contact_roles")
+}
+
+model LeadStatus {
+  id          String   @id @default(cuid())
+  code        String   @unique // e.g. "NEW", "ATTEMPTING_CONTACT", "CONTACTED", "QUALIFYING", "QUALIFIED", "UNQUALIFIED", "CONVERTED"
+  name        String // e.g. "New", "Attempting Contact", "Converted"
+  order       Int      @default(0)
+  isConverted Boolean  @default(false)
+  leads       Lead[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("lead_statuses")
+}
+
+model LossReason {
+  id            String        @id @default(cuid())
+  code          String        @unique // e.g. "PRICE", "COMPETITOR", "TECHNICAL_FIT", "PROJECT_CANCELLED", "TIMELINE", "NO_RESPONSE", "OTHER"
+  name          String // e.g. "Price", "Competitor", "Technical Fit"
+  description   String?
+  opportunities Opportunity[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@map("loss_reasons")
+}
+
+model TaskType {
+  id          String   @id @default(cuid())
+  code        String   @unique // e.g. "CALL", "EMAIL", "FOLLOW_UP", "PREPARE_QUOTE", "REVIEW_QUOTE", "MEETING", "SITE_VISIT", "RESEARCH", "INTERNAL_ACTION", "OTHER"
+  name        String // e.g. "Call", "Email", "Follow-up"
+  description String?
+  tasks       Task[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("task_types")
+}
+
+model Pipeline {
+  id            String          @id @default(cuid())
+  name          String
+  description   String?
+  isDefault     Boolean         @default(false)
+  stages        PipelineStage[]
+  opportunities Opportunity[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@map("pipelines")
+}
+
+model PipelineStage {
+  id            String        @id @default(cuid())
+  pipelineId    String
+  pipeline      Pipeline      @relation(fields: [pipelineId], references: [id], onDelete: Cascade)
+  name          String // Semantic label: e.g. "Not Submitted", "Submitted", "Follow Up Required", "Followed Up", "Won", "Lost"
+  code          String // Semantic machine key: e.g. "NOT_SUBMITTED", "SUBMITTED", "FOLLOW_UP_REQUIRED", "FOLLOWED_UP", "WON", "LOST"
+  order         Int // Pipeline sequence position
+  probability   Float         @default(0.0) // Win probability (0-100%)
+  description   String?
+  isWon         Boolean       @default(false)
+  isLost        Boolean       @default(false)
+  opportunities Opportunity[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([pipelineId, code])
+  @@unique([pipelineId, order])
+  @@index([pipelineId])
+  @@map("pipeline_stages")
+}
+
+// -------------------------------------------------------------
+// CORE ENTITIES
+// -------------------------------------------------------------
+
+model Account {
+  id                         String     @id @default(cuid())
+  version                    Int        @default(1) // Optimistic concurrency control
+  name                       String
+  tradingName                String?
+  accountType                String     @default("Prospect") // "Prospect" | "Customer" | "Account" | "Council"
+  status                     String     @default("Prospect") // "Customer" | "Prospect" | "Former Customer" | "Partner" | "Distributor" | "Archived"
+  customerRelationshipStatus String? // "Active" | "Developing" | "Occasional" | "At Risk" | "Dormant"
+  contactFrequency           String? // "Opportunity" | "Occasional" | "As needed"
+  industry                   String?
+  customerSegment            String?
+  companySize                String?
+  abn                        String?
+  website                    String?
+  mainPhone                  String?
+  phone                      String?
+  generalEmail               String?
+  billingAddress             Json? // { street, city, state, postcode, country }
+  shippingAddresses          Json? // [{ id, label, street, city, state, postcode, country, isDefault }]
+  territoryId                String?
+  territory                  Territory? @relation(fields: [territoryId], references: [id])
+  accountOwner               String?
+  leadSource                 String?
+  lastInteractionDate        DateTime?
+  nextScheduledInteraction   DateTime?
+  nextAction                 String?
+  nextActionDate             DateTime?
+  aiSummary                  Json?
+  isArchived                 Boolean    @default(false)
+  archivedAt                 DateTime?
+  archivedDate               DateTime?
+  archivedBy                 String?
+  archivedReason             String?
+  createdAt                  DateTime   @default(now())
+  updatedAt                  DateTime   @updatedAt
+
+  // Relationships
+  contacts          Contact[]
+  opportunities     Opportunity[]
+  convertedLeads    Lead[]                   @relation("LeadConvertedAccount")
+  tasks             Task[]
+  activities        Activity[]
+  competitorPricing CompetitorPricing[]
+  competitorAlerts  CompetitorPricingAlert[]
+
+  @@index([territoryId])
+  @@index([isArchived])
+  @@index([status])
+  @@map("accounts")
+}
+
+model Contact {
+  id                     String       @id @default(cuid())
+  version                Int          @default(1) // Optimistic concurrency control
+  accountId              String
+  account                Account      @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountName            String?
+  firstName              String
+  lastName               String
+  preferredName          String?
+  jobTitle               String
+  department             String?
+  roleId                 String?
+  contactRole            ContactRole? @relation(fields: [roleId], references: [id])
+  role                   String? // Custom / legacy descriptive role
+  email                  String
+  mobile                 String?
+  phone                  String?
+  preferredContactMethod String       @default("Email") // "Email" | "Mobile" | "Phone" | "Teams/Zoom"
+  linkedinUrl            String?
+
+  // Personal Profile
+  hobbies          String?
+  hasPartner       Boolean?
+  partnerName      String?
+  hasChildren      Boolean?
+  numberOfChildren Int?
+  childrenNames    Json? // Array of children names
+  birthday         String?
+  birthdayReminder Boolean  @default(false)
+  thingsToRemember String?
+
+  // Commercial / Relationship
+  isDecisionMaker    Boolean   @default(false)
+  influenceLevel     String? // "High" | "Medium" | "Low"
+  relationshipStatus String? // "Strong" | "Warm" | "Neutral" | "Cold"
+  contactOwner       String?
+  notes              String?
+  lastContacted      DateTime?
+  nextFollowUp       DateTime?
+  tags               Json? // Array of tags
+  customFields       Json?
+
+  // Archival Status
+  isArchived     Boolean   @default(false)
+  archivedAt     DateTime?
+  archivedBy     String?
+  archivedReason String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Relationships
+  primaryOpportunities Opportunity[]           @relation("OpportunityPrimaryContact")
+  convertedLeads       Lead[]                  @relation("LeadConvertedContact")
+  tasks                Task[]
+  activities           Activity[]
+  history              ContactAccountHistory[]
+  notableEvents        ContactNotableEvent[]
+  participations       ActivityParticipant[]
+
+  @@index([accountId])
+  @@index([roleId])
+  @@index([email])
+  @@index([isArchived])
+  @@map("contacts")
+}
+
+model ContactNotableEvent {
+  id            String   @id @default(cuid())
+  contactId     String
+  contact       Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  title         String
+  description   String?
+  eventDate     String?
+  recordedBy    String?
+  isAiGenerated Boolean  @default(false)
+  status        String   @default("candidate") // "candidate" | "confirmed"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([contactId])
+  @@map("contact_notable_events")
+}
+
+model ContactAccountHistory {
+  id          String    @id @default(cuid())
+  contactId   String
+  contact     Contact   @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  accountId   String
+  accountName String
+  role        String?
+  email       String?
+  phone       String?
+  startDate   DateTime?
+  endDate     DateTime
+  movedAt     DateTime  @default(now())
+  movedBy     String
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([contactId])
+  @@map("contact_account_history")
+}
+
+model Lead {
+  id                  String     @id @default(cuid())
+  version             Int        @default(1) // Optimistic concurrency control
+  leadName            String
+  contactName         String
+  contactEmail        String
+  contactPhone        String?
+  company             String
+  source              String // "Web Form" | "Phone Inbound" | "Tender Portal" | "Email Inbound" | "Trade Show" | "Referral" | "Outbound Campaign"
+  enquiryType         String // "Solar Pathway Lighting" | "Roadway & Streetlight" | "Car Park & Area" | "CCTV & Security" | "Composite Poles" | "General"
+  productInterest     Json? // Array of interested product codes / names
+  estimatedValue      Float      @default(0.0)
+  estimatedValueBasis String? // "Known" | "Estimate" | "Unknown"
+  territoryId         String?
+  territory           Territory? @relation(fields: [territoryId], references: [id])
+  consentStatus       String? // "Consent Confirmed" | "Legitimate Interest" | "Pending Consent" | "Opted Out"
+  isDraft             Boolean    @default(false)
+  assignedSalesperson String
+  statusId            String
+  status              LeadStatus @relation(fields: [statusId], references: [id])
+  leadScore           Int        @default(0)
+  leadScoreRating     String     @default("Developing") // "Hot" | "Warm" | "Developing" | "Low Priority"
+  scoringFactors      Json?
+  urgency             String     @default("Budgetary / Exploratory") // "Immediate" | "Within 1 Month" | "Q3/Q4" | "Budgetary / Exploratory"
+  location            String?
+  notes               String?
+  dateReceived        DateTime   @default(now())
+  lastActivity        String?
+  lastActivityDate    DateTime?
+  nextAction          String?
+  nextActionDate      DateTime?
+  qualificationInfo   Json? // { hasBudget, hasAuthority, hasDefiniteNeed, hasTimeline }
+  rawEnquiry          String?
+  rawEnquiryText      String?
+  enquiryDeadline     DateTime?
+  quantity            Int?
+  isAiAssisted        Boolean    @default(false)
+
+  // Conversion Tracking
+  convertedAccountId     String?
+  convertedAccount       Account?     @relation("LeadConvertedAccount", fields: [convertedAccountId], references: [id], onDelete: SetNull)
+  convertedContactId     String?
+  convertedContact       Contact?     @relation("LeadConvertedContact", fields: [convertedContactId], references: [id], onDelete: SetNull)
+  convertedOpportunityId String?
+  convertedOpportunity   Opportunity? @relation("LeadConvertedOpportunity", fields: [convertedOpportunityId], references: [id], onDelete: SetNull)
+  convertedAt            DateTime?
+  convertedBy            String?
+
+  // Archival Status
+  isArchived     Boolean   @default(false)
+  archivedAt     DateTime?
+  archivedBy     String?
+  archivedReason String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([statusId])
+  @@index([territoryId])
+  @@index([convertedAccountId])
+  @@index([isArchived])
+  @@map("leads")
+}
+
+model Opportunity {
+  id                          String        @id @default(cuid())
+  version                     Int           @default(1) // Optimistic concurrency control
+  name                        String
+  accountId                   String
+  account                     Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountName                 String?
+  primaryContactId            String?
+  primaryContact              Contact?      @relation("OpportunityPrimaryContact", fields: [primaryContactId], references: [id], onDelete: SetNull)
+  opportunityOwner            String?
+  assignedTo                  String?
+  pipelineId                  String
+  pipeline                    Pipeline      @relation(fields: [pipelineId], references: [id])
+  stageId                     String
+  stage                       PipelineStage @relation(fields: [stageId], references: [id])
+  dealValue                   Float         @default(0.0)
+  dealValueBasis              String? // "Known" | "Estimate" | "Unknown"
+  isDraft                     Boolean       @default(false)
+  totalCostValue              Float?
+  grossMarginPercent          Float?
+  weightedValue               Float?
+  probability                 Float?
+  forecastCategory            String? // "Committed" | "Likely" | "Pipeline" | "Won" | "Lost" | "Omitted"
+  expectedCloseDate           DateTime?
+  projectApplication          String?
+  location                    String?
+  windRegion                  String? // "Region A" | "Region B" | "Region C" | "Region D"
+  foundationType              String? // "Direct Burial" | "Base Plate (Ragbolt)"
+  customerNeed                String?
+  keyRequirements             Json? // String array
+  competitors                 Json? // String array
+  source                      String?
+  quoteNumber                 String?
+  ostendoQuoteRef             String?
+  quoteRevision               String?
+  quoteStatus                 String? // "Draft" | "Sent" | "Viewed" | "Revising" | "Accepted" | "Declined" | "Expired" | "None" | "Issued" | "Client Review" | "PO Received"
+  quoteValue                  Float?
+  quoteSentDate               DateTime?
+  quoteIssuedDate             DateTime?
+  quoteExpiryDate             DateTime?
+  latestActivity              String?
+  latestActivityDate          DateTime?
+  submittedAt                 DateTime?
+  followUpReminderTriggeredAt DateTime?
+  followUpCompletedAt         DateTime?
+  nextAction                  String?
+  nextActionDate              DateTime?
+  daysInCurrentStage          Int           @default(0)
+  totalDealAgeDays            Int           @default(0)
+  dealHealth                  String? // "Healthy" | "Needs Attention" | "At Risk" | "Stalled"
+  dealHealthReasons           Json? // String array
+  notes                       String?
+  attachedDocumentIds         Json? // String array
+  rawEnquiryText              String?
+  analysis                    Json?
+  wonReason                   String?
+  lossReasonId                String?
+  lossReason                  LossReason?   @relation(fields: [lossReasonId], references: [id])
+  lostReasonNotes             String?
+
+  // Archival Status
+  isArchived     Boolean   @default(false)
+  archivedAt     DateTime?
+  archivedBy     String?
+  archivedReason String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  // Relationships
+  productLines       OpportunityProductLine[]
+  tasks              Task[]
+  activities         Activity[]
+  convertedFromLeads Lead[]                   @relation("LeadConvertedOpportunity")
+  competitorPricing  CompetitorPricing[]
+
+  @@index([accountId])
+  @@index([primaryContactId])
+  @@index([pipelineId])
+  @@index([stageId])
+  @@index([lossReasonId])
+  @@index([isArchived])
+  @@map("opportunities")
+}
+
+model OpportunityProductLine {
+  id                String      @id @default(cuid())
+  opportunityId     String
+  opportunity       Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+  productId         String?
+  productCode       String
+  productName       String
+  category          String
+  quantity          Int         @default(1)
+  unit              String?     @default("EA")
+  unitPrice         Float?
+  costPrice         Float?
+  totalPrice        Float?
+  marginPercent     Float?
+  isOstendoVerified Boolean     @default(false)
+  notes             String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([opportunityId])
+  @@map("opportunity_product_lines")
+}
+
+model Task {
+  id               String       @id @default(cuid())
+  version          Int          @default(1) // Optimistic concurrency control
+  title            String
+  typeId           String?
+  taskType         TaskType?    @relation(fields: [typeId], references: [id])
+  type             String? // Fallback type string
+  status           String       @default("To Do") // "To Do" | "In Progress" | "Completed" | "Cancelled"
+  priority         String       @default("Medium") // "Urgent" | "High" | "Medium" | "Low"
+  dueDate          DateTime
+  dueTime          String?
+  accountId        String?
+  account          Account?     @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  accountName      String?
+  contactId        String?
+  contact          Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contactName      String?
+  opportunityId    String?
+  opportunity      Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  opportunityName  String?
+  assignedTo       String
+  createdBy        String
+  notes            String?
+  completedAt      DateTime?
+  isOverdue        Boolean      @default(false)
+  location         String?
+  meetingFormat    String? // "In Person" | "Teams/Zoom" | "Phone" | "Site Visit"
+  durationMinutes  Int?
+  agenda           String?
+  outcome          String?
+  sourceActivityId String?
+  sourceActivity   Activity?    @relation("TaskSourceActivity", fields: [sourceActivityId], references: [id], onDelete: SetNull)
+  isCheckInTask    Boolean      @default(false)
+
+  // Archival Status
+  isArchived     Boolean   @default(false)
+  archivedAt     DateTime?
+  archivedBy     String?
+  archivedReason String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([typeId])
+  @@index([accountId])
+  @@index([contactId])
+  @@index([opportunityId])
+  @@index([assignedTo])
+  @@index([dueDate])
+  @@index([status])
+  @@index([isArchived])
+  @@map("tasks")
+}
+
+model Activity {
+  id                  String       @id @default(cuid())
+  version             Int          @default(1) // Optimistic concurrency control
+  type                String // "call" | "email" | "meeting" | "site_visit" | "note" | "task" | "quote_sent" | "quote_accepted" | "enquiry_received" | "opportunity_created" | "stage_changed" | "follow_up"
+  title               String
+  description         String?
+  accountId           String?
+  account             Account?     @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  accountName         String?
+  contactId           String?
+  contact             Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contactName         String?
+  opportunityId       String?
+  opportunity         Opportunity? @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  opportunityName     String?
+  performedBy         String?
+  authorId            String?
+  isImmutable         Boolean      @default(false)
+  outcome             String?
+  nextAction          String?
+  nextActionDate      DateTime?
+  isAiAssisted        Boolean      @default(false)
+  captureSource       String? // "manual" | "voice_capture" | "email_inbound" | "copilot_action"
+  aiTranscriptSnippet String?
+  timestamp           DateTime     @default(now())
+  metadata            Json?
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  // Relationships
+  participants   ActivityParticipant[]
+  generatedTasks Task[]                @relation("TaskSourceActivity")
+
+  @@index([accountId])
+  @@index([contactId])
+  @@index([opportunityId])
+  @@index([timestamp])
+  @@map("activities")
+}
+
+model ActivityParticipant {
+  id          String   @id @default(cuid())
+  activityId  String
+  activity    Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  contactId   String?
+  contact     Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  contactName String
+  jobTitle    String?
+  accountName String?
+  email       String?
+  role        String?  @default("participant") // "participant" | "caller" | "attendee" | "recipient"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([activityId])
+  @@index([contactId])
+  @@map("activity_participants")
+}
+
+// -------------------------------------------------------------
+// COMPETITOR PRICING & NOTIFICATIONS (Migrated from JSON files)
+// -------------------------------------------------------------
+
+model CompetitorPricing {
+  id                  String                   @id @default(cuid())
+  version             Int                      @default(1) // Optimistic concurrency control
+  accountId           String
+  account             Account                  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountName         String?
+  opportunityId       String?
+  opportunity         Opportunity?             @relation(fields: [opportunityId], references: [id], onDelete: SetNull)
+  opportunityName     String?
+  competitorName      String
+  competitorProduct   String
+  price               Float
+  plasgainQuotedPrice Float?
+  currency            String                   @default("AUD")
+  priceBasis          String // "Per Unit" | "Per System" | "Project Total" | "Supply Only" | "Installed" | "Unknown"
+  gstStatus           String                   @default("Ex GST") // "Ex GST" | "Inc GST" | "Unknown"
+  quantity            Int?
+  sourceType          String // "Customer Verbal" | "Competitor Quote" | "Tender Schedule" | "Email" | "Other"
+  observedDate        DateTime
+  notes               String?
+  status              String                   @default("Active") // "Active" | "Superseded" | "Unverified"
+  createdBy           String
+  alerts              CompetitorPricingAlert[]
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  @@index([accountId])
+  @@index([opportunityId])
+  @@index([competitorName])
+  @@index([status])
+  @@map("competitor_pricing")
+}
+
+model CompetitorPricingAlert {
+  id                String            @id @default(cuid())
+  version           Int               @default(1) // Optimistic concurrency control
+  pricingRecordId   String
+  pricingRecord     CompetitorPricing @relation(fields: [pricingRecordId], references: [id], onDelete: Cascade)
+  accountId         String
+  account           Account           @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  accountName       String?
+  competitorName    String
+  competitorProduct String
+  price             Float
+  currency          String            @default("AUD")
+  priceBasis        String
+  title             String
+  message           String
+  isRead            Boolean           @default(false)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([pricingRecordId])
+  @@index([accountId])
+  @@index([isRead])
+  @@map("competitor_pricing_alerts")
+}
+
+model Notification {
+  id         String   @id @default(cuid())
+  version    Int      @default(1) // Optimistic concurrency control
+  title      String
+  message    String
+  type       String   @default("info") // "warning" | "info" | "success" | "action_required"
+  isRead     Boolean  @default(false)
+  isArchived Boolean  @default(false)
+  linkView   String? // "accounts" | "pipeline" | "leads" | "tasks" | "today" | "competitor-pricing"
+  linkId     String? // Target entity ID
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([isRead])
+  @@index([isArchived])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  timestamp  DateTime @default(now())
+  userId     String
+  userName   String
+  userRole   String
+  action     String
+  entityType String
+  entityId   String
+  entityName String
+  details    String
+  changes    Json?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}

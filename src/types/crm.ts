@@ -156,6 +156,8 @@ export interface Account {
   };
   isArchived?: boolean;
   archivedDate?: string;
+  archivedAt?: string;
+  archivedBy?: string;
   archivedReason?: string;
   aiSummary?: {
     summary: string;
@@ -234,6 +236,7 @@ export interface CRMContact {
   // Archival Status (Soft-delete with complete historical preservation)
   isArchived?: boolean;
   archivedAt?: string;
+  archivedBy?: string;
   archivedReason?: string;
 
   // Legacy / optional CRM fields
@@ -293,6 +296,10 @@ export interface CRMLead {
   convertedOpportunityId?: string;
   convertedAt?: string;
   convertedBy?: string;
+  isArchived?: boolean;
+  archivedAt?: string;
+  archivedBy?: string;
+  archivedReason?: string;
 }
 
 export interface PipelineStageConfig {
@@ -388,6 +395,10 @@ export interface CRMOpportunity {
   wonReason?: string;
   lostReason?: "Price" | "Competitor" | "Technical Fit" | "Project Cancelled" | "Timeline / Lead Time" | "No Response" | "Other";
   lostReasonNotes?: string;
+  isArchived?: boolean;
+  archivedAt?: string;
+  archivedBy?: string;
+  archivedReason?: string;
 }
 
 export interface ActivityParticipant {
@@ -497,6 +508,10 @@ export interface CRMTask {
   outcome?: string;
   sourceActivityId?: string;
   isCheckInTask?: boolean;
+  isArchived?: boolean;
+  archivedAt?: string;
+  archivedBy?: string;
+  archivedReason?: string;
 }
 
 export interface MeetingPreparationPlan {

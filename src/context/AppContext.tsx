@@ -43,7 +43,8 @@ import {
 import { CRMIntelligenceEngine } from "../utils/crmIntelligence";
 import { normalizeNotification, getUnreadNotificationsCount } from "../utils/notificationUtils";
 import { formatAuDate, formatAuTime, getLocalDateInputValue } from "../utils/dateUtils";
-import { setSessionToken } from "../utils/apiClient";
+import { setSessionToken, getSessionToken } from "../utils/apiClient";
+import { diffFields } from "../utils/diffUtils";
 import {
   saveDocToCloud,
   loadDocFromCloud,
@@ -220,7 +221,7 @@ interface AppContextType {
     sourceLabel?: string
   ) => Promise<{ accounts: number; contacts: number }>;
   updateAccount: (id: string, updates: Partial<Account>) => void;
-  deleteAccount: (id: string) => Promise<void>;
+  deleteAccount: (id: string, reason?: string) => Promise<void>;
   selectedAccountId: string | null;
   setSelectedAccountId: (id: string | null) => void;
 
@@ -228,7 +229,7 @@ interface AppContextType {
   setContacts: React.Dispatch<React.SetStateAction<CRMContact[]>>;
   addContact: (contact: CRMContact) => void;
   updateContact: (id: string, updates: Partial<CRMContact>) => void;
-  deleteContact: (id: string) => void;
+  deleteContact: (id: string, reason?: string) => void;
   moveContact: (
     contactId: string,
     destinationAccountId: string,
@@ -257,7 +258,7 @@ interface AppContextType {
   setCrmOpportunities: React.Dispatch<React.SetStateAction<CRMOpportunity[]>>;
   addCrmOpportunity: (opp: CRMOpportunity) => void;
   updateCrmOpportunity: (id: string, updates: Partial<CRMOpportunity>) => void;
-  deleteCrmOpportunity: (id: string) => Promise<void>;
+  deleteCrmOpportunity: (id: string, reason?: string) => Promise<void>;
   markQuoteSent: (id: string, notes?: string) => void;
   logFollowUpCompleted: (id: string, notes?: string) => void;
   markQuoteWon: (id: string, notes?: string) => void;
@@ -462,6 +463,13 @@ interface AppContextType {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+export function getApiUrl(endpoint: string): string {
+  if (typeof window !== "undefined" && window.location?.origin && window.location.origin !== "null") {
+    return `${window.location.origin}${endpoint}`;
+  }
+  return endpoint;
+}
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [activeTab, setActiveTabState] = useState<NavTab>("home");
@@ -792,7 +800,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     changes?: Record<string, { from?: any; to?: any }>,
     metadata?: Record<string, any>
   ) => {
-    const record: AuditLogRecord = {
+    // Generate optimistic record for immediate local state & offline responsiveness
+    const optimisticRecord: AuditLogRecord = {
       id: `audit-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
       timestamp: new Date().toISOString(),
       userId: currentUser.id || "user-unknown",
@@ -808,14 +817,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setAuditLogs((prev) => {
-      const updated = [record, ...prev].slice(0, 500);
+      const updated = [optimisticRecord, ...prev].slice(0, 500);
       try {
         localStorage.setItem("plasgain_audit_logs", JSON.stringify(updated));
       } catch {}
       return updated;
     });
 
-    saveDocToCloud("audit_logs", record.id, record);
+    // Server-controlled immutable audit trail: dispatch to POST /api/audit
+    try {
+      const token = getSessionToken();
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const res = await fetch(getApiUrl("/api/audit"), {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          action,
+          entityType,
+          entityId,
+          entityName,
+          details,
+          changes,
+          metadata
+        })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.record) {
+          // Reconcile with verified server session record
+          setAuditLogs((prev) => {
+            const updated = prev.map((r) => (r.id === optimisticRecord.id ? data.record : r));
+            try {
+              localStorage.setItem("plasgain_audit_logs", JSON.stringify(updated));
+            } catch {}
+            return updated;
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("[AuditLog] Server audit logging error, retained local copy:", err);
+    }
   };
 
   const resetCurrentUser = () => {
@@ -926,7 +970,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [crmOpportunities, setCrmOpportunities] = useState<CRMOpportunity[]>(() => {
     const saved = localStorage.getItem("plasgain_crm_deals");
     const parsed = saved ? JSON.parse(saved) : INITIAL_OPPORTUNITIES;
-    const list = Array.isArray(parsed) ? parsed.filter((d: any) => !isSampleRecord(d)) : [];
+    const list = Array.isArray(parsed) ? parsed.filter((d: any) => !isSampleRecord(d) && !d.isArchived) : [];
     return list.map(migrateOpportunityStage);
   });
 
@@ -968,7 +1012,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [leads, setLeads] = useState<CRMLead[]>(() => {
     const saved = localStorage.getItem("plasgain_crm_leads");
     const parsed = saved ? JSON.parse(saved) : INITIAL_LEADS;
-    return Array.isArray(parsed) ? parsed.filter((l: any) => !isSampleRecord(l)) : [];
+    return Array.isArray(parsed) ? parsed.filter((l: any) => !isSampleRecord(l) && !l.isArchived) : [];
   });
 
   const [activities, setActivities] = useState<CRMActivity[]>(() => {
@@ -980,7 +1024,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [tasks, setTasks] = useState<CRMTask[]>(() => {
     const saved = localStorage.getItem("plasgain_crm_tasks");
     const parsed = saved ? JSON.parse(saved) : INITIAL_TASKS;
-    return Array.isArray(parsed) ? parsed.filter((t: any) => !isSampleRecord(t)) : [];
+    return Array.isArray(parsed) ? parsed.filter((t: any) => !isSampleRecord(t) && !t.isArchived) : [];
   });
 
   const [knowledge, setKnowledge] = useState<CRMKnowledgeItem[]>(() => {
@@ -1224,13 +1268,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return [];
   });
   const [competitorAlerts, setCompetitorAlerts] = useState<CompetitorPricingAlert[]>([]);
-
-  const getApiUrl = (endpoint: string) => {
-    if (typeof window !== "undefined" && window.location?.origin && window.location.origin !== "null") {
-      return `${window.location.origin}${endpoint}`;
-    }
-    return endpoint;
-  };
 
   const fetchCompetitorData = async () => {
     try {
@@ -1560,7 +1597,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             totalPurged++;
           });
         }
-        const realLeads = cloudLeads.filter((l) => !isSampleRecord(l));
+        const realLeads = cloudLeads.filter((l) => !isSampleRecord(l) && !l.isArchived);
         if (isMounted) setLeads(realLeads);
 
         // 5. CRM Deals
@@ -1573,7 +1610,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             totalPurged++;
           });
         }
-        const realDeals = cloudDeals.filter((d) => !isSampleRecord(d));
+        const realDeals = cloudDeals.filter((d) => !isSampleRecord(d) && !d.isArchived);
         if (isMounted) setCrmOpportunities(realDeals.map(migrateOpportunityStage));
 
         // 6. Activities
@@ -1599,7 +1636,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             totalPurged++;
           });
         }
-        const realTasks = cloudTasks.filter((t) => !isSampleRecord(t));
+        const realTasks = cloudTasks.filter((t) => !isSampleRecord(t) && !t.isArchived);
         if (isMounted) setTasks(realTasks);
 
         // 8. Opportunities (Legacy)
@@ -1612,7 +1649,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             totalPurged++;
           });
         }
-        const realOpps = cloudOpps.filter((o) => !isSampleRecord(o));
+        const realOpps = cloudOpps.filter((o) => !isSampleRecord(o) && !o.isArchived);
         if (isMounted) setOpportunities(realOpps);
 
         if (isMigrationPurgeNeeded) {
@@ -1720,16 +1757,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const realContacts = cloudContacts.filter((c) => !isSampleRecord(c));
       if (realContacts.length > 0) setContacts(realContacts);
 
-      const realLeads = cloudLeads.filter((l) => !isSampleRecord(l));
+      const realLeads = cloudLeads.filter((l) => !isSampleRecord(l) && !l.isArchived);
       if (realLeads.length > 0) setLeads(realLeads);
 
-      const realDeals = cloudDeals.filter((d) => !isSampleRecord(d));
+      const realDeals = cloudDeals.filter((d) => !isSampleRecord(d) && !d.isArchived);
       if (realDeals.length > 0) setCrmOpportunities(realDeals.map(migrateOpportunityStage));
 
       const realActivities = cloudActivities.filter((a) => !isSampleRecord(a));
       if (realActivities.length > 0) setActivities(realActivities);
 
-      const realTasks = cloudTasks.filter((t) => !isSampleRecord(t));
+      const realTasks = cloudTasks.filter((t) => !isSampleRecord(t) && !t.isArchived);
       if (realTasks.length > 0) setTasks(realTasks);
 
       const realAudit = cloudAuditLogs.filter((a) => !isSampleRecord(a));
@@ -1972,6 +2009,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const typeChanged = Boolean(updates.accountType && existing && updates.accountType !== existing.accountType);
     const statusChanged = Boolean(updates.customerRelationshipStatus && existing && updates.customerRelationshipStatus !== existing.customerRelationshipStatus);
     const stageChanged = Boolean(updates.prospectStage && existing && updates.prospectStage !== existing.prospectStage);
+    const changes = diffFields(existing, updates);
 
     setAccounts((prev) =>
       prev.map((acc) => {
@@ -1994,7 +2032,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           updates.accountType === "Prospect"
             ? `Prospect Stage: ${updates.prospectStage || "Identified"}`
             : `Relationship Status: ${updates.customerRelationshipStatus || "Active"}`
-        })`
+        })`,
+        changes
       );
     } else if (statusChanged) {
       recordAuditLog(
@@ -2002,7 +2041,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         "Account",
         id,
         targetName,
-        `Changed Customer Relationship Status: ${existing?.customerRelationshipStatus || "Unset"} → ${updates.customerRelationshipStatus}`
+        `Changed Customer Relationship Status: ${existing?.customerRelationshipStatus || "Unset"} → ${updates.customerRelationshipStatus}`,
+        changes
       );
     } else if (stageChanged) {
       recordAuditLog(
@@ -2010,30 +2050,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         "Account",
         id,
         targetName,
-        `Changed Prospect Stage: ${existing?.prospectStage || "Unset"} → ${updates.prospectStage}`
+        `Changed Prospect Stage: ${existing?.prospectStage || "Unset"} → ${updates.prospectStage}`,
+        changes
       );
     } else {
-      recordAuditLog("UPDATE", "Account", id, targetName, `Updated account details for ${targetName}`);
+      recordAuditLog("UPDATE", "Account", id, targetName, `Updated account details for ${targetName}`, changes);
     }
 
     // Reported by the calling screen.
   };
 
-  const deleteAccount = async (id: string) => {
+  const deleteAccount = async (id: string, reason?: string) => {
     const acc = accounts.find((a) => a.id === id);
     const accName = acc?.name || id;
+    const now = new Date().toISOString();
+    const updatedAcc: Account = {
+      ...(acc || ({} as Account)),
+      id,
+      name: accName,
+      isArchived: true,
+      archivedAt: now,
+      archivedDate: now,
+      archivedBy: currentUser.id || "user-unknown",
+      archivedReason: reason || "Deleted by user"
+    };
+
     setAccounts((prev) => prev.filter((a) => a.id !== id));
-    setCrmOpportunities((prev) => prev.filter((d) => d.accountId !== id));
-    setContacts((prev) => prev.filter((c) => c.accountId !== id));
-    setLeads((prev) => prev.filter((l) => l.convertedAccountId !== id));
-    setTasks((prev) => prev.filter((t) => t.accountId !== id));
-    setActivities((prev) => prev.filter((a) => a.accountId !== id));
+    // Soft delete: attached opportunities, contacts, leads, tasks, and activities are preserved for historical audit
     if (selectedAccountId === id) {
       setSelectedAccountId(null);
     }
-    await deleteDocFromCloud("crm_accounts", id);
-    recordAuditLog("DELETE", "Account", id, accName, `Deleted account ${accName}`);
-    showToast(`Deleted "${accName}" and everything attached to it.`, "info");
+    await saveDocToCloud("crm_accounts", id, updatedAcc);
+    recordAuditLog("DELETE", "Account", id, accName, `Soft-deleted account ${accName}${reason ? `: ${reason}` : ""}`, {
+      isArchived: { from: false, to: true },
+      archivedReason: { from: undefined, to: reason || "Deleted by user" }
+    });
+    showToast(`Deleted "${accName}".`, "info");
   };
 
   const addContact = (contact: CRMContact) => {
@@ -2047,6 +2099,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateContact = (id: string, updates: Partial<CRMContact>) => {
     const existing = contacts.find((c) => c.id === id);
     const contactName = `${updates.firstName || existing?.firstName || ""} ${updates.lastName || existing?.lastName || ""}`.trim() || "Contact";
+    const changes = diffFields(existing, updates);
+
     setContacts((prev) =>
       prev.map((c) => {
         if (c.id === id) {
@@ -2057,16 +2111,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return c;
       })
     );
-    recordAuditLog("UPDATE", "Contact", id, contactName, `Updated contact details for ${contactName}`);
+    recordAuditLog("UPDATE", "Contact", id, contactName, `Updated contact details for ${contactName}`, changes);
     showToast("Contact updated", "success");
   };
 
-  const deleteContact = (id: string) => {
+  const deleteContact = (id: string, reason?: string) => {
     const con = contacts.find((c) => c.id === id);
     const conName = con ? `${con.firstName || ""} ${con.lastName || ""}`.trim() || "Contact" : id;
+    const now = new Date().toISOString();
+    const updatedContact: CRMContact = {
+      ...(con || ({} as CRMContact)),
+      id,
+      isArchived: true,
+      archivedAt: now,
+      archivedBy: currentUser.id || "user-unknown",
+      archivedReason: reason || "Deleted by user"
+    };
+
     setContacts((prev) => prev.filter((c) => c.id !== id));
-    deleteDocFromCloud("crm_contacts", id);
-    recordAuditLog("DELETE", "Contact", id, conName, `Removed contact ${conName}`);
+    saveDocToCloud("crm_contacts", id, updatedContact);
+    recordAuditLog("DELETE", "Contact", id, conName, `Soft-deleted contact ${conName}${reason ? `: ${reason}` : ""}`, {
+      isArchived: { from: false, to: true },
+      archivedReason: { from: undefined, to: reason || "Deleted by user" }
+    });
     showToast("Contact removed", "info");
   };
 
@@ -2244,6 +2311,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateLead = (id: string, updates: Partial<CRMLead>) => {
     const existing = leads.find((l) => l.id === id);
     const leadName = updates.leadName || existing?.leadName || "Lead";
+    const changes = diffFields(existing, updates);
+
     setLeads((prev) =>
       prev.map((l) => {
         if (l.id === id) {
@@ -2254,7 +2323,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return l;
       })
     );
-    recordAuditLog("UPDATE", "Lead", id, leadName, `Updated lead ${leadName}`);
+    recordAuditLog("UPDATE", "Lead", id, leadName, `Updated lead ${leadName}`, changes);
     showToast("Lead updated", "success");
   };
 
@@ -2433,6 +2502,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const isStageMove = Boolean(updates.stageName && existing && updates.stageName !== existing.stageName);
     const oldStage = existing?.stageName || "";
     const newStage = updates.stageName || "";
+    const changes = diffFields(existing, updates);
 
     setCrmOpportunities((prev) =>
       prev.map((opp) => {
@@ -2450,28 +2520,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     );
 
     if (isStageMove) {
-      recordAuditLog("STAGE_CHANGE", "Deal", id, dealName, `Moved quote "${dealName}" from ${oldStage} -> ${newStage}`);
+      recordAuditLog("STAGE_CHANGE", "Deal", id, dealName, `Moved quote "${dealName}" from ${oldStage} -> ${newStage}`, changes);
     } else {
-      recordAuditLog("UPDATE", "Deal", id, dealName, `Updated quote details for "${dealName}"`);
+      recordAuditLog("UPDATE", "Deal", id, dealName, `Updated quote details for "${dealName}"`, changes);
     }
 
     showToast("Quote updated.", "success");
   };
 
-  const deleteCrmOpportunity = async (id: string) => {
+  const deleteCrmOpportunity = async (id: string, reason?: string) => {
     const opp = crmOpportunities.find((d) => d.id === id);
     const oppName = opp?.name || id;
+    const now = new Date().toISOString();
+    const updatedOpp: CRMOpportunity = {
+      ...(opp || ({} as CRMOpportunity)),
+      id,
+      name: oppName,
+      isArchived: true,
+      archivedAt: now,
+      archivedBy: currentUser.id || "user-unknown",
+      archivedReason: reason || "Deleted by user"
+    };
+
+    // Soft delete: remove from active opportunities list
     setCrmOpportunities((prev) => prev.filter((d) => d.id !== id));
-    setTasks((prev) => prev.filter((t) => t.opportunityId !== id));
-    setActivities((prev) => prev.filter((a) => a.opportunityId !== id));
+    // Historical integrity: attached tasks and activities are retained, NOT deleted
     if (selectedCrmOpportunityId === id) {
       setSelectedCrmOpportunityId(null);
     }
     if (selectedOpportunityId === id) {
       setSelectedOpportunityId(null);
     }
-    await deleteDocFromCloud("crm_deals", id);
-    recordAuditLog("DELETE", "Deal", id, oppName, `Deleted opportunity ${oppName}`);
+    await saveDocToCloud("crm_deals", id, updatedOpp);
+    recordAuditLog("DELETE", "Deal", id, oppName, `Soft-deleted opportunity ${oppName}${reason ? `: ${reason}` : ""}`, {
+      isArchived: { from: false, to: true },
+      archivedReason: { from: undefined, to: reason || "Deleted by user" }
+    });
     showToast("Quote deleted.", "info");
   };
 
@@ -2727,7 +2811,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateTask = (id: string, updates: Partial<CRMTask>) => {
-    let taskTitle = "Task";
+    const existing = tasks.find((t) => t.id === id);
+    let taskTitle = updates.title || existing?.title || "Task";
+    const changes = diffFields(existing, updates);
+
     setTasks((prev) =>
       prev.map((t) => {
         if (t.id === id) {
@@ -2739,22 +2826,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return t;
       })
     );
-    recordAuditLog("UPDATE", "Task", id, taskTitle, `Updated task ${taskTitle}`);
+    recordAuditLog("UPDATE", "Task", id, taskTitle, `Updated task ${taskTitle}`, changes);
     showToast("Task updated", "success");
   };
 
   const toggleTaskComplete = (id: string) => {
-    let taskTitle = "Task";
+    const existing = tasks.find((t) => t.id === id);
+    let taskTitle = existing?.title || "Task";
     let nowCompleted = false;
+    let changes: Record<string, { from?: any; to?: any }> | undefined;
+
     setTasks((prev) =>
       prev.map((t) => {
         if (t.id === id) {
           taskTitle = t.title;
           const isDone = t.status === "Completed";
           nowCompleted = !isDone;
+          const nextStatus = isDone ? "To Do" : "Completed";
+          changes = {
+            status: { from: t.status, to: nextStatus }
+          };
           const updated = {
             ...t,
-            status: (isDone ? "To Do" : "Completed") as "To Do" | "In Progress" | "Completed",
+            status: nextStatus as "To Do" | "In Progress" | "Completed",
             completedAt: isDone ? undefined : new Date().toISOString()
           };
           saveDocToCloud("crm_tasks", id, updated);
@@ -2763,7 +2857,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return t;
       })
     );
-    recordAuditLog("STATUS_CHANGE", "Task", id, taskTitle, `Marked task "${taskTitle}" as ${nowCompleted ? "Completed" : "To Do"}`);
+    recordAuditLog("STATUS_CHANGE", "Task", id, taskTitle, `Marked task "${taskTitle}" as ${nowCompleted ? "Completed" : "To Do"}`, changes);
     showToast("Task status updated", "success");
   };
 
