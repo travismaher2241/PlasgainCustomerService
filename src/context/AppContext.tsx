@@ -2048,28 +2048,42 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteAccount = async (id: string, reason?: string) => {
     const acc = accounts.find((a) => a.id === id);
     const accName = acc?.name || id;
-    const now = new Date().toISOString();
-    const updatedAcc: Account = {
-      ...(acc || ({} as Account)),
-      id,
-      name: accName,
-      isArchived: true,
-      archivedAt: now,
-      archivedDate: now,
-      archivedBy: currentUser.id || "user-unknown",
-      archivedReason: reason || "Deleted by user"
-    };
 
+    // Immediately remove from React state & local storage cache
     setAccounts((prev) => prev.filter((a) => a.id !== id));
-    // Soft delete: attached opportunities, contacts, leads, tasks, and activities are preserved for historical audit
     if (selectedAccountId === id) {
       setSelectedAccountId(null);
     }
-    await saveDocToCloud("crm_accounts", id, updatedAcc);
-    recordAuditLog("DELETE", "Account", id, accName, `Soft-deleted account ${accName}${reason ? `: ${reason}` : ""}`, {
-      isArchived: { from: false, to: true },
-      archivedReason: { from: undefined, to: reason || "Deleted by user" }
-    });
+
+    // Cascade delete attached contacts
+    const attachedContacts = contacts.filter((c) => c.accountId === id);
+    if (attachedContacts.length > 0) {
+      setContacts((prev) => prev.filter((c) => c.accountId !== id));
+      for (const con of attachedContacts) {
+        await deleteDocFromCloud("crm_contacts", con.id);
+      }
+    }
+
+    // Cascade delete attached opportunities / quotes
+    const attachedDeals = crmOpportunities.filter((d) => d.accountId === id);
+    for (const deal of attachedDeals) {
+      try {
+        await deleteOpportunityMutation.mutateAsync({ id: deal.id });
+      } catch (err) {
+        console.warn("[CRM] Could not cascade delete opportunity:", deal.id, err);
+      }
+    }
+
+    // Permanently delete document from Firestore
+    await deleteDocFromCloud("crm_accounts", id);
+
+    recordAuditLog(
+      "DELETE",
+      "Account",
+      id,
+      accName,
+      `Permanently deleted account ${accName}${reason ? `: ${reason}` : ""}`
+    );
     showToast(`Deleted "${accName}".`, "info");
   };
 

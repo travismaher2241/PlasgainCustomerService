@@ -131,6 +131,11 @@ export const CRMAccountsView: React.FC = () => {
     "overview" | "contacts" | "deals" | "activity" | "brief" | "competitors"
   >("overview");
 
+  const archivedAccountsCount = useMemo(
+    () => accounts.filter((a) => Boolean(a.isArchived || a.status === "Archived")).length,
+    [accounts]
+  );
+
   // Activity change date state
   const [editingActivityDate, setEditingActivityDate] = useState<{ id: string; title: string; date: string; time?: string } | null>(null);
   const [actNewDate, setActNewDate] = useState("");
@@ -682,8 +687,6 @@ export const CRMAccountsView: React.FC = () => {
 
   // Handle Delete Account
   const handleDeleteAccount = async (accountToDelete: Account) => {
-    // deleteAccount cascades. The confirmation used to promise only "the
-    // account record", so quotes and logged calls were destroyed unmentioned.
     const dependents = [
       { n: crmOpportunities.filter((d) => d.accountId === accountToDelete.id).length, one: "quote", many: "quotes" },
       { n: contacts.filter((c) => c.accountId === accountToDelete.id).length, one: "contact", many: "contacts" },
@@ -694,14 +697,18 @@ export const CRMAccountsView: React.FC = () => {
       .map((d) => `${d.n} ${d.n === 1 ? d.one : d.many}`);
 
     const consequence = dependents.length
-      ? `This also permanently deletes ${dependents.join(", ")} belonging to this account.`
+      ? `This will also permanently delete ${dependents.join(", ")} belonging to this account.`
       : `This account has no quotes, contacts or history attached to it.`;
 
     if (
       window.confirm(
-        `Permanently delete "${accountToDelete.name}"?\n\n${consequence}\n\nThis cannot be undone. Archive the account instead if you only want it out of the way.`
+        `Permanently delete "${accountToDelete.name}"?\n\n${consequence}\n\nThis cannot be undone.`
       )
     ) {
+      if (selectedAccountId === accountToDelete.id) {
+        setSelectedAccountId(null);
+        setMobileShowDetail(false);
+      }
       await deleteAccount(accountToDelete.id);
     }
   };
@@ -1209,32 +1216,6 @@ export const CRMAccountsView: React.FC = () => {
             mobileShowDetail ? "hidden lg:flex" : "flex"
           }`}
         >
-          {/* ACTIVE VS ARCHIVED FILTER TABS */}
-          <div className="p-2 border-b border-line bg-paper/60 flex items-center gap-1 text-spec">
-            <button
-              type="button"
-              onClick={() => setArchiveFilter("active")}
-              className={`flex-1 py-1 px-2 rounded-edge text-spec font-bold transition-all text-center cursor-pointer ${
-                archiveFilter === "active"
-                  ? "bg-chrome text-white shadow-2xs"
-                  : "text-ink-dim hover:text-ink hover:bg-white"
-              }`}
-            >
-              Active ({accounts.filter((a) => !a.isArchived && a.status !== "Archived").length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setArchiveFilter("archived")}
-              className={`flex-1 py-1 px-2 rounded-edge text-spec font-bold transition-all text-center cursor-pointer ${
-                archiveFilter === "archived"
-                  ? "bg-chrome text-white shadow-2xs"
-                  : "text-ink-dim hover:text-ink hover:bg-white"
-              }`}
-            >
-              Archived ({accounts.filter((a) => a.isArchived || a.status === "Archived").length})
-            </button>
-          </div>
-
           {/* SEARCH & FILTER BAR */}
           <div className="p-3 border-b border-line space-y-2 bg-white">
             <div className="relative">
@@ -1251,10 +1232,16 @@ export const CRMAccountsView: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <select
                 aria-label="Filter by account type"
-                value={accountTypeFilter}
+                value={archiveFilter === "archived" ? "archived" : accountTypeFilter}
                 onChange={(e) => {
                   const val = e.target.value as any;
-                  setAccountTypeFilter(val);
+                  if (val === "archived") {
+                    setArchiveFilter("archived");
+                    setAccountTypeFilter("all");
+                  } else {
+                    setArchiveFilter("active");
+                    setAccountTypeFilter(val);
+                  }
                   setStatusFilter("all");
                 }}
                 className="w-full p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-semibold"
@@ -1263,6 +1250,7 @@ export const CRMAccountsView: React.FC = () => {
                 <option value="Account">Account</option>
                 <option value="Prospect">Prospect</option>
                 <option value="Council">Council</option>
+                <option value="archived">Archived Accounts{archivedAccountsCount > 0 ? ` (${archivedAccountsCount})` : ""}</option>
               </select>
 
               <select
@@ -1315,6 +1303,22 @@ export const CRMAccountsView: React.FC = () => {
                 <option value="Inactive">Inactive</option>
                 <option value="Overdue">⚠️ Contact Overdue</option>
               </select>
+            )}
+
+            {archiveFilter === "archived" && (
+              <div className="p-2 bg-amber-50 border border-amber-200 rounded-edge text-xs text-amber-900 flex items-center justify-between">
+                <span className="font-semibold">Showing {filteredAccounts.length} archived {filteredAccounts.length === 1 ? "account" : "accounts"}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setArchiveFilter("active");
+                    setAccountTypeFilter("all");
+                  }}
+                  className="font-bold underline hover:text-amber-950 cursor-pointer ml-2"
+                >
+                  Show Active
+                </button>
+              </div>
             )}
           </div>
 
@@ -1385,22 +1389,24 @@ export const CRMAccountsView: React.FC = () => {
                         )}
 
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            aria-label={`${isArchived ? "Restore" : "Archive"} ${acc.name}`}
-                            title={isArchived ? "Restore account" : "Archive account"}
-                            onClick={() => handleArchiveToggle(acc)}
-                            className="p-1 text-ink-dim hover:text-body rounded hover:bg-line transition-colors"
-                          >
-                            {isArchived ? <ArchiveRestore className="w-3.5 h-3.5" /> : <Archive className="w-3.5 h-3.5" />}
-                          </button>
+                          {isArchived && (
+                            <button
+                              type="button"
+                              aria-label={`Restore ${acc.name}`}
+                              title="Restore account"
+                              onClick={() => handleArchiveToggle(acc)}
+                              className="p-1 text-ink-dim hover:text-emerald-700 rounded hover:bg-emerald-50 transition-colors cursor-pointer"
+                            >
+                              <ArchiveRestore className="w-3.5 h-3.5" />
+                            </button>
+                          )}
 
                           <button
                             type="button"
                             aria-label={`Delete ${acc.name}`}
                             title="Delete account"
                             onClick={() => handleDeleteAccount(acc)}
-                            className="p-1 text-ink-dim hover:text-red-700 rounded hover:bg-red-50 transition-colors"
+                            className="p-1 text-ink-dim hover:text-red-700 rounded hover:bg-red-50 transition-colors cursor-pointer"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>

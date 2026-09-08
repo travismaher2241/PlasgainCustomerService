@@ -267,26 +267,44 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(screen.queryByText(/Live Synthesis/i)).not.toBeInTheDocument();
   });
 
-  it("Test 10 — Handles account archive and delete workflows cleanly", () => {
+  it("Test 10 — Handles account archive and delete workflows cleanly", async () => {
+    window.confirm = vi.fn().mockReturnValue(true);
+
     render(
       <AppProvider>
         <AccountsTestWrapper />
       </AppProvider>
     );
 
-    // Archive via row button
-    const archiveBtn = screen.getAllByRole("button", { name: /Archive Townsville City Council/i })[0];
-    fireEvent.click(archiveBtn);
+    // Archive via header actions menu
+    const moreBtn = screen.getByRole("button", { name: /Account actions/i });
+    fireEvent.click(moreBtn);
 
-    expect(screen.getByRole("button", { name: /Active \(0\)/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Archived \(1\)/i })).toBeInTheDocument();
+    const archiveOption = screen.getByRole("button", { name: /Archive Account/i });
+    fireEvent.click(archiveOption);
 
-    // Switch to Archived tab and Restore
-    fireEvent.click(screen.getByRole("button", { name: /Archived \(1\)/i }));
-    const restoreBtn = screen.getAllByRole("button", { name: /Restore Townsville City Council/i })[0];
+    // Switch to Archived filter in dropdown
+    const typeFilter = screen.getByRole("combobox", { name: /Filter by account type/i });
+    fireEvent.change(typeFilter, { target: { value: "archived" } });
+
+    expect(screen.getByText(/Showing 1 archived account/i)).toBeInTheDocument();
+
+    // Restore via card button in archived view
+    const restoreBtn = screen.getByRole("button", { name: /Restore Townsville City Council/i });
     fireEvent.click(restoreBtn);
 
-    expect(screen.getByRole("button", { name: /Active \(1\)/i })).toBeInTheDocument();
+    // Switch back to active list
+    fireEvent.click(screen.getByRole("button", { name: /Show Active/i }));
+    expect(screen.getAllByText("Townsville City Council").length).toBeGreaterThanOrEqual(1);
+
+    // Permanently delete account via trash button
+    const deleteBtn = screen.getByRole("button", { name: /Delete Townsville City Council/i });
+    fireEvent.click(deleteBtn);
+
+    // Confirm it is permanently deleted from DOM
+    await waitFor(() => {
+      expect(screen.queryByText("Townsville City Council")).not.toBeInTheDocument();
+    });
   });
 
   it("Test 11 — Displays Account Type badge prominently in header and account list row", () => {
