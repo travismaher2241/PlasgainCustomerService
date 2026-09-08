@@ -164,9 +164,9 @@ describe('CRMDealDetailsWorkspace Component', () => {
     // Quantities and units
     expect(screen.getAllByText(/24 ea/i).length).toBeGreaterThanOrEqual(1);
 
-    // Margin controls
-    expect(screen.getByText(/Target Margin:/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Apply Margin to All/i })).toBeInTheDocument();
+    // Margin controls and pricing alteration buttons are not present
+    expect(screen.queryByText(/Target Margin:/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Apply Margin to All/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /\+ Add Item/i })).toBeInTheDocument();
 
     // GST Notice

@@ -21,7 +21,6 @@ import {
   Download,
   Copy,
   Trash2,
-  Sliders,
   Tag,
   Check,
   Package,
@@ -107,9 +106,6 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
   const [lostNotes, setLostNotes] = useState("");
 
   // Products & Pricing local state
-  const [targetMarginSlider, setTargetMarginSlider] = useState<number>(
-    deal.grossMarginPercent || 36
-  );
   const [isAddingBomLine, setIsAddingBomLine] = useState(false);
   const [newBomLine, setNewBomLine] = useState<{
     catalogId: string;
@@ -1125,57 +1121,16 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
         {activeTab === "products" && (
           <div className="space-y-4">
             
-            {/* BOM Control Bar: Margin Slider & Actions */}
+            {/* BOM Control Bar */}
             <div className="p-3.5 bg-raised rounded-panel border border-line flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-brand-deep" />
-                  <span className="text-spec font-bold text-ink-dim uppercase">Target Margin:</span>
-                  <span className="text-spec font-black text-brand-deep min-w-[36px]">
-                    {targetMarginSlider}%
-                  </span>
-                  <input
-                    type="range"
-                    min={10}
-                    max={60}
-                    step={1}
-                    value={targetMarginSlider}
-                    onChange={(e) => setTargetMarginSlider(Number(e.target.value))}
-                    className="w-24 accent-brand-deep cursor-pointer"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    const marginMultiplier = 1 - targetMarginSlider / 100;
-                    const updatedProducts = (deal.products || []).map((p) => {
-                      const cost = p.costPrice || (p.unitPrice ? Math.round(p.unitPrice * 0.65) : 500);
-                      const newUnitPrice = Math.round(cost / marginMultiplier);
-                      return {
-                        ...p,
-                        costPrice: cost,
-                        unitPrice: newUnitPrice,
-                        totalPrice: newUnitPrice * p.quantity,
-                        marginPercent: targetMarginSlider
-                      };
-                    });
-                    const newTotal = updatedProducts.reduce((sum, p) => sum + (p.totalPrice || 0), 0);
-                    const newTotalCost = updatedProducts.reduce((sum, p) => sum + ((p.costPrice || 0) * p.quantity), 0);
-
-                    updateCrmOpportunity(deal.id, {
-                      products: updatedProducts,
-                      dealValue: newTotal,
-                      totalCostValue: newTotalCost,
-                      grossMarginPercent: targetMarginSlider,
-                      weightedValue: newTotal * (deal.probability / 100)
-                    });
-                    showToast(`Applied ${targetMarginSlider}% target gross margin across all BOM items!`, "success");
-                  }}
-                  className="px-2.5 py-1 bg-brand-deep hover:bg-brand text-white font-bold text-[11px] rounded shadow-2xs cursor-pointer transition-colors"
-                >
-                  Apply Margin to All
-                </button>
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4 text-brand-deep" />
+                <span className="text-spec font-bold text-ink uppercase tracking-wider">
+                  Bill of Materials &amp; Line Items
+                </span>
+                <span className="text-xs text-ink-dim">
+                  ({(deal.products || []).length} items)
+                </span>
               </div>
 
               <div className="flex items-center gap-2">
