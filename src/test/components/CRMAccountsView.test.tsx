@@ -391,21 +391,24 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(relStatusFilter).toBeInTheDocument();
     expect(screen.queryByLabelText(/Filter by prospect stage/i)).not.toBeInTheDocument();
 
-    // Verify Account filter contains ONLY Customer Relationship Status options
+    // Verify Account filter contains relationship status and contact frequency options
     const relOptions = Array.from(relStatusFilter.querySelectorAll("option")).map((o) => o.textContent);
     expect(relOptions).toEqual([
       "All Relationship Statuses",
       "Active",
-      "Developing",
-      "Occasional",
-      "At Risk",
-      "Dormant"
+      "Opportunity (14d)",
+      "Occasional (30d)",
+      "As needed (90d)",
+      "Declining",
+      "Dormant",
+      "Inactive",
+      "⚠️ Contact Overdue"
     ]);
     expect(relOptions).not.toContain("Identified");
     expect(relOptions).not.toContain("Engaged");
 
-    // Filter Account + Developing
-    fireEvent.change(relStatusFilter, { target: { value: "Developing" } });
+    // Filter Account + Opportunity
+    fireEvent.change(relStatusFilter, { target: { value: "Opportunity" } });
     expect(screen.queryByText("Brisbane City Council")).not.toBeInTheDocument();
     expect(screen.getAllByText("Sydney Metro Water").length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText("Apex Civil Contracting")).not.toBeInTheDocument();
@@ -476,19 +479,19 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(within(typeSelect).getByRole("option", { name: /^Prospect$/i })).toBeInTheDocument();
     expect(within(typeSelect).getByRole("option", { name: /^Council$/i })).toBeInTheDocument();
 
-    // Initially Account -> shows Customer Relationship Status
-    expect(within(dialog).getByLabelText(/Customer Relationship Status/i)).toBeInTheDocument();
+    // Initially Account -> shows Contact Frequency
+    expect(within(dialog).getByLabelText(/Contact Frequency/i)).toBeInTheDocument();
     expect(within(dialog).queryByLabelText(/Prospect Stage/i)).not.toBeInTheDocument();
 
     // Switch Account Type to Prospect -> shows Prospect Stage
     fireEvent.change(typeSelect, { target: { value: "Prospect" } });
     expect(within(dialog).getByLabelText(/Prospect Stage/i)).toBeInTheDocument();
-    expect(within(dialog).queryByLabelText(/Customer Relationship Status/i)).not.toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/Contact Frequency/i)).not.toBeInTheDocument();
 
-    // Switch back to Account -> shows Customer Relationship Status
+    // Switch back to Account -> shows Contact Frequency
     fireEvent.change(typeSelect, { target: { value: "Account" } });
     expect(within(dialog).queryByLabelText(/Prospect Stage/i)).not.toBeInTheDocument();
-    expect(within(dialog).getByLabelText(/Customer Relationship Status/i)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/Contact Frequency/i)).toBeInTheDocument();
 
     fireEvent.change(within(dialog).getByPlaceholderText(/e\.g\. City of Melton Council/i), {
       target: { value: "Geelong City Council" }
@@ -519,12 +522,12 @@ describe("CRMAccountsView Component (Step 5)", () => {
     // Switch to Prospect
     fireEvent.change(editTypeSelect, { target: { value: "Prospect" } });
     expect(screen.getByLabelText(/Edit Prospect Stage/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Edit Customer Relationship Status/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Edit Contact Frequency/i)).not.toBeInTheDocument();
 
     // Switch back to Account
     fireEvent.change(editTypeSelect, { target: { value: "Account" } });
     expect(screen.queryByLabelText(/Edit Prospect Stage/i)).not.toBeInTheDocument();
-    expect(screen.getByLabelText(/Edit Customer Relationship Status/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Edit Contact Frequency/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
 
@@ -614,6 +617,47 @@ describe("CRMAccountsView Component (Step 5)", () => {
     fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
 
     expect(screen.getByText("Finalize engineering compliance signoff")).toBeInTheDocument();
+  });
+
+  it("Test 18 — Displays auto-calculated Commercial Status badge and Contact Frequency badge", () => {
+    render(
+      <AppProvider>
+        <AccountsTestWrapper />
+      </AppProvider>
+    );
+
+    // Initial account has a recent closed-won sale (Riverway Pathway) -> Active
+    expect(screen.getAllByText("Active").length).toBeGreaterThanOrEqual(1);
+
+    // Initial account has legacy Active relationship mapped to Occasional (30d)
+    expect(screen.getAllByText(/Occasional · 30d/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/Contact Frequency:/i)).toBeInTheDocument();
+  });
+
+  it("Test 19 — Renders Overdue Contact Alert banner when contact exceeds threshold and provides Prep Call action", () => {
+    const overdueAccount = {
+      id: "acc-overdue-1",
+      name: "Melbourne Regional Water",
+      accountType: "Account",
+      status: "Customer",
+      industry: "Water Infrastructure",
+      territory: "VIC/TAS",
+      accountOwner: "Travis Maher",
+      contactFrequency: "Opportunity",
+      lastContactDate: "2026-07-01", // Well over 14 days ago
+      tags: []
+    };
+
+    render(
+      <AppProvider>
+        <AccountsTestWrapper initialAccounts={[overdueAccount]} />
+      </AppProvider>
+    );
+
+    // Overdue badge in header
+    expect(screen.getByText(/Routine Contact Overdue/i)).toBeInTheDocument();
+    expect(screen.getByText(/Prep Call/i)).toBeInTheDocument();
+    expect(screen.getByText(/Log Call/i)).toBeInTheDocument();
   });
 });
 

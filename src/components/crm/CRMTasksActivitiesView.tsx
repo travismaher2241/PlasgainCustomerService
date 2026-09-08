@@ -3,7 +3,8 @@ import {
   CheckCircle2,
   Plus,
   Search,
-  X
+  X,
+  FileText
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { CRMTask, TaskPriority, TaskType } from "../../types/crm";
@@ -22,7 +23,8 @@ export const CRMTasksActivitiesView: React.FC = () => {
     navigateToCRM,
     currentUser,
     showToast,
-    updateMeetingDate
+    updateMeetingDate,
+    openCallPrep
   } = useApp();
 
   const [taskStatusFilter, setTaskStatusFilter] = useState<"open" | "completed" | "all">("open");
@@ -297,6 +299,12 @@ export const CRMTasksActivitiesView: React.FC = () => {
                           >
                             {task.priority}
                           </span>
+
+                          {task.isCheckInTask && (
+                            <span className="text-[10px] font-bold px-1.5 py-0.2 rounded uppercase bg-blue-100 text-blue-800 border border-blue-200">
+                              Account Check-In
+                            </span>
+                          )}
                         </div>
 
                         <p className="text-xs text-ink-dim truncate mt-0.5">
@@ -319,6 +327,18 @@ export const CRMTasksActivitiesView: React.FC = () => {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
+                      {task.accountId && (
+                        <button
+                          type="button"
+                          onClick={() => openCallPrep({ accountId: task.accountId })}
+                          className="px-2.5 py-1 text-xs font-bold rounded-edge bg-brand-wash hover:bg-brand-wash/80 text-brand-deep border border-brand-edge flex items-center gap-1 cursor-pointer transition-colors shadow-2xs"
+                          title="Open Call Preparation Briefing"
+                        >
+                          <FileText className="w-3.5 h-3.5" />
+                          <span>Call Prep</span>
+                        </button>
+                      )}
+
                       <input
                         type="date"
                         aria-label={`Change date for ${task.title}`}

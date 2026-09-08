@@ -64,10 +64,17 @@ import {
   ProspectStage,
   CompetitorPricingRecord,
   CompetitorPricingStatus,
-  AccountIntelligenceSummary
+  AccountIntelligenceSummary,
+  ContactFrequency,
+  AccountCommercialStatus
 } from "../../types/crm";
 import { getLocalDateInputValue, formatAuDate, getLastThursdayDateString, addDaysLocal } from "../../utils/dateUtils";
 import { sortActivitiesChronological, formatActivityTimestamp } from "../../utils/activityUtils";
+import {
+  getAccountContactFrequency,
+  computeAccountContactCadence,
+  computeAccountCommercialStatus
+} from "../../utils/accountStatusUtils";
 import { CRMContactModal } from "./CRMContactModal";
 import { accountIntelligenceCache, generateAccountSourceHash } from "../../utils/accountIntelligenceCache";
 import { detectDuplicateAccount, DuplicateMatchResult } from "../../utils/duplicateDetector";
@@ -219,6 +226,7 @@ export const CRMAccountsView: React.FC = () => {
     generalEmail: "",
     website: "",
     notes: "",
+    contactFrequency: "Opportunity" as ContactFrequency,
     customerRelationshipStatus: "Active" as CustomerRelationshipStatus,
     prospectStage: "Identified" as ProspectStage,
     nextAction: "",
@@ -260,6 +268,7 @@ export const CRMAccountsView: React.FC = () => {
     generalEmail: string;
     website: string;
     notes: string;
+    contactFrequency: ContactFrequency;
     customerRelationshipStatus: CustomerRelationshipStatus;
     prospectStage: ProspectStage;
     nextAction: string;
@@ -276,6 +285,7 @@ export const CRMAccountsView: React.FC = () => {
     generalEmail: "",
     website: "",
     notes: "",
+    contactFrequency: "Opportunity",
     customerRelationshipStatus: "Active",
     prospectStage: "Identified",
     nextAction: "",
@@ -378,11 +388,27 @@ export const CRMAccountsView: React.FC = () => {
       matchesTypeAndStatus = isProspect && matchesStage;
     } else if (accountTypeFilter === "Account") {
       const isAccount = acc.accountType === "Account" || acc.accountType === "Customer" || !acc.accountType;
-      const matchesStatus = statusFilter === "all" || (acc.customerRelationshipStatus || "Active") === statusFilter;
+      const commStatus = computeAccountCommercialStatus(acc, crmOpportunities, activities);
+      const contactFreq = getAccountContactFrequency(acc);
+      const isOverdue = statusFilter === "Overdue" && computeAccountContactCadence(acc, activities).isOverdue;
+      const matchesStatus =
+        statusFilter === "all" ||
+        isOverdue ||
+        commStatus === statusFilter ||
+        contactFreq === statusFilter ||
+        (acc.customerRelationshipStatus || "Active") === statusFilter;
       matchesTypeAndStatus = isAccount && matchesStatus;
     } else {
       const matchesType = acc.accountType === accountTypeFilter;
-      const matchesStatus = statusFilter === "all" || (acc.customerRelationshipStatus || "Active") === statusFilter;
+      const commStatus = computeAccountCommercialStatus(acc, crmOpportunities, activities);
+      const contactFreq = getAccountContactFrequency(acc);
+      const isOverdue = statusFilter === "Overdue" && computeAccountContactCadence(acc, activities).isOverdue;
+      const matchesStatus =
+        statusFilter === "all" ||
+        isOverdue ||
+        commStatus === statusFilter ||
+        contactFreq === statusFilter ||
+        (acc.customerRelationshipStatus || "Active") === statusFilter;
       matchesTypeAndStatus = matchesType && matchesStatus;
     }
 
@@ -421,6 +447,15 @@ export const CRMAccountsView: React.FC = () => {
     "newest"
   );
   const accountCompetitorPricing = competitorPricingRecords.filter((r) => r.accountId === selectedAccount?.id);
+
+  const selectedCadence = useMemo(
+    () => computeAccountContactCadence(selectedAccount, activities),
+    [selectedAccount, activities]
+  );
+  const selectedCommercialStatus = useMemo(
+    () => computeAccountCommercialStatus(selectedAccount, crmOpportunities, activities),
+    [selectedAccount, crmOpportunities, activities]
+  );
 
   // Dynamic Next Step resolution cascade for selected account
   const accountNextStepInfo = useMemo(() => {
@@ -701,6 +736,7 @@ export const CRMAccountsView: React.FC = () => {
       accountType: newAccountForm.accountType,
       status: isProspect ? "Prospect" : "Customer",
       customerRelationshipStatus: isProspect ? undefined : newAccountForm.customerRelationshipStatus || "Active",
+      contactFrequency: isProspect ? undefined : newAccountForm.contactFrequency || "Opportunity",
       prospectStage: isProspect ? newAccountForm.prospectStage || "Identified" : undefined,
       industry: newAccountForm.industry,
       territory: newAccountForm.territory,
@@ -741,6 +777,7 @@ export const CRMAccountsView: React.FC = () => {
       generalEmail: "",
       website: "",
       notes: "",
+      contactFrequency: "Opportunity",
       customerRelationshipStatus: "Active",
       prospectStage: "Identified",
       nextAction: "",
@@ -765,6 +802,7 @@ export const CRMAccountsView: React.FC = () => {
       generalEmail: selectedAccount.generalEmail || "",
       website: selectedAccount.website || "",
       notes: selectedAccount.notes || "",
+      contactFrequency: getAccountContactFrequency(selectedAccount),
       customerRelationshipStatus: selectedAccount.customerRelationshipStatus || "Active",
       prospectStage: selectedAccount.prospectStage || "Identified",
       nextAction: selectedAccount.nextAction || "",
@@ -786,6 +824,7 @@ export const CRMAccountsView: React.FC = () => {
       accountType: editAccountForm.accountType,
       status: isProspect ? "Prospect" : "Customer",
       customerRelationshipStatus: isProspect ? undefined : editAccountForm.customerRelationshipStatus,
+      contactFrequency: isProspect ? undefined : editAccountForm.contactFrequency,
       prospectStage: isProspect ? editAccountForm.prospectStage : undefined,
       industry: editAccountForm.industry,
       territory: editAccountForm.territory,
@@ -969,11 +1008,78 @@ export const CRMAccountsView: React.FC = () => {
     }
   };
 
+  const getCommercialStatusBadge = (status?: AccountCommercialStatus) => {
+    const st = status || "Active";
+    switch (st) {
+      case "Active":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-emerald-50 text-emerald-800 border border-emerald-300">
+            Active
+          </span>
+        );
+      case "Declining":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-amber-50 text-amber-900 border border-amber-300">
+            Declining
+          </span>
+        );
+      case "Dormant":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-spec font-medium bg-stone-100 text-stone-700 border border-stone-300">
+            Dormant
+          </span>
+        );
+      case "Inactive":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-spec font-medium bg-zinc-100 text-zinc-500 border border-zinc-200">
+            Inactive
+          </span>
+        );
+      default:
+        return (
+          <span className="px-2 py-0.5 rounded-full text-spec font-medium bg-slate-100 text-slate-700 border border-slate-200">
+            {st}
+          </span>
+        );
+    }
+  };
+
+  const getContactFrequencyBadge = (freq?: ContactFrequency) => {
+    const f = freq || "Opportunity";
+    switch (f) {
+      case "Opportunity":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-blue-50 text-blue-800 border border-blue-200" title="Requires activity check-in every 14 days">
+            Opportunity · 14d
+          </span>
+        );
+      case "Occasional":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-spec font-medium bg-purple-50 text-purple-800 border border-purple-200" title="Requires activity check-in every 30 days">
+            Occasional · 30d
+          </span>
+        );
+      case "As needed":
+        return (
+          <span className="px-2 py-0.5 rounded-full text-spec font-medium bg-slate-100 text-slate-700 border border-slate-200" title="Requires activity check-in every 90 days">
+            As needed · 90d
+          </span>
+        );
+      default:
+        return (
+          <span className="px-2 py-0.5 rounded-full text-spec font-medium bg-slate-100 text-slate-700 border border-slate-200">
+            {f}
+          </span>
+        );
+    }
+  };
+
   const renderAccountStatusBadge = (acc: Account) => {
     if (acc.accountType === "Prospect") {
       return getProspectStageBadge(acc.prospectStage || "Identified");
     }
-    return getCustomerStatusBadge(acc.customerRelationshipStatus || "Active");
+    const commStatus = computeAccountCommercialStatus(acc, crmOpportunities, activities);
+    return getCommercialStatusBadge(commStatus);
   };
 
   // Group activities by date
@@ -1209,10 +1315,13 @@ export const CRMAccountsView: React.FC = () => {
                 >
                   <option value="all">All Relationship Statuses</option>
                   <option value="Active">Active</option>
-                  <option value="Developing">Developing</option>
-                  <option value="Occasional">Occasional</option>
-                  <option value="At Risk">At Risk</option>
+                  <option value="Opportunity">Opportunity (14d)</option>
+                  <option value="Occasional">Occasional (30d)</option>
+                  <option value="As needed">As needed (90d)</option>
+                  <option value="Declining">Declining</option>
                   <option value="Dormant">Dormant</option>
+                  <option value="Inactive">Inactive</option>
+                  <option value="Overdue">⚠️ Contact Overdue</option>
                 </select>
               )}
             </div>
@@ -1262,8 +1371,24 @@ export const CRMAccountsView: React.FC = () => {
                         </p>
                       </div>
 
-                      <div className="flex flex-col items-end gap-1.5 shrink-0">
-                        {renderAccountStatusBadge(acc)}
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        {acc.accountType === "Prospect" ? (
+                          getProspectStageBadge(acc.prospectStage)
+                        ) : (
+                          <>
+                            {renderAccountStatusBadge(acc)}
+                            {computeAccountContactCadence(acc, activities).isOverdue ? (
+                              <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-red-100 text-red-800 border border-red-200 flex items-center gap-0.5">
+                                <AlertTriangle className="w-2.5 h-2.5 text-red-600" />
+                                Overdue
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-medium px-1.5 py-0.2 rounded bg-paper text-ink-dim border border-line">
+                                {getAccountContactFrequency(acc)}
+                              </span>
+                            )}
+                          </>
+                        )}
 
                         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
                           <button
@@ -1326,7 +1451,20 @@ export const CRMAccountsView: React.FC = () => {
                         {selectedAccount.name}
                       </h2>
                       {getAccountTypeBadge(selectedAccount.accountType, "md")}
-                      {renderAccountStatusBadge(selectedAccount)}
+                      {selectedAccount.accountType === "Prospect" ? (
+                        getProspectStageBadge(selectedAccount.prospectStage || "Identified")
+                      ) : (
+                        <>
+                          {getCommercialStatusBadge(selectedCommercialStatus)}
+                          {getContactFrequencyBadge(selectedCadence.frequency)}
+                          {selectedCadence.isOverdue && (
+                            <span className="px-2 py-0.5 rounded-full text-spec font-bold bg-red-100 text-red-800 border border-red-300 flex items-center gap-1">
+                              <AlertTriangle className="w-3 h-3 text-red-600" />
+                              Overdue (+{selectedCadence.daysOverdue}d)
+                            </span>
+                          )}
+                        </>
+                      )}
                       {selectedAccount.isArchived && (
                         <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-800">
                           Archived Account
@@ -1339,7 +1477,11 @@ export const CRMAccountsView: React.FC = () => {
                       {selectedAccount.accountType === "Prospect" ? (
                         <span>Prospect Stage: <strong className="text-body font-semibold">{selectedAccount.prospectStage || "Identified"}</strong></span>
                       ) : (
-                        <span>Relationship Status: <strong className="text-body font-semibold">{selectedAccount.customerRelationshipStatus || "Active"}</strong></span>
+                        <>
+                          <span>Account Status: <strong className="text-body font-semibold">{selectedCommercialStatus}</strong></span>
+                          <span>•</span>
+                          <span>Contact Frequency: <strong className="text-body font-semibold">{selectedCadence.frequency}</strong></span>
+                        </>
                       )}
                       <span>•</span>
                       <span>Owner: <strong className="text-body font-semibold">{selectedAccount.accountOwner || currentUser.name}</strong></span>
@@ -1482,6 +1624,44 @@ export const CRMAccountsView: React.FC = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* OVERDUE CONTACT ALERT BANNER WITH CALL PREP */}
+                {selectedCadence.isOverdue && (
+                  <div className="bg-red-50 border border-red-200 rounded-panel p-3 sm:p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-red-950 animate-in fade-in duration-150">
+                    <div className="flex items-start gap-2.5">
+                      <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-bold text-sm text-red-900">
+                          Routine Contact Overdue by {selectedCadence.daysOverdue} day{selectedCadence.daysOverdue === 1 ? "" : "s"}
+                        </div>
+                        <p className="text-xs text-red-800 mt-0.5">
+                          Schedule: <strong>{selectedCadence.frequency}</strong> (every {selectedCadence.thresholdDays} days).
+                          {selectedCadence.lastContactDate ? ` Last contact logged ${selectedCadence.daysSinceLastContact} days ago.` : " No contact activity logged yet."}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => openCallPrep({ accountId: selectedAccount.id, contactId: accountContacts[0]?.id })}
+                        className="px-3 py-1.5 bg-white border border-red-300 text-red-800 hover:bg-red-100 rounded-edge text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                        title="Open Call Preparation Briefing"
+                      >
+                        <FileText className="w-3.5 h-3.5 text-red-700" />
+                        <span>Prep Call</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openQuickLog({ type: "call", accountId: selectedAccount.id })}
+                        className="px-3 py-1.5 bg-red-700 hover:bg-red-800 text-white rounded-edge text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 shadow-2xs"
+                        title="Log a phone call with this customer"
+                      >
+                        <PhoneCall className="w-3.5 h-3.5" />
+                        <span>Log Call</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* TABS NAVIGATION */}
@@ -3011,7 +3191,8 @@ export const CRMAccountsView: React.FC = () => {
                         accountType: nextType,
                         status: nextType === "Prospect" ? "Prospect" : "Customer",
                         prospectStage: nextType === "Prospect" ? "Identified" : prev.prospectStage,
-                        customerRelationshipStatus: nextType !== "Prospect" ? (prev.customerRelationshipStatus || "Active") : prev.customerRelationshipStatus
+                        customerRelationshipStatus: nextType !== "Prospect" ? (prev.customerRelationshipStatus || "Active") : prev.customerRelationshipStatus,
+                        contactFrequency: nextType !== "Prospect" ? (prev.contactFrequency || "Opportunity") : prev.contactFrequency
                       }));
                     }}
                     className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
@@ -3043,20 +3224,28 @@ export const CRMAccountsView: React.FC = () => {
                   </div>
                 ) : (
                   <div>
-                    <label className="block text-spec font-bold mb-1">Customer Relationship Status *</label>
+                    <label className="block text-spec font-bold mb-1">Contact Frequency *</label>
                     <select
                       required
-                      aria-label="Customer Relationship Status"
-                      value={newAccountForm.customerRelationshipStatus}
-                      onChange={(e) => setNewAccountForm({ ...newAccountForm, customerRelationshipStatus: e.target.value as CustomerRelationshipStatus })}
+                      aria-label="Contact Frequency"
+                      value={newAccountForm.contactFrequency}
+                      onChange={(e) => {
+                        const val = e.target.value as ContactFrequency;
+                        setNewAccountForm({
+                          ...newAccountForm,
+                          contactFrequency: val,
+                          customerRelationshipStatus: val === "Opportunity" ? "Developing" : val === "Occasional" ? "Occasional" : "Dormant"
+                        });
+                      }}
                       className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
                     >
-                      <option value="Active">Active</option>
-                      <option value="Developing">Developing</option>
-                      <option value="Occasional">Occasional</option>
-                      <option value="At Risk">At Risk</option>
-                      <option value="Dormant">Dormant</option>
+                      <option value="Opportunity">Opportunity (Fortnightly check-in · 14 days)</option>
+                      <option value="Occasional">Occasional (Monthly check-in · 30 days)</option>
+                      <option value="As needed">As needed (3-monthly check-in · 90 days)</option>
                     </select>
+                    <p className="text-[11px] text-ink-dim mt-1">
+                      Sets the required update interval before an overdue contact alert is triggered.
+                    </p>
                   </div>
                 )}
 
@@ -3161,7 +3350,8 @@ export const CRMAccountsView: React.FC = () => {
                         accountType: nextType,
                         status: nextType === "Prospect" ? "Prospect" : "Customer",
                         prospectStage: nextType === "Prospect" ? (prev.prospectStage || "Identified") : prev.prospectStage,
-                        customerRelationshipStatus: nextType !== "Prospect" ? (prev.customerRelationshipStatus || "Active") : prev.customerRelationshipStatus
+                        customerRelationshipStatus: nextType !== "Prospect" ? (prev.customerRelationshipStatus || "Active") : prev.customerRelationshipStatus,
+                        contactFrequency: nextType !== "Prospect" ? (prev.contactFrequency || "Opportunity") : prev.contactFrequency
                       }));
                     }}
                     value={editAccountForm.accountType === "Customer" ? "Account" : editAccountForm.accountType}
@@ -3193,21 +3383,49 @@ export const CRMAccountsView: React.FC = () => {
                     </select>
                   </div>
                 ) : (
-                  <div>
-                    <label className="block text-spec font-bold mb-1">Customer Relationship Status *</label>
-                    <select
-                      required
-                      aria-label="Edit Customer Relationship Status"
-                      value={editAccountForm.customerRelationshipStatus}
-                      onChange={(e) => setEditAccountForm({ ...editAccountForm, customerRelationshipStatus: e.target.value as CustomerRelationshipStatus })}
-                      className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
-                    >
-                      <option value="Active">Active</option>
-                      <option value="Developing">Developing</option>
-                      <option value="Occasional">Occasional</option>
-                      <option value="At Risk">At Risk</option>
-                      <option value="Dormant">Dormant</option>
-                    </select>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-spec font-bold mb-1">Contact Frequency *</label>
+                      <select
+                        required
+                        aria-label="Edit Contact Frequency"
+                        value={editAccountForm.contactFrequency}
+                        onChange={(e) => {
+                          const val = e.target.value as ContactFrequency;
+                          setEditAccountForm({
+                            ...editAccountForm,
+                            contactFrequency: val,
+                            customerRelationshipStatus: val === "Opportunity" ? "Developing" : val === "Occasional" ? "Occasional" : "Dormant"
+                          });
+                        }}
+                        className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
+                      >
+                        <option value="Opportunity">Opportunity (Fortnightly check-in · 14 days)</option>
+                        <option value="Occasional">Occasional (Monthly check-in · 30 days)</option>
+                        <option value="As needed">As needed (3-monthly check-in · 90 days)</option>
+                      </select>
+                      <p className="text-[11px] text-ink-dim mt-1">
+                        Determines how often the team must check in before an overdue task is generated.
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-paper rounded-edge border border-line space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-ink-dim">Account Commercial Status</span>
+                        {getCommercialStatusBadge(selectedCommercialStatus)}
+                      </div>
+                      <p className="text-xs text-ink-dim">
+                        Automatically calculated from real sales history: {
+                          selectedCommercialStatus === "Active"
+                            ? "Active sale within last 3 months (or new account under 3 months old)."
+                            : selectedCommercialStatus === "Declining"
+                            ? "Sale occurred 3 to 6 months ago, with no sale in the last 3 months."
+                            : selectedCommercialStatus === "Dormant"
+                            ? "No sales recorded in the last 6+ months."
+                            : "No sales and no contact activity recorded in 24+ months."
+                        }
+                      </p>
+                    </div>
                   </div>
                 )}
 

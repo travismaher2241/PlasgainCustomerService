@@ -36,6 +36,10 @@ export type CustomerRelationshipStatus =
   | "At Risk"
   | "Dormant";
 
+export type ContactFrequency = "Opportunity" | "Occasional" | "As needed";
+
+export type AccountCommercialStatus = "Active" | "Declining" | "Dormant" | "Inactive";
+
 export type ProspectStage =
   | "Identified"
   | "Researching"
@@ -133,6 +137,10 @@ export interface Account {
   nextAction?: string;
   nextActionDate?: string;
   customerRelationshipStatus?: CustomerRelationshipStatus;
+  contactFrequency?: ContactFrequency;
+  accountCommercialStatus?: AccountCommercialStatus;
+  lastSaleDate?: string;
+  lastContactDate?: string;
   prospectStage?: ProspectStage;
   // Legacy deprecated fields:
   relationshipHealth?: RelationshipHealth;
@@ -488,6 +496,7 @@ export interface CRMTask {
   agenda?: string;
   outcome?: string;
   sourceActivityId?: string;
+  isCheckInTask?: boolean;
 }
 
 export interface MeetingPreparationPlan {

@@ -57,6 +57,7 @@ import {
   getLastSyncTime,
   recordSuccessfulSync
 } from "../utils/firebase";
+import { computeAccountContactCadence, buildAccountCheckInTask } from "../utils/accountStatusUtils";
 
 export type NavTab = "home" | "crm" | "settings";
 
@@ -2545,19 +2546,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const effectiveDate = rawDate || getLocalDateInputValue(actTimestamp);
 
-    // Update last interaction on related account
+    // Update last interaction and contact recency on related account
     if (activityData.accountId) {
       setAccounts((prev) =>
         prev.map((acc) => {
           if (acc.id === activityData.accountId) {
             const shouldUpdate = !acc.lastInteractionDate || effectiveDate >= acc.lastInteractionDate;
-            const updated = shouldUpdate ? { ...acc, lastInteractionDate: effectiveDate } : acc;
-            if (shouldUpdate) {
-              saveDocToCloud("crm_accounts", acc.id, updated);
-            }
+            const updated = shouldUpdate
+              ? { ...acc, lastInteractionDate: effectiveDate, lastContactDate: effectiveDate }
+              : { ...acc, lastContactDate: effectiveDate };
+            saveDocToCloud("crm_accounts", acc.id, updated);
             return updated;
           }
           return acc;
+        })
+      );
+
+      // Automatically complete any routine check-in tasks for this account
+      setTasks((prev) =>
+        prev.map((t) => {
+          if (t.accountId === activityData.accountId && t.isCheckInTask && t.status !== "Completed") {
+            const updated: CRMTask = {
+              ...t,
+              status: "Completed",
+              completedAt: actTimestamp,
+              outcome: `Completed via logged ${activityData.type}: "${activityData.title}" by ${currentUser.name}`
+            };
+            saveDocToCloud("crm_tasks", t.id, updated);
+            return updated;
+          }
+          return t;
         })
       );
     }
@@ -2782,6 +2800,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const timer = setInterval(checkSubmittedQuotes, 60 * 1000);
     return () => clearInterval(timer);
   }, [currentUser.name, currentUser.email]);
+
+  // Automated Routine Check-in Task creation for accounts overdue for contact
+  useEffect(() => {
+    const syncCheckInTasks = () => {
+      const overdueAccounts = accounts.filter((acc) => {
+        if (acc.isArchived || acc.status === "Archived") return false;
+        const cadence = computeAccountContactCadence(acc, activities);
+        return cadence.isOverdue;
+      });
+
+      if (overdueAccounts.length === 0) return;
+
+      setTasks((prevTasks) => {
+        let changed = false;
+        const newTasks = [...prevTasks];
+
+        for (const acc of overdueAccounts) {
+          const hasOpenTask = prevTasks.some(
+            (t) => t.accountId === acc.id && t.isCheckInTask && t.status !== "Completed"
+          );
+          if (!hasOpenTask) {
+            const cadence = computeAccountContactCadence(acc, activities);
+            const checkInTask = buildAccountCheckInTask(acc, cadence);
+            newTasks.unshift(checkInTask);
+            saveDocToCloud("crm_tasks", checkInTask.id, checkInTask);
+            changed = true;
+          }
+        }
+
+        return changed ? newTasks : prevTasks;
+      });
+    };
+
+    syncCheckInTasks();
+    const interval = setInterval(syncCheckInTasks, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [accounts, activities]);
 
   const markQuoteSent = (id: string, notes?: string) => {
     const opp = crmOpportunities.find((d) => d.id === id);
