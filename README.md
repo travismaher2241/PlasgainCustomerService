@@ -183,16 +183,37 @@ the importer reads are:
 | `Address 1`, `Address 2` | Billing address, split into street, suburb, state and postcode. |
 | `Contact` | Added as a contact on the account. An email address here becomes the account's general email instead. |
 | `Phone` | Account main phone, and the contact's phone. |
+| `CUSTOMERSTATUS` | `Active` imports normally. `Inactive`, `Closed`, `Ceased`, `On Hold` and the like come in as a former customer, tagged `Inactive`. Anything else is ignored. |
+| `SALESPERSON` | Who owns the account and its contact. |
 
-Common header spellings (`Company Name`, `Type`, `Address Line 1`) are accepted,
-and any column the importer does not recognise is listed in the preview and left
-alone.
+Common header spellings (`Company Name`, `Type`, `Address Line 1`, `Sales Rep`,
+`Account Manager`) are accepted, and any column the importer does not recognise
+is listed in the preview and left alone.
+
+### Who each account is allocated to
+
+The rep in `SALESPERSON` owns the account and the contact created with it — not
+whoever happened to run the import. A name that matches someone on the team is
+stored in the team's spelling, so `ALAN BERRYMAN`, `alan berryman` and
+`Berryman, Alan` all land on the one owner rather than three. A rep who is not on
+the team is still allocated exactly as written, and the preview names them so
+they can be added under **Settings → Team**.
+
+The preview breaks down how many accounts each rep is getting before anything is
+written. Rows with an empty `SALESPERSON` cell — and every row in an older export
+that has no such column — go to the **Owner when the row has no salesperson**
+picker, which defaults to the signed-in user.
 
 Nothing is written until **Import** is pressed. The preview shows how many
 accounts and contacts will be created and which rows will be skipped: a row is
 skipped when its name matches an account already in the CRM, when it shares a
 landline with one, or when the same customer appears twice in the file.
-**Existing accounts are never overwritten by an import.**
+
+The owner is the one field an import will change on an existing account, and
+only when the file names a different rep and **Also correct the owner on N
+existing accounts** is left ticked — which is how a list loaded before the
+`SALESPERSON` column existed gets its allocation fixed. Every such change is
+listed in the preview first, and nothing else on those accounts is touched.
 
 Two things are worth setting before importing:
 
@@ -203,8 +224,8 @@ Two things are worth setting before importing:
   history, so this defaults to `As needed` (quarterly) rather than making several
   hundred accounts overdue on day one.
 
-The whole import is recorded as a single audit entry naming the file, not one
-entry per row. Files exported from accounting systems are often Windows-1252
+The whole import is recorded as a single audit entry naming the file — including
+any owner corrections — not one entry per row. Files exported from accounting systems are often Windows-1252
 rather than UTF-8; both are read correctly, so names like O'Brien survive.
 
 ## Firestore access (CRM and older reference records)

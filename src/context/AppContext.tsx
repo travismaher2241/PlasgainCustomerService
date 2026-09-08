@@ -230,8 +230,10 @@ interface AppContextType {
   importAccounts: (
     newAccounts: Account[],
     newContacts: CRMContact[],
-    sourceLabel?: string
-  ) => Promise<{ accounts: number; contacts: number }>;
+    sourceLabel?: string,
+    /** Owner corrections for accounts already in the CRM. Nothing else about them is touched. */
+    ownerUpdates?: Array<{ accountId: string; accountOwner: string }>
+  ) => Promise<{ accounts: number; contacts: number; reassigned: number }>;
   updateAccount: (id: string, updates: Partial<Account>) => void;
   deleteAccount: (id: string, reason?: string) => Promise<void>;
   selectedAccountId: string | null;
@@ -1949,14 +1951,33 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
   const importAccounts = async (
     newAccounts: Account[],
     newContacts: CRMContact[],
-    sourceLabel?: string
-  ): Promise<{ accounts: number; contacts: number }> => {
-    if (newAccounts.length === 0 && newContacts.length === 0) {
-      return { accounts: 0, contacts: 0 };
+    sourceLabel?: string,
+    ownerUpdates: Array<{ accountId: string; accountOwner: string }> = []
+  ): Promise<{ accounts: number; contacts: number; reassigned: number }> => {
+    if (newAccounts.length === 0 && newContacts.length === 0 && ownerUpdates.length === 0) {
+      return { accounts: 0, contacts: 0, reassigned: 0 };
     }
 
-    if (newAccounts.length > 0) {
-      setAccounts((prev) => [...newAccounts, ...prev]);
+    // Only the owner is rewritten on an existing account, and only for the ids
+    // the preview listed: an import must never quietly replace a record someone
+    // has since worked on.
+    const ownerById = new Map(ownerUpdates.map((u) => [u.accountId, u.accountOwner]));
+    const now = new Date().toISOString();
+    const reassignedAccounts: Account[] = ownerById.size
+      ? accounts
+          .filter((acc) => {
+            const owner = ownerById.get(acc.id);
+            return Boolean(owner) && owner !== acc.accountOwner;
+          })
+          .map((acc) => ({ ...acc, accountOwner: ownerById.get(acc.id) as string, updatedAt: now }))
+      : [];
+    const reassignedById = new Map(reassignedAccounts.map((acc) => [acc.id, acc]));
+
+    if (newAccounts.length > 0 || reassignedById.size > 0) {
+      setAccounts((prev) => {
+        const updated = reassignedById.size ? prev.map((acc) => reassignedById.get(acc.id) || acc) : prev;
+        return newAccounts.length > 0 ? [...newAccounts, ...updated] : updated;
+      });
     }
     if (newContacts.length > 0) {
       setContacts((prev) => [...newContacts, ...prev]);
@@ -1964,7 +1985,8 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const writes: Array<() => Promise<unknown>> = [
       ...newAccounts.map((acc) => () => saveDocToCloud("crm_accounts", acc.id, acc)),
-      ...newContacts.map((con) => () => saveDocToCloud("crm_contacts", con.id, con))
+      ...newContacts.map((con) => () => saveDocToCloud("crm_contacts", con.id, con)),
+      ...reassignedAccounts.map((acc) => () => saveDocToCloud("crm_accounts", acc.id, acc))
     ];
 
     const BATCH_SIZE = 20;
@@ -1975,17 +1997,26 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
     const contactSuffix = newContacts.length
       ? ` and ${newContacts.length} ${newContacts.length === 1 ? "contact" : "contacts"}`
       : "";
+    const reassignedSuffix = reassignedAccounts.length
+      ? `, and reallocated ${reassignedAccounts.length} existing ${
+          reassignedAccounts.length === 1 ? "account" : "accounts"
+        } to the salesperson named in the file`
+      : "";
     recordAuditLog(
       "CREATE",
       "Account",
       `import-${Date.now()}`,
       sourceLabel || "CSV import",
-      `Imported ${newAccounts.length} ${newAccounts.length === 1 ? "account" : "accounts"}${contactSuffix} from ${sourceLabel || "a CSV file"}`,
+      `Imported ${newAccounts.length} ${newAccounts.length === 1 ? "account" : "accounts"}${contactSuffix} from ${sourceLabel || "a CSV file"}${reassignedSuffix}`,
       undefined,
-      { accountIds: newAccounts.map((a) => a.id), contactIds: newContacts.map((c) => c.id) }
+      {
+        accountIds: newAccounts.map((a) => a.id),
+        contactIds: newContacts.map((c) => c.id),
+        reassignedAccountIds: reassignedAccounts.map((a) => a.id)
+      }
     );
 
-    return { accounts: newAccounts.length, contacts: newContacts.length };
+    return { accounts: newAccounts.length, contacts: newContacts.length, reassigned: reassignedAccounts.length };
   };
 
   const updateAccount = (id: string, updates: Partial<Account>) => {

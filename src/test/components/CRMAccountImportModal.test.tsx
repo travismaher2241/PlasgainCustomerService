@@ -12,6 +12,29 @@ const CSV = [
   "A&A Building Services Pty Ltd,Prospect,,,Jamie Winship,"
 ].join("\n");
 
+// The current export: the customer's standing and the rep who owns them ride
+// along with the same six columns.
+const REP_CSV = [
+  "Customer Name,Customer Style,Address 1,Address 2,Contact,Phone,CUSTOMERSTATUS,SALESPERSON",
+  "Commlec Services,Account,4/40 Ricketts Rd,Mt Waverley VIC 3149,Mike Howie,9543 1772,Active,Bilal Akhtar",
+  "Ahrens,Account,,,Mark Rosiak,,Active,Alan Berryman",
+  "FORGE,Prospect,,,Aaron,,Active,"
+].join("\n");
+
+/** Renders "name=owner" for every account so the written allocation is visible to the test. */
+const OwnerProbe: React.FC<{ seed?: Account[] }> = ({ seed }) => {
+  const { accounts, addAccount } = useApp();
+  React.useEffect(() => {
+    (seed || []).forEach((acc) => addAccount(acc));
+  }, []);
+  return (
+    <>
+      <div data-testid="owners">{accounts.map((a) => `${a.name}=${a.accountOwner}`).join("|")}</div>
+      <CRMAccountsView />
+    </>
+  );
+};
+
 const SeededAccounts: React.FC<{ seed?: Account[] }> = ({ seed }) => {
   const { addAccount } = useApp();
   React.useEffect(() => {
@@ -142,5 +165,95 @@ describe("Account CSV import", () => {
 
     await waitFor(() => expect(screen.getByText(/Import finished/i)).toBeInTheDocument());
     expect(screen.getByText(/Added 3 accounts\./i)).toBeInTheDocument();
+  });
+
+  it("allocates each account to the salesperson named in the file", async () => {
+    render(
+      <AppProvider>
+        <OwnerProbe />
+      </AppProvider>
+    );
+
+    openImportModal();
+    await uploadCsv(REP_CSV);
+
+    const dialog = screen.getByRole("dialog", { name: /Import accounts from a CSV/i });
+    expect(within(dialog).getByText(/Allocation from the SALESPERSON column/i)).toBeInTheDocument();
+    // Reps who are not on the team are still allocated, and called out.
+    expect(within(dialog).getByText(/named in the file but not on the team/i)).toBeInTheDocument();
+    // The row with no rep falls to the person running the import.
+    expect(within(dialog).getByText(/no salesperson in the file/i)).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /Import 3 accounts/i }));
+
+    await waitFor(() => expect(screen.getByText(/Import finished/i)).toBeInTheDocument());
+    const owners = screen.getByTestId("owners").textContent || "";
+    expect(owners).toContain("Commlec Services=Bilal Akhtar");
+    expect(owners).toContain("Ahrens=Alan Berryman");
+    expect(owners).toContain("FORGE=Travis Maher");
+  });
+
+  it("corrects the owner on an account already in the CRM", async () => {
+    render(
+      <AppProvider>
+        <OwnerProbe
+          seed={[
+            {
+              id: "acc-existing",
+              name: "Ahrens",
+              accountType: "Account",
+              status: "Customer",
+              territory: "VIC/TAS",
+              accountOwner: "Travis Maher"
+            }
+          ]}
+        />
+      </AppProvider>
+    );
+
+    openImportModal();
+    await uploadCsv(REP_CSV);
+
+    const dialog = screen.getByRole("dialog", { name: /Import accounts from a CSV/i });
+    expect(within(dialog).getByText(/Travis Maher → Alan Berryman/)).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole("checkbox", { name: /correct the owner on 1 existing account/i })
+    ).toBeChecked();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /Import 2 accounts/i }));
+
+    await waitFor(() => expect(screen.getByText(/Import finished/i)).toBeInTheDocument());
+    expect(screen.getByText(/Reallocated 1 existing account/i)).toBeInTheDocument();
+    expect(screen.getByTestId("owners").textContent).toContain("Ahrens=Alan Berryman");
+  });
+
+  it("leaves an existing owner alone when the correction is unticked", async () => {
+    render(
+      <AppProvider>
+        <OwnerProbe
+          seed={[
+            {
+              id: "acc-existing",
+              name: "Ahrens",
+              accountType: "Account",
+              status: "Customer",
+              territory: "VIC/TAS",
+              accountOwner: "Travis Maher"
+            }
+          ]}
+        />
+      </AppProvider>
+    );
+
+    openImportModal();
+    await uploadCsv(REP_CSV);
+
+    const dialog = screen.getByRole("dialog", { name: /Import accounts from a CSV/i });
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: /correct the owner on 1 existing account/i }));
+    fireEvent.click(within(dialog).getByRole("button", { name: /Import 2 accounts/i }));
+
+    await waitFor(() => expect(screen.getByText(/Import finished/i)).toBeInTheDocument());
+    expect(screen.queryByText(/Reallocated/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("owners").textContent).toContain("Ahrens=Travis Maher");
   });
 });

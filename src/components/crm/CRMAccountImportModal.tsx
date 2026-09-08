@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo } from "react";
-import { X, Upload, AlertTriangle, CheckCircle2, Loader2, FileSpreadsheet, Users, Building2, Copy } from "lucide-react";
+import { X, Upload, AlertTriangle, CheckCircle2, Loader2, FileSpreadsheet, Users, Building2, Copy, UserCheck } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { useDialogDismiss } from "../../utils/useDialogDismiss";
 import { Account, ContactFrequency } from "../../types/crm";
@@ -28,7 +28,7 @@ const FREQUENCIES: ContactFrequency[] = ["As needed", "Occasional", "Opportunity
 const PREVIEW_LIMIT = 25;
 
 export const CRMAccountImportModal: React.FC<CRMAccountImportModalProps> = ({ isOpen, onClose }) => {
-  const { accounts, importAccounts, currentUser, showToast } = useApp();
+  const { accounts, importAccounts, currentUser, teamMembers, showToast } = useApp();
 
   const [fileName, setFileName] = useState("");
   const [isReading, setIsReading] = useState(false);
@@ -38,10 +38,21 @@ export const CRMAccountImportModal: React.FC<CRMAccountImportModalProps> = ({ is
   const [defaultTerritory, setDefaultTerritory] = useState<Account["territory"]>("National");
   const [contactFrequency, setContactFrequency] = useState<ContactFrequency>("As needed");
   const [createContacts, setCreateContacts] = useState(true);
-  const [result, setResult] = useState<{ accounts: number; contacts: number; skipped: number } | null>(null);
+  const [fallbackOwner, setFallbackOwner] = useState(currentUser.name);
+  const [applyOwnerChanges, setApplyOwnerChanges] = useState(true);
+  const [result, setResult] = useState<{ accounts: number; contacts: number; skipped: number; reassigned: number } | null>(
+    null
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useDialogDismiss(isOpen, onClose);
+
+  // The team's spelling of each rep's name, so "SALESPERSON" cells settle onto
+  // the same owner the rest of the CRM filters by.
+  const knownOwners = useMemo(() => {
+    const names = teamMembers.map((m) => m.name).filter(Boolean);
+    return names.some((n) => n.toLowerCase() === currentUser.name.toLowerCase()) ? names : [...names, currentUser.name];
+  }, [teamMembers, currentUser.name]);
 
   const plan: AccountImportPlan | null = useMemo(() => {
     // Re-planning against `accounts` is the point: the duplicate column has to
@@ -50,14 +61,16 @@ export const CRMAccountImportModal: React.FC<CRMAccountImportModalProps> = ({ is
     // preview, so stop.
     if (!csvText || result) return null;
     return buildAccountImportPlan(csvText, accounts, {
-      accountOwner: currentUser.name,
+      accountOwner: fallbackOwner,
+      knownOwners,
       defaultTerritory,
       contactFrequency
     });
-  }, [csvText, accounts, currentUser.name, defaultTerritory, contactFrequency, result]);
+  }, [csvText, accounts, fallbackOwner, knownOwners, defaultTerritory, contactFrequency, result]);
 
   const reset = () => {
     setFileName("");
+    setFallbackOwner(currentUser.name);
     setCsvText("");
     setReadError("");
     setResult(null);
@@ -95,14 +108,22 @@ export const CRMAccountImportModal: React.FC<CRMAccountImportModalProps> = ({ is
       ? plan.readyRows.map((row) => row.contact).filter((c): c is NonNullable<typeof c> => Boolean(c))
       : [];
     const skipped = plan.duplicateCount + plan.invalidCount;
+    const ownerUpdates = applyOwnerChanges
+      ? plan.ownerChanges.map((change) => ({ accountId: change.accountId, accountOwner: change.to }))
+      : [];
 
     try {
-      const written = await importAccounts(newAccounts, newContacts, fileName || "a CSV file");
-      setResult({ accounts: written.accounts, contacts: written.contacts, skipped });
+      const written = await importAccounts(newAccounts, newContacts, fileName || "a CSV file", ownerUpdates);
+      setResult({
+        accounts: written.accounts,
+        contacts: written.contacts,
+        skipped,
+        reassigned: written.reassigned
+      });
       showToast(
         `Imported ${written.accounts} ${written.accounts === 1 ? "account" : "accounts"}${
           written.contacts ? ` and ${written.contacts} ${written.contacts === 1 ? "contact" : "contacts"}` : ""
-        }.`,
+        }${written.reassigned ? `, reallocated ${written.reassigned}` : ""}.`,
         "success"
       );
     } finally {
@@ -145,6 +166,11 @@ export const CRMAccountImportModal: React.FC<CRMAccountImportModalProps> = ({ is
                 Added {result.accounts} {result.accounts === 1 ? "account" : "accounts"}
                 {result.contacts > 0 ? ` and ${result.contacts} ${result.contacts === 1 ? "contact" : "contacts"}` : ""}.
                 {result.skipped > 0 ? ` ${result.skipped} ${result.skipped === 1 ? "row was" : "rows were"} skipped.` : ""}
+                {result.reassigned > 0
+                  ? ` Reallocated ${result.reassigned} existing ${
+                      result.reassigned === 1 ? "account" : "accounts"
+                    } to the salesperson named in the file.`
+                  : ""}
               </p>
             </div>
           ) : (
@@ -178,7 +204,8 @@ export const CRMAccountImportModal: React.FC<CRMAccountImportModalProps> = ({ is
                     {fileName ? <FileSpreadsheet className="w-6 h-6" /> : <Upload className="w-6 h-6" />}
                     <span className="font-bold text-spec">{fileName || "Choose a CSV file"}</span>
                     <span className="text-spec">
-                      Columns: Customer Name, Customer Style, Address 1, Address 2, Contact, Phone
+                      Columns: Customer Name, Customer Style, Address 1, Address 2, Contact, Phone,
+                      CUSTOMERSTATUS, SALESPERSON
                     </span>
                   </>
                 )}
@@ -224,11 +251,64 @@ export const CRMAccountImportModal: React.FC<CRMAccountImportModalProps> = ({ is
                   {plan.duplicateCount > 0 && (
                     <p className="text-spec text-amber-800 bg-amber-50 border border-amber-200 rounded-edge p-3">
                       {plan.duplicateCount} {plan.duplicateCount === 1 ? "row matches an account" : "rows match accounts"} already
-                      in the CRM and will be left alone. Existing records are never overwritten by an import.
+                      in the CRM and will be left alone. Apart from the owner, an import never overwrites an existing record.
+                    </p>
+                  )}
+
+                  {plan.ownerAllocation.length > 0 && (
+                    <div className="border border-line rounded-edge p-3 bg-white space-y-2">
+                      <div className="flex items-center gap-1.5 text-ink-dim text-spec">
+                        <UserCheck className="w-3.5 h-3.5" />
+                        {plan.hasSalespersonColumn
+                          ? "Allocation from the SALESPERSON column"
+                          : "No salesperson column in this file — everything goes to one owner"}
+                      </div>
+                      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                        {plan.ownerAllocation.map((allocation) => (
+                          <li key={allocation.owner} className="flex justify-between gap-2 text-spec text-body">
+                            <span className="truncate">
+                              {allocation.owner}
+                              {!allocation.known && <span className="text-amber-800"> · not on the team</span>}
+                            </span>
+                            <span className="font-bold tabular-nums">{allocation.count}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      {plan.unallocatedCount > 0 && (
+                        <p className="text-spec text-ink-dim">
+                          {plan.unallocatedCount} {plan.unallocatedCount === 1 ? "row has" : "rows have"} no salesperson in
+                          the file and {plan.unallocatedCount === 1 ? "goes" : "go"} to {fallbackOwner}.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {plan.unknownOwners.length > 0 && (
+                    <p className="text-spec text-amber-800 bg-amber-50 border border-amber-200 rounded-edge p-3">
+                      {plan.unknownOwners.length === 1 ? "This rep is" : "These reps are"} named in the file but not on the
+                      team: {plan.unknownOwners.join(", ")}. The accounts are still allocated to them — add the{" "}
+                      {plan.unknownOwners.length === 1 ? "person" : "people"} in Settings so the name matches everywhere.
                     </p>
                   )}
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label htmlFor="import-owner" className="block text-spec font-bold mb-1">
+                        Owner when the row has no salesperson
+                      </label>
+                      <select
+                        id="import-owner"
+                        value={fallbackOwner}
+                        onChange={(e) => setFallbackOwner(e.target.value)}
+                        className="w-full p-2 border border-line rounded-edge bg-white text-spec"
+                      >
+                        {knownOwners.map((owner) => (
+                          <option key={owner} value={owner}>
+                            {owner}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     <div>
                       <label htmlFor="import-territory" className="block text-spec font-bold mb-1">
                         Territory when the address has no state
@@ -275,6 +355,22 @@ export const CRMAccountImportModal: React.FC<CRMAccountImportModalProps> = ({ is
                     Also add the named person in each row as a contact ({plan.contactCount} of {plan.readyCount})
                   </label>
 
+                  {plan.ownerChanges.length > 0 && (
+                    <label className="flex items-start gap-2 text-spec text-body cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={applyOwnerChanges}
+                        onChange={(e) => setApplyOwnerChanges(e.target.checked)}
+                        className="rounded-xs mt-0.5"
+                      />
+                      <span>
+                        Also correct the owner on {plan.ownerChanges.length} existing{" "}
+                        {plan.ownerChanges.length === 1 ? "account" : "accounts"} the file allocates to a different
+                        salesperson. Only the owner changes; nothing else on those accounts is touched.
+                      </span>
+                    </label>
+                  )}
+
                   {plan.unmappedHeaders.length > 0 && (
                     <p className="text-spec text-ink-dim">
                       Ignored columns: {plan.unmappedHeaders.join(", ")}.
@@ -289,6 +385,7 @@ export const CRMAccountImportModal: React.FC<CRMAccountImportModalProps> = ({ is
                             <th className="p-2 font-bold">Account</th>
                             <th className="p-2 font-bold">Type</th>
                             <th className="p-2 font-bold">Suburb / State</th>
+                            <th className="p-2 font-bold">Owner</th>
                             <th className="p-2 font-bold">Contact</th>
                             <th className="p-2 font-bold">Outcome</th>
                           </tr>
@@ -303,6 +400,7 @@ export const CRMAccountImportModal: React.FC<CRMAccountImportModalProps> = ({ is
                                   .filter(Boolean)
                                   .join(", ") || "—"}
                               </td>
+                              <td className="p-2 text-ink-dim">{row.owner || "—"}</td>
                               <td className="p-2 text-ink-dim">
                                 {row.contact ? `${row.contact.firstName} ${row.contact.lastName}`.trim() : "—"}
                               </td>

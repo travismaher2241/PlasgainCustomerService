@@ -2,8 +2,10 @@
  * Account CSV Import
  *
  * Turns an exported customer list (the Ostendo "Customer List" shape:
- * Customer Name, Customer Style, Address 1, Address 2, Contact, Phone)
- * into Account records, plus a CRMContact for each named person.
+ * Customer Name, Customer Style, Address 1, Address 2, Contact, Phone,
+ * CUSTOMERSTATUS, SALESPERSON) into Account records, plus a CRMContact for each
+ * named person, owned by the rep named in the file rather than by whoever
+ * happened to run the import.
  *
  * Everything here is pure so the preview the user approves is built from the
  * exact same code path that writes the records.
@@ -127,7 +129,17 @@ export function parseDelimitedText(text: string): DelimitedTable {
 /* Header mapping                                                      */
 /* ------------------------------------------------------------------ */
 
-export type AccountCsvField = "name" | "style" | "address1" | "address2" | "contact" | "phone" | "email" | "website";
+export type AccountCsvField =
+  | "name"
+  | "style"
+  | "address1"
+  | "address2"
+  | "contact"
+  | "phone"
+  | "email"
+  | "website"
+  | "salesperson"
+  | "customerStatus";
 
 const HEADER_ALIASES: Record<AccountCsvField, string[]> = {
   name: ["customer name", "account name", "company name", "customer", "account", "company", "name", "business name"],
@@ -137,7 +149,22 @@ const HEADER_ALIASES: Record<AccountCsvField, string[]> = {
   contact: ["contact", "contact name", "primary contact", "contact person"],
   phone: ["phone", "phone number", "telephone", "main phone", "contact phone"],
   email: ["email", "email address", "general email", "contact email"],
-  website: ["website", "web", "url", "web address"]
+  website: ["website", "web", "url", "web address"],
+  // "SALESPERSON" is the Ostendo spelling; the rest are what the same list
+  // comes back as once it has been through a spreadsheet.
+  salesperson: [
+    "salesperson",
+    "sales person",
+    "sales rep",
+    "sales representative",
+    "rep",
+    "account manager",
+    "account owner",
+    "owner",
+    "assigned to",
+    "assigned salesperson"
+  ],
+  customerStatus: ["customerstatus", "customer status", "account status", "status"]
 };
 
 function normalizeHeader(header: string): string {
@@ -349,6 +376,100 @@ function statusForType(type: AccountType): AccountStatus {
   return type === "Prospect" ? "Prospect" : "Customer";
 }
 
+/* ------------------------------------------------------------------ */
+/* Customer status                                                     */
+/* ------------------------------------------------------------------ */
+
+// The export marks a customer's standing in the accounting system. Only the
+// values that plainly mean "no longer trading with us" are treated as inactive;
+// anything unrecognised is left alone rather than quietly retiring an account.
+const INACTIVE_STATUSES = new Set([
+  "inactive",
+  "not active",
+  "closed",
+  "ceased",
+  "suspended",
+  "stopped",
+  "on hold",
+  "hold",
+  "dormant",
+  "archived",
+  "deleted",
+  "obsolete",
+  "no"
+]);
+
+const ACTIVE_STATUSES = new Set(["active", "current", "open", "yes", "trading"]);
+
+export type CustomerStatusFlag = "active" | "inactive" | "unknown";
+
+/** Reads the CUSTOMERSTATUS cell. Blank or unrecognised text is "unknown". */
+export function normalizeCustomerStatus(raw?: string): CustomerStatusFlag {
+  const key = (raw || "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (!key) return "unknown";
+  if (ACTIVE_STATUSES.has(key)) return "active";
+  if (INACTIVE_STATUSES.has(key)) return "inactive";
+  return "unknown";
+}
+
+/* ------------------------------------------------------------------ */
+/* Salesperson allocation                                              */
+/* ------------------------------------------------------------------ */
+
+export interface ResolvedOwner {
+  /** The name to stamp on the account. */
+  name: string;
+  /** True when the file named a rep; false when the fallback owner was used. */
+  fromFile: boolean;
+  /** True when the rep in the file matched a member of the team. */
+  known: boolean;
+}
+
+/** Lower-cases and strips punctuation so "BERRYMAN, Alan" and "Alan Berryman" compare equal. */
+function ownerKey(name: string): string {
+  const cleaned = name
+    .toLowerCase()
+    .replace(/[^a-z0-9,]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  // "Surname, Given" is how some exports write the rep; compare on the name
+  // itself, not on the order the export happened to use.
+  if (cleaned.includes(",")) {
+    const [surname, given] = cleaned.split(",").map((p) => p.trim());
+    if (surname && given) return `${given} ${surname}`;
+  }
+  return cleaned;
+}
+
+function tidyOwnerName(raw: string): string {
+  const value = raw.replace(/\s+/g, " ").trim();
+  if (value.includes(",")) {
+    const [surname, given] = value.split(",").map((p) => p.trim());
+    if (surname && given) return `${given} ${surname}`;
+  }
+  return value;
+}
+
+/**
+ * Works out who owns an imported row.
+ *
+ * A rep named in the file wins over the person running the import — that is the
+ * whole point of the SALESPERSON column. When the name matches someone on the
+ * team, the team's spelling is used so the CRM does not end up with "alan
+ * berryman" and "Alan Berryman" as two different owners; an unrecognised rep is
+ * still allocated as written, and reported in the preview.
+ */
+export function resolveAccountOwner(raw: string | undefined, fallbackOwner: string, knownOwners: string[] = []): ResolvedOwner {
+  const value = (raw || "").trim();
+  if (!value) return { name: fallbackOwner, fromFile: false, known: true };
+
+  const key = ownerKey(value);
+  const match = knownOwners.find((owner) => ownerKey(owner) === key);
+  if (match) return { name: match, fromFile: true, known: true };
+
+  return { name: tidyOwnerName(value), fromFile: true, known: false };
+}
+
 // Keeps the two fields consistent with the pairing the account editor uses.
 const RELATIONSHIP_BY_FREQUENCY: Record<ContactFrequency, CustomerRelationshipStatus> = {
   Opportunity: "Developing",
@@ -369,6 +490,30 @@ export interface AccountImportRow {
   message?: string;
   account?: Account;
   contact?: CRMContact;
+  /** Who this row is allocated to, on a new account or an existing one. */
+  owner?: string;
+  /** True when the owner came from the file's SALESPERSON column. */
+  ownerFromFile?: boolean;
+  /** Set on a duplicate row whose file rep differs from the owner in the CRM. */
+  ownerChange?: OwnerReassignment;
+}
+
+/** An owner correction for an account that is already in the CRM. */
+export interface OwnerReassignment {
+  accountId: string;
+  accountName: string;
+  from: string;
+  to: string;
+}
+
+/** How many rows each rep ends up with. */
+export interface OwnerAllocation {
+  owner: string;
+  count: number;
+  /** False when the rep is named in the file but is not on the team. */
+  known: boolean;
+  /** True for the fallback owner used by rows with no salesperson. */
+  isFallback: boolean;
 }
 
 export interface AccountImportPlan {
@@ -382,11 +527,25 @@ export interface AccountImportPlan {
   headers: string[];
   mapping: Partial<Record<AccountCsvField, number>>;
   unmappedHeaders: string[];
+  /** New accounts per owner, most rows first. */
+  ownerAllocation: OwnerAllocation[];
+  /** Reps named in the file who are not on the team. */
+  unknownOwners: string[];
+  /** New accounts with no salesperson in the file, allocated to the fallback owner. */
+  unallocatedCount: number;
+  /** Owner corrections available on accounts already in the CRM. */
+  ownerChanges: OwnerReassignment[];
+  /** True when the file has a salesperson column at all. */
+  hasSalespersonColumn: boolean;
+  inactiveCount: number;
   error?: string;
 }
 
 export interface AccountImportOptions {
+  /** Owner for rows whose salesperson cell is empty, or when the file has no such column. */
   accountOwner: string;
+  /** Team member names, used to settle on one spelling per rep. */
+  knownOwners?: string[];
   defaultTerritory?: Account["territory"];
   contactFrequency?: ContactFrequency;
   /** Deterministic id seed; defaults to the current clock. */
@@ -405,6 +564,12 @@ const EMPTY_PLAN = (error: string, headers: string[] = []): AccountImportPlan =>
   headers,
   mapping: {},
   unmappedHeaders: [],
+  ownerAllocation: [],
+  unknownOwners: [],
+  unallocatedCount: 0,
+  ownerChanges: [],
+  hasSalespersonColumn: false,
+  inactiveCount: 0,
   error
 });
 
@@ -435,6 +600,7 @@ export function buildAccountImportPlan(
   const today = options.today || new Date().toISOString().split("T")[0];
   const frequency: ContactFrequency = options.contactFrequency || "As needed";
   const defaultTerritory = options.defaultTerritory || "National";
+  const knownOwners = options.knownOwners && options.knownOwners.length ? options.knownOwners : [options.accountOwner];
 
   // Names claimed earlier in this same file, so a list that repeats a customer
   // does not create it twice.
@@ -470,14 +636,34 @@ export function buildAccountImportPlan(
     const phone = cell("phone").replace(/\s+/g, " ").trim();
     const normalizedPhone = normalizePhone(phone);
 
+    const owner = resolveAccountOwner(cell("salesperson"), options.accountOwner, knownOwners);
+
     const existingMatch =
       existingByName.get(key) || (normalizedPhone.length >= 8 ? existingByPhone.get(normalizedPhone) : undefined);
     if (existingMatch) {
+      // The account stays as it is, but the file still says who works it. That
+      // difference is offered separately so an import can fix the allocation on
+      // a list that was loaded before the salesperson column existed.
+      const ownerChange =
+        owner.fromFile && owner.name !== existingMatch.accountOwner
+          ? {
+              accountId: existingMatch.id,
+              accountName: existingMatch.name,
+              from: existingMatch.accountOwner || "",
+              to: owner.name
+            }
+          : undefined;
+
       return {
         rowNumber,
         sourceName: name,
         status: "duplicate",
-        message: `Already in the CRM as "${existingMatch.name}".`
+        owner: ownerChange ? owner.name : existingMatch.accountOwner,
+        ownerFromFile: owner.fromFile,
+        ownerChange,
+        message: ownerChange
+          ? `Already in the CRM as "${existingMatch.name}" — owner ${ownerChange.from || "unset"} → ${ownerChange.to}.`
+          : `Already in the CRM as "${existingMatch.name}".`
       };
     }
 
@@ -494,6 +680,8 @@ export function buildAccountImportPlan(
 
     const accountType = normalizeAccountType(cell("style"));
     const isProspect = accountType === "Prospect";
+    const customerStatus = normalizeCustomerStatus(cell("customerStatus"));
+    const isInactive = customerStatus === "inactive";
     const address = parseAustralianAddress(cell("address1"), cell("address2"));
     const territory = territoryForState(address?.state, defaultTerritory);
 
@@ -507,17 +695,17 @@ export function buildAccountImportPlan(
       id: accountId,
       name,
       accountType,
-      status: statusForType(accountType),
+      status: isInactive ? "Former Customer" : statusForType(accountType),
       territory,
-      accountOwner: options.accountOwner,
+      accountOwner: owner.name,
       // No industry: a customer list says nothing about it, and defaulting
       // several hundred accounts to one industry is a claim, not a blank.
       leadSource: "Imported List",
       createdDate: today,
-      customerRelationshipStatus: isProspect ? undefined : RELATIONSHIP_BY_FREQUENCY[frequency],
+      customerRelationshipStatus: isProspect ? undefined : isInactive ? "Dormant" : RELATIONSHIP_BY_FREQUENCY[frequency],
       contactFrequency: isProspect ? undefined : frequency,
       prospectStage: isProspect ? "Identified" : undefined,
-      tags: [accountType, "Imported"],
+      tags: isInactive ? [accountType, "Imported", "Inactive"] : [accountType, "Imported"],
       metrics: {
         openPipelineValue: 0,
         totalDealsWon: 0,
@@ -545,16 +733,46 @@ export function buildAccountImportPlan(
         jobTitle: "",
         email: "",
         preferredContactMethod: phone ? "Phone" : "Email",
-        contactOwner: options.accountOwner
+        contactOwner: owner.name
       };
       if (phone) contact.phone = phone;
     }
 
-    return { rowNumber, sourceName: name, status: "ready", account, contact };
+    return {
+      rowNumber,
+      sourceName: name,
+      status: "ready",
+      account,
+      contact,
+      owner: owner.name,
+      ownerFromFile: owner.fromFile
+    };
   });
 
   const readyRows = planRows.filter((r) => r.status === "ready");
   const mappedIndexes = new Set(Object.values(mapping));
+
+  // Allocation is summarised here rather than in the dialog so the numbers the
+  // user approves come from the same rows that will be written.
+  const knownOwnerKeys = new Set(knownOwners.map((o) => o.toLowerCase()));
+  const countsByOwner = new Map<string, number>();
+  readyRows.forEach((row) => {
+    const name = row.owner || options.accountOwner;
+    countsByOwner.set(name, (countsByOwner.get(name) || 0) + 1);
+  });
+
+  const ownerAllocation: OwnerAllocation[] = [...countsByOwner.entries()]
+    .map(([owner, count]) => ({
+      owner,
+      count,
+      known: knownOwnerKeys.has(owner.toLowerCase()),
+      isFallback: owner === options.accountOwner
+    }))
+    .sort((a, b) => b.count - a.count || a.owner.localeCompare(b.owner));
+
+  const unknownOwners = [
+    ...new Set(planRows.filter((r) => r.ownerFromFile && r.owner && !knownOwnerKeys.has(r.owner.toLowerCase())).map((r) => r.owner as string))
+  ].sort((a, b) => a.localeCompare(b));
 
   return {
     rows: planRows,
@@ -566,6 +784,12 @@ export function buildAccountImportPlan(
     totalRows: planRows.length,
     headers,
     mapping,
-    unmappedHeaders: headers.filter((h, i) => h && !mappedIndexes.has(i))
+    unmappedHeaders: headers.filter((h, i) => h && !mappedIndexes.has(i)),
+    ownerAllocation,
+    unknownOwners,
+    unallocatedCount: readyRows.filter((r) => !r.ownerFromFile).length,
+    ownerChanges: planRows.map((r) => r.ownerChange).filter((c): c is OwnerReassignment => Boolean(c)),
+    hasSalespersonColumn: mapping.salesperson !== undefined,
+    inactiveCount: readyRows.filter((r) => r.account?.tags?.includes("Inactive")).length
   };
 }

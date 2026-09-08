@@ -7,13 +7,23 @@ import {
   territoryForState,
   splitPersonName,
   normalizeAccountType,
+  normalizeCustomerStatus,
+  resolveAccountOwner,
   buildAccountImportPlan
 } from "../../utils/accountCsvImport";
 import { Account } from "../../types/crm";
 
 const HEADER = "Customer Name,Customer Style,Address 1,Address 2,Contact,Phone";
 
+// The current export: the same six columns, plus the customer's standing and
+// the rep who owns them.
+const REP_HEADER = "Customer Name,Customer Style,Address 1,Address 2,Contact,Phone,CUSTOMERSTATUS,SALESPERSON";
+
 const makeCsv = (...lines: string[]) => [HEADER, ...lines].join("\n");
+
+const makeRepCsv = (...lines: string[]) => [REP_HEADER, ...lines].join("\n");
+
+const TEAM = ["Travis Maher", "Alan Berryman", "John Jones", "Bilal Akhtar"];
 
 const baseOptions = { accountOwner: "Travis Maher", idSeed: "seed", today: "2026-09-08" };
 
@@ -49,6 +59,25 @@ describe("parseDelimitedText", () => {
 });
 
 describe("mapCsvHeaders", () => {
+  it("maps the customer list export, salesperson column included", () => {
+    expect(mapCsvHeaders(REP_HEADER.split(","))).toEqual({
+      name: 0,
+      style: 1,
+      address1: 2,
+      address2: 3,
+      contact: 4,
+      phone: 5,
+      customerStatus: 6,
+      salesperson: 7
+    });
+  });
+
+  it("accepts the spellings a spreadsheet round-trip produces for the rep column", () => {
+    expect(mapCsvHeaders(["Customer Name", "Sales Rep"]).salesperson).toBe(1);
+    expect(mapCsvHeaders(["Customer Name", "Account Manager"]).salesperson).toBe(1);
+    expect(mapCsvHeaders(["Customer Name", "Status"]).customerStatus).toBe(1);
+  });
+
   it("maps the Ostendo customer list headers", () => {
     expect(mapCsvHeaders(HEADER.split(","))).toEqual({
       name: 0,
@@ -207,6 +236,49 @@ describe("normalizeAccountType", () => {
   });
 });
 
+describe("normalizeCustomerStatus", () => {
+  it("reads the values the export actually uses", () => {
+    expect(normalizeCustomerStatus("Active")).toBe("active");
+    expect(normalizeCustomerStatus("Inactive")).toBe("inactive");
+    expect(normalizeCustomerStatus("On Hold")).toBe("inactive");
+  });
+
+  it("leaves a blank or unrecognised standing alone", () => {
+    expect(normalizeCustomerStatus("")).toBe("unknown");
+    expect(normalizeCustomerStatus("Pending review")).toBe("unknown");
+  });
+});
+
+describe("resolveAccountOwner", () => {
+  it("uses the rep named in the file, in the team's spelling", () => {
+    expect(resolveAccountOwner("ALAN BERRYMAN", "Travis Maher", TEAM)).toEqual({
+      name: "Alan Berryman",
+      fromFile: true,
+      known: true
+    });
+  });
+
+  it("matches a rep written surname-first", () => {
+    expect(resolveAccountOwner("Berryman, Alan", "Travis Maher", TEAM).name).toBe("Alan Berryman");
+  });
+
+  it("still allocates a rep who is not on the team", () => {
+    expect(resolveAccountOwner("Mark Salnitro", "Travis Maher", TEAM)).toEqual({
+      name: "Mark Salnitro",
+      fromFile: true,
+      known: false
+    });
+  });
+
+  it("falls back to the person running the import when the cell is empty", () => {
+    expect(resolveAccountOwner("  ", "Travis Maher", TEAM)).toEqual({
+      name: "Travis Maher",
+      fromFile: false,
+      known: true
+    });
+  });
+});
+
 describe("buildAccountImportPlan", () => {
   it("builds an account and a contact from a customer row", () => {
     const plan = buildAccountImportPlan(
@@ -336,5 +408,105 @@ describe("buildAccountImportPlan", () => {
 
   it("refuses an empty file", () => {
     expect(buildAccountImportPlan("", [], baseOptions).error).toBe("That file is empty.");
+  });
+});
+
+describe("buildAccountImportPlan — salesperson allocation", () => {
+  const repOptions = { ...baseOptions, knownOwners: TEAM };
+
+  it("allocates each account to the rep in the file, not to whoever ran the import", () => {
+    const plan = buildAccountImportPlan(
+      makeRepCsv(
+        "Commlec Services,Account,,,Mike Howie,9543 1772,Active,Bilal Akhtar",
+        "Ahrens,Account,,,Mark Rosiak,,Active,alan berryman"
+      ),
+      [],
+      repOptions
+    );
+
+    expect(plan.readyRows.map((r) => r.account!.accountOwner)).toEqual(["Bilal Akhtar", "Alan Berryman"]);
+    expect(plan.readyRows.map((r) => r.contact!.contactOwner)).toEqual(["Bilal Akhtar", "Alan Berryman"]);
+    expect(plan.hasSalespersonColumn).toBe(true);
+    expect(plan.unmappedHeaders).toEqual([]);
+  });
+
+  it("gives a row with no salesperson to the fallback owner and says how many there were", () => {
+    const plan = buildAccountImportPlan(
+      makeRepCsv("FORGE,Prospect,,,Aaron,,Active,", "Ahrens,Account,,,,,Active,John Jones"),
+      [],
+      repOptions
+    );
+
+    expect(plan.readyRows[0].account!.accountOwner).toBe("Travis Maher");
+    expect(plan.readyRows[0].ownerFromFile).toBe(false);
+    expect(plan.unallocatedCount).toBe(1);
+  });
+
+  it("summarises the allocation, biggest book first, and names reps who are not on the team", () => {
+    const plan = buildAccountImportPlan(
+      makeRepCsv(
+        "One,Account,,,,,Active,Alan Berryman",
+        "Two,Account,,,,,Active,Alan Berryman",
+        "Three,Account,,,,,Active,Mark Salnitro"
+      ),
+      [],
+      repOptions
+    );
+
+    expect(plan.ownerAllocation).toEqual([
+      { owner: "Alan Berryman", count: 2, known: true, isFallback: false },
+      { owner: "Mark Salnitro", count: 1, known: false, isFallback: false }
+    ]);
+    expect(plan.unknownOwners).toEqual(["Mark Salnitro"]);
+  });
+
+  it("offers the owner correction on an account already in the CRM", () => {
+    const existing = [
+      { id: "acc-1", name: "Commlec Services", accountOwner: "Travis Maher" } as Account,
+      { id: "acc-2", name: "Ahrens", accountOwner: "John Jones" } as Account
+    ];
+    const plan = buildAccountImportPlan(
+      makeRepCsv("Commlec Services,Account,,,,,Active,Bilal Akhtar", "Ahrens,Account,,,,,Active,John Jones"),
+      existing,
+      repOptions
+    );
+
+    expect(plan.duplicateCount).toBe(2);
+    expect(plan.readyCount).toBe(0);
+    // Only the account whose rep actually differs is offered.
+    expect(plan.ownerChanges).toEqual([
+      { accountId: "acc-1", accountName: "Commlec Services", from: "Travis Maher", to: "Bilal Akhtar" }
+    ]);
+    expect(plan.rows[0].message).toContain("Travis Maher → Bilal Akhtar");
+  });
+
+  it("does not reallocate an existing account from a row with no salesperson", () => {
+    const existing = [{ id: "acc-1", name: "Ahrens", accountOwner: "John Jones" } as Account];
+    const plan = buildAccountImportPlan(makeRepCsv("Ahrens,Account,,,,,Active,"), existing, repOptions);
+    expect(plan.ownerChanges).toEqual([]);
+  });
+
+  it("marks a customer the export no longer lists as active", () => {
+    const plan = buildAccountImportPlan(
+      makeRepCsv("Old Co,Account,,,,,Inactive,Alan Berryman", "Live Co,Account,,,,,Active,Alan Berryman"),
+      [],
+      repOptions
+    );
+
+    const [old, live] = plan.readyRows.map((r) => r.account!);
+    expect(old.status).toBe("Former Customer");
+    expect(old.customerRelationshipStatus).toBe("Dormant");
+    expect(old.tags).toContain("Inactive");
+    expect(live.status).toBe("Customer");
+    expect(live.tags).not.toContain("Inactive");
+    expect(plan.inactiveCount).toBe(1);
+  });
+
+  it("still works on the older file that has no salesperson column", () => {
+    const plan = buildAccountImportPlan(makeCsv("Acrow,Account,,,Ann Smith,"), [], repOptions);
+    expect(plan.hasSalespersonColumn).toBe(false);
+    expect(plan.readyRows[0].account!.accountOwner).toBe("Travis Maher");
+    expect(plan.unallocatedCount).toBe(1);
+    expect(plan.ownerChanges).toEqual([]);
   });
 });
