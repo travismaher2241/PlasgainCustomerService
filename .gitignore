@@ -20,3 +20,4 @@ server_data/*.json
 # Uploaded quote PDFs are customer documents, not source.
 server_data/quote_documents/
 tmp/
+.codex-remote-attachments/

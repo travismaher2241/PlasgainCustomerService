@@ -20,7 +20,7 @@ import {
   X
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
-import { formatAuDateLong, formatAuTime, formatAuDate, getLastThursdayDateString, addDaysLocal, getLocalDateInputValue } from "../../utils/dateUtils";
+import { formatAuDateLong, formatAuTime, formatAuDate, addDaysLocal, getLocalDateInputValue } from "../../utils/dateUtils";
 import { CRMTask, TaskType } from "../../types/crm";
 import { getNextDayMeetings, getTomorrowDateString } from "../../utils/crmMeetingPreparation";
 
@@ -979,17 +979,6 @@ export const CRMCalendarView: React.FC = () => {
                     }`}
                   >
                     Yesterday
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setNewMeetingDate(getLastThursdayDateString())}
-                    className={`px-2.5 py-1 text-xs font-semibold rounded border cursor-pointer transition-colors ${
-                      newMeetingDate === getLastThursdayDateString()
-                        ? "bg-brand-deep text-white border-brand-deep font-bold"
-                        : "bg-paper text-ink-dim border-line hover:border-ink-dim"
-                    }`}
-                  >
-                    Last Thursday
                   </button>
                 </div>
               </div>

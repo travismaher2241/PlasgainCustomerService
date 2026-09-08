@@ -68,7 +68,7 @@ import {
   ContactFrequency,
   AccountCommercialStatus
 } from "../../types/crm";
-import { getLocalDateInputValue, formatAuDate, getLastThursdayDateString, addDaysLocal } from "../../utils/dateUtils";
+import { getLocalDateInputValue, formatAuDate, addDaysLocal } from "../../utils/dateUtils";
 import { sortActivitiesChronological, formatActivityTimestamp } from "../../utils/activityUtils";
 import {
   getAccountContactFrequency,
@@ -3589,17 +3589,6 @@ export const CRMAccountsView: React.FC = () => {
                     }`}
                   >
                     Yesterday
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActNewDate(getLastThursdayDateString())}
-                    className={`px-2.5 py-1 text-xs font-semibold rounded border cursor-pointer transition-colors ${
-                      actNewDate === getLastThursdayDateString()
-                        ? "bg-brand-deep text-white border-brand-deep font-bold"
-                        : "bg-paper text-ink-dim border-line hover:border-ink-dim"
-                    }`}
-                  >
-                    Last Thursday
                   </button>
                 </div>
               </div>

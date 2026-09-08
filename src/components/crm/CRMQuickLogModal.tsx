@@ -17,7 +17,7 @@ import {
 import { useApp } from "../../context/AppContext";
 import { useDialogDismiss } from "../../utils/useDialogDismiss";
 import { ActivityType, Account, CRMContact, CRMOpportunity, ActivityParticipant, ContactNotableEvent } from "../../types/crm";
-import { addDaysLocal, getLocalDateInputValue, getLastThursdayDateString } from "../../utils/dateUtils";
+import { addDaysLocal, getLocalDateInputValue } from "../../utils/dateUtils";
 import { detectDuplicateContact, DuplicateMatchResult } from "../../utils/duplicateDetector";
 
 export const OUTCOMES_BY_TYPE: Record<"call" | "email" | "meeting" | "site_visit", string[]> = {
@@ -699,17 +699,6 @@ export const CRMQuickLogModal: React.FC = () => {
                         }`}
                       >
                         Yesterday
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActivityDate(getLastThursdayDateString())}
-                        className={`text-[10px] px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
-                          activityDate === getLastThursdayDateString()
-                            ? "bg-brand-deep text-white border-brand-deep font-bold"
-                            : "bg-white text-ink-dim border-line hover:border-ink-dim"
-                        }`}
-                      >
-                        Last Thu
                       </button>
                     </div>
                   </div>

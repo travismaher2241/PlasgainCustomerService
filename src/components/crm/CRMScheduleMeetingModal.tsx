@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { useDialogDismiss } from "../../utils/useDialogDismiss";
 import { useApp } from "../../context/AppContext";
-import { getLocalDateInputValue, formatAuTime, getLastThursdayDateString, addDaysLocal } from "../../utils/dateUtils";
+import { getLocalDateInputValue, formatAuTime, addDaysLocal } from "../../utils/dateUtils";
 import { getTomorrowDateString } from "../../utils/crmMeetingPreparation";
 
 export const CRMScheduleMeetingModal: React.FC = () => {
@@ -89,13 +89,11 @@ export const CRMScheduleMeetingModal: React.FC = () => {
     setOpportunityId("");
   };
 
-  const setDatePreset = (preset: "today" | "yesterday" | "lastthu" | "tomorrow" | "in2days" | "nextweek") => {
+  const setDatePreset = (preset: "today" | "yesterday" | "tomorrow" | "in2days" | "nextweek") => {
     if (preset === "today") {
       setMeetingDate(getLocalDateInputValue());
     } else if (preset === "yesterday") {
       setMeetingDate(addDaysLocal(-1));
-    } else if (preset === "lastthu") {
-      setMeetingDate(getLastThursdayDateString());
     } else if (preset === "tomorrow") {
       setMeetingDate(addDaysLocal(1));
     } else if (preset === "in2days") {
@@ -284,13 +282,6 @@ export const CRMScheduleMeetingModal: React.FC = () => {
                   className="px-2 py-0.5 text-[11px] font-semibold rounded bg-paper border border-line hover:border-brand-deep hover:text-brand-deep text-ink-dim cursor-pointer"
                 >
                   Yesterday
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDatePreset("lastthu")}
-                  className="px-2 py-0.5 text-[11px] font-semibold rounded bg-paper border border-line hover:border-brand-deep hover:text-brand-deep text-ink-dim cursor-pointer"
-                >
-                  Last Thu
                 </button>
                 <button
                   type="button"

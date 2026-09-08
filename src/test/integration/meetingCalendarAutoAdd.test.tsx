@@ -167,7 +167,7 @@ describe('Logged Meeting Auto-Add to Calendar', () => {
     });
   });
 
-  it('allows changing the activity date in CRMQuickLogModal to a past date like last Thursday', async () => {
+  it('allows changing the activity date in CRMQuickLogModal to a past date', async () => {
     const HarnessWithModal: React.FC = () => {
       const { openQuickLog, addAccount, addContact, activities, tasks } = useApp();
       return (
@@ -279,10 +279,10 @@ describe('Logged Meeting Auto-Add to Calendar', () => {
     // 3. Change Meeting Date dialog is open
     expect(screen.getByRole('dialog', { name: /change meeting date/i })).toBeInTheDocument();
 
-    // 4. Test "Last Thursday" quick preset button
-    const lastThuBtn = screen.getByRole('button', { name: /last thursday/i });
-    expect(lastThuBtn).toBeInTheDocument();
-    fireEvent.click(lastThuBtn);
+    // 4. Test "Yesterday" quick preset button
+    const yesterdayBtn = screen.getByRole('button', { name: /yesterday/i });
+    expect(yesterdayBtn).toBeInTheDocument();
+    fireEvent.click(yesterdayBtn);
 
     // 5. Or specify an exact custom date (e.g. 2026-09-01)
     const newDateInput = screen.getByLabelText(/new meeting date/i);
