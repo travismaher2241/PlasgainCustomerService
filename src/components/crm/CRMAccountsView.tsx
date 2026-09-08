@@ -125,6 +125,7 @@ export const CRMAccountsView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [accountTypeFilter, setAccountTypeFilter] = useState<"all" | AccountType>("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [ownerFilter, setOwnerFilter] = useState("all");
   const [archiveFilter, setArchiveFilter] = useState<"active" | "archived" | "all">("active");
   const [activeAccountTab, setActiveAccountTab] = useState<
     "overview" | "contacts" | "deals" | "activity" | "brief" | "competitors"
@@ -394,7 +395,10 @@ export const CRMAccountsView: React.FC = () => {
       matchesTypeAndStatus = matchesType && matchesStatus;
     }
 
-    return matchesArchive && matchesSearch && matchesTypeAndStatus;
+    const matchesOwner =
+      ownerFilter === "all" || (acc.accountOwner || currentUser.name) === ownerFilter;
+
+    return matchesArchive && matchesSearch && matchesTypeAndStatus && matchesOwner;
   });
 
   const selectedAccount =
@@ -1096,7 +1100,7 @@ export const CRMAccountsView: React.FC = () => {
                     placeholder="e.g. City of Melton Council"
                   />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
                     <label className="block text-spec font-bold mb-1">Account Type *</label>
                     <select
@@ -1109,6 +1113,21 @@ export const CRMAccountsView: React.FC = () => {
                       <option value="Prospect">Prospect</option>
                       <option value="Account">Account</option>
                       <option value="Council">Council</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-spec font-bold mb-1">Account Owner / Rep</label>
+                    <select
+                      aria-label="Account Owner"
+                      value={newAccountForm.accountOwner}
+                      onChange={(e) => setNewAccountForm({ ...newAccountForm, accountOwner: e.target.value })}
+                      className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
+                    >
+                      {teamMembers.map((m) => (
+                        <option key={m.id || m.name} value={m.name}>
+                          {m.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -1229,7 +1248,7 @@ export const CRMAccountsView: React.FC = () => {
               />
             </div>
 
-            <div className={accountTypeFilter === "all" ? "w-full" : "grid grid-cols-1 sm:grid-cols-2 gap-2"}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <select
                 aria-label="Filter by account type"
                 value={accountTypeFilter}
@@ -1246,43 +1265,57 @@ export const CRMAccountsView: React.FC = () => {
                 <option value="Council">Council</option>
               </select>
 
-              {accountTypeFilter === "Prospect" && (
-                <select
-                  aria-label="Filter by prospect stage"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-medium"
-                >
-                  <option value="all">All Prospect Stages</option>
-                  <option value="Identified">Identified</option>
-                  <option value="Researching">Researching</option>
-                  <option value="Contacting">Contacting</option>
-                  <option value="Engaged">Engaged</option>
-                  <option value="Opportunity Identified">Opportunity Identified</option>
-                  <option value="Nurture">Nurture</option>
-                  <option value="Not Pursuing">Not Pursuing</option>
-                </select>
-              )}
-
-              {accountTypeFilter !== "all" && accountTypeFilter !== "Prospect" && (
-                <select
-                  aria-label="Filter by relationship status"
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-medium"
-                >
-                  <option value="all">All Relationship Statuses</option>
-                  <option value="Active">Active</option>
-                  <option value="Opportunity">Opportunity (14d)</option>
-                  <option value="Occasional">Occasional (30d)</option>
-                  <option value="As needed">As needed (90d)</option>
-                  <option value="Declining">Declining</option>
-                  <option value="Dormant">Dormant</option>
-                  <option value="Inactive">Inactive</option>
-                  <option value="Overdue">⚠️ Contact Overdue</option>
-                </select>
-              )}
+              <select
+                aria-label="Filter by owner"
+                value={ownerFilter}
+                onChange={(e) => setOwnerFilter(e.target.value)}
+                className="w-full p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-semibold"
+              >
+                <option value="all">All Reps</option>
+                {teamMembers.map((m) => (
+                  <option key={m.id || m.name} value={m.name}>
+                    {m.name}
+                  </option>
+                ))}
+              </select>
             </div>
+
+            {accountTypeFilter === "Prospect" && (
+              <select
+                aria-label="Filter by prospect stage"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-medium"
+              >
+                <option value="all">All Prospect Stages</option>
+                <option value="Identified">Identified</option>
+                <option value="Researching">Researching</option>
+                <option value="Contacting">Contacting</option>
+                <option value="Engaged">Engaged</option>
+                <option value="Opportunity Identified">Opportunity Identified</option>
+                <option value="Nurture">Nurture</option>
+                <option value="Not Pursuing">Not Pursuing</option>
+              </select>
+            )}
+
+            {accountTypeFilter !== "all" && accountTypeFilter !== "Prospect" && (
+              <select
+                aria-label="Filter by relationship status"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-medium"
+              >
+                <option value="all">All Relationship Statuses</option>
+                <option value="Active">Active</option>
+                <option value="Opportunity">Opportunity (14d)</option>
+                <option value="Occasional">Occasional (30d)</option>
+                <option value="As needed">As needed (90d)</option>
+                <option value="Declining">Declining</option>
+                <option value="Dormant">Dormant</option>
+                <option value="Inactive">Inactive</option>
+                <option value="Overdue">⚠️ Contact Overdue</option>
+              </select>
+            )}
           </div>
 
           {/* SCROLLABLE COMPACT ACCOUNT ROWS */}
@@ -1322,6 +1355,9 @@ export const CRMAccountsView: React.FC = () => {
                           {getAccountTypeBadge(acc.accountType, "sm")}
                           <span className="text-xs text-ink-dim truncate">
                             {acc.territory}
+                          </span>
+                          <span className="text-xs text-ink-dim truncate" title={`Account Owner: ${acc.accountOwner || currentUser.name}`}>
+                            • {acc.accountOwner || currentUser.name}
                           </span>
                         </div>
                         <p className="text-[11px] text-brand-deep font-medium truncate mt-1" title={`Next: ${getAccountNextActionPreview(acc)}`}>
@@ -1442,7 +1478,25 @@ export const CRMAccountsView: React.FC = () => {
                         </>
                       )}
                       <span>•</span>
-                      <span>Owner: <strong className="text-body font-semibold">{selectedAccount.accountOwner || currentUser.name}</strong></span>
+                      <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                        <span>Owner:</span>
+                        <select
+                          aria-label="Account Owner"
+                          value={selectedAccount.accountOwner || currentUser.name}
+                          onChange={(e) => {
+                            const newOwner = e.target.value;
+                            updateAccount(selectedAccount.id, { accountOwner: newOwner });
+                            showToast(`Account owner changed to ${newOwner}`, "success");
+                          }}
+                          className="font-semibold text-body bg-white border border-line rounded px-1.5 py-0.5 text-spec shadow-2xs hover:border-brand-deep cursor-pointer focus:ring-1 focus:ring-brand-deep transition-colors"
+                        >
+                          {teamMembers.map((m) => (
+                            <option key={m.id || m.name} value={m.name}>
+                              {m.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
                       <span>•</span>
                       <span>{selectedAccount.territory}</span>
                     </p>
@@ -3006,7 +3060,7 @@ export const CRMAccountsView: React.FC = () => {
                   placeholder="e.g. City of Melton Council"
                 />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-spec font-bold mb-1">Account Type *</label>
                   <select
@@ -3077,6 +3131,24 @@ export const CRMAccountsView: React.FC = () => {
                     </p>
                   </div>
                 )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-spec font-bold mb-1">Account Owner / Rep *</label>
+                  <select
+                    aria-label="New Account Owner"
+                    value={newAccountForm.accountOwner}
+                    onChange={(e) => setNewAccountForm({ ...newAccountForm, accountOwner: e.target.value })}
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
+                  >
+                    {teamMembers.map((m) => (
+                      <option key={m.id || m.name} value={m.name}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
                 <div>
                   <label className="block text-spec font-bold mb-1">Territory</label>
@@ -3089,7 +3161,7 @@ export const CRMAccountsView: React.FC = () => {
                     <option>NSW/ACT</option>
                     <option>QLD/NT</option>
                     <option>WA</option>
-                      <option>SA</option>
+                    <option>SA</option>
                     <option>National</option>
                   </select>
                 </div>
@@ -3166,7 +3238,7 @@ export const CRMAccountsView: React.FC = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-spec font-bold mb-1">Account Type *</label>
                   <select
@@ -3257,6 +3329,24 @@ export const CRMAccountsView: React.FC = () => {
                     </div>
                   </div>
                 )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-spec font-bold mb-1">Account Owner / Rep *</label>
+                  <select
+                    aria-label="Edit Account Owner"
+                    value={editAccountForm.accountOwner}
+                    onChange={(e) => setEditAccountForm({ ...editAccountForm, accountOwner: e.target.value })}
+                    className="w-full p-2 border border-line rounded-edge bg-white text-spec font-medium"
+                  >
+                    {teamMembers.map((m) => (
+                      <option key={m.id || m.name} value={m.name}>
+                        {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
                 <div>
                   <label className="block text-spec font-bold mb-1">Territory</label>
@@ -3269,7 +3359,7 @@ export const CRMAccountsView: React.FC = () => {
                     <option>NSW/ACT</option>
                     <option>QLD/NT</option>
                     <option>WA</option>
-                      <option>SA</option>
+                    <option>SA</option>
                     <option>National</option>
                   </select>
                 </div>

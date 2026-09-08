@@ -648,5 +648,109 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(screen.getByText(/Prep Call/i)).toBeInTheDocument();
     expect(screen.getByText(/Log Call/i)).toBeInTheDocument();
   });
+
+  it("Test 20 — Reassigning Account Owner directly via header dropdown updates the owner", () => {
+    localStorage.setItem(
+      "plasgain_team_members",
+      JSON.stringify([
+        { id: "user-travis", name: "Travis Maher", email: "travis@plasgain.com.au" },
+        { id: "user-jordan", name: "Jordan Smith", email: "jordan@plasgain.com.au" }
+      ])
+    );
+
+    render(
+      <AppProvider>
+        <AccountsTestWrapper />
+      </AppProvider>
+    );
+
+    const ownerSelect = screen.getByRole("combobox", { name: "Account Owner" });
+    expect(ownerSelect).toHaveValue("Travis Maher");
+
+    fireEvent.change(ownerSelect, { target: { value: "Jordan Smith" } });
+
+    expect(ownerSelect).toHaveValue("Jordan Smith");
+    expect(screen.getByText(/• Jordan Smith/i)).toBeInTheDocument();
+  });
+
+  it("Test 21 — Reassigning Account Owner via Edit Account Modal updates the owner", () => {
+    localStorage.setItem(
+      "plasgain_team_members",
+      JSON.stringify([
+        { id: "user-travis", name: "Travis Maher", email: "travis@plasgain.com.au" },
+        { id: "user-jordan", name: "Jordan Smith", email: "jordan@plasgain.com.au" }
+      ])
+    );
+
+    render(
+      <AppProvider>
+        <AccountsTestWrapper />
+      </AppProvider>
+    );
+
+    // Open Edit modal
+    const editBtn = screen.getAllByRole("button", { name: /^Edit$/i })[0];
+    fireEvent.click(editBtn);
+
+    expect(screen.getByRole("dialog", { name: /Edit Account/i })).toBeInTheDocument();
+
+    const editOwnerSelect = screen.getByRole("combobox", { name: "Edit Account Owner" });
+    expect(editOwnerSelect).toHaveValue("Travis Maher");
+
+    fireEvent.change(editOwnerSelect, { target: { value: "Jordan Smith" } });
+    expect(editOwnerSelect).toHaveValue("Jordan Smith");
+
+    fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
+
+    // Verify header owner is updated
+    const headerOwnerSelect = screen.getByRole("combobox", { name: "Account Owner" });
+    expect(headerOwnerSelect).toHaveValue("Jordan Smith");
+    expect(screen.getByText(/• Jordan Smith/i)).toBeInTheDocument();
+  });
+
+  it("Test 22 — Filter accounts by owner dropdown filters the directory list", () => {
+    localStorage.setItem(
+      "plasgain_team_members",
+      JSON.stringify([
+        { id: "user-travis", name: "Travis Maher", email: "travis@plasgain.com.au" },
+        { id: "user-jordan", name: "Jordan Smith", email: "jordan@plasgain.com.au" }
+      ])
+    );
+
+    const accounts = [
+      {
+        id: "acc-1",
+        name: "Alpha Council",
+        accountType: "Council",
+        territory: "QLD/NT",
+        accountOwner: "Travis Maher",
+        tags: []
+      },
+      {
+        id: "acc-2",
+        name: "Beta Water",
+        accountType: "Contractor",
+        territory: "VIC/TAS",
+        accountOwner: "Jordan Smith",
+        tags: []
+      }
+    ];
+
+    render(
+      <AppProvider>
+        <AccountsTestWrapper initialAccounts={accounts} />
+      </AppProvider>
+    );
+
+    expect(screen.getByText("Alpha Council")).toBeInTheDocument();
+    expect(screen.getAllByText("Beta Water").length).toBeGreaterThanOrEqual(1);
+
+    // Filter by Jordan Smith
+    const ownerFilterSelect = screen.getByRole("combobox", { name: "Filter by owner" });
+    fireEvent.change(ownerFilterSelect, { target: { value: "Jordan Smith" } });
+
+    expect(screen.queryByText("Alpha Council")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Beta Water").length).toBeGreaterThanOrEqual(1);
+  });
 });
 
