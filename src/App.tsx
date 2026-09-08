@@ -1,4 +1,5 @@
 import React, { useState, Suspense, lazy } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppProvider, useApp } from "./context/AppContext";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
@@ -90,11 +91,22 @@ const MainLayout: React.FC = () => {
     </div>
   );
 };
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1
+    }
+  }
+});
 
 export default function App() {
   return (
-    <AppProvider>
-      <MainLayout />
-    </AppProvider>
+    <QueryClientProvider client={queryClient}>
+      <AppProvider>
+        <MainLayout />
+      </AppProvider>
+    </QueryClientProvider>
   );
 }
+

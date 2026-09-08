@@ -41,13 +41,21 @@ import { resolveQuotingStage } from "../../data/crmMockData";
 import { formatAuDate } from "../../utils/dateUtils";
 import { CustomerFollowUpModal } from "../CustomerFollowUpModal";
 import { CRMDealDetailsWorkspace } from "./CRMDealDetailsWorkspace";
+import {
+  useOpportunities,
+  useCreateOpportunity,
+  useUpdateOpportunity,
+  useDeleteOpportunity
+} from "../../hooks/useOpportunities";
 
 export const CRMPipelineView: React.FC = () => {
+  const { data: opportunitiesResponse, isLoading: isOppsLoading } = useOpportunities();
+  const crmOpportunities: CRMOpportunity[] = opportunitiesResponse?.data || [];
+  const createOpportunityMutation = useCreateOpportunity();
+  const updateOpportunityMutation = useUpdateOpportunity();
+  const deleteOpportunityMutation = useDeleteOpportunity();
+
   const {
-    crmOpportunities,
-    updateCrmOpportunity,
-    addCrmOpportunity,
-    deleteCrmOpportunity,
     selectedCrmOpportunityId,
     setSelectedCrmOpportunityId,
     pipelines,
@@ -173,7 +181,7 @@ export const CRMPipelineView: React.FC = () => {
 
   const totalValue = filteredDeals.reduce((sum, d) => sum + (d.dealValue || 0), 0);
 
-  const handleCreateDeal = (e: React.FormEvent) => {
+  const handleCreateDeal = async (e: React.FormEvent) => {
     e.preventDefault();
     const quotingStage = resolveQuotingStage("pipe-major-projects");
     if (!newDealForm.name.trim()) return;
@@ -181,46 +189,31 @@ export const CRMPipelineView: React.FC = () => {
     const acc = accounts.find((a) => a.id === newDealForm.accountId) || accounts[0];
     const matchedContact = pipelineAccountContacts.find((c) => c.id === newDealForm.primaryContactId) || pipelineAccountContacts[0];
 
-    const newDeal: CRMOpportunity = {
-      id: `opp-${Date.now()}`,
-      name: newDealForm.name.trim(),
-      quoteNumber: newDealForm.quoteNumber ? newDealForm.quoteNumber.trim() : undefined,
-      accountId: acc?.id || "acc-general",
-      accountName: acc?.name || "General Account",
-      primaryContactId: matchedContact?.id || "",
-      primaryContactName: matchedContact ? `${matchedContact.firstName} ${matchedContact.lastName}`.trim() : "",
-      primaryContactEmail: matchedContact?.email,
-      primaryContactPhone: matchedContact?.phone,
-      opportunityOwner: currentUser.name,
-      pipelineId: "pipe-major-projects",
-      stageId: quotingStage.id,
-      stageName: quotingStage.name,
-      dealValue: Number(newDealForm.dealValue) || 0,
-      weightedValue: (Number(newDealForm.dealValue) || 0) * (quotingStage.probability / 100),
-      probability: quotingStage.probability,
-      quoteStatus: "Draft",
-      forecastCategory: "Pipeline",
-      expectedCloseDate: newDealForm.expectedCloseDate,
-      products: [],
-      projectApplication: newDealForm.projectApplication,
-      location: acc?.territory || "VIC/TAS",
-      customerNeed: newDealForm.notes,
-      keyRequirements: ["Verify AS/NZS 1158 compliance"],
-      source: "Direct Sales Opportunity",
-      latestActivity: `Quote created by ${currentUser.name}`,
-      latestActivityDate: new Date().toISOString().split("T")[0],
-      nextAction: "Issue quotation package and schedule follow-up",
-      nextActionDate: newDealForm.expectedCloseDate,
-      daysInCurrentStage: 0,
-      totalDealAgeDays: 0,
-      dealHealth: "Healthy",
-      dealHealthReasons: ["New quote"],
-      notes: newDealForm.notes
-    };
-
-    addCrmOpportunity(newDeal);
-    setIsNewDealModalOpen(false);
-    showToast(`Quote "${newDeal.name}" created!`, "success");
+    try {
+      await createOpportunityMutation.mutateAsync({
+        name: newDealForm.name.trim(),
+        quoteNumber: newDealForm.quoteNumber ? newDealForm.quoteNumber.trim() : undefined,
+        accountId: acc?.id || "acc-general",
+        accountName: acc?.name || "General Account",
+        primaryContactId: matchedContact?.id || undefined,
+        primaryContactName: matchedContact ? `${matchedContact.firstName} ${matchedContact.lastName}`.trim() : undefined,
+        primaryContactEmail: matchedContact?.email || undefined,
+        primaryContactPhone: matchedContact?.phone || undefined,
+        opportunityOwner: currentUser.name,
+        pipelineId: "pipe-major-projects",
+        stageId: quotingStage.id,
+        stageName: quotingStage.name,
+        dealValue: Number(newDealForm.dealValue) || 0,
+        expectedCloseDate: newDealForm.expectedCloseDate || undefined,
+        projectApplication: newDealForm.projectApplication || undefined,
+        location: acc?.territory || "VIC/TAS",
+        notes: newDealForm.notes || undefined
+      });
+      setIsNewDealModalOpen(false);
+      showToast(`Quote "${newDealForm.name.trim()}" created!`, "success");
+    } catch (err: any) {
+      showToast(err.message || "Failed to create quote", "error");
+    }
   };
 
   const getFollowUpStatusBadge = (opp: CRMOpportunity) => {

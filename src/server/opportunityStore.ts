@@ -169,13 +169,14 @@ export class OpportunityStore {
       isArchived: false,
       // accountName is optional on the create payload but required on the
       // record, so it is resolved here rather than leaving the stored shape
-      // disagreeing with its own type.
-      accountName: data.accountName || "",
+      // disagreeing with its own type. (Both sides of the merge added this
+      // line; the duplicate key silently made the later "" win over "Account".)
+      accountName: data.accountName || "Account",
       opportunityOwner: data.opportunityOwner || creator.name,
       assignedTo: data.assignedTo || creator.name,
       createdAt: now,
       updatedAt: now
-    };
+    } as StoredOpportunity;
 
     this.opportunities.set(id, record);
     this.save();
@@ -226,7 +227,7 @@ export class OpportunityStore {
       ...cleanUpdates,
       version: existing.version + 1,
       updatedAt: now
-    };
+    } as StoredOpportunity;
 
     this.opportunities.set(id, updated);
     this.save();

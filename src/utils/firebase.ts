@@ -9,6 +9,7 @@ import {
   getDocs,
   deleteDoc
 } from "firebase/firestore";
+import { authHeaders } from "./apiClient";
 
 export const firebaseConfig = {
   projectId: "plasgain-customer-service",
@@ -196,18 +197,65 @@ export async function checkCloudHealth(): Promise<{ online: boolean; latencyMs?:
 /**
  * Flushes all pending writes queued while offline.
  */
-export async function flushOfflineQueue(): Promise<{ success: boolean; processedCount: number }> {
-  if (!isCloudSyncEnabled()) return { success: false, processedCount: 0 };
+export async function flushOfflineQueue(options?: { force?: boolean }): Promise<{ success: boolean; processedCount: number }> {
+  if (!isCloudSyncEnabled() && !options?.force) return { success: false, processedCount: 0 };
   const queue = getQueuedWrites();
   if (queue.length === 0) return { success: true, processedCount: 0 };
 
-  await ensureFirebaseAuth();
+  if (isCloudSyncEnabled()) {
+    await ensureFirebaseAuth();
+  }
 
   const remaining: QueuedWriteOperation[] = [];
   let processed = 0;
 
   for (const op of queue) {
     try {
+      // Legacy bulk batch writes are dropped to prevent bulk database overwrites
+      if (op.type === "batch") {
+        console.warn(`[Offline Queue] Dropping legacy bulk batch write on "${op.collectionName}" to protect shared database integrity.`);
+        continue;
+      }
+
+      // CRITICAL: Ensure opportunities use the REST API with optimistic concurrency checks,
+      // never replaying stale writes over updated server records.
+      if (op.collectionName === "crm_deals" || op.collectionName === "opportunities") {
+        const origin = typeof window !== "undefined" && window.location?.origin ? window.location.origin : "";
+        const apiUrl = `${origin}/api/opportunities/${encodeURIComponent(op.docId || "")}`;
+
+        if (op.type === "save" && op.docId && op.data) {
+          const res = await fetch(apiUrl, {
+            method: "PUT",
+            headers: authHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify(op.data)
+          });
+
+          if (res.status === 409) {
+            console.warn(`[Offline Queue] Stale write detected for opportunity "${op.docId}" (HTTP 409 Conflict). Write dropped to protect server state.`);
+            continue;
+          }
+
+          if (!res.ok && res.status !== 404) {
+            throw new Error(`Opportunity replay failed with HTTP ${res.status}`);
+          }
+          processed++;
+          continue;
+        }
+
+        if (op.type === "delete" && op.docId) {
+          const res = await fetch(apiUrl, {
+            method: "DELETE",
+            headers: authHeaders({ "Content-Type": "application/json" }),
+            body: JSON.stringify({ reason: "Offline replay delete" })
+          });
+          if (!res.ok && res.status !== 404) {
+            throw new Error(`Opportunity replay delete failed with HTTP ${res.status}`);
+          }
+          processed++;
+          continue;
+        }
+      }
+
       if (op.type === "save" && op.docId && op.data) {
         const docRef = doc(db, op.collectionName, op.docId);
         const sanitized = sanitizeForFirestore({ ...op.data, updatedAt: new Date().toISOString() });
@@ -216,15 +264,6 @@ export async function flushOfflineQueue(): Promise<{ success: boolean; processed
       } else if (op.type === "delete" && op.docId) {
         const docRef = doc(db, op.collectionName, op.docId);
         await deleteDoc(docRef);
-        processed++;
-      } else if (op.type === "batch" && Array.isArray(op.data)) {
-        await Promise.all(
-          op.data.map((item: any) => {
-            const docRef = doc(db, op.collectionName, item.id);
-            const sanitized = sanitizeForFirestore({ ...item, updatedAt: new Date().toISOString() });
-            return setDoc(docRef, sanitized, { merge: true });
-          })
-        );
         processed++;
       }
     } catch (err) {
@@ -316,29 +355,17 @@ export async function loadCollectionFromCloud<T extends { id: string }>(
 }
 
 /**
- * Syncs an array of items to Cloud Firestore (creates or updates).
+ * DISMANTLED: syncBatchToCloud previously performed whole-collection bulk overwrites from client memory,
+ * which caused catastrophic data loss when users opened stale browser tabs. Bulk overwrites are permanently disabled.
  */
 export async function syncBatchToCloud<T extends { id: string }>(
   collectionName: string,
-  items: T[]
+  _items: T[]
 ): Promise<boolean> {
-  if (!isCloudSyncEnabled()) return false;
-  try {
-    await ensureFirebaseAuth();
-    await Promise.all(
-      items.map((item) => {
-        const docRef = doc(db, collectionName, item.id);
-        const sanitized = sanitizeForFirestore({ ...item, updatedAt: new Date().toISOString() });
-        return setDoc(docRef, sanitized, { merge: true });
-      })
-    );
-    recordSuccessfulSync();
-    return true;
-  } catch (err) {
-    console.warn(`[Firebase] Error batch syncing to ${collectionName}. Queuing offline batch:`, err);
-    queueWriteOperation({ type: "batch", collectionName, data: items });
-    return false;
-  }
+  console.warn(
+    `[Data Safety] syncBatchToCloud is dismantled to prevent bulk-overwrite failure modes on collection: "${collectionName}". Use entity-specific API endpoints instead.`
+  );
+  return false;
 }
 
 /**
