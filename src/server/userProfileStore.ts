@@ -1,6 +1,36 @@
 import fs from "fs";
 import path from "path";
-import { createHash } from "crypto";
+import { createHash, randomBytes, scryptSync, timingSafeEqual } from "crypto";
+
+export function hashPinWithScrypt(pin: string, salt: Buffer = randomBytes(16)): string {
+  const derivedKey = scryptSync(pin.trim(), salt, 32);
+  return `${salt.toString("hex")}:${derivedKey.toString("hex")}`;
+}
+
+export function verifyPinWithScrypt(pin: string, storedHash: string): boolean {
+  if (!pin || !storedHash) return false;
+  try {
+    if (storedHash.includes(":")) {
+      const [saltHex, keyHex] = storedHash.split(":");
+      if (!saltHex || !keyHex) return false;
+      const salt = Buffer.from(saltHex, "hex");
+      const expectedKey = Buffer.from(keyHex, "hex");
+      if (salt.length === 0 || expectedKey.length === 0) return false;
+      const derivedKey = scryptSync(pin.trim(), salt, expectedKey.length);
+      if (expectedKey.length !== derivedKey.length) return false;
+      return timingSafeEqual(expectedKey, derivedKey);
+    }
+    // Backward compatibility for legacy unsalted SHA-256 hashes
+    const legacyExpected = Buffer.from(storedHash, "hex");
+    const legacySupplied = createHash("sha256").update(pin.trim()).digest();
+    if (legacyExpected.length === legacySupplied.length && timingSafeEqual(legacyExpected, legacySupplied)) {
+      return true;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 export interface StoredUserProfile {
   userId: string;
@@ -10,7 +40,7 @@ export interface StoredUserProfile {
   email?: string;
   phone?: string;
   isAdmin: boolean;
-  pinHash: string; // SHA-256 hex digest
+  pinHash: string; // scrypt (saltHex:derivedKeyHex) or legacy SHA-256 hex digest
   updatedAt: string;
 }
 
@@ -86,7 +116,7 @@ class UserProfileStore {
     this.init();
     const existing = this.profiles.get(userId);
     if (!existing) return false;
-    existing.pinHash = createHash("sha256").update(rawPin.trim()).digest("hex");
+    existing.pinHash = hashPinWithScrypt(rawPin.trim());
     existing.updatedAt = new Date().toISOString();
     this.profiles.set(userId, existing);
     this.save();
@@ -106,8 +136,13 @@ class UserProfileStore {
     this.init();
     const profile = this.profiles.get(userId);
     if (!profile || !profile.pinHash) return false;
-    const suppliedHash = createHash("sha256").update(rawPin.trim()).digest("hex");
-    return profile.pinHash.toLowerCase() === suppliedHash.toLowerCase();
+    const matches = verifyPinWithScrypt(rawPin.trim(), profile.pinHash);
+    if (matches && !profile.pinHash.includes(":")) {
+      // Automatically migrate legacy sha256 to scrypt upon successful verification
+      profile.pinHash = hashPinWithScrypt(rawPin.trim());
+      this.save();
+    }
+    return matches;
   }
 }
 
