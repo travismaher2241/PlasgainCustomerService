@@ -7,136 +7,23 @@ import {
   Building2,
   PhoneCall,
   Clock,
-  Plus,
-  X
+  Plus
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { CRMOpportunity } from "../types/crm";
-import { resolveQuotingStage } from "../data/crmMockData";
-import { addDaysLocal, formatAuDate } from "../utils/dateUtils";
+import { formatAuDate } from "../utils/dateUtils";
 
 export const HomeDashboard: React.FC = () => {
   const {
     navigateToCRM,
     requestCreateOn,
     crmOpportunities,
-    addCrmOpportunity,
     accounts,
-    contacts,
     tasks,
     openQuickLog,
-    currentUser,
-    showToast
+    openQuoteImport,
+    currentUser
   } = useApp();
-
-  const [isNewQuoteModalOpen, setIsNewQuoteModalOpen] = useState(false);
-  const [newQuoteForm, setNewQuoteForm] = useState<{
-    accountId: string;
-    name: string;
-    quoteNumber: string;
-    dealValue: number | "";
-    expectedCloseDate: string;
-    primaryContactId: string;
-    notes: string;
-  }>({
-    accountId: accounts[0]?.id || "",
-    name: "",
-    quoteNumber: "",
-    dealValue: "",
-    expectedCloseDate: new Date(Date.now() + 45 * 86400000).toISOString().split("T")[0],
-    primaryContactId: "",
-    notes: ""
-  });
-
-  const selectedQuoteAccount = accounts.find((a) => a.id === (newQuoteForm.accountId || accounts[0]?.id));
-
-  const quoteAccountContacts = useMemo(() => {
-    if (!selectedQuoteAccount) return [];
-    return contacts.filter(
-      (c) =>
-        c.accountId === selectedQuoteAccount.id ||
-        (Boolean(selectedQuoteAccount.name) &&
-          Boolean(c.accountName) &&
-          c.accountName.trim().toLowerCase() === selectedQuoteAccount.name.trim().toLowerCase())
-    );
-  }, [contacts, selectedQuoteAccount]);
-
-  const handleOpenNewQuoteModal = () => {
-    // No account is pre-selected. Defaulting to accounts[0] meant a quote saved
-    // without touching the field was filed against whichever customer happened
-    // to be first in the list.
-    setNewQuoteForm({
-      accountId: "",
-      name: "",
-      quoteNumber: "",
-      dealValue: "",
-      expectedCloseDate: addDaysLocal(45),
-      primaryContactId: "",
-      notes: ""
-    });
-    setIsNewQuoteModalOpen(true);
-  };
-
-  const handleCreateQuote = (e: React.FormEvent) => {
-    e.preventDefault();
-    const quotingStage = resolveQuotingStage("pipe-major-projects");
-    const acc = accounts.find((a) => a.id === newQuoteForm.accountId);
-    if (!acc) {
-      showToast("Choose which customer this quote is for.", "warning");
-      return;
-    }
-    if (!newQuoteForm.name.trim()) {
-      showToast("Give the quote a name so you can find it later.", "warning");
-      return;
-    }
-    if (newQuoteForm.dealValue === "" || isNaN(Number(newQuoteForm.dealValue))) {
-      showToast("Enter the quote value, excluding GST.", "warning");
-      return;
-    }
-
-    const matchedContact = quoteAccountContacts.find((c) => c.id === newQuoteForm.primaryContactId) || quoteAccountContacts[0];
-
-    const newQuote: CRMOpportunity = {
-      id: `opp-${Date.now()}`,
-      name: newQuoteForm.name.trim(),
-      quoteNumber: newQuoteForm.quoteNumber ? newQuoteForm.quoteNumber.trim() : undefined,
-      accountId: acc.id,
-      accountName: acc.name,
-      primaryContactId: matchedContact?.id || "",
-      primaryContactName: matchedContact ? `${matchedContact.firstName} ${matchedContact.lastName}`.trim() : "",
-      primaryContactEmail: matchedContact?.email,
-      primaryContactPhone: matchedContact?.phone,
-      opportunityOwner: acc.accountOwner || currentUser.name,
-      pipelineId: "pipe-major-projects",
-      stageId: quotingStage.id,
-      stageName: quotingStage.name,
-      dealValue: Number(newQuoteForm.dealValue) || 0,
-      weightedValue: (Number(newQuoteForm.dealValue) || 0) * 0.5,
-      probability: 50,
-      forecastCategory: "Pipeline",
-      expectedCloseDate: newQuoteForm.expectedCloseDate,
-      products: [],
-      projectApplication: "",
-      location: acc.territory || "",
-      customerNeed: newQuoteForm.notes || "",
-      keyRequirements: [],
-      source: "Dashboard Quick Action",
-      latestActivity: `Quote created for ${acc.name} by ${currentUser.name}`,
-      latestActivityDate: new Date().toISOString().split("T")[0],
-      nextAction: "",
-      nextActionDate: undefined,
-      daysInCurrentStage: 0,
-      totalDealAgeDays: 0,
-      dealHealth: "Healthy",
-      dealHealthReasons: ["Newly created quote under customer account"],
-      notes: newQuoteForm.notes
-    };
-
-    addCrmOpportunity(newQuote);
-    setIsNewQuoteModalOpen(false);
-    showToast(`Quote "${newQuote.name}" created for ${acc.name}`, "success");
-    navigateToCRM("pipeline", newQuote.id);
-  };
 
   const firstName = currentUser.name.trim().split(/\s+/)[0] || "";
 
@@ -258,13 +145,13 @@ export const HomeDashboard: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
         <button
           type="button"
-          onClick={handleOpenNewQuoteModal}
+          onClick={() => openQuoteImport()}
           className="p-3 rounded-edge bg-white hover:bg-raised border border-line hover:border-brand-deep transition-all cursor-pointer shadow-2xs flex items-center gap-2.5"
         >
           <div className="p-1.5 rounded bg-brand-wash text-brand-deep shrink-0">
             <Plus className="w-4 h-4" />
           </div>
-          <span className="text-spec font-bold text-body truncate">New quote</span>
+          <span className="text-spec font-bold text-body truncate">Import Ostendo quote</span>
         </button>
 
         <button
@@ -310,16 +197,16 @@ export const HomeDashboard: React.FC = () => {
           </div>
           <h2 className="text-base font-bold text-body">No sales records yet</h2>
           <p className="text-spec text-ink-dim max-w-md mx-auto">
-            Start by adding your first customer account or creating a quote to track projects and quotes.
+            Start by adding your first customer, then log a discussion or import an Ostendo quote.
           </p>
           <div className="pt-2 flex justify-center gap-2">
             <button
               type="button"
-              onClick={handleOpenNewQuoteModal}
+              onClick={() => requestCreateOn("accounts")}
               className="px-4 py-2 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <Plus className="w-4 h-4" />
-              <span>Create First Quote</span>
+              <span>Add First Customer</span>
             </button>
           </div>
         </div>
@@ -422,197 +309,6 @@ export const HomeDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* CREATE NEW QUOTE MODAL */}
-      {isNewQuoteModalOpen && (
-        <div className="fixed inset-0 z-50 bg-chrome/70 backdrop-blur-xs p-4 flex items-center justify-center animate-in fade-in duration-150">
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="dashboard-new-quote-title"
-            className="bg-surface rounded-panel max-w-lg w-full p-5 border border-line shadow-2xl space-y-4 text-left"
-          >
-            <div className="flex items-center justify-between border-b border-line pb-3">
-              <div>
-                <h3 id="dashboard-new-quote-title" className="font-bold text-body text-base">
-                  Create New Quote
-                </h3>
-                <p className="text-spec text-ink-dim">
-                  Create a quotation record directly from your dashboard.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsNewQuoteModalOpen(false)}
-                className="text-ink-dim hover:text-body cursor-pointer p-1"
-                aria-label="Close dialog"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateQuote} className="space-y-3">
-              <div>
-                <label htmlFor="dashboard-quote-account" className="block text-spec font-bold mb-1">
-                  Customer / Account *
-                </label>
-                <select
-                  id="dashboard-quote-account"
-                  required
-                  value={newQuoteForm.accountId}
-                  onChange={(e) => {
-                    const nextAccId = e.target.value;
-                    const nextAcc = accounts.find((a) => a.id === nextAccId);
-                    const nextContacts = nextAcc
-                      ? contacts.filter(
-                          (c) =>
-                            c.accountId === nextAcc.id ||
-                            (Boolean(nextAcc.name) &&
-                              Boolean(c.accountName) &&
-                              c.accountName.trim().toLowerCase() === nextAcc.name.trim().toLowerCase())
-                        )
-                      : [];
-                    setNewQuoteForm((prev) => ({
-                      ...prev,
-                      accountId: nextAccId,
-                      // Only suggest a name while the field is still untouched.
-                      // This previously overwrote whatever the rep had typed
-                      // with a hard-coded "<Account> - Solar Public Lighting".
-                      name: prev.name.trim() ? prev.name : nextAcc ? `${nextAcc.name} — ` : prev.name,
-                      primaryContactId: nextContacts[0]?.id || ""
-                    }));
-                  }}
-                  className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                >
-                  <option value="">Choose a customer…</option>
-                  {accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name} ({acc.accountType || "Account"})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="dashboard-quote-name" className="block text-spec font-bold mb-1">
-                  Quote / Tender Name *
-                </label>
-                <input
-                  id="dashboard-quote-name"
-                  required
-                  value={newQuoteForm.name}
-                  onChange={(e) => setNewQuoteForm({ ...newQuoteForm, name: e.target.value })}
-                  className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  placeholder="e.g. Stage 2 Pathway Solar Lighting"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="dashboard-quote-val" className="block text-spec font-bold mb-1">
-                    $ Value
-                  </label>
-                  <input
-                    id="dashboard-quote-val"
-                    type="number"
-                    required
-                    min={0}
-                    value={newQuoteForm.dealValue}
-                    onChange={(e) =>
-                      setNewQuoteForm({ ...newQuoteForm, dealValue: e.target.value === "" ? "" : parseFloat(e.target.value) || 0 })
-                    }
-                    placeholder="e.g. 25000"
-                    className="w-full p-2 border border-line rounded-edge bg-white text-spec font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="dashboard-quote-num" className="block text-spec font-bold mb-1">
-                    Quote Number
-                  </label>
-                  <input
-                    id="dashboard-quote-num"
-                    type="text"
-                    value={newQuoteForm.quoteNumber}
-                    onChange={(e) => setNewQuoteForm({ ...newQuoteForm, quoteNumber: e.target.value })}
-                    placeholder="e.g. Q-2026-108"
-                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="dashboard-quote-target-close" className="block text-spec font-bold mb-1">
-                    Target Close Date
-                  </label>
-                  <input
-                    id="dashboard-quote-target-close"
-                    type="date"
-                    value={newQuoteForm.expectedCloseDate}
-                    onChange={(e) =>
-                      setNewQuoteForm({ ...newQuoteForm, expectedCloseDate: e.target.value })
-                    }
-                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="dashboard-quote-contact" className="block text-spec font-bold mb-1">
-                    Contact Name
-                  </label>
-                  <select
-                    id="dashboard-quote-contact"
-                    value={newQuoteForm.primaryContactId}
-                    onChange={(e) =>
-                      setNewQuoteForm({ ...newQuoteForm, primaryContactId: e.target.value })
-                    }
-                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  >
-                    <option value="">
-                      {quoteAccountContacts.length > 0 ? "Select contact..." : "No contacts for this customer"}
-                    </option>
-                    {quoteAccountContacts.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {`${c.firstName} ${c.lastName}`.trim()}{c.role ? ` (${c.role})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="dashboard-quote-notes" className="block text-spec font-bold mb-1">
-                  Initial Scope &amp; Notes
-                </label>
-                <textarea
-                  id="dashboard-quote-notes"
-                  rows={2}
-                  value={newQuoteForm.notes}
-                  onChange={(e) => setNewQuoteForm({ ...newQuoteForm, notes: e.target.value })}
-                  placeholder="e.g. 18 units required for local shared trail Cat P4"
-                  className="w-full p-2 border border-line rounded-edge bg-white text-spec text-xs"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-line">
-                <button
-                  type="button"
-                  onClick={() => setIsNewQuoteModalOpen(false)}
-                  className="px-3 py-1.5 border border-line rounded-edge text-spec font-medium cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge cursor-pointer"
-                >
-                  Create Quote
-                </button>
-              </div>
-            </form>
-          </section>
-        </div>
-      )}
     </div>
   );
 };

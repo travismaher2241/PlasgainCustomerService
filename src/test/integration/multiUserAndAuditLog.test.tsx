@@ -189,7 +189,7 @@ describe("Multi-User Shared Database, Call Attribution & Admin Audit Trail", () 
     expect(screen.queryByText(/Created Account: Brisbane Civil Works/i)).not.toBeInTheDocument();
   });
 
-  it("3. displays caller attribution in Account Interaction Timeline", async () => {
+  it("3. displays caller attribution in Customer Discussion Timeline", async () => {
     render(
       <AppProvider>
         <TestMutationsTrigger />
@@ -205,7 +205,7 @@ describe("Multi-User Shared Database, Call Attribution & Admin Audit Trail", () 
     fireEvent.click(activityTabBtn);
 
     // Verify caller attribution indicator
-    expect(screen.getByText(/Account Interaction Timeline/i)).toBeInTheDocument();
+    expect(screen.getByText(/Customer Discussion Timeline/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Logged by/i).length).toBeGreaterThan(0);
   });
 });

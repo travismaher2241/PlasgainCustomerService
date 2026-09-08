@@ -139,7 +139,7 @@ describe('CRMCallPrepModal Component', () => {
 
     // Call Briefing closes, Quick Log opens
     expect(screen.queryByText(/Before you ring/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/Quick Log Activity/i)).toBeInTheDocument();
+    expect(screen.getByText(/Log customer interaction/i)).toBeInTheDocument();
 
     // Quick Log does NOT have mode/tab switcher
     expect(screen.queryByRole('button', { name: /Pre-Call Briefing/i })).not.toBeInTheDocument();

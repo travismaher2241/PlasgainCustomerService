@@ -170,11 +170,11 @@ describe("CRMQuickLogModal Contact Participants & Inline Creation", () => {
     fireEvent.click(screen.getByTestId("open-call-btn"));
 
     // Enter notes in activity log form
-    const notesInput = screen.getByPlaceholderText(/What did the customer say/i);
+    const notesInput = screen.getByPlaceholderText(/What was discussed/i);
     fireEvent.change(notesInput, { target: { value: "Discussed hinged base pole delivery dates" } });
 
-    // Toggle Contact Made outcome
-    const contactMadeCheckbox = screen.getByRole("checkbox", { name: /Contact Made/i });
+    // Select the completed-call outcome
+    const contactMadeCheckbox = screen.getByRole("radio", { name: /Spoke — follow-up needed/i });
     fireEvent.click(contactMadeCheckbox);
     expect(contactMadeCheckbox).toBeChecked();
 

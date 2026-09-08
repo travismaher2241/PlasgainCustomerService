@@ -31,19 +31,16 @@ import {
   Phone,
   Zap,
   ClipboardCheck,
-  X,
   Trash2,
   Archive
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { CRMOpportunity, OpportunityProductLine } from "../../types/crm";
-import { resolveQuotingStage } from "../../data/crmMockData";
 import { formatAuDate } from "../../utils/dateUtils";
 import { CustomerFollowUpModal } from "../CustomerFollowUpModal";
 import { CRMDealDetailsWorkspace } from "./CRMDealDetailsWorkspace";
 import {
   useOpportunities,
-  useCreateOpportunity,
   useUpdateOpportunity,
   useDeleteOpportunity
 } from "../../hooks/useOpportunities";
@@ -51,7 +48,6 @@ import {
 export const CRMPipelineView: React.FC = () => {
   const { data: opportunitiesResponse, isLoading: isOppsLoading } = useOpportunities();
   const crmOpportunities: CRMOpportunity[] = opportunitiesResponse?.data || [];
-  const createOpportunityMutation = useCreateOpportunity();
   const updateOpportunityMutation = useUpdateOpportunity();
   const deleteOpportunityMutation = useDeleteOpportunity();
 
@@ -61,14 +57,10 @@ export const CRMPipelineView: React.FC = () => {
     pipelines,
     activePipelineId,
     setActivePipelineId,
-    accounts,
-    contacts,
     openQuickLog,
     openCallPrep,
     openEmailComposer,
     navigateToCRM,
-    currentUser,
-    showToast,
     openQuoteImport
   } = useApp();
 
@@ -120,32 +112,6 @@ export const CRMPipelineView: React.FC = () => {
     initialContactEmail?: string;
   }>({ isOpen: false });
 
-  // New Deal Modal State
-  const [isNewDealModalOpen, setIsNewDealModalOpen] = useState(false);
-  const [newDealForm, setNewDealForm] = useState({
-    name: "",
-    quoteNumber: "",
-    accountId: accounts[0]?.id || "",
-    primaryContactId: "",
-    dealValue: 25000,
-    stageName: "Proposal & Quoting" as const,
-    expectedCloseDate: new Date(Date.now() + 45 * 86400000).toISOString().split("T")[0],
-    projectApplication: "Solar Public Lighting",
-    notes: ""
-  });
-
-  const selectedPipelineAccount = accounts.find((a) => a.id === (newDealForm.accountId || accounts[0]?.id));
-  const pipelineAccountContacts = useMemo(() => {
-    if (!selectedPipelineAccount) return [];
-    return contacts.filter(
-      (c) =>
-        c.accountId === selectedPipelineAccount.id ||
-        (Boolean(selectedPipelineAccount.name) &&
-          Boolean(c.accountName) &&
-          c.accountName.trim().toLowerCase() === selectedPipelineAccount.name.trim().toLowerCase())
-    );
-  }, [contacts, selectedPipelineAccount]);
-
   const selectedDeal = crmOpportunities.find((d) => d.id === selectedCrmOpportunityId);
 
   // If a deal is selected, render the completed Step 2 Deal Details Workspace!
@@ -180,41 +146,6 @@ export const CRMPipelineView: React.FC = () => {
   });
 
   const totalValue = filteredDeals.reduce((sum, d) => sum + (d.dealValue || 0), 0);
-
-  const handleCreateDeal = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const quotingStage = resolveQuotingStage("pipe-major-projects");
-    if (!newDealForm.name.trim()) return;
-
-    const acc = accounts.find((a) => a.id === newDealForm.accountId) || accounts[0];
-    const matchedContact = pipelineAccountContacts.find((c) => c.id === newDealForm.primaryContactId) || pipelineAccountContacts[0];
-
-    try {
-      await createOpportunityMutation.mutateAsync({
-        name: newDealForm.name.trim(),
-        quoteNumber: newDealForm.quoteNumber ? newDealForm.quoteNumber.trim() : undefined,
-        accountId: acc?.id || "acc-general",
-        accountName: acc?.name || "General Account",
-        primaryContactId: matchedContact?.id || undefined,
-        primaryContactName: matchedContact ? `${matchedContact.firstName} ${matchedContact.lastName}`.trim() : undefined,
-        primaryContactEmail: matchedContact?.email || undefined,
-        primaryContactPhone: matchedContact?.phone || undefined,
-        opportunityOwner: currentUser.name,
-        pipelineId: "pipe-major-projects",
-        stageId: quotingStage.id,
-        stageName: quotingStage.name,
-        dealValue: Number(newDealForm.dealValue) || 0,
-        expectedCloseDate: newDealForm.expectedCloseDate || undefined,
-        projectApplication: newDealForm.projectApplication || undefined,
-        location: acc?.territory || "VIC/TAS",
-        notes: newDealForm.notes || undefined
-      });
-      setIsNewDealModalOpen(false);
-      showToast(`Quote "${newDealForm.name.trim()}" created!`, "success");
-    } catch (err: any) {
-      showToast(err.message || "Failed to create quote", "error");
-    }
-  };
 
   const getFollowUpStatusBadge = (opp: CRMOpportunity) => {
     const isWon = opp.stageId === "stage-won" || opp.stageName.toLowerCase().includes("won");
@@ -296,14 +227,6 @@ export const CRMPipelineView: React.FC = () => {
             <span>Import quote PDF</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setIsNewDealModalOpen(true)}
-            className="min-h-[44px] px-4 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New quote</span>
-          </button>
         </div>
       </div>
 
@@ -584,162 +507,6 @@ export const CRMPipelineView: React.FC = () => {
               </li>
             ))}
           </ul>
-        </div>
-      )}
-
-      {/* NEW DEAL MODAL */}
-      {isNewDealModalOpen && (
-        <div className="fixed inset-0 z-50 bg-chrome/70 backdrop-blur-xs p-4 flex items-center justify-center animate-in fade-in duration-150">
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="new-deal-modal-title"
-            className="bg-surface rounded-panel max-w-lg w-full p-5 border border-line shadow-2xl space-y-4"
-          >
-            <div className="flex items-center justify-between border-b border-line pb-3">
-              <h3 id="new-deal-modal-title" className="font-bold text-body text-base">
-                Create New Quote
-              </h3>
-              <button onClick={() => setIsNewDealModalOpen(false)} className="text-ink-dim hover:text-body">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateDeal} className="space-y-3">
-              <div>
-                <label htmlFor="pipeline-quote-account" className="block text-spec font-bold mb-1">
-                  Customer / Account *
-                </label>
-                <select
-                  id="pipeline-quote-account"
-                  required
-                  value={newDealForm.accountId}
-                  onChange={(e) => {
-                    const nextAccId = e.target.value;
-                    const nextAcc = accounts.find((a) => a.id === nextAccId);
-                    const nextContacts = nextAcc
-                      ? contacts.filter(
-                          (c) =>
-                            c.accountId === nextAcc.id ||
-                            (Boolean(nextAcc.name) &&
-                              Boolean(c.accountName) &&
-                              c.accountName.trim().toLowerCase() === nextAcc.name.trim().toLowerCase())
-                        )
-                      : [];
-                    setNewDealForm((prev) => ({
-                      ...prev,
-                      accountId: nextAccId,
-                      primaryContactId: nextContacts[0]?.id || ""
-                    }));
-                  }}
-                  className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                >
-                  {accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="pipeline-quote-name" className="block text-spec font-bold mb-1">
-                  Quote / Tender Name *
-                </label>
-                <input
-                  id="pipeline-quote-name"
-                  required
-                  value={newDealForm.name}
-                  onChange={(e) => setNewDealForm({ ...newDealForm, name: e.target.value })}
-                  className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  placeholder="e.g. Wyndham Regional Park Solar Lighting"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="pipeline-quote-val" className="block text-spec font-bold mb-1">
-                    $ Value
-                  </label>
-                  <input
-                    id="pipeline-quote-val"
-                    type="number"
-                    min={0}
-                    required
-                    value={newDealForm.dealValue}
-                    onChange={(e) => setNewDealForm({ ...newDealForm, dealValue: parseFloat(e.target.value) || 0 })}
-                    className="w-full p-2 border border-line rounded-edge bg-white text-spec font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="pipeline-quote-num" className="block text-spec font-bold mb-1">
-                    Quote Number
-                  </label>
-                  <input
-                    id="pipeline-quote-num"
-                    type="text"
-                    value={newDealForm.quoteNumber}
-                    onChange={(e) => setNewDealForm({ ...newDealForm, quoteNumber: e.target.value })}
-                    placeholder="e.g. Q-2026-108"
-                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="pipeline-quote-followup" className="block text-spec font-bold mb-1">
-                    Follow Up Date
-                  </label>
-                  <input
-                    id="pipeline-quote-followup"
-                    type="date"
-                    value={newDealForm.expectedCloseDate}
-                    onChange={(e) => setNewDealForm({ ...newDealForm, expectedCloseDate: e.target.value })}
-                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="pipeline-quote-contact" className="block text-spec font-bold mb-1">
-                    Contact Name
-                  </label>
-                  <select
-                    id="pipeline-quote-contact"
-                    value={newDealForm.primaryContactId}
-                    onChange={(e) => setNewDealForm({ ...newDealForm, primaryContactId: e.target.value })}
-                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  >
-                    <option value="">
-                      {pipelineAccountContacts.length > 0 ? "Select contact..." : "No contacts for this customer"}
-                    </option>
-                    {pipelineAccountContacts.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {`${c.firstName} ${c.lastName}`.trim()}{c.role ? ` (${c.role})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-line">
-                <button
-                  type="button"
-                  onClick={() => setIsNewDealModalOpen(false)}
-                  className="px-3 py-1.5 border border-line rounded-edge text-spec font-medium cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge cursor-pointer"
-                >
-                  Create Quote
-                </button>
-              </div>
-            </form>
-          </section>
         </div>
       )}
 

@@ -44,7 +44,6 @@ import {
   History,
   Upload
 } from "lucide-react";
-import { resolveQuotingStage } from "../../data/crmMockData";
 import { useApp } from "../../context/AppContext";
 import {
   Account,
@@ -107,11 +106,11 @@ export const CRMAccountsView: React.FC = () => {
     knowledge,
     updateKnowledgeItem,
     archiveKnowledgeItem,
-    addCrmOpportunity,
     setSelectedCrmOpportunityId,
     openQuickLog,
     openEmailComposer,
     openCallPrep,
+    openQuoteImport,
     navigateToCRM,
     currentUser,
     teamMembers,
@@ -186,28 +185,6 @@ export const CRMAccountsView: React.FC = () => {
   const [activityFilter, setActivityFilter] = useState<"all" | "call" | "email" | "meeting" | "note">("all");
   const [activityUserFilter, setActivityUserFilter] = useState("all");
   const [expandedActivityIds, setExpandedActivityIds] = useState<Set<string>>(new Set());
-
-  // New Deal Modal State (Pre-fills current account!)
-  const [isNewDealModalOpen, setIsNewDealModalOpen] = useState(false);
-  const [newDealForm, setNewDealForm] = useState<{
-    name: string;
-    quoteNumber: string;
-    dealValue: number | "";
-    stageName: string;
-    expectedCloseDate: string;
-    primaryContactId: string;
-    projectApplication: string;
-    notes: string;
-  }>({
-    name: "",
-    quoteNumber: "",
-    dealValue: "",
-    stageName: "Proposal & Quoting",
-    expectedCloseDate: new Date(Date.now() + 45 * 86400000).toISOString().split("T")[0],
-    primaryContactId: "",
-    projectApplication: "",
-    notes: ""
-  });
 
   // Inline Next Action editing state
   const [isEditingNextAction, setIsEditingNextAction] = useState(false);
@@ -677,7 +654,6 @@ export const CRMAccountsView: React.FC = () => {
     const anyOpen =
       isNewAccountModalOpen ||
       isEditAccountModalOpen ||
-      isNewDealModalOpen ||
       isContactModalOpen ||
       Boolean(drawerContact);
     if (!anyOpen) return;
@@ -685,13 +661,12 @@ export const CRMAccountsView: React.FC = () => {
       if (e.key !== "Escape") return;
       if (drawerContact) setDrawerContact(null);
       else if (isContactModalOpen) setIsContactModalOpen(false);
-      else if (isNewDealModalOpen) setIsNewDealModalOpen(false);
       else if (isEditAccountModalOpen) setIsEditAccountModalOpen(false);
       else if (isNewAccountModalOpen) setIsNewAccountModalOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isNewAccountModalOpen, isEditAccountModalOpen, isNewDealModalOpen, isContactModalOpen, drawerContact]);
+  }, [isNewAccountModalOpen, isEditAccountModalOpen, isContactModalOpen, drawerContact]);
 
   // A shortcut asked for the Add Account form, not the list behind it.
   useEffect(() => {
@@ -866,55 +841,6 @@ export const CRMAccountsView: React.FC = () => {
 
   const handleCancelEditNextAction = () => {
     setIsEditingNextAction(false);
-  };
-
-  // Handle New Deal Creation (Context preselected!)
-  const handleCreateDealFromAccount = (e: React.FormEvent) => {
-    e.preventDefault();
-    const quotingStage = resolveQuotingStage("pipe-major-projects");
-    if (!selectedAccount || !newDealForm.name.trim() || newDealForm.dealValue === "" || isNaN(Number(newDealForm.dealValue))) return;
-
-    const matchedContact = accountContacts.find((c) => c.id === newDealForm.primaryContactId) || accountContacts[0];
-
-    const newDeal: CRMOpportunity = {
-      id: `opp-${Date.now()}`,
-      name: newDealForm.name.trim(),
-      quoteNumber: newDealForm.quoteNumber ? newDealForm.quoteNumber.trim() : undefined,
-      accountId: selectedAccount.id,
-      accountName: selectedAccount.name,
-      primaryContactId: matchedContact?.id || "",
-      primaryContactName: matchedContact ? `${matchedContact.firstName} ${matchedContact.lastName}`.trim() : "",
-      primaryContactEmail: matchedContact?.email,
-      primaryContactPhone: matchedContact?.phone,
-      opportunityOwner: selectedAccount.accountOwner || currentUser.name,
-      pipelineId: "pipe-major-projects",
-      stageId: quotingStage.id,
-      stageName: quotingStage.name,
-      dealValue: Number(newDealForm.dealValue) || 0,
-      weightedValue: (Number(newDealForm.dealValue) || 0) * 0.5,
-      probability: 50,
-      forecastCategory: "Pipeline",
-      expectedCloseDate: newDealForm.expectedCloseDate,
-      products: [],
-      projectApplication: newDealForm.projectApplication || "",
-      location: selectedAccount.territory || "",
-      customerNeed: newDealForm.notes || "",
-      keyRequirements: [],
-      source: "Account Rep Engagement",
-      latestActivity: `Quote created for ${selectedAccount.name} by ${currentUser.name}`,
-      latestActivityDate: new Date().toISOString().split("T")[0],
-      nextAction: "",
-      nextActionDate: undefined,
-      daysInCurrentStage: 0,
-      totalDealAgeDays: 0,
-      dealHealth: "Healthy",
-      dealHealthReasons: ["Newly created quote under customer account"],
-      notes: newDealForm.notes
-    };
-
-    addCrmOpportunity(newDeal);
-    setIsNewDealModalOpen(false);
-    showToast(`Quote "${newDeal.name}" added for ${selectedAccount.name}`, "success");
   };
 
   const getCustomerStatusBadge = (status?: CustomerRelationshipStatus) => {
@@ -1546,24 +1472,12 @@ export const CRMAccountsView: React.FC = () => {
 
                     <button
                       type="button"
-                      onClick={() => {
-                        setNewDealForm({
-                          name: "",
-                          quoteNumber: "",
-                          dealValue: "",
-                          stageName: "Proposal & Quoting",
-                          expectedCloseDate: new Date(Date.now() + 45 * 86400000).toISOString().split("T")[0],
-                          primaryContactId: accountContacts[0]?.id || "",
-                          projectApplication: "",
-                          notes: ""
-                        });
-                        setIsNewDealModalOpen(true);
-                      }}
+                      onClick={() => openQuoteImport()}
                       className="px-3.5 py-1.5 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
-                      title="Create a new quote for this account"
+                      title="Import an Ostendo quote PDF"
                     >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>New quote</span>
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>Import quote</span>
                     </button>
 
                     {/* SECONDARY ACTIONS DROPDOWN (PART E) */}
@@ -2026,7 +1940,7 @@ export const CRMAccountsView: React.FC = () => {
 
                       {accountDeals.length === 0 ? (
                         <div className="p-4 bg-paper/40 rounded-panel border border-line text-center text-spec text-ink-dim">
-                          No active quotes currently open. Click <strong>New quote</strong> to start an opportunity.
+                          No active quotes currently open. Import the Ostendo PDF when a quote is ready for follow-up.
                         </div>
                       ) : (
                         <div className="divide-y divide-line border border-line rounded-panel overflow-hidden">
@@ -2333,24 +2247,12 @@ export const CRMAccountsView: React.FC = () => {
 
                         <button
                           type="button"
-                          onClick={() => {
-                            setNewDealForm({
-                              name: "",
-                              quoteNumber: "",
-                              dealValue: "",
-                              stageName: "Proposal & Quoting",
-                              expectedCloseDate: new Date(Date.now() + 45 * 86400000).toISOString().split("T")[0],
-                              primaryContactId: accountContacts[0]?.id || "",
-                              projectApplication: "",
-                              notes: ""
-                            });
-                            setIsNewDealModalOpen(true);
-                          }}
+                          onClick={() => openQuoteImport()}
                           className="px-3 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
-                          title="Create a new quote for this account"
+                          title="Import an Ostendo quote PDF"
                         >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>New quote</span>
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Import quote</span>
                         </button>
                       </div>
                     </div>
@@ -2408,8 +2310,8 @@ export const CRMAccountsView: React.FC = () => {
                   <div className="space-y-4">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
-                        <h3 className="text-base font-bold text-body">Account Interaction Timeline</h3>
-                        <p className="text-spec text-ink-dim">Chronological record of calls, emails, meetings, and notes.</p>
+                        <h3 className="text-base font-bold text-body">Customer Discussion Timeline</h3>
+                        <p className="text-spec text-ink-dim">Who spoke with the customer, what was discussed, and what happens next.</p>
                       </div>
 
                       <div className="flex items-center gap-2 flex-wrap">
@@ -2446,7 +2348,7 @@ export const CRMAccountsView: React.FC = () => {
                           className="px-3 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
                         >
                           <Plus className="w-3.5 h-3.5" />
-                          <span>Log activity</span>
+                          <span>Log interaction</span>
                         </button>
                       </div>
                     </div>
@@ -2454,8 +2356,8 @@ export const CRMAccountsView: React.FC = () => {
                     {Object.keys(groupedActivities).length === 0 ? (
                       <div className="p-8 text-center bg-paper/40 rounded-panel border border-line text-spec text-ink-dim">
                         <Clock className="w-8 h-8 mx-auto text-ink-faint mb-2" />
-                        <p className="font-semibold text-body">No activity logged for this account</p>
-                        <p className="text-xs mt-0.5">Record customer discussions, quotations, or meeting notes.</p>
+                        <p className="font-semibold text-body">No customer discussions logged yet</p>
+                        <p className="text-xs mt-0.5">Record a call, email, meeting, site visit, or account note.</p>
                       </div>
                     ) : (
                       <div className="space-y-4">
@@ -2520,6 +2422,21 @@ export const CRMAccountsView: React.FC = () => {
 
                                       <p className="font-bold text-body">{act.title}</p>
 
+                                      {(act.participants?.length || act.contactName) && (
+                                        <p className="text-xs text-ink-dim">
+                                          <strong className="text-body">With:</strong>{" "}
+                                          {act.participants?.length
+                                            ? act.participants.map((participant) => participant.contactName).join(", ")
+                                            : act.contactName}
+                                        </p>
+                                      )}
+
+                                      {act.outcome && (
+                                        <p className="text-xs text-ink-dim">
+                                          <strong className="text-body">Outcome:</strong> {act.outcome}
+                                        </p>
+                                      )}
+
                                       {act.description && (
                                         <div>
                                           <p className={`text-xs text-ink-dim leading-relaxed ${isExpanded ? "" : "line-clamp-2"}`}>
@@ -2540,6 +2457,12 @@ export const CRMAccountsView: React.FC = () => {
                                             </button>
                                           )}
                                         </div>
+                                      )}
+
+                                      {act.nextAction && (
+                                        <p className="text-xs text-brand-deep font-semibold">
+                                          Next: {act.nextAction}{act.nextActionDate ? ` · ${formatAuDate(act.nextActionDate)}` : ""}
+                                        </p>
                                       )}
                                     </div>
                                   );
@@ -3053,132 +2976,6 @@ export const CRMAccountsView: React.FC = () => {
                 Close
               </button>
             </div>
-          </section>
-        </div>
-      )}
-
-      {/* NEW DEAL MODAL (CONTEXT LOCKED TO SELECTED ACCOUNT!) (PART J) */}
-      {isNewDealModalOpen && selectedAccount && (
-        <div className="fixed inset-0 z-50 bg-chrome/70 backdrop-blur-xs p-4 flex items-center justify-center animate-in fade-in duration-150">
-          <section
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="new-deal-title"
-            className="bg-surface rounded-panel max-w-lg w-full p-5 border border-line shadow-2xl space-y-4"
-          >
-            <div className="flex items-center justify-between border-b border-line pb-3">
-              <div>
-                <h3 id="new-deal-title" className="font-bold text-body text-base">
-                  Create New Quote
-                </h3>
-                <p className="text-spec text-ink-dim">
-                  Account: <strong>{selectedAccount.name}</strong>
-                </p>
-              </div>
-              <button onClick={() => setIsNewDealModalOpen(false)} className="text-ink-dim hover:text-body">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateDealFromAccount} className="space-y-3">
-              <div>
-                <label className="block text-spec font-bold mb-1">Quote / Tender Name *</label>
-                <input
-                  required
-                  value={newDealForm.name}
-                  onChange={(e) => setNewDealForm({ ...newDealForm, name: e.target.value })}
-                  className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  placeholder="e.g. Stage 2 Pathway Solar Lighting"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="quote-value-input" className="block text-spec font-bold mb-1">$ Value</label>
-                  <input
-                    id="quote-value-input"
-                    type="number"
-                    required
-                    min={0}
-                    value={newDealForm.dealValue}
-                    onChange={(e) => setNewDealForm({ ...newDealForm, dealValue: e.target.value === "" ? "" : parseFloat(e.target.value) || 0 })}
-                    placeholder="e.g. 25000"
-                    className="w-full p-2 border border-line rounded-edge bg-white text-spec font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="quote-number-input" className="block text-spec font-bold mb-1">Quote Number</label>
-                  <input
-                    id="quote-number-input"
-                    type="text"
-                    value={newDealForm.quoteNumber}
-                    onChange={(e) => setNewDealForm({ ...newDealForm, quoteNumber: e.target.value })}
-                    placeholder="e.g. Q-2026-108"
-                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="quote-target-close-date" className="block text-spec font-bold mb-1">Target Close Date</label>
-                  <input
-                    id="quote-target-close-date"
-                    type="date"
-                    value={newDealForm.expectedCloseDate}
-                    onChange={(e) => setNewDealForm({ ...newDealForm, expectedCloseDate: e.target.value })}
-                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="quote-contact-select" className="block text-spec font-bold mb-1">Contact Name</label>
-                  <select
-                    id="quote-contact-select"
-                    value={newDealForm.primaryContactId}
-                    onChange={(e) => setNewDealForm({ ...newDealForm, primaryContactId: e.target.value })}
-                    className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  >
-                    <option value="">
-                      {accountContacts.length > 0 ? "Select contact..." : "No contacts for this customer"}
-                    </option>
-                    {accountContacts.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {`${c.firstName} ${c.lastName}`.trim()}{c.role ? ` (${c.role})` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-spec font-bold mb-1">Initial Scope &amp; Notes</label>
-                <textarea
-                  rows={2}
-                  value={newDealForm.notes}
-                  onChange={(e) => setNewDealForm({ ...newDealForm, notes: e.target.value })}
-                  placeholder="e.g. 18 units required for local shared trail Cat P4"
-                  className="w-full p-2 border border-line rounded-edge bg-white text-spec text-xs"
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-3 border-t border-line">
-                <button
-                  type="button"
-                  onClick={() => setIsNewDealModalOpen(false)}
-                  className="px-3 py-1.5 border border-line rounded-edge text-spec font-medium cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge cursor-pointer"
-                >
-                  Create Quote
-                </button>
-              </div>
-            </form>
           </section>
         </div>
       )}

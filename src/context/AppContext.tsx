@@ -182,12 +182,14 @@ export function initialsOf(name: string): string {
 }
 
 export interface OpenQuickLogOptions {
-  type?: "call" | "note" | "meeting" | "email" | "task" | "follow_up";
+  type?: "call" | "note" | "meeting" | "site_visit" | "email" | "task" | "follow_up";
   accountId?: string;
   oppId?: string;
   opportunityId?: string;
   contactId?: string;
   prefillNotes?: string;
+  /** Scheduled task being completed by this interaction (for example a customer meeting). */
+  scheduledTaskId?: string;
 }
 
 interface AppContextType {
@@ -344,17 +346,18 @@ interface AppContextType {
   // Quick Activity Logging Modal State
   quickLogModal: {
     isOpen: boolean;
-    type: "call" | "note" | "meeting" | "email" | "task" | "follow_up";
+    type: "call" | "note" | "meeting" | "site_visit" | "email" | "task" | "follow_up";
     accountId?: string;
     opportunityId?: string;
     contactId?: string;
     /** Carried over from the call briefing so the rep does not retype it. */
     prefillNotes?: string;
+    scheduledTaskId?: string;
   } | null;
   openQuickLog: {
     (options?: OpenQuickLogOptions): void;
     (
-      type: "call" | "note" | "meeting" | "email" | "task" | "follow_up",
+      type: "call" | "note" | "meeting" | "site_visit" | "email" | "task" | "follow_up",
       accountId?: string,
       oppId?: string,
       contactId?: string,
@@ -1066,12 +1069,13 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [quickLogModal, setQuickLogModal] = useState<{
     isOpen: boolean;
-    type: "call" | "note" | "meeting" | "email" | "task" | "follow_up";
+    type: "call" | "note" | "meeting" | "site_visit" | "email" | "task" | "follow_up";
     accountId?: string;
     opportunityId?: string;
     contactId?: string;
     /** Carried over from the call briefing so the rep does not retype it. */
     prefillNotes?: string;
+    scheduledTaskId?: string;
   } | null>(null);
 
   const [callPrepModal, setCallPrepModal] = useState<{
@@ -1820,7 +1824,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const openQuickLog = (
-    optionsOrType?: OpenQuickLogOptions | "call" | "note" | "meeting" | "email" | "task" | "follow_up",
+    optionsOrType?: OpenQuickLogOptions | "call" | "note" | "meeting" | "site_visit" | "email" | "task" | "follow_up",
     accountId?: string,
     oppId?: string,
     contactId?: string,
@@ -1840,7 +1844,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     const type = opts.type || "call";
-    const targetAccountId = opts.accountId;
+    let targetAccountId = opts.accountId;
     let targetOppId = opts.opportunityId || opts.oppId;
 
     if (targetAccountId) {
@@ -1857,7 +1861,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       // If oppId was provided without accountId, infer the account from the deal if possible
       const deal = crmOpportunities.find((o) => o.id === targetOppId);
       if (deal?.accountId) {
-        // We can leave targetAccountId as deal.accountId or undefined
+        targetAccountId = deal.accountId;
       }
     }
 
@@ -1867,7 +1871,8 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       accountId: targetAccountId,
       opportunityId: targetOppId,
       contactId: opts.contactId,
-      prefillNotes: opts.prefillNotes
+      prefillNotes: opts.prefillNotes,
+      scheduledTaskId: opts.scheduledTaskId
     });
   };
 
@@ -2582,7 +2587,17 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
     let actTimestamp = (activityData as any).timestamp;
     if (!actTimestamp) {
       if (rawDate) {
-        const timePart = rawTime ? (rawTime.includes(":") ? rawTime : "10:00") : "10:00";
+        let timePart = "10:00";
+        if (rawTime) {
+          const match = String(rawTime).trim().match(/^(\d{1,2}):(\d{2})\s*([AaPp][Mm])?$/);
+          if (match) {
+            let hours = Number(match[1]);
+            const suffix = match[3]?.toLowerCase();
+            if (suffix === "pm" && hours < 12) hours += 12;
+            if (suffix === "am" && hours === 12) hours = 0;
+            timePart = `${String(hours).padStart(2, "0")}:${match[2]}`;
+          }
+        }
         const candidate = new Date(`${rawDate}T${timePart.padStart(5, "0")}:00`);
         actTimestamp = isNaN(candidate.getTime()) ? new Date().toISOString() : candidate.toISOString();
       } else {
@@ -2606,7 +2621,11 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
     saveDocToCloud("crm_activities", newAct.id, newAct);
 
     // Automatically add logged meeting (not call or email) to calendar
-    if (activityData.type === "meeting") {
+    const scheduledTaskId = typeof activityData.metadata?.sourceTaskId === "string"
+      ? activityData.metadata.sourceTaskId
+      : undefined;
+
+    if ((activityData.type === "meeting" || activityData.type === "site_visit") && !scheduledTaskId) {
       const meetingDate = rawDate || getLocalDateInputValue(actTimestamp);
       const meetingTime = rawTime || "10:00 AM";
       const meetingTask: CRMTask = {
@@ -2627,7 +2646,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
         notes: newAct.description,
         outcome: newAct.outcome,
         sourceActivityId: newAct.id,
-        meetingFormat: (activityData as any).meetingFormat || "In Person",
+        meetingFormat: (activityData as any).meetingFormat || (activityData.type === "site_visit" ? "Site Visit" : "In Person"),
         assignedTo: currentUser.name,
         createdBy: currentUser.name,
         completedAt: actTimestamp
@@ -2691,6 +2710,12 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
           updates: {
             latestActivity: activityData.title,
             latestActivityDate: effectiveDate,
+            ...(activityData.nextAction
+              ? {
+                  nextAction: activityData.nextAction,
+                  nextActionDate: activityData.nextActionDate
+                }
+              : {}),
             version: opp.version
           }
         });

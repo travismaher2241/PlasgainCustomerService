@@ -169,7 +169,7 @@ describe('Logged Meeting Auto-Add to Calendar', () => {
 
   it('allows changing the activity date in CRMQuickLogModal to a past date like last Thursday', async () => {
     const HarnessWithModal: React.FC = () => {
-      const { openQuickLog, addAccount, activities, tasks } = useApp();
+      const { openQuickLog, addAccount, addContact, activities, tasks } = useApp();
       return (
         <div>
           <button
@@ -185,7 +185,18 @@ describe('Logged Meeting Auto-Add to Calendar', () => {
                 accountType: 'Council',
                 accountOwner: 'Travis Maher'
               });
-              openQuickLog({ type: 'meeting', accountId: 'acc-past-1' });
+              addContact({
+                id: 'con-past-1',
+                accountId: 'acc-past-1',
+                accountName: 'Brisbane City Council',
+                firstName: 'Alex',
+                lastName: 'Morgan',
+                jobTitle: 'Project Manager',
+                email: 'alex.morgan@example.com',
+                preferredContactMethod: 'Phone',
+                contactOwner: 'Travis Maher'
+              });
+              openQuickLog({ type: 'meeting', accountId: 'acc-past-1', contactId: 'con-past-1' });
             }}
           >
             Open Quick Log
@@ -202,7 +213,7 @@ describe('Logged Meeting Auto-Add to Calendar', () => {
           <span data-testid="activities-count">{activities.length}</span>
           <span data-testid="tasks-count">{tasks.length}</span>
           <span data-testid="latest-act-date">{activities[0]?.metadata?.activityDate || activities[0]?.timestamp.split('T')[0] || ''}</span>
-          <span data-testid="latest-task-due">{tasks[0]?.dueDate || ''}</span>
+          <span data-testid="latest-task-due">{tasks.find((task) => task.type === 'Meeting')?.dueDate || ''}</span>
           <CRMQuickLogModal />
           <CRMCalendarView />
         </div>
@@ -222,7 +233,7 @@ describe('Logged Meeting Auto-Add to Calendar', () => {
     fireEvent.click(screen.getByTestId('open-modal-btn'));
 
     // Select outcome
-    const outcomeCheckbox = screen.getByLabelText(/meeting held/i);
+    const outcomeCheckbox = screen.getByLabelText(/Meeting Held — follow-up needed/i);
     fireEvent.click(outcomeCheckbox);
 
     // Find the Activity Date input and set it to last Thursday (2026-09-03)
@@ -232,11 +243,11 @@ describe('Logged Meeting Auto-Add to Calendar', () => {
     expect(dateInput).toHaveValue('2026-09-03');
 
     // Add notes
-    const notesInput = screen.getByPlaceholderText(/what did the customer say/i);
+    const notesInput = screen.getByPlaceholderText(/what was discussed/i);
     fireEvent.change(notesInput, { target: { value: 'Last Thursday discussion on light pole foundations.' } });
 
     // Submit modal
-    const saveBtn = screen.getByRole('button', { name: /log activity/i });
+    const saveBtn = screen.getByRole('button', { name: /save interaction/i });
     fireEvent.click(saveBtn);
 
     // Verify activity logged and calendar task created with date 2026-09-03

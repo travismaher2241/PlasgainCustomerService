@@ -151,28 +151,15 @@ describe('Phase 2 — Wrong data and invented data tests', () => {
     expect(screen.queryByText(/36% Target Gross Margin/i)).not.toBeInTheDocument();
   });
 
-  it('2.5 & 2.6 — Quick quote creation modal has blank name and value, zero product lines, and Target Close Date label', () => {
+  it('2.5 & 2.6 — Quote entry is import-only and does not expose manual pricing fields', () => {
     render(
       <AppProvider>
         <HomeDashboard />
       </AppProvider>
     );
 
-    // Click New quote
-    fireEvent.click(screen.getByRole('button', { name: /New quote/i }));
-
-    // Quote dialog opens
-    expect(screen.getByRole('dialog', { name: /Create New Quote/i })).toBeInTheDocument();
-
-    // Name and value inputs must be blank
-    const nameInput = screen.getByPlaceholderText(/Stage 2 Pathway Solar Lighting/i) as HTMLInputElement;
-    expect(nameInput.value).toBe('');
-
-    const valueInput = screen.getByPlaceholderText(/25000/i) as HTMLInputElement;
-    expect(valueInput.value).toBe('');
-
-    // Date field is labelled Target Close Date
-    expect(screen.getByLabelText(/Target Close Date/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText(/Follow Up Date/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Import Ostendo quote/i })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: /Create New Quote/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/\$ Value/i)).not.toBeInTheDocument();
   });
 });

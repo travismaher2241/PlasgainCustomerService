@@ -20,10 +20,11 @@ import { ActivityType, Account, CRMContact, CRMOpportunity, ActivityParticipant,
 import { addDaysLocal, getLocalDateInputValue, getLastThursdayDateString } from "../../utils/dateUtils";
 import { detectDuplicateContact, DuplicateMatchResult } from "../../utils/duplicateDetector";
 
-export const OUTCOMES_BY_TYPE: Record<"call" | "email" | "meeting", string[]> = {
-  call: ["Contact Made", "No Answer", "Voicemail Left"],
-  email: ["Email Sent", "Email Received"],
-  meeting: ["Meeting Held", "Cancelled", "No Show"]
+export const OUTCOMES_BY_TYPE: Record<"call" | "email" | "meeting" | "site_visit", string[]> = {
+  call: ["Spoke — follow-up needed", "Waiting for customer", "No Answer", "Voicemail Left", "No further action"],
+  email: ["Email Sent", "Email Received", "Waiting for customer", "Follow-up needed", "No further action"],
+  meeting: ["Meeting Held — follow-up needed", "Waiting for customer", "Meeting Held — no further action", "Cancelled", "No Show"],
+  site_visit: ["Visit completed — follow-up needed", "Waiting for customer", "Visit completed — no further action", "Cancelled", "No Show"]
 };
 
 export const CRMQuickLogModal: React.FC = () => {
@@ -35,6 +36,8 @@ export const CRMQuickLogModal: React.FC = () => {
     contacts,
     logActivity,
     addTask,
+    updateTask,
+    updateCrmOpportunity,
     addContact,
     moveContact,
     confirmCandidateNotableEvent,
@@ -55,6 +58,7 @@ export const CRMQuickLogModal: React.FC = () => {
   const [description, setDescription] = useState("");
   const [selectedOutcome, setSelectedOutcome] = useState("");
   const [outcomeError, setOutcomeError] = useState(false);
+  const [validationError, setValidationError] = useState("");
   const [scheduleFollowUp, setScheduleFollowUp] = useState(false);
   const [followUpDate, setFollowUpDate] = useState(() => addDaysLocal(3));
   const [activityDate, setActivityDate] = useState(() => getLocalDateInputValue());
@@ -76,6 +80,13 @@ export const CRMQuickLogModal: React.FC = () => {
   const handleSelectOutcome = (opt: string) => {
     setSelectedOutcome((prev) => (prev === opt ? "" : opt));
     setOutcomeError(false);
+    setValidationError("");
+    if (/follow-up needed|waiting for customer|no answer|voicemail|no show/i.test(opt)) {
+      setScheduleFollowUp(true);
+      setFollowUpDate(addDaysLocal(/no answer|voicemail|no show/i.test(opt) ? 1 : 3));
+    } else if (/no further action|cancelled/i.test(opt)) {
+      setScheduleFollowUp(false);
+    }
   };
 
   // Resolved CRM records
@@ -118,6 +129,8 @@ export const CRMQuickLogModal: React.FC = () => {
         return `Email sent to ${name}${suffix}`;
       case "meeting":
         return `Meeting with ${name}${suffix}`;
+      case "site_visit":
+        return `Site visit with ${name}${suffix}`;
       case "note":
         return `Account Note: ${acc?.name || name}`;
       case "follow_up":
@@ -150,6 +163,7 @@ export const CRMQuickLogModal: React.FC = () => {
       setDescription(quickLogModal.prefillNotes || "");
       setSelectedOutcome("");
       setOutcomeError(false);
+      setValidationError("");
       setScheduleFollowUp(false);
       setFollowUpDate(addDaysLocal(3));
       setActivityDate(getLocalDateInputValue());
@@ -259,13 +273,30 @@ export const CRMQuickLogModal: React.FC = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!selectedAccountId) {
+      setShowAccountSelectors(true);
+      setValidationError("Choose the customer this discussion belongs to.");
+      return;
+    }
+    if (type !== "note" && selectedContactIds.length === 0) {
+      setValidationError("Select who you spoke with, emailed, or met.");
+      return;
+    }
+    if (!description.trim()) {
+      setValidationError("Add a short note describing what was discussed.");
+      return;
+    }
+    if (!title.trim()) {
+      setValidationError("Add a title for this interaction.");
+      return;
+    }
 
     if (type !== "note" && !selectedOutcome) {
       setOutcomeError(true);
       return;
     }
     setOutcomeError(false);
+    setValidationError("");
 
     const resolvedOutcome = type === "note" ? undefined : selectedOutcome;
 
@@ -278,7 +309,7 @@ export const CRMQuickLogModal: React.FC = () => {
       jobTitle: c.jobTitle || c.role,
       accountName: targetAccount?.name || c.accountName,
       email: c.email,
-      role: type === "call" ? "caller" : type === "meeting" ? "attendee" : type === "email" ? "recipient" : "participant"
+      role: type === "call" ? "caller" : type === "meeting" || type === "site_visit" ? "attendee" : type === "email" ? "recipient" : "participant"
     }));
 
     const result = logActivity({
@@ -303,13 +334,36 @@ export const CRMQuickLogModal: React.FC = () => {
         outcome: resolvedOutcome,
         activityDate,
         activityTime,
-        meetingDate: type === "meeting" ? activityDate : undefined,
-        meetingTime: type === "meeting" ? activityTime : undefined
+        sourceTaskId: quickLogModal?.scheduledTaskId,
+        meetingDate: type === "meeting" || type === "site_visit" ? activityDate : undefined,
+        meetingTime: type === "meeting" || type === "site_visit" ? activityTime : undefined
       },
       activityDate,
       activityTime,
-      ...((type === "meeting") ? { meetingDate: activityDate, meetingTime: activityTime } : {})
+      ...((type === "meeting" || type === "site_visit") ? { meetingDate: activityDate, meetingTime: activityTime } : {})
     } as any);
+
+    if (quickLogModal?.scheduledTaskId && result?.activity) {
+      updateTask(quickLogModal.scheduledTaskId, {
+        status: "Completed",
+        completedAt: result.activity.timestamp,
+        outcome: resolvedOutcome,
+        notes: description.trim(),
+        sourceActivityId: result.activity.id
+      });
+    }
+
+    if (
+      selectedOppId &&
+      !scheduleFollowUp &&
+      /no further action|cancelled/i.test(resolvedOutcome || "")
+    ) {
+      updateCrmOpportunity(selectedOppId, {
+        nextAction: /cancelled/i.test(resolvedOutcome || "") ? "Meeting cancelled" : "No further action",
+        nextActionDate: null,
+        followUpCompletedAt: result.activity.timestamp
+      } as Partial<CRMOpportunity>);
+    }
 
     if (scheduleFollowUp && followUpDate) {
       addTask({
@@ -370,7 +424,7 @@ export const CRMQuickLogModal: React.FC = () => {
               <Phone className="w-4 h-4" />
             </div>
             <h3 id="quick-log-title" className="text-base font-bold text-body">
-              Quick Log Activity
+              Log customer interaction
             </h3>
           </div>
           <div className="flex items-center gap-2">
@@ -437,6 +491,11 @@ export const CRMQuickLogModal: React.FC = () => {
         ) : (
           /* Simplified Completed Interaction Logger */
           <form onSubmit={handleSubmit} className="space-y-4 text-meta">
+            {validationError && (
+              <div role="alert" aria-live="polite" className="p-2.5 rounded-edge border border-red-200 bg-red-50 text-xs font-semibold text-red-800">
+                {validationError}
+              </div>
+            )}
             {/* Context: Account / Opportunity Bar */}
             <div className="p-2.5 bg-paper rounded-edge border border-line flex items-center justify-between gap-2">
               <div className="min-w-0">
@@ -523,13 +582,14 @@ export const CRMQuickLogModal: React.FC = () => {
             {/* 1. ACTIVITY TYPE (Compact Segmented Control) */}
             <div>
               <label className="block text-spec font-bold text-ink-dim uppercase mb-1.5">
-                Activity Type
+                Interaction type
               </label>
-              <div className="grid grid-cols-4 gap-1.5 p-1 bg-paper rounded-edge border border-line">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 p-1 bg-paper rounded-edge border border-line">
                 {[
                   { id: "call", label: "Call", icon: Phone },
                   { id: "email", label: "Email", icon: Mail },
                   { id: "meeting", label: "Meeting", icon: Calendar },
+                  { id: "site_visit", label: "Site visit", icon: Building2 },
                   { id: "note", label: "Note", icon: FileText }
                 ].map((item) => {
                   const Icon = item.icon;
@@ -557,16 +617,17 @@ export const CRMQuickLogModal: React.FC = () => {
             {type !== "note" && (
               <div>
                 <label className="block text-spec font-bold text-ink-dim uppercase mb-1.5">
-                  Outcome
+                  What happened?
                 </label>
                 <div className="flex items-center gap-4 sm:gap-6 flex-wrap">
-                  {(OUTCOMES_BY_TYPE[type as "call" | "email" | "meeting"] || []).map((opt) => (
+                  {(OUTCOMES_BY_TYPE[type as "call" | "email" | "meeting" | "site_visit"] || []).map((opt) => (
                     <label
                       key={opt}
                       className="flex items-center gap-2 cursor-pointer select-none text-spec font-medium text-body hover:text-ink transition-colors"
                     >
                       <input
-                        type="checkbox"
+                        type="radio"
+                        name="interaction-outcome"
                         checked={selectedOutcome === opt}
                         onChange={() => handleSelectOutcome(opt)}
                         className="h-4 w-4 rounded border-line-strong text-brand-deep focus:ring-brand-deep cursor-pointer"
@@ -585,7 +646,7 @@ export const CRMQuickLogModal: React.FC = () => {
 
             {/* ACTIVITY DATE & TIME (Available for all activity types so users can log past interactions like last Thursday) */}
             <div className={`p-3 rounded-edge border space-y-2 ${
-              type === "meeting"
+              type === "meeting" || type === "site_visit"
                 ? "bg-brand-wash/40 border-brand-edge/70"
                 : "bg-paper border-line"
             }`}>
@@ -595,6 +656,8 @@ export const CRMQuickLogModal: React.FC = () => {
                   <span>
                     {type === "meeting"
                       ? "Meeting Date & Time"
+                      : type === "site_visit"
+                      ? "Site Visit Date & Time"
                       : type === "call"
                       ? "Call Date & Time"
                       : type === "email"
@@ -602,7 +665,7 @@ export const CRMQuickLogModal: React.FC = () => {
                       : "Activity Date & Time"}
                   </span>
                 </span>
-                {type === "meeting" && (
+                {(type === "meeting" || type === "site_visit") && (
                   <span className="text-[11px] font-semibold text-brand-deep bg-white px-2 py-0.5 rounded-full border border-brand-edge shadow-2xs">
                     📅 Automatically adds to your Calendar
                   </span>
@@ -680,6 +743,7 @@ export const CRMQuickLogModal: React.FC = () => {
                 <label className="block text-spec font-bold text-ink-dim uppercase">
                   {type === "call" && "WHO WAS ON THE CALL?"}
                   {type === "meeting" && "WHO WAS AT THE MEETING?"}
+                  {type === "site_visit" && "WHO WAS AT THE SITE VISIT?"}
                   {type === "email" && "EMAIL TO"}
                   {type === "note" && "RELATES TO SPECIFIC CONTACTS (OPTIONAL)"}
                 </label>
@@ -917,12 +981,12 @@ export const CRMQuickLogModal: React.FC = () => {
             {/* 3. NOTES / CUSTOMER FEEDBACK */}
             <div>
               <label className="block text-spec font-bold text-ink-dim uppercase mb-1">
-                Notes / Customer Feedback
+                What was discussed? *
               </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="What did the customer say? Note any technical preferences, milestones, or commitments..."
+                placeholder="What was discussed? Record decisions, questions, promises, and anything the next salesperson should know..."
                 rows={3}
                 className="w-full p-2.5 text-spec rounded-edge border border-line focus:outline-none focus:border-brand-deep font-sans"
               />
@@ -1016,7 +1080,7 @@ export const CRMQuickLogModal: React.FC = () => {
                   className="px-4 py-2 font-bold text-spec rounded-edge shadow-xs bg-brand-deep hover:bg-brand text-white flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Log Activity</span>
+                  <span>Save interaction</span>
                 </button>
               </div>
             </div>

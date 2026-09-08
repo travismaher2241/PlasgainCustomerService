@@ -63,6 +63,8 @@ export const CRMCalendarView: React.FC = () => {
       categoryLabel: string;
       accountName?: string;
       accountId?: string;
+      contactId?: string;
+      opportunityId?: string;
       contactName?: string;
       isCompleted?: boolean;
       originalTask?: CRMTask;
@@ -98,6 +100,8 @@ export const CRMCalendarView: React.FC = () => {
           categoryLabel: isMeeting && t.outcome ? t.outcome : t.type,
           accountName: t.accountName,
           accountId: t.accountId,
+          contactId: t.contactId,
+          opportunityId: t.opportunityId,
           contactName: t.contactName,
           isCompleted: t.status === "Completed",
           originalTask: t,
@@ -113,7 +117,7 @@ export const CRMCalendarView: React.FC = () => {
     // Add logged meetings from activities (not already covered by tasks)
     if (activities && activities.length > 0) {
       for (const act of activities) {
-        if (act.type === "meeting" && !coveredActivityIds.has(act.id)) {
+        if ((act.type === "meeting" || act.type === "site_visit") && !coveredActivityIds.has(act.id)) {
           const actDate =
             act.metadata?.meetingDate ||
             (act as any).meetingDate ||
@@ -133,6 +137,8 @@ export const CRMCalendarView: React.FC = () => {
             categoryLabel: act.outcome || "Meeting Held",
             accountName: act.accountName,
             accountId: act.accountId,
+            contactId: act.contactId,
+            opportunityId: act.opportunityId,
             contactName: act.contactName,
             isCompleted: true,
             isLoggedMeeting: true,
@@ -739,6 +745,23 @@ export const CRMCalendarView: React.FC = () => {
                         {isMeeting && ev.originalTask && !ev.isCompleted && (
                           <button
                             type="button"
+                            onClick={() => openQuickLog({
+                              type: "meeting",
+                              accountId: ev.accountId,
+                              opportunityId: ev.opportunityId,
+                              contactId: ev.contactId,
+                              scheduledTaskId: ev.originalTask!.id
+                            })}
+                            className="flex-1 py-1 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded shadow-2xs cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Log meeting outcome</span>
+                          </button>
+                        )}
+
+                        {isMeeting && ev.originalTask && !ev.isCompleted && (
+                          <button
+                            type="button"
                             onClick={() => openMeetingPrep(ev.originalTask!.id)}
                             className="flex-1 py-1 bg-brand-deep hover:bg-brand text-white text-xs font-bold rounded shadow-2xs cursor-pointer flex items-center justify-center gap-1.5 transition-colors"
                           >
@@ -852,6 +875,23 @@ export const CRMCalendarView: React.FC = () => {
                         >
                           <CalendarIcon className="w-3.5 h-3.5" />
                           <span>Change Date</span>
+                        </button>
+                      )}
+
+                      {isMeeting && ev.originalTask && !ev.isCompleted && (
+                        <button
+                          type="button"
+                          onClick={() => openQuickLog({
+                            type: "meeting",
+                            accountId: ev.accountId,
+                            opportunityId: ev.opportunityId,
+                            contactId: ev.contactId,
+                            scheduledTaskId: ev.originalTask!.id
+                          })}
+                          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-edge shadow-xs cursor-pointer flex items-center gap-1"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Log outcome</span>
                         </button>
                       )}
 

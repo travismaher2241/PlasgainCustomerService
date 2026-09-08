@@ -449,6 +449,7 @@ export interface CRMActivity {
     quoteAmount?: number;
     previousStage?: string;
     newStage?: string;
+    sourceTaskId?: string;
     emailSubject?: string;
     meetingDate?: string;
     meetingTime?: string;

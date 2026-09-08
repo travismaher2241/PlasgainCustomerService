@@ -3,7 +3,7 @@ import { X, FileText, Upload, AlertTriangle, CheckCircle2, Loader2 } from "lucid
 import { useApp } from "../../context/AppContext";
 import { apiPost } from "../../utils/apiClient";
 import { useDialogDismiss } from "../../utils/useDialogDismiss";
-import { formatAuDate } from "../../utils/dateUtils";
+import { addDaysLocal, formatAuDate, getLocalDateInputValue } from "../../utils/dateUtils";
 import { resolveQuotingStage } from "../../data/crmMockData";
 import { Account, CRMOpportunity } from "../../types/crm";
 
@@ -56,6 +56,14 @@ interface ImportResponse {
 const money = (n?: number) =>
   n === undefined ? "—" : `$${n.toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+const followUpDateFromSentDate = (sentDate: string) => {
+  let result = addDaysLocal(2, sentDate);
+  const day = new Date(`${result}T12:00:00`).getDay();
+  if (day === 6) result = addDaysLocal(2, result);
+  if (day === 0) result = addDaysLocal(1, result);
+  return result;
+};
+
 /** Loose match on name, so "Example Shire Council" finds "Example Shire". */
 function findMatchingAccount(accounts: Account[], name?: string): Account | undefined {
   if (!name) return undefined;
@@ -90,6 +98,7 @@ export const CRMQuoteImportModal: React.FC = () => {
   const [result, setResult] = useState<ImportResponse | null>(null);
   const [accountChoice, setAccountChoice] = useState<string>("");
   const [followUpDate, setFollowUpDate] = useState("");
+  const [sentDate, setSentDate] = useState("");
   const [isAlreadySent, setIsAlreadySent] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -100,6 +109,7 @@ export const CRMQuoteImportModal: React.FC = () => {
     setIsReading(false);
     setAccountChoice("");
     setFollowUpDate("");
+    setSentDate("");
     setIsAlreadySent(true);
   };
 
@@ -150,7 +160,9 @@ export const CRMQuoteImportModal: React.FC = () => {
 
       setResult(response);
       setAccountChoice(findMatchingAccount(accounts, response.parsed.customerName)?.id || "");
-      setFollowUpDate(response.suggestedFollowUpDate || "");
+      const effectiveSentDate = response.parsed.quoteDate || getLocalDateInputValue();
+      setSentDate(effectiveSentDate);
+      setFollowUpDate(followUpDateFromSentDate(effectiveSentDate));
       setStep("review");
     } catch (err: any) {
       const errorMsg = err?.detail
@@ -200,14 +212,14 @@ export const CRMQuoteImportModal: React.FC = () => {
       lineTotal: li.extendedPrice
     }));
 
-    const nextAction = `Follow up on quote ${parsed.quoteNumber || ""}`.trim();
+    const nextAction = isAlreadySent ? `Follow up on quote ${parsed.quoteNumber || ""}`.trim() : undefined;
     let opportunityId: string;
 
     const stageId = isAlreadySent ? "stage-submitted" : "stage-not-submitted";
     const stageName = isAlreadySent ? "Submitted" : "Not Submitted";
     const probability = isAlreadySent ? 40 : 10;
     const submittedAt = isAlreadySent
-      ? (parsed.quoteDate ? new Date(parsed.quoteDate).toISOString() : new Date().toISOString())
+      ? new Date(`${sentDate || getLocalDateInputValue()}T12:00:00`).toISOString()
       : undefined;
 
     if (existingDeal) {
@@ -218,13 +230,13 @@ export const CRMQuoteImportModal: React.FC = () => {
         stageId,
         stageName,
         probability,
-        submittedAt: submittedAt || existingDeal.submittedAt,
+        submittedAt: isAlreadySent ? (submittedAt || existingDeal.submittedAt) : null,
         quoteStatus: isAlreadySent ? "Sent" : "Draft",
-        quoteSentDate: isAlreadySent ? (parsed.quoteDate || new Date().toISOString().split("T")[0]) : undefined,
+        quoteSentDate: isAlreadySent ? (sentDate || getLocalDateInputValue()) : null,
         quoteExpiryDate: parsed.quoteExpiryDate,
         products,
-        nextAction,
-        nextActionDate: followUpDate || undefined,
+        nextAction: isAlreadySent ? nextAction : null,
+        nextActionDate: isAlreadySent ? (followUpDate || undefined) : null,
         latestActivity: `Revised quote ${parsed.quoteNumber} imported (${stageName})`,
         latestActivityDate: new Date().toISOString().split("T")[0]
       } as Partial<CRMOpportunity>);
@@ -247,12 +259,12 @@ export const CRMQuoteImportModal: React.FC = () => {
         ostendoQuoteRef: parsed.quoteNumber,
         quoteStatus: isAlreadySent ? "Sent" : "Draft",
         quoteValue: dealValue,
-        quoteSentDate: isAlreadySent ? (parsed.quoteDate || new Date().toISOString().split("T")[0]) : undefined,
+        quoteSentDate: isAlreadySent ? (sentDate || getLocalDateInputValue()) : undefined,
         submittedAt,
         quoteExpiryDate: parsed.quoteExpiryDate,
         products,
         nextAction,
-        nextActionDate: followUpDate || undefined,
+        nextActionDate: isAlreadySent ? (followUpDate || undefined) : undefined,
         latestActivity: `Quote ${parsed.quoteNumber} imported from PDF (${stageName})`,
         latestActivityDate: new Date().toISOString().split("T")[0],
         daysInCurrentStage: 0,
@@ -268,20 +280,20 @@ export const CRMQuoteImportModal: React.FC = () => {
     }
 
     logActivity({
-      type: "quote_sent",
-      title: `Quote ${parsed.quoteNumber || ""} sent`.trim(),
-      description: `${money(parsed.nettTotal)} ex GST${parsed.projectName ? ` — ${parsed.projectName}` : ""}`,
+      type: isAlreadySent ? "quote_sent" : "note",
+      title: `Quote ${parsed.quoteNumber || ""} ${isAlreadySent ? "sent and imported" : "draft imported"}`.trim(),
+      description: `${money(parsed.nettTotal)} ex GST${parsed.projectName ? ` — ${parsed.projectName}` : ""}${isAlreadySent ? ` · follow-up due ${formatAuDate(followUpDate)}` : ""}`,
       accountId,
       accountName,
       opportunityId,
       performedBy: currentUser.name,
-      ...(parsed.quoteDate ? { timestamp: `${parsed.quoteDate}T00:00:00.000Z` } : {})
+      ...(isAlreadySent && sentDate ? { timestamp: `${sentDate}T12:00:00.000Z` } : {})
     } as any);
 
     showToast(
       existingDeal
-        ? `Quote ${parsed.quoteNumber} updated. Follow up on ${formatAuDate(followUpDate)}.`
-        : `Quote ${parsed.quoteNumber} saved to ${accountName}. Follow up on ${formatAuDate(followUpDate)}.`,
+        ? `Quote ${parsed.quoteNumber} updated.${isAlreadySent ? ` Follow up on ${formatAuDate(followUpDate)}.` : ""}`
+        : `Quote ${parsed.quoteNumber} saved to ${accountName}.${isAlreadySent ? ` Follow up on ${formatAuDate(followUpDate)}.` : ""}`,
       "success"
     );
 
@@ -441,6 +453,26 @@ export const CRMQuoteImportModal: React.FC = () => {
               </div>
 
               <div>
+                <label htmlFor="quote-sent-date" className="block text-spec font-bold text-ink mb-1">
+                  Date sent to customer
+                </label>
+                <input
+                  id="quote-sent-date"
+                  type="date"
+                  value={sentDate}
+                  disabled={!isAlreadySent}
+                  onChange={(e) => {
+                    setSentDate(e.target.value);
+                    if (e.target.value) setFollowUpDate(followUpDateFromSentDate(e.target.value));
+                  }}
+                  className="w-full min-h-[44px] p-2 border border-line rounded-edge bg-white text-body disabled:bg-paper disabled:text-ink-faint"
+                />
+                <p className="mt-1 text-spec text-ink-dim">
+                  Confirm when the customer received it. This starts the follow-up clock.
+                </p>
+              </div>
+
+              <div>
                 <label htmlFor="quote-followup" className="block text-spec font-bold text-ink mb-1">
                   Follow up on
                 </label>
@@ -448,11 +480,12 @@ export const CRMQuoteImportModal: React.FC = () => {
                   id="quote-followup"
                   type="date"
                   value={followUpDate}
+                  disabled={!isAlreadySent}
                   onChange={(e) => setFollowUpDate(e.target.value)}
-                  className="w-full min-h-[44px] p-2 border border-line rounded-edge bg-white text-body"
+                  className="w-full min-h-[44px] p-2 border border-line rounded-edge bg-white text-body disabled:bg-paper disabled:text-ink-faint"
                 />
                 <p className="mt-1 text-spec text-ink-dim">
-                  Two days after the quote date, moved to the next weekday if that lands on a weekend.
+                  Two days after the date sent, moved to Monday if it falls on a weekend.
                 </p>
               </div>
 
@@ -467,7 +500,7 @@ export const CRMQuoteImportModal: React.FC = () => {
                   <div>
                     <span className="text-spec font-bold text-body block">Already sent to client</span>
                     <span className="text-xs text-ink-dim block">
-                      Sets stage to <strong>"Submitted"</strong> and sets the 2-day follow-up clock. Uncheck if importing a draft.
+                      Adds it to the follow-up queue. Uncheck only when storing a draft that has not reached the customer.
                     </span>
                   </div>
                 </label>

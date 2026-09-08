@@ -52,6 +52,7 @@ interface UnifiedWorkItem {
   entityId?: string;
   accountId?: string;
   dealId?: string;
+  contactId?: string;
   context: string;
   reason?: string;
   value?: number;
@@ -249,7 +250,50 @@ export const CRMTodayWorkspace: React.FC = () => {
       });
     });
 
-    // 2. Open Tasks
+    // 2. Quote follow-ups are driven by their saved due date. This ensures an
+    // Ostendo quote appears on Today exactly when the rep was told it would,
+    // independently of advisory deal-health thresholds.
+    crmOpportunities
+      .filter((deal) =>
+        Boolean(deal.nextActionDate) &&
+        deal.stageId !== "stage-won" &&
+        deal.stageId !== "stage-lost"
+      )
+      .forEach((deal) => {
+        const dueDate = deal.nextActionDate!;
+        const isOverdue = dueDate < todayStr;
+        const isToday = dueDate === todayStr;
+        const dueItem: UnifiedWorkItem = {
+          id: `quote-followup-${deal.id}`,
+          sourceType: "deal",
+          title: deal.nextAction || `Follow up quote ${deal.quoteNumber || deal.name}`,
+          entityName: deal.accountName,
+          entityType: "Opportunity",
+          entityId: deal.id,
+          accountId: deal.accountId,
+          dealId: deal.id,
+          contactId: deal.primaryContactId,
+          context: `${deal.quoteNumber ? `Quote ${deal.quoteNumber}` : deal.name} · ${deal.opportunityOwner || deal.assignedTo || "Unassigned"}`,
+          urgency: isOverdue ? "Immediate" : isToday ? "Today" : "Normal",
+          priorityTier: isOverdue ? "do_now" : isToday ? "today" : "normal",
+          dueDate,
+          category: "Quote Follow-up",
+          quoteRef: deal.quoteNumber || deal.ostendoQuoteRef,
+          contactName: deal.primaryContactName,
+          contactEmail: deal.primaryContactEmail,
+          primaryActionType: "followup",
+          primaryActionLabel: "Log follow-up"
+        };
+
+        const advisoryIndex = items.findIndex((item) => item.dealId === deal.id);
+        if (advisoryIndex >= 0) {
+          items[advisoryIndex] = dueItem;
+        } else {
+          items.push(dueItem);
+        }
+      });
+
+    // 3. Open Tasks
     tasks
       .filter((t) => t.status !== "Completed" && t.status !== "Cancelled")
       .forEach((task) => {
@@ -260,6 +304,10 @@ export const CRMTodayWorkspace: React.FC = () => {
         if (isOverdue || task.priority === "Urgent") tier = "do_now";
         else if (isToday || task.priority === "High") tier = "today";
 
+        const isCustomerInteraction = ["meeting", "site visit", "call", "email", "follow-up"].includes(
+          String(task.type || "").toLowerCase()
+        );
+
         items.push({
           id: task.id,
           sourceType: "task",
@@ -268,17 +316,23 @@ export const CRMTodayWorkspace: React.FC = () => {
           entityType: "Task",
           entityId: task.id,
           accountId: task.accountId,
+          dealId: task.opportunityId,
+          contactId: task.contactId,
           context: task.notes || `Task assigned to ${task.assignedTo || "rep"}`,
           urgency: isOverdue ? "Immediate" : isToday ? "Today" : "Normal",
           priorityTier: tier,
           dueDate: task.dueDate,
           category: task.type || "Task",
-          primaryActionType: "complete",
-          primaryActionLabel: "Complete Task"
+          primaryActionType: isCustomerInteraction ? "call" : "complete",
+          primaryActionLabel: isCustomerInteraction
+            ? String(task.type || "").toLowerCase().includes("meeting") || String(task.type || "").toLowerCase().includes("site visit")
+              ? "Log meeting outcome"
+              : "Log customer contact"
+            : "Complete task"
         });
       });
 
-    // 3. New / Hot Leads
+    // 4. New / Hot Leads
     leads
       .filter((l) => l.leadStatus === "New" && l.leadScore >= 60)
       .forEach((lead) => {
@@ -312,7 +366,7 @@ export const CRMTodayWorkspace: React.FC = () => {
     return items
       .filter((item) => !snoozedIds.has(item.id))
       .sort((a, b) => tierOrder[a.priorityTier] - tierOrder[b.priorityTier]);
-  }, [nextBestActions, tasks, leads, todayStr, snoozedIds]);
+  }, [nextBestActions, crmOpportunities, tasks, leads, todayStr, snoozedIds]);
 
   // Filtered Queue
   const filteredWorkItems = useMemo(() => {
@@ -336,7 +390,26 @@ export const CRMTodayWorkspace: React.FC = () => {
   // Handle Primary Item Action
   const handleItemAction = (item: UnifiedWorkItem) => {
     if (item.sourceType === "task") {
-      toggleTaskComplete(item.id);
+      if (item.primaryActionType === "complete") {
+        toggleTaskComplete(item.id);
+        return;
+      }
+
+      const category = item.category.toLowerCase();
+      const interactionType = category.includes("site visit")
+        ? "site_visit"
+        : category.includes("meeting")
+        ? "meeting"
+        : category.includes("email")
+        ? "email"
+        : "call";
+      openQuickLog({
+        type: interactionType,
+        accountId: item.accountId,
+        opportunityId: item.dealId,
+        contactId: item.contactId,
+        scheduledTaskId: item.id
+      });
       return;
     }
 
@@ -365,6 +438,16 @@ export const CRMTodayWorkspace: React.FC = () => {
         toggleTaskComplete(item.entityId);
         return;
       }
+    }
+
+    if ((item.primaryActionType === "followup" || item.primaryActionType === "call") && (item.accountId || item.dealId)) {
+      openQuickLog({
+        type: "call",
+        accountId: item.accountId,
+        opportunityId: item.dealId,
+        contactId: item.contactId
+      });
+      return;
     }
 
     if (item.dealId) {
@@ -557,7 +640,7 @@ export const CRMTodayWorkspace: React.FC = () => {
           <Sun className="w-10 h-10 text-ink-faint mx-auto" />
           <h2 className="text-base font-bold text-body">No sales activity has been created yet</h2>
           <p className="text-spec text-ink-dim max-w-md mx-auto">
-            Create an account, enquiry, or quote to begin populating your daily action queue.
+            Add a customer, import an Ostendo quote, or schedule a meeting to begin your daily action queue.
           </p>
         </div>
       ) : workItems.length === 0 ? (

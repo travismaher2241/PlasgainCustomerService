@@ -154,7 +154,7 @@ describe("CRMAccountsView Component (Step 5)", () => {
 
     // Primary action buttons
     expect(screen.getByRole("button", { name: /Log activity/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /New quote/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Import quote/i })).toBeInTheDocument();
 
     // Secondary actions inside menu
     const menuBtn = screen.getByRole("button", { name: /Account actions/i });
@@ -205,27 +205,16 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(within(dialog).getByText(/sarah\.jenkins@townsville\.qld\.gov\.au/i)).toBeInTheDocument();
   });
 
-  it("Test 6 — New deal creation from account automatically preselects current account", () => {
+  it("Test 6 — Account quotes are imported from Ostendo rather than created manually", () => {
     render(
       <AppProvider>
         <AccountsTestWrapper />
       </AppProvider>
     );
 
-    // Click New quote button
-    const newQuoteBtn = screen.getAllByRole("button", { name: /New quote/i })[0];
-    fireEvent.click(newQuoteBtn);
-
-    expect(screen.getByRole("dialog", { name: /Create New Quote/i })).toBeInTheDocument();
-    expect(screen.getByText(/Account:/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Townsville City Council/i).length).toBeGreaterThanOrEqual(1);
-
-    // Assert the 4 requested fields are present
-    expect(screen.getByLabelText(/\$ Value/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Quote Number/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Target Close Date/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Contact Name/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Create Quote/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Import quote/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Create Quote/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: /Create New Quote/i })).not.toBeInTheDocument();
   });
 
   it("Test 7 — Deals tab prioritises active deals and supports closed filtering", () => {

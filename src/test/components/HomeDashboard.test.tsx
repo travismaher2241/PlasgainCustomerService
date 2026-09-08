@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { HomeDashboard } from '../../components/HomeDashboard';
 import { AppProvider } from '../../context/AppContext';
@@ -39,7 +39,7 @@ describe('HomeDashboard Step 8 Suite', () => {
     expect(screen.getByText(/No sales records yet/i)).toBeInTheDocument();
 
     // 3. Compact quick creation actions
-    expect(screen.getByRole('button', { name: /New quote/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Import Ostendo quote/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Add account/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Quotes/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Log a call/i })).toBeInTheDocument();
@@ -62,22 +62,15 @@ describe('HomeDashboard Step 8 Suite', () => {
     expect(openButtons.length).toBe(1);
   });
 
-  it('opens Create New Quote modal directly on dashboard when clicking New quote', () => {
+  it('offers Ostendo quote import without exposing manual quote creation', () => {
     render(
       <AppProvider>
         <HomeDashboard />
       </AppProvider>
     );
 
-    const newQuoteBtn = screen.getByRole('button', { name: /New quote/i });
-    fireEvent.click(newQuoteBtn);
-
-    expect(screen.getByRole('dialog', { name: /Create New Quote/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/Customer \/ Account/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/\$ Value/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Quote Number/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Target Close Date/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Contact Name/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Create Quote/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Import Ostendo quote/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Create Quote/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/\$ Value/i)).not.toBeInTheDocument();
   });
 });

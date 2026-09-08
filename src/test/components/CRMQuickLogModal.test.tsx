@@ -6,7 +6,7 @@ import { AppProvider, useApp } from '../../context/AppContext';
 import { makeAccount } from '../factories';
 
 const QuickLogTestWrapper: React.FC = () => {
-  const { openQuickLog, addAccount, activities, tasks } = useApp();
+  const { openQuickLog, addAccount, addContact } = useApp();
 
   React.useEffect(() => {
     addAccount(
@@ -26,13 +26,24 @@ const QuickLogTestWrapper: React.FC = () => {
         createdDate: '2026-08-28'
       })
     );
+    addContact({
+      id: 'con-custom-123',
+      accountId: 'acc-custom-123',
+      accountName: 'Sunshine Coast Council',
+      firstName: 'Sam',
+      lastName: 'Taylor',
+      jobTitle: 'Project Manager',
+      email: 'sam.taylor@example.com',
+      preferredContactMethod: 'Phone',
+      contactOwner: 'Travis Maher'
+    });
   }, []);
 
   return (
     <div>
       <button
         data-testid="open-log-btn"
-        onClick={() => openQuickLog({ type: "call", accountId: "acc-custom-123" })}
+        onClick={() => openQuickLog({ type: "call", accountId: "acc-custom-123", contactId: "con-custom-123" })}
       >
         Open Log
       </button>
@@ -55,21 +66,21 @@ describe('CRMQuickLogModal Component', () => {
 
     // Open modal
     fireEvent.click(screen.getByTestId('open-log-btn'));
-    expect(screen.getByText(/Quick Log Activity/i)).toBeInTheDocument();
+    expect(screen.getByText(/Log customer interaction/i)).toBeInTheDocument();
 
-    const titleInput = await screen.findByDisplayValue(/Call with Sunshine Coast Council/i);
+    const titleInput = await screen.findByDisplayValue(/Call with Sam Taylor/i);
     expect(titleInput).toBeInTheDocument();
 
     // Switch to Email
     const emailButton = screen.getByRole('button', { name: /^email$/i });
     fireEvent.click(emailButton);
 
-    expect(await screen.findByDisplayValue(/Email sent to Sunshine Coast Council/i)).toBeInTheDocument();
+    expect(await screen.findByDisplayValue(/Email sent to Sam Taylor/i)).toBeInTheDocument();
 
     // Switch to Meeting
     const meetingButton = screen.getByRole('button', { name: /^meeting$/i });
     fireEvent.click(meetingButton);
-    expect(await screen.findByDisplayValue(/Meeting with Sunshine Coast Council/i)).toBeInTheDocument();
+    expect(await screen.findByDisplayValue(/Meeting with Sam Taylor/i)).toBeInTheDocument();
   });
 
   it('does NOT render 1-click outcome presets or Dialux shortcuts', () => {
@@ -121,21 +132,21 @@ describe('CRMQuickLogModal Component', () => {
     fireEvent.click(screen.getByTestId('open-log-btn'));
 
     // Select Call outcome (required for Call)
-    fireEvent.click(screen.getByLabelText(/Contact Made/i));
+    fireEvent.click(screen.getByLabelText(/Spoke — follow-up needed/i));
 
     // Type notes
-    const notesInput = screen.getByPlaceholderText(/What did the customer say/i);
+    const notesInput = screen.getByPlaceholderText(/What was discussed/i);
     fireEvent.change(notesInput, { target: { value: 'Customer confirmed they need lighting for carpark Stage 2.' } });
 
     // Submit
-    const submitBtn = screen.getAllByRole('button', { name: /Log Activity/i }).find((btn) => btn.getAttribute('type') === 'submit')!;
+    const submitBtn = screen.getByRole('button', { name: /Save interaction/i });
     fireEvent.click(submitBtn);
 
     // Modal should close
-    expect(screen.queryByText(/Quick Log Activity/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Log customer interaction/i)).not.toBeInTheDocument();
   });
 
-  it('renders Call outcome checkboxes (Contact Made, No Answer, Voicemail Left) as a single-select group', () => {
+  it('renders Call outcomes as a single-select group', () => {
     render(
       <AppProvider>
         <QuickLogTestWrapper />
@@ -145,7 +156,7 @@ describe('CRMQuickLogModal Component', () => {
     fireEvent.click(screen.getByTestId('open-log-btn'));
 
     // Checkboxes are present for Call activity
-    const contactMadeCheckbox = screen.getByLabelText(/Contact Made/i) as HTMLInputElement;
+    const contactMadeCheckbox = screen.getByLabelText(/Spoke — follow-up needed/i) as HTMLInputElement;
     const noAnswerCheckbox = screen.getByLabelText(/No Answer/i) as HTMLInputElement;
     const voicemailLeftCheckbox = screen.getByLabelText(/Voicemail Left/i) as HTMLInputElement;
 
@@ -197,7 +208,7 @@ describe('CRMQuickLogModal Component', () => {
 
     // Call options gone
     expect(screen.queryByLabelText(/Voicemail Left/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Contact Made/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Spoke — follow-up needed/i)).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/No Answer/i)).not.toBeInTheDocument();
 
     // Email options displayed and unchecked
@@ -221,7 +232,7 @@ describe('CRMQuickLogModal Component', () => {
     expect(screen.queryByLabelText(/Email Received/i)).not.toBeInTheDocument();
 
     // Meeting options displayed and unchecked
-    const meetingHeldCheckbox = screen.getByLabelText(/Meeting Held/i) as HTMLInputElement;
+    const meetingHeldCheckbox = screen.getByLabelText(/Meeting Held — follow-up needed/i) as HTMLInputElement;
     const cancelledCheckbox = screen.getByLabelText(/Cancelled/i) as HTMLInputElement;
     const noShowCheckbox = screen.getByLabelText(/No Show/i) as HTMLInputElement;
     expect(meetingHeldCheckbox).toBeInTheDocument();
@@ -244,15 +255,19 @@ describe('CRMQuickLogModal Component', () => {
 
     fireEvent.click(screen.getByTestId('open-log-btn'));
 
-    const submitBtn = screen.getAllByRole('button', { name: /Log Activity/i }).find((btn) => btn.getAttribute('type') === 'submit')!;
+    const submitBtn = screen.getByRole('button', { name: /Save interaction/i });
+
+    fireEvent.change(screen.getByPlaceholderText(/What was discussed/i), {
+      target: { value: 'Discussed the next project step.' }
+    });
 
     // Attempting to submit Call without outcome shows error
     fireEvent.click(submitBtn);
     expect(screen.getByText(/Please select an outcome/i)).toBeInTheDocument();
-    expect(screen.getByText(/Quick Log Activity/i)).toBeInTheDocument();
+    expect(screen.getByText(/Log customer interaction/i)).toBeInTheDocument();
 
     // Selecting an outcome clears the validation error
-    fireEvent.click(screen.getByLabelText(/Contact Made/i));
+    fireEvent.click(screen.getByLabelText(/Spoke — follow-up needed/i));
     expect(screen.queryByText(/Please select an outcome/i)).not.toBeInTheDocument();
 
     // Switch to Note -> Submitting without outcome succeeds
@@ -261,6 +276,6 @@ describe('CRMQuickLogModal Component', () => {
     expect(screen.queryByText(/^outcome$/i)).not.toBeInTheDocument();
 
     fireEvent.click(submitBtn);
-    expect(screen.queryByText(/Quick Log Activity/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Log customer interaction/i)).not.toBeInTheDocument();
   });
 });

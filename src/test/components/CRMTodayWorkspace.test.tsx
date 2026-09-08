@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CRMTodayWorkspace } from '../../components/crm/CRMTodayWorkspace';
 import { AppProvider, useApp } from '../../context/AppContext';
+import { getLocalDateInputValue } from '../../utils/dateUtils';
 
 const testDeals = [
   {
@@ -126,5 +127,26 @@ describe("CRM Today's Action Queue Suite (Step 6)", () => {
     expect(screen.getByText(/Upcoming Meetings & Proactive Briefing/i)).toBeInTheDocument();
     expect(screen.getAllByText(/ATEC Group Product Review Meeting/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/Open Full Briefing/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Log meeting outcome/i })).toBeInTheDocument();
+  });
+
+  it("Test 5 — Surfaces an imported quote on its saved follow-up date", () => {
+    const today = getLocalDateInputValue();
+    const quoteDueToday = {
+      ...testDeals[0],
+      id: 'opp-quote-due-today',
+      quoteNumber: 'Q-2048',
+      nextAction: 'Follow up on quote Q-2048',
+      nextActionDate: today
+    };
+
+    render(
+      <AppProvider>
+        <TodayTestWrapper deals={[quoteDueToday]} tasks={[]} />
+      </AppProvider>
+    );
+
+    expect(screen.getByText(/Follow up on quote Q-2048/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Log follow-up/i })).toBeInTheDocument();
   });
 });

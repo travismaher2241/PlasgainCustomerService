@@ -45,7 +45,8 @@ describe('CRM Deals Global Table Suite (Step 6)', () => {
 
     // Header & Actions
     expect(screen.getByRole('heading', { level: 1, name: /Outstanding Quotes|Deals/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /New quote/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Import quote PDF/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Create Quote/i })).not.toBeInTheDocument();
 
     // Desktop table
     const table = within(screen.getByRole('table'));
