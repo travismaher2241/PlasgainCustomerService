@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { CRMQuickLogModal } from '../../components/crm/CRMQuickLogModal';
+import { CRMQuickLogModal, OUTCOMES_BY_TYPE } from '../../components/crm/CRMQuickLogModal';
 import { AppProvider, useApp } from '../../context/AppContext';
 import { makeAccount } from '../factories';
 
@@ -55,6 +55,10 @@ const QuickLogTestWrapper: React.FC = () => {
 describe('CRMQuickLogModal Component', () => {
   beforeEach(() => {
     localStorage.clear();
+  });
+
+  it('keeps post-interaction status out of the What happened outcomes', () => {
+    expect(Object.values(OUTCOMES_BY_TYPE).flat()).not.toContain('Waiting for customer');
   });
 
   it('renders primary interaction fields and dynamic auto-title', async () => {

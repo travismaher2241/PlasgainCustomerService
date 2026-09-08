@@ -21,10 +21,10 @@ import { addDaysLocal, getLocalDateInputValue, getLastThursdayDateString } from 
 import { detectDuplicateContact, DuplicateMatchResult } from "../../utils/duplicateDetector";
 
 export const OUTCOMES_BY_TYPE: Record<"call" | "email" | "meeting" | "site_visit", string[]> = {
-  call: ["Spoke — follow-up needed", "Waiting for customer", "No Answer", "Voicemail Left", "No further action"],
-  email: ["Email Sent", "Email Received", "Waiting for customer", "Follow-up needed", "No further action"],
-  meeting: ["Meeting Held — follow-up needed", "Waiting for customer", "Meeting Held — no further action", "Cancelled", "No Show"],
-  site_visit: ["Visit completed — follow-up needed", "Waiting for customer", "Visit completed — no further action", "Cancelled", "No Show"]
+  call: ["Spoke — follow-up needed", "No Answer", "Voicemail Left", "No further action"],
+  email: ["Email Sent", "Email Received", "Follow-up needed", "No further action"],
+  meeting: ["Meeting Held — follow-up needed", "Meeting Held — no further action", "Cancelled", "No Show"],
+  site_visit: ["Visit completed — follow-up needed", "Visit completed — no further action", "Cancelled", "No Show"]
 };
 
 export const CRMQuickLogModal: React.FC = () => {
@@ -81,7 +81,7 @@ export const CRMQuickLogModal: React.FC = () => {
     setSelectedOutcome((prev) => (prev === opt ? "" : opt));
     setOutcomeError(false);
     setValidationError("");
-    if (/follow-up needed|waiting for customer|no answer|voicemail|no show/i.test(opt)) {
+    if (/follow-up needed|no answer|voicemail|no show/i.test(opt)) {
       setScheduleFollowUp(true);
       setFollowUpDate(addDaysLocal(/no answer|voicemail|no show/i.test(opt) ? 1 : 3));
     } else if (/no further action|cancelled/i.test(opt)) {
