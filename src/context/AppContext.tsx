@@ -80,9 +80,22 @@ export interface UserProfile {
   email: string;
   phone?: string;
   pin?: string;
+  pinHash?: string;
   isAdmin?: boolean;
 }
 
+/** Check whether a profile is one of the legacy demo accounts */
+export function isDemoProfile(profile: Partial<UserProfile> | null | undefined): boolean {
+  if (!profile) return false;
+  const name = (profile.name || "").trim().toLowerCase();
+  const id = (profile.id || "").toLowerCase();
+  return (
+    id === "user-sarah-reed" ||
+    id === "user-rob-mitchell" ||
+    name === "sarah reed" ||
+    name === "rob mitchell"
+  );
+}
 
 export function crmOpportunityToOpportunity(crmOpp: CRMOpportunity): Opportunity {
   const stageMap: Record<string, any> = {
@@ -135,24 +148,6 @@ export const PRESET_TEAM_MEMBERS: UserProfile[] = [
     email: "travis@plasgain.com.au",
     phone: "0412 345 678",
     isAdmin: true
-  },
-  {
-    id: "user-sarah-reed",
-    name: "Sarah Reed",
-    role: "Internal Sales",
-    location: "Melbourne, VIC",
-    email: "sarah.reed@plasgain.com.au",
-    phone: "+61 3 9000 1122",
-    isAdmin: false
-  },
-  {
-    id: "user-rob-mitchell",
-    name: "Rob Mitchell",
-    role: "Sales Director",
-    location: "Sydney, NSW",
-    email: "rob.mitchell@plasgain.com.au",
-    phone: "+61 400 999 888",
-    isAdmin: true
   }
 ];
 
@@ -195,6 +190,7 @@ interface AppContextType {
   teamMembers: UserProfile[];
   deleteTeamMember: (idOrName: string) => void;
   addTeamMember: (member: UserProfile) => void;
+  updateTeamMemberPin: (userId: string, newPin: string) => Promise<boolean>;
 
   isSidebarCollapsed: boolean;
   toggleSidebar: () => void;
@@ -542,15 +538,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const response = await fetch(getApiUrl("/api/auth/verify-profile"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: target.id, pin: pin.trim() })
+        body: JSON.stringify({
+          userId: target.id,
+          pin: pin.trim(),
+          pinHash: target.pinHash
+        })
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok || !result.success) {
         return { success: false, error: result.error || "Unable to verify this profile." };
       }
       // Hold the session token so privileged calls carry a verified identity.
-      // The role comes back from the server too — the client no longer decides
-      // its own authority.
       setSessionToken(result.token || null);
       loginAsUser({
         ...target,
@@ -591,7 +589,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const saved = localStorage.getItem("plasgain_team_members");
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const cleaned = parsed.filter((m) => !isDemoProfile(m));
+          if (cleaned.length > 0) {
+            localStorage.setItem("plasgain_team_members", JSON.stringify(cleaned));
+            return cleaned;
+          }
+        }
       }
       return PRESET_TEAM_MEMBERS;
     } catch {
@@ -626,6 +630,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return updated;
     });
 
+    deleteDocFromCloud("users", memberToDelete.id);
+
+    try {
+      fetch(getApiUrl(`/api/auth/profile/${encodeURIComponent(memberToDelete.id)}`), {
+        method: "DELETE"
+      }).catch(() => {});
+    } catch {
+      // ignore
+    }
+
     showToast(`Removed "${memberToDelete.name}" from workspace`, "info");
   };
 
@@ -636,6 +650,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     const userId = member.id || `user-${member.name.toLowerCase().trim().replace(/[^a-z0-9]/g, "-")}`;
     const newMember: UserProfile = { ...member, id: userId };
+
     setTeamMembers((prev) => {
       const exists = prev.some((m) => m.name.toLowerCase() === newMember.name.toLowerCase());
       const updated = exists
@@ -645,6 +660,108 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       saveDocToCloud("settings", "team_members", { members: updated });
       return updated;
     });
+
+    saveDocToCloud("users", userId, newMember);
+
+    // Register with server backend for PIN verification in background
+    (async () => {
+      let calculatedPinHash = member.pinHash;
+      if (member.pin && !calculatedPinHash && typeof crypto !== "undefined" && crypto.subtle) {
+        try {
+          const encoder = new TextEncoder();
+          const data = encoder.encode(member.pin.trim());
+          const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          calculatedPinHash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+        } catch {
+          // fallback
+        }
+      }
+
+      try {
+        fetch(getApiUrl("/api/auth/register-profile"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId,
+            name: newMember.name,
+            role: newMember.role,
+            location: newMember.location,
+            email: newMember.email,
+            phone: newMember.phone,
+            isAdmin: newMember.isAdmin,
+            pin: newMember.pin,
+            pinHash: calculatedPinHash
+          })
+        }).catch(() => {});
+      } catch {
+        // ignore
+      }
+    })();
+  };
+
+  const updateTeamMemberPin = async (userId: string, newPin: string): Promise<boolean> => {
+    if (!currentUser.isAdmin) {
+      showToast("Only administrators can update team member PINs.", "error");
+      return false;
+    }
+    const target = teamMembers.find((m) => m.id === userId || m.name.toLowerCase() === userId.toLowerCase());
+    if (!target) {
+      showToast("Team member profile not found.", "error");
+      return false;
+    }
+    const trimmedPin = newPin.trim();
+    if (trimmedPin.length < 4) {
+      showToast("PIN must be at least 4 digits.", "error");
+      return false;
+    }
+
+    let calculatedPinHash = "";
+    if (typeof crypto !== "undefined" && crypto.subtle) {
+      try {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(trimmedPin);
+        const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        calculatedPinHash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+      } catch {
+        // fallback
+      }
+    }
+
+    const updatedMember: UserProfile = {
+      ...target,
+      pin: trimmedPin,
+      pinHash: calculatedPinHash || target.pinHash
+    };
+
+    setTeamMembers((prev) => {
+      const updated = prev.map((m) => (m.id === target.id ? updatedMember : m));
+      localStorage.setItem("plasgain_team_members", JSON.stringify(updated));
+      saveDocToCloud("settings", "team_members", { members: updated });
+      return updated;
+    });
+
+    saveDocToCloud("users", target.id, updatedMember);
+
+    try {
+      await fetch(getApiUrl("/api/auth/set-pin"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: target.id,
+          pin: trimmedPin,
+          name: target.name,
+          role: target.role,
+          isAdmin: target.isAdmin
+        })
+      });
+    } catch {
+      // ignore
+    }
+
+    showToast(`Updated PIN for ${target.name}.`, "success");
+    return true;
   };
 
   const [auditLogs, setAuditLogs] = useState<AuditLogRecord[]>(() => {
@@ -1354,6 +1471,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
 
+        // 1.5. Team Members Sync & Demo Profile Purge
+        try {
+          const [cloudTeamDoc, cloudUsers] = await Promise.all([
+            loadDocFromCloud<{ members: UserProfile[] }>("settings", "team_members"),
+            loadCollectionFromCloud<UserProfile>("users")
+          ]);
+
+          if (isMounted) {
+            setTeamMembers((prev) => {
+              const base = cloudTeamDoc?.members && Array.isArray(cloudTeamDoc.members) && cloudTeamDoc.members.length > 0
+                ? cloudTeamDoc.members
+                : prev;
+
+              const userMap = new Map<string, UserProfile>();
+              base.forEach((m) => {
+                if (m && m.name && !isDemoProfile(m)) {
+                  userMap.set(m.id || m.name.toLowerCase(), m);
+                }
+              });
+              cloudUsers.forEach((u) => {
+                if (u && u.name && !isDemoProfile(u)) {
+                  const key = u.id || u.name.toLowerCase();
+                  userMap.set(key, { ...userMap.get(key), ...u });
+                }
+              });
+
+              if (!userMap.has("user-travis-maher") && !userMap.has("travis maher")) {
+                userMap.set("user-travis-maher", DEFAULT_USER_PROFILE);
+              }
+
+              const merged = Array.from(userMap.values()).filter((m) => !isDemoProfile(m));
+              localStorage.setItem("plasgain_team_members", JSON.stringify(merged));
+              saveDocToCloud("settings", "team_members", { members: merged });
+              return merged;
+            });
+          }
+
+          // Purge demo records from cloud if still present
+          deleteDocFromCloud("users", "user-sarah-reed");
+          deleteDocFromCloud("users", "user-rob-mitchell");
+        } catch (teamSyncErr) {
+          console.warn("[TeamSync] Initial team sync warning:", teamSyncErr);
+        }
+
         const isMigrationPurgeNeeded = !localStorage.getItem("plasgain_sample_purge_v1");
         let totalPurged = 0;
 
@@ -1519,7 +1680,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         cloudDeals,
         cloudActivities,
         cloudTasks,
-        cloudAuditLogs
+        cloudAuditLogs,
+        cloudTeamDoc
       ] = await Promise.all([
         loadCollectionFromCloud<Account>("crm_accounts"),
         loadCollectionFromCloud<CRMContact>("crm_contacts"),
@@ -1527,8 +1689,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         loadCollectionFromCloud<CRMOpportunity>("crm_deals"),
         loadCollectionFromCloud<CRMActivity>("crm_activities"),
         loadCollectionFromCloud<CRMTask>("crm_tasks"),
-        loadCollectionFromCloud<AuditLogRecord>("audit_logs")
+        loadCollectionFromCloud<AuditLogRecord>("audit_logs"),
+        loadDocFromCloud<{ members: UserProfile[] }>("settings", "team_members")
       ]);
+
+      if (cloudTeamDoc?.members && Array.isArray(cloudTeamDoc.members)) {
+        const cleaned = cloudTeamDoc.members.filter((m) => !isDemoProfile(m));
+        if (cleaned.length > 0) {
+          setTeamMembers((prev) => {
+            const prevSign = prev.map((p) => `${p.id}:${p.name}:${p.pin || ""}:${p.pinHash || ""}`).join("|");
+            const newSign = cleaned.map((p) => `${p.id}:${p.name}:${p.pin || ""}:${p.pinHash || ""}`).join("|");
+            if (prevSign !== newSign) {
+              localStorage.setItem("plasgain_team_members", JSON.stringify(cleaned));
+              return cleaned;
+            }
+            return prev;
+          });
+        }
+      }
 
       const realAccounts = cloudAccounts.filter((a) => !isSampleRecord(a));
       if (realAccounts.length > 0) setAccounts(realAccounts);
@@ -3159,6 +3337,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         teamMembers,
         deleteTeamMember,
         addTeamMember,
+        updateTeamMemberPin,
         opportunities,
         setOpportunities,
         addOpportunity,

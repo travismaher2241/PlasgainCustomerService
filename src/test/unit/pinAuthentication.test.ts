@@ -22,29 +22,40 @@ describe('Priority 0: User Authentication & Role-Based Permissions', () => {
     return Boolean(currentUser.isAdmin);
   }
 
+  const testSalesUser: UserProfile = {
+    id: "user-sales-rep",
+    name: "Alex Taylor",
+    role: "Internal Sales",
+    location: "Drouin, VIC",
+    email: "alex@plasgain.com.au",
+    pin: "2468",
+    isAdmin: false
+  };
+  const testTeam: UserProfile[] = [...PRESET_TEAM_MEMBERS, testSalesUser];
+
   it('authenticates preset admin Travis Maher with valid PIN 1234', () => {
-    const result = authenticateProfile(PRESET_TEAM_MEMBERS, "user-travis-maher", "1234");
+    const result = authenticateProfile(testTeam, "user-travis-maher", "1234");
     expect(result.success).toBe(true);
     expect(result.user?.name).toBe("Travis Maher");
     expect(result.user?.isAdmin).toBe(true);
   });
 
-  it('authenticates preset sales rep Sarah Reed with valid PIN 2468', () => {
-    const result = authenticateProfile(PRESET_TEAM_MEMBERS, "user-sarah-reed", "2468");
+  it('authenticates sales rep with assigned PIN 2468', () => {
+    const result = authenticateProfile(testTeam, "user-sales-rep", "2468");
     expect(result.success).toBe(true);
-    expect(result.user?.name).toBe("Sarah Reed");
+    expect(result.user?.name).toBe("Alex Taylor");
     expect(result.user?.isAdmin).toBe(false);
   });
 
   it('rejects profile switch when PIN is incorrect', () => {
-    const result = authenticateProfile(PRESET_TEAM_MEMBERS, "user-travis-maher", "0000");
+    const result = authenticateProfile(testTeam, "user-travis-maher", "0000");
     expect(result.success).toBe(false);
     expect(result.error).toBe("Incorrect PIN code for this profile.");
   });
 
   it('enforces admin-only authorization for deleting or adding team members', () => {
-    const adminUser = PRESET_TEAM_MEMBERS.find((m) => m.name === "Travis Maher")!;
-    const salesUser = PRESET_TEAM_MEMBERS.find((m) => m.name === "Sarah Reed")!;
+    const adminUser = testTeam.find((m) => m.name === "Travis Maher")!;
+    const salesUser = testTeam.find((m) => m.name === "Alex Taylor")!;
 
     expect(authorizeAdminAction(adminUser)).toBe(true);
     expect(authorizeAdminAction(salesUser)).toBe(false);

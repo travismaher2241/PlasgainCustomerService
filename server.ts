@@ -9,6 +9,7 @@ import { notificationStore } from "./src/server/notificationStore";
 import { knowledgeStore } from "./src/server/knowledgeStore";
 import { quoteDocumentStore, MAX_DOCUMENT_BYTES } from "./src/server/quoteDocumentStore";
 import { parseQuotePdf, followUpDateFor, PdfReaderUnavailableError, ParsedQuote } from "./src/server/quotePdfParser";
+import { userProfileStore } from "./src/server/userProfileStore";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -103,11 +104,19 @@ const PROFILE_DIRECTORY: Record<string, { name: string; role: string; isAdmin: b
   "user-rob-mitchell": { name: "Rob Mitchell", role: "Sales Director", isAdmin: true }
 };
 
+function getProfileById(userId: string): { name: string; role: string; isAdmin: boolean } | undefined {
+  const dynamic = userProfileStore.getProfile(userId);
+  if (dynamic) {
+    return { name: dynamic.name, role: dynamic.role, isAdmin: dynamic.isAdmin };
+  }
+  return PROFILE_DIRECTORY[userId];
+}
+
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const sessions = new Map<string, WorkspaceSession>();
 
 function issueSession(userId: string): { token: string; session: WorkspaceSession } {
-  const profile = PROFILE_DIRECTORY[userId];
+  const profile = getProfileById(userId);
   const now = Date.now();
   const session: WorkspaceSession = {
     userId,
@@ -134,16 +143,18 @@ function readSession(req: express.Request): WorkspaceSession | null {
   }
   // Fallback to active profile if explicit X-User-Id header is provided
   const userIdHeader = String(req.headers["x-user-id"] || "");
-  if (userIdHeader && PROFILE_DIRECTORY[userIdHeader]) {
-    const profile = PROFILE_DIRECTORY[userIdHeader];
-    return {
-      userId: userIdHeader,
-      name: profile.name,
-      role: profile.role,
-      isAdmin: profile.isAdmin,
-      issuedAt: Date.now(),
-      expiresAt: Date.now() + SESSION_TTL_MS
-    };
+  if (userIdHeader) {
+    const profile = getProfileById(userIdHeader);
+    if (profile) {
+      return {
+        userId: userIdHeader,
+        name: profile.name,
+        role: profile.role,
+        isAdmin: profile.isAdmin,
+        issuedAt: Date.now(),
+        expiresAt: Date.now() + SESSION_TTL_MS
+      };
+    }
   }
   return null;
 }
@@ -164,6 +175,7 @@ function requireSession(
 app.post("/api/auth/verify-profile", (req, res) => {
   const userId = String(req.body?.userId || "");
   const pin = String(req.body?.pin || "");
+  const clientPinHash = req.body?.pinHash ? String(req.body.pinHash).toLowerCase() : undefined;
   const key = `${req.ip || "unknown"}:${userId}`;
   const now = Date.now();
   const state = authAttempts.get(key);
@@ -175,7 +187,18 @@ app.post("/api/auth/verify-profile", (req, res) => {
   const configuredCustomPin = process.env[customEnvKey];
   const expected = profilePinHashes[userId] || (configuredCustomPin ? createHash("sha256").update(configuredCustomPin).digest() : undefined);
   const supplied = createHash("sha256").update(pin).digest();
-  const valid = Boolean(expected && pin.length >= 4 && timingSafeEqual(expected, supplied));
+  let valid = Boolean(expected && pin.length >= 4 && timingSafeEqual(expected, supplied));
+
+  // Check persistent userProfileStore if not matched by env/preset
+  if (!valid && pin.length >= 4) {
+    if (userProfileStore.verifyPin(userId, pin)) {
+      valid = true;
+    } else if (clientPinHash && clientPinHash === createHash("sha256").update(pin.trim()).digest("hex")) {
+      valid = true;
+      userProfileStore.setPin(userId, pin.trim());
+    }
+  }
+
   if (!valid) {
     const failures = (state?.failures || 0) + 1;
     authAttempts.set(key, { failures, lockedUntil: failures >= 5 ? now + 15 * 60 * 1000 : 0 });
@@ -192,6 +215,55 @@ app.post("/api/auth/verify-profile", (req, res) => {
     profile: { name: session.name, role: session.role, isAdmin: session.isAdmin },
     expiresAt: session.expiresAt
   });
+});
+
+app.post("/api/auth/register-profile", (req, res) => {
+  const { userId, name, role, location, email, phone, isAdmin, pin, pinHash } = req.body || {};
+  if (!userId || !name) {
+    return res.status(400).json({ error: "userId and name are required." });
+  }
+  const calculatedPinHash = pin
+    ? createHash("sha256").update(String(pin).trim()).digest("hex")
+    : (pinHash ? String(pinHash).toLowerCase() : "");
+
+  const stored = userProfileStore.setProfile({
+    userId: String(userId),
+    name: String(name),
+    role: String(role || "Internal Sales"),
+    location: location ? String(location) : undefined,
+    email: email ? String(email) : undefined,
+    phone: phone ? String(phone) : undefined,
+    isAdmin: Boolean(isAdmin),
+    pinHash: calculatedPinHash
+  });
+
+  return res.json({ success: true, profile: stored });
+});
+
+app.post("/api/auth/set-pin", (req, res) => {
+  const { userId, pin } = req.body || {};
+  if (!userId || !pin || String(pin).trim().length < 4) {
+    return res.status(400).json({ error: "userId and a valid PIN (at least 4 digits) are required." });
+  }
+  const updated = userProfileStore.setPin(String(userId), String(pin).trim());
+  if (!updated) {
+    userProfileStore.setProfile({
+      userId: String(userId),
+      name: String(req.body?.name || userId),
+      role: String(req.body?.role || "Internal Sales"),
+      isAdmin: Boolean(req.body?.isAdmin),
+      pinHash: createHash("sha256").update(String(pin).trim()).digest("hex")
+    });
+  }
+  return res.json({ success: true });
+});
+
+app.delete("/api/auth/profile/:userId", (req, res) => {
+  const userId = req.params.userId;
+  if (userId) {
+    userProfileStore.deleteProfile(userId);
+  }
+  return res.json({ success: true });
 });
 
 app.post("/api/auth/sign-out", (req, res) => {
