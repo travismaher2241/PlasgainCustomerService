@@ -12,13 +12,14 @@ describe("accountStatusUtils Suite", () => {
   const baseAccount: Account = {
     id: "acc-101",
     name: "Lowe Civil Contractors",
-    status: "Active",
+    status: "Customer",
+    accountCommercialStatus: "Active",
     accountType: "Account",
     territory: "VIC/TAS",
     accountOwner: "Travis Maher",
     createdAt: "2026-06-01T00:00:00.000Z",
     billingAddress: {
-      address1: "123 Industrial Way",
+      street: "123 Industrial Way",
       city: "Melbourne",
       state: "VIC",
       postcode: "3000",

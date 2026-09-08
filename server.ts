@@ -462,6 +462,19 @@ app.put("/api/opportunities/:id", (req, res) => {
   const rawIfUnmodified = req.headers["if-unmodified-since"];
   const expectedUpdatedAt = parsed.data.updatedAt || (rawIfUnmodified ? String(rawIfUnmodified) : undefined);
 
+  // A concurrency token is mandatory, not advisory. opportunityStore.update()
+  // skips the version check entirely when neither token is supplied, so an
+  // update sent without one silently reverts to last-write-wins — the exact
+  // failure this endpoint exists to prevent. Reject it rather than accept a
+  // write we cannot prove is based on current data.
+  if (expectedVersion === undefined && !expectedUpdatedAt) {
+    return res.status(428).json({
+      error:
+        "Precondition required: send the version you read (body `version`, or an If-Match header) so a concurrent edit cannot be silently overwritten.",
+      hint: "GET the opportunity, then resubmit with the version it returns."
+    });
+  }
+
   try {
     const { updated, previous } = opportunityStore.update(
       req.params.id,

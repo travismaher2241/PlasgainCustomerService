@@ -167,6 +167,10 @@ export class OpportunityStore {
       id,
       version: 1,
       isArchived: false,
+      // accountName is optional on the create payload but required on the
+      // record, so it is resolved here rather than leaving the stored shape
+      // disagreeing with its own type.
+      accountName: data.accountName || "",
       opportunityOwner: data.opportunityOwner || creator.name,
       assignedTo: data.assignedTo || creator.name,
       createdAt: now,

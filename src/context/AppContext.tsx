@@ -1243,11 +1243,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const addNotification = (notif: Omit<CRMNotification, "id" | "isRead" | "createdAt">) => {
+  const addNotification = (
+    notif: Omit<CRMNotification, "id" | "isRead" | "createdAt" | "isArchived">
+  ) => {
     const newN = normalizeNotification({
       ...notif,
       id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       isRead: false,
+      isArchived: false,
       createdAt: new Date().toISOString()
     });
     setLocalNotifications((prev) => [newN, ...prev]);
@@ -2896,9 +2899,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 description: `Automated reminder: Quote was submitted 2 days ago to ${opp.accountName || "client"} and requires follow-up.`,
                 dueDate: todayStr,
                 dueTime: "09:00",
-                type: "Task",
+                // "Task"/"Pending" are not members of TaskType/TaskStatus. They
+                // survived because every filter tests `status === "Completed"`,
+                // so an unknown value happened to read as incomplete — but the
+                // automation was writing values outside the union into stored
+                // records on every run.
+                type: "Follow-up",
                 priority: "High",
-                status: "Pending",
+                status: "To Do",
+                createdBy: "System Automation",
                 assignedTo: opp.assignedTo || currentUser.name,
                 accountId: opp.accountId,
                 opportunityId: opp.id,

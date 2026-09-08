@@ -35,7 +35,25 @@ export const createOpportunitySchema = z.object({
   quoteNumber: z.string().optional().nullable(),
   ostendoQuoteRef: z.string().optional().nullable(),
   quoteRevision: z.string().optional().nullable(),
-  quoteStatus: z.string().optional().nullable(),
+  // Constrained to CRMOpportunity["quoteStatus"]. As a bare string this both
+  // accepted any value the caller invented and left the stored record
+  // disagreeing with the type it claims to be.
+  quoteStatus: z
+    .enum([
+      "Draft",
+      "Sent",
+      "Viewed",
+      "Revising",
+      "Accepted",
+      "Declined",
+      "Expired",
+      "None",
+      "Issued",
+      "Client Review",
+      "PO Received"
+    ])
+    .optional()
+    .nullable(),
   quoteValue: z.number().optional().nullable(),
   quoteSentDate: z.string().optional().nullable(),
   quoteIssuedDate: z.string().optional().nullable(),
@@ -49,7 +67,21 @@ export const createOpportunitySchema = z.object({
   products: z.array(z.any()).optional(),
   wonReason: z.string().optional().nullable(),
   lossReasonId: z.string().optional().nullable(),
-  lostReason: z.string().optional().nullable(),
+  // Constrained to CRMOpportunity["lostReason"] for the same reason as
+  // quoteStatus: loss reasons drive win/loss analysis, so a free-string here
+  // would fragment the very field winLossPatterns groups on.
+  lostReason: z
+    .enum([
+      "Price",
+      "Competitor",
+      "Technical Fit",
+      "Project Cancelled",
+      "Timeline / Lead Time",
+      "No Response",
+      "Other"
+    ])
+    .optional()
+    .nullable(),
   lostReasonNotes: z.string().optional().nullable()
 });
 
