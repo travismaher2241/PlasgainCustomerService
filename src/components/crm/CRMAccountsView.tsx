@@ -80,6 +80,31 @@ import { detectDuplicateAccount, DuplicateMatchResult } from "../../utils/duplic
 import { CRMDuplicateWarningModal } from "./CRMDuplicateWarningModal";
 import { CRMAccountImportModal } from "./CRMAccountImportModal";
 
+type AccountSortField = "name" | "type" | "status";
+type SortDirection = "asc" | "desc";
+
+// The directory is one flat list of accounts and prospects, so sorting by status
+// needs a single scale: accounts rank by commercial status, prospects keep their
+// own block afterwards and rank by stage progression.
+const COMMERCIAL_STATUS_SORT_ORDER: AccountCommercialStatus[] = [
+  "Active",
+  "Declining",
+  "Dormant",
+  "Inactive"
+];
+
+const PROSPECT_STAGE_SORT_ORDER: ProspectStage[] = [
+  "Identified",
+  "Researching",
+  "Contacting",
+  "Engaged",
+  "Opportunity Identified",
+  "Nurture",
+  "Not Pursuing"
+];
+
+const PROSPECT_STATUS_RANK_OFFSET = 100;
+
 export const CRMAccountsView: React.FC = () => {
   const {
     accounts,
@@ -126,6 +151,8 @@ export const CRMAccountsView: React.FC = () => {
   const [accountTypeFilter, setAccountTypeFilter] = useState<"all" | AccountType>("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [ownerFilter, setOwnerFilter] = useState("all");
+  const [sortField, setSortField] = useState<AccountSortField>("name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [activeAccountTab, setActiveAccountTab] = useState<
     "overview" | "contacts" | "deals" | "activity" | "brief" | "competitors"
   >("overview");
@@ -399,9 +426,50 @@ export const CRMAccountsView: React.FC = () => {
     return matchesSearch && matchesTypeAndStatus && matchesOwner;
   });
 
+  // Rank for the status sort: accounts by commercial status, prospects by stage
+  // in a block of their own (the two badges are not the same scale).
+  const getAccountStatusSortRank = (acc: Account): number => {
+    if ((acc.accountType || "Account") === "Prospect") {
+      const stageIndex = PROSPECT_STAGE_SORT_ORDER.indexOf(acc.prospectStage || "Identified");
+      return (
+        PROSPECT_STATUS_RANK_OFFSET +
+        (stageIndex === -1 ? PROSPECT_STAGE_SORT_ORDER.length : stageIndex)
+      );
+    }
+    const statusIndex = COMMERCIAL_STATUS_SORT_ORDER.indexOf(
+      computeAccountCommercialStatus(acc, crmOpportunities, activities)
+    );
+    return statusIndex === -1 ? COMMERCIAL_STATUS_SORT_ORDER.length : statusIndex;
+  };
+
+  // Sort the filtered directory. Keys are resolved once per account rather than
+  // once per comparison, because the status key walks opportunities and activities.
+  const directionMultiplier = sortDirection === "asc" ? 1 : -1;
+  const sortedAccounts = filteredAccounts
+    .map((acc) => ({
+      acc,
+      nameKey: acc.name.toLowerCase(),
+      typeKey: (acc.accountType || "Account").toLowerCase(),
+      statusKey: getAccountStatusSortRank(acc)
+    }))
+    .sort((a, b) => {
+      let comparison = 0;
+      if (sortField === "type") {
+        comparison = a.typeKey.localeCompare(b.typeKey);
+      } else if (sortField === "status") {
+        comparison = a.statusKey - b.statusKey;
+      }
+      // Name is both the primary sort and the tie-breaker for the other two.
+      if (comparison === 0) {
+        comparison = a.nameKey.localeCompare(b.nameKey);
+      }
+      return comparison * directionMultiplier;
+    })
+    .map((entry) => entry.acc);
+
   const selectedAccount =
     accounts.find((a) => a.id === selectedAccountId && !a.isArchived && a.status !== "Archived") ||
-    filteredAccounts[0] ||
+    sortedAccounts[0] ||
     null;
 
   const accountContacts = contacts.filter(
@@ -1295,18 +1363,53 @@ export const CRMAccountsView: React.FC = () => {
                 <option value="Overdue">⚠️ Contact Overdue</option>
               </select>
             )}
+
+            <div className="flex items-center gap-2">
+              <select
+                aria-label="Sort accounts by"
+                value={sortField}
+                onChange={(e) => setSortField(e.target.value as AccountSortField)}
+                className="flex-1 min-w-0 p-1.5 text-xs border border-line rounded-edge bg-white text-ink font-semibold"
+              >
+                <option value="name">Sort: Name</option>
+                <option value="type">Sort: Type</option>
+                <option value="status">Sort: Status</option>
+              </select>
+
+              <button
+                type="button"
+                aria-label={
+                  sortDirection === "asc"
+                    ? "Sorted ascending, switch to descending"
+                    : "Sorted descending, switch to ascending"
+                }
+                title={sortDirection === "asc" ? "Ascending (A-Z)" : "Descending (Z-A)"}
+                onClick={() => setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))}
+                className="shrink-0 inline-flex items-center gap-1 px-2 py-1.5 text-xs font-semibold border border-line rounded-edge bg-white text-ink hover:border-brand-deep hover:text-brand-deep transition-colors cursor-pointer"
+              >
+                {sortDirection === "asc" ? (
+                  <ChevronUp className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5" />
+                )}
+                <span>{sortDirection === "asc" ? "Asc" : "Desc"}</span>
+              </button>
+            </div>
           </div>
 
           {/* SCROLLABLE COMPACT ACCOUNT ROWS */}
-          <div className="flex-1 overflow-y-auto divide-y divide-line">
-            {filteredAccounts.length === 0 ? (
+          <div
+            aria-label="Accounts directory"
+            className="flex-1 overflow-y-auto divide-y divide-line"
+          >
+            {sortedAccounts.length === 0 ? (
               <div className="p-8 text-center text-ink-dim space-y-1 text-spec">
                 <Building2 className="w-8 h-8 mx-auto text-ink-faint mb-2" />
                 <p className="font-semibold text-body">No matching accounts found</p>
                 <p className="text-xs">Adjust search query or filter options.</p>
               </div>
             ) : (
-              filteredAccounts.map((acc) => {
+              sortedAccounts.map((acc) => {
                 const isSelected = selectedAccount?.id === acc.id;
 
                 return (
