@@ -4,7 +4,9 @@ import {
   Plus,
   Search,
   X,
-  FileText
+  FileText,
+  Trash2,
+  AlertTriangle
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { CRMTask, TaskPriority, TaskType } from "../../types/crm";
@@ -17,6 +19,7 @@ export const CRMTasksActivitiesView: React.FC = () => {
     toggleTaskComplete,
     addTask,
     updateTask,
+    deleteTask,
     accounts,
     crmOpportunities,
     setSelectedAccountId,
@@ -34,7 +37,9 @@ export const CRMTasksActivitiesView: React.FC = () => {
   const [isBulkSelectMode, setIsBulkSelectMode] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<CRMTask | null>(null);
   useDialogDismiss(isNewTaskModalOpen, () => setIsNewTaskModalOpen(false));
+  useDialogDismiss(Boolean(taskToDelete), () => setTaskToDelete(null));
 
   const todayStr = getLocalDateInputValue();
 
@@ -359,6 +364,15 @@ export const CRMTasksActivitiesView: React.FC = () => {
                           isOverdue ? "text-red-700 font-bold border-red-300 bg-red-50/50" : "text-ink-dim"
                         }`}
                       />
+                      <button
+                        type="button"
+                        onClick={() => setTaskToDelete(task)}
+                        className="min-h-[32px] min-w-[32px] rounded-edge border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 flex items-center justify-center cursor-pointer transition-colors"
+                        aria-label={`Delete task ${task.title}`}
+                        title="Delete task"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 );
@@ -366,6 +380,54 @@ export const CRMTasksActivitiesView: React.FC = () => {
             </div>
           )}
         </div>
+
+      {taskToDelete && (
+        <div className="fixed inset-0 z-50 bg-chrome/70 backdrop-blur-xs p-4 flex items-center justify-center animate-in fade-in duration-150">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-task-title"
+            className="bg-surface rounded-panel max-w-md w-full p-5 border border-line shadow-2xl space-y-4"
+          >
+            <div className="flex items-start gap-3">
+              <div className="rounded-full bg-red-100 p-2 text-red-700 shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 id="delete-task-title" className="font-bold text-body text-base">Delete task?</h3>
+                <p className="text-sm text-ink-dim mt-1">
+                  This will permanently delete “{taskToDelete.title}”.
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setTaskToDelete(null)}
+                className="px-4 py-2 rounded-edge border border-line bg-white text-body font-bold text-spec hover:bg-paper cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const taskId = taskToDelete.id;
+                  try {
+                    await deleteTask(taskId);
+                    setSelectedTaskIds((ids) => ids.filter((id) => id !== taskId));
+                    setTaskToDelete(null);
+                  } catch {
+                    showToast("Could not delete task. Please try again.", "error");
+                  }
+                }}
+                className="px-4 py-2 rounded-edge bg-red-700 hover:bg-red-800 text-white font-bold text-spec cursor-pointer"
+              >
+                Delete task
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
 
       {/* NEW TASK MODAL */}
       {isNewTaskModalOpen && (

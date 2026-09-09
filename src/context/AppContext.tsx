@@ -348,6 +348,7 @@ interface AppContextType {
   tasks: CRMTask[];
   addTask: (task: Omit<CRMTask, "id">) => void;
   updateTask: (id: string, updates: Partial<CRMTask>) => void;
+  deleteTask: (id: string) => Promise<void>;
   toggleTaskComplete: (id: string) => void;
   scheduleCustomerMeeting: (meetingData: Partial<CRMTask>) => CRMTask;
 
@@ -2968,6 +2969,22 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast("Task updated", "success");
   };
 
+  const deleteTask = async (id: string) => {
+    const existing = tasks.find((task) => task.id === id);
+    if (!existing) return;
+
+    await deleteDocFromCloud("crm_tasks", id);
+    setTasks((prev) => prev.filter((task) => task.id !== id));
+    await recordAuditLog(
+      "DELETE",
+      "Task",
+      id,
+      existing.title,
+      `Deleted task "${existing.title}"`
+    );
+    showToast(`Task "${existing.title}" deleted`, "info");
+  };
+
   const toggleTaskComplete = (id: string) => {
     const existing = tasks.find((t) => t.id === id);
     let taskTitle = existing?.title || "Task";
@@ -3784,6 +3801,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
         tasks,
         addTask,
         updateTask,
+        deleteTask,
         toggleTaskComplete,
         scheduleCustomerMeeting,
         pipelines,

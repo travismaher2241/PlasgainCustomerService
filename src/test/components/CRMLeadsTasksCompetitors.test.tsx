@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CRMLeadsView } from '../../components/crm/CRMLeadsView';
 import { CRMTasksActivitiesView } from '../../components/crm/CRMTasksActivitiesView';
@@ -186,6 +186,24 @@ describe("CRM Leads, Tasks, Activity & Competitor Pricing Suite (Step 6)", () =>
     expect(screen.getByRole('heading', { level: 1, name: "Tasks" })).toBeInTheDocument();
     expect(screen.getAllByText(/open/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole('button', { name: /Add task/i })).toBeInTheDocument();
+  });
+
+  it("deletes a task after explicit confirmation", async () => {
+    const taskTitle = "Review footing design for cyclone Region C";
+    render(
+      <AppProvider>
+        <TasksTestWrapper />
+      </AppProvider>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: `Delete task ${taskTitle}` }));
+    expect(screen.getByRole('dialog', { name: "Delete task?" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Delete task$/ }));
+
+    await waitFor(() => {
+      expect(screen.queryByText(taskTitle)).not.toBeInTheDocument();
+    });
   });
 
   it("Test 4 — Competitor pricing defaults to Current records and preserves commercial evidence", () => {
