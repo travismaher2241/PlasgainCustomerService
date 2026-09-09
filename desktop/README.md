@@ -10,19 +10,39 @@ being copied onto every laptop.
 
 ## Getting the installer
 
-The Windows installer can only be produced on Windows, so it is built in CI:
+The Windows build can only be produced on Windows, so it is built in CI:
 
 1. GitHub → **Actions** → **Desktop installers** → **Run workflow**
 2. Choose `windows` (or `both` for a macOS `.dmg` too)
 3. When it finishes, download **plasgain-desktop-windows** from the run's
-   artifacts and run the `.exe` inside
+   artifacts
 
 Pushing a tag that starts with `desktop-v` builds both automatically.
 
-> The installer is unsigned, so Windows SmartScreen will warn on first run
-> ("More info" → "Run anyway"). Signing it needs a code-signing certificate;
-> add it as the `CSC_LINK` and `CSC_KEY_PASSWORD` secrets and electron-builder
-> will use it.
+### Two Windows builds, neither needing an administrator
+
+Work laptops usually refuse software that wants to write to `Program Files`,
+so the build avoids needing an administrator at all:
+
+| File | What it does |
+| --- | --- |
+| `... Setup <version>.exe` | Installs into the user's own profile (`%LOCALAPPDATA%\Programs`), with Start-menu and desktop shortcuts |
+| `Plasgain Sales Workspace <version>.exe` | Portable. Runs straight from wherever it sits — nothing installed, no shortcuts |
+
+`perMachine: false` keeps the install in the user profile. `allowElevation`
+and `allowToChangeInstallationDirectory` are both off so it cannot end up asking
+for credentials the person running it does not have: with a directory page, the
+obvious choice is `Program Files`, and that needs elevation.
+
+Use the portable build if the installer is blocked outright — it never writes
+outside the folder it runs from.
+
+> Both are unsigned, so Windows SmartScreen warns on first run ("More info" →
+> "Run anyway"). Signing needs a code-signing certificate; add it as the
+> `CSC_LINK` and `CSC_KEY_PASSWORD` secrets and electron-builder will use it.
+> If the laptop enforces an application allowlist (AppLocker or similar),
+> neither build will run until IT permits it — that is a policy, not a
+> packaging problem.
 
 ## Running it without building an installer
 
