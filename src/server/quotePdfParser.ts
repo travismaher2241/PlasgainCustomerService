@@ -18,10 +18,8 @@
 import path from "path";
 import { pathToFileURL } from "url";
 import { createRequire } from "module";
+import type { PositionedText, QuoteLineItem, ParsedQuote } from "../utils/quoteParser";
 import {
-  PositionedText,
-  QuoteLineItem,
-  ParsedQuote,
   parseAustralianDate,
   splitAustralianAddress,
   parseMoney,
@@ -30,10 +28,14 @@ import {
   followUpDateFor
 } from "../utils/quoteParser";
 
+// The three interfaces must be re-exported as types, not values. Passed through
+// with the functions, the running server looked for an export named
+// ParsedQuote, found a type that erases at compile time, and refused to load
+// the module at all — `npm run dev` died on startup with "does not provide an
+// export named 'ParsedQuote'".
+export type { PositionedText, QuoteLineItem, ParsedQuote };
+
 export {
-  PositionedText,
-  QuoteLineItem,
-  ParsedQuote,
   parseAustralianDate,
   splitAustralianAddress,
   parseMoney,

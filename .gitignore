@@ -1,5 +1,10 @@
 node_modules/
 build/
+# The desktop shell's build resources are source, not output: the icon and the
+# script that draws it. The blanket build/ rule above would swallow them.
+!desktop/build/
+# Installers produced by electron-builder.
+desktop/release/
 dist/
 coverage/
 .DS_Store
