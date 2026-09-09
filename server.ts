@@ -2608,25 +2608,30 @@ Rules:
 - Only extract what is present on the document.`;
 
   try {
-    const response = await generateContentWithFailover({
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              inlineData: {
-                mimeType: "application/pdf",
-                data: buffer.toString("base64")
-              }
-            },
-            { text: prompt }
-          ]
+    const response = await Promise.race([
+      generateContentWithFailover({
+        contents: [
+          {
+            role: "user",
+            parts: [
+              {
+                inlineData: {
+                  mimeType: "application/pdf",
+                  data: buffer.toString("base64")
+                }
+              },
+              { text: prompt }
+            ]
+          }
+        ],
+        config: {
+          responseMimeType: "application/json"
         }
-      ],
-      config: {
-        responseMimeType: "application/json"
-      }
-    });
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("AI quote extraction timed out after 20s")), 20000)
+      )
+    ]);
 
     let text = (response?.text || "").trim();
     if (text.startsWith("```")) {

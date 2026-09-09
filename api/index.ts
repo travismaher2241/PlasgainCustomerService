@@ -7,5 +7,13 @@ export default function handler(req: any, res: any) {
   if (req.url && !req.url.startsWith("/api")) {
     req.url = `/api${req.url.startsWith("/") ? "" : "/"}${req.url}`;
   }
-  return app(req, res);
+  return new Promise((resolve, reject) => {
+    res.on("finish", resolve);
+    res.on("close", resolve);
+    try {
+      app(req, res);
+    } catch (err) {
+      reject(err);
+    }
+  });
 }

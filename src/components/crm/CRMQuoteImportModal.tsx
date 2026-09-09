@@ -6,6 +6,7 @@ import { useDialogDismiss } from "../../utils/useDialogDismiss";
 import { addDaysLocal, formatAuDate, getLocalDateInputValue } from "../../utils/dateUtils";
 import { resolveQuotingStage } from "../../data/crmMockData";
 import { Account, CRMOpportunity } from "../../types/crm";
+import { parseQuotePdfInBrowser } from "../../utils/clientPdfReader";
 
 /**
  * Quote PDF import
@@ -142,21 +143,48 @@ export const CRMQuoteImportModal: React.FC = () => {
     setError(null);
     setIsReading(true);
     try {
-      const fileBase64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          const res = reader.result as string;
-          const base64 = res.includes(",") ? res.split(",")[1] : res;
-          resolve(base64);
-        };
-        reader.onerror = () => reject(new Error("Could not read the selected file."));
-        reader.readAsDataURL(file);
-      });
+      let response: ImportResponse | null = null;
+      try {
+        const fileBase64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const res = reader.result as string;
+            const base64 = res.includes(",") ? res.split(",")[1] : res;
+            resolve(base64);
+          };
+          reader.onerror = () => reject(new Error("Could not read the selected file."));
+          reader.readAsDataURL(file);
+        });
 
-      const response = await apiPost<ImportResponse>("/api/quotes/import-pdf", {
-        fileName: file.name,
-        fileBase64
-      });
+        response = await apiPost<ImportResponse>("/api/quotes/import-pdf", {
+          fileName: file.name,
+          fileBase64
+        });
+      } catch (serverErr: any) {
+        console.warn("Server-side quote parse encountered an issue, attempting client-side extraction:", serverErr);
+        try {
+          const clientParsed = await parseQuotePdfInBrowser(file);
+          if (clientParsed && (clientParsed.quoteNumber || clientParsed.customerName || clientParsed.lineItems.length > 0)) {
+            response = {
+              document: {
+                id: `client-${Date.now()}`,
+                fileName: file.name,
+                sizeBytes: file.size
+              },
+              parsed: clientParsed,
+              suggestedFollowUpDate: clientParsed.quoteDate ? followUpDateFromSentDate(clientParsed.quoteDate) : undefined
+            };
+          } else {
+            throw serverErr;
+          }
+        } catch (clientErr) {
+          throw serverErr;
+        }
+      }
+
+      if (!response) {
+        throw new Error("That quote could not be read. Try again, or enter it by hand.");
+      }
 
       setResult(response);
       setAccountChoice(findMatchingAccount(accounts, response.parsed.customerName)?.id || "");
@@ -278,10 +306,12 @@ export const CRMQuoteImportModal: React.FC = () => {
     }
 
     // Link the stored file to the deal so it can be opened from the quote tab.
-    try {
-      await apiPost(`/api/quotes/${result.document.id}/attach`, { opportunityId, accountId });
-    } catch {
-      showToast("The quote was saved, but the PDF could not be linked to it.", "error");
+    if (!result.document.id.startsWith("client-")) {
+      try {
+        await apiPost(`/api/quotes/${result.document.id}/attach`, { opportunityId, accountId });
+      } catch {
+        showToast("The quote was saved, but the PDF could not be linked to it.", "error");
+      }
     }
 
     logActivity({

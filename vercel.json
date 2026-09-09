@@ -2,7 +2,13 @@
   "version": 2,
   "functions": {
     "api/index.ts": {
-      "includeFiles": "node_modules/pdfjs-dist/**"
+      "includeFiles": "node_modules/pdfjs-dist/**",
+      "maxDuration": 60,
+      "memory": 1024
+    },
+    "api/**": {
+      "maxDuration": 60,
+      "memory": 1024
     }
   },
   "rewrites": [
