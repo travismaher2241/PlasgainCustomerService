@@ -226,7 +226,7 @@ export const CRMAccountsView: React.FC = () => {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [cacheTimestamp, setCacheTimestamp] = useState<number | null>(null);
-  const [showTechnicalIntel, setShowTechnicalIntel] = useState(false);
+  const [showCompetitorIntel, setShowCompetitorIntel] = useState(false);
 
   // Duplicate Account Detection State
   const [duplicateMatch, setDuplicateMatch] = useState<DuplicateMatchResult<Account> | null>(null);
@@ -1834,7 +1834,7 @@ export const CRMAccountsView: React.FC = () => {
                               autoFocus
                               value={nextActionInput}
                               onChange={(e) => setNextActionInput(e.target.value)}
-                              placeholder="e.g. Schedule technical review or issue revised photometric report"
+                              placeholder="e.g. Call to confirm tender timing, or send revised pricing"
                               className="w-full p-2 border border-line rounded-edge bg-white text-body text-sm focus:outline-none focus:border-brand"
                             />
                           </div>
@@ -2580,7 +2580,7 @@ export const CRMAccountsView: React.FC = () => {
                           </h4>
                           <p className="text-body text-spec leading-relaxed">
                             {aiSummary.accountSummary ||
-                              `${selectedAccount.name} is an active ${selectedAccount.accountType || "Account"} with ${accountDeals.length} active opportunities and regular technical engagement across AS/NZS 1158 solar lighting standards.`}
+                              `${selectedAccount.name} is an active ${selectedAccount.accountType || "Account"} with ${accountDeals.length} active opportunities and regular contact from the sales team.`}
                           </p>
                         </div>
 
@@ -2609,9 +2609,9 @@ export const CRMAccountsView: React.FC = () => {
                           <h4 className="text-spec font-bold text-body">Next 3 Strategic Actions</h4>
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                             {(aiSummary.recommendedNextActions || [
-                              { action: "Schedule Dialux photometric verification with engineering team", reason: "" },
-                              { action: "Follow up quotation schedule with primary procurement contact", reason: "" },
-                              { action: "Confirm foundation and rag-bolt requirements for composite poles", reason: "" }
+                              { action: "Follow up the quotation with the primary procurement contact", reason: "" },
+                              { action: "Confirm the project timeline and decision date", reason: "" },
+                              { action: "Check who else is involved in the approval", reason: "" }
                             ])
                               .slice(0, 3)
                               .map((actionItem, idx) => (
@@ -2634,19 +2634,19 @@ export const CRMAccountsView: React.FC = () => {
                         <div className="pt-2">
                           <button
                             type="button"
-                            onClick={() => setShowTechnicalIntel(!showTechnicalIntel)}
+                            onClick={() => setShowCompetitorIntel(!showCompetitorIntel)}
                             className="text-spec font-bold text-brand-deep hover:underline flex items-center gap-1 cursor-pointer"
                           >
-                            <span>{showTechnicalIntel ? "- Hide technical & competitor details" : "+ View technical & competitor intelligence"}</span>
-                            {showTechnicalIntel ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                            <span>{showCompetitorIntel ? "- Hide competitor details" : "+ View competitor intelligence"}</span>
+                            {showCompetitorIntel ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                           </button>
 
-                          {showTechnicalIntel && (
+                          {showCompetitorIntel && (
                             <div className="mt-3 p-4 bg-raised rounded-panel border border-line text-spec space-y-3 animate-in fade-in duration-150">
                               <div>
                                 <span className="text-xs font-bold text-ink-dim uppercase">Contact Role Analysis</span>
                                 <p className="text-xs text-body mt-0.5">
-                                  {aiSummary.knownRequirements?.join("; ") || "Primary stakeholders actively engaged in technical compliance sign-off."}
+                                  {aiSummary.knownRequirements?.join("; ") || "No confirmed requirements captured yet."}
                                 </p>
                               </div>
 
@@ -3405,7 +3405,7 @@ export const CRMAccountsView: React.FC = () => {
                     type="text"
                     value={editAccountForm.nextAction}
                     onChange={(e) => setEditAccountForm({ ...editAccountForm, nextAction: e.target.value })}
-                    placeholder="e.g. Issue revised photometric design"
+                    placeholder="e.g. Send revised pricing"
                     className="w-full p-2 border border-line rounded-edge bg-white text-spec text-xs"
                   />
                 </div>

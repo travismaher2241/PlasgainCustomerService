@@ -175,7 +175,7 @@ export function generateCustomerFollowUpEmail(options: {
       ? options.productsList.slice(0, 3).join(", ")
       : "Plasgain Solar Lighting & Civil Systems";
 
-  const signoffLines = [sender, "Plasgain Customer Service & Engineering", contactLine].filter(Boolean).join("\n");
+  const signoffLines = [sender, "Plasgain Customer Service", contactLine].filter(Boolean).join("\n");
 
   let subject = "";
   let body = "";
@@ -188,9 +188,9 @@ I hope your week is going well.
 
 I wanted to quickly check in regarding the quotation we sent through for ${project}${options.quoteRef ? ` (Ref: ${quoteRef})` : ""}, featuring ${productsStr}.
 
-Did you have a chance to review the specifications and product schedule? We want to ensure all luminaire outputs, pole heights, and battery autonomy meet your council and engineering requirements.
+Did you have a chance to review the quote and product schedule? We want to make sure the pricing, quantities and delivery timing all line up with what your project needs.
 
-If you have any technical questions or would like us to review any alternative configurations, please don't hesitate to reach out.
+If anything needs adjusting, or you would like us to look at alternative options, please don't hesitate to reach out.
 
 ${options.customNote ? `${options.customNote}
 
@@ -198,12 +198,12 @@ ${options.customNote ? `${options.customNote}
 
 ${signoffLines}`;
   } else if (options.cadence === "day14") {
-    subject = `Technical Review & Engineering Support - ${project} ${options.quoteRef ? `[${quoteRef}]` : ""}`;
+    subject = `Checking in on your quote - ${project} ${options.quoteRef ? `[${quoteRef}]` : ""}`;
     body = `Hi ${contact},
 
 Following up on our quote for ${project}${options.quoteRef ? ` (Ref: ${quoteRef})` : ""}.
 
-As you finalize plans for ${company}, we would be glad to offer complementary Dialux photometric engineering support or provide an AS/NZS 1158 Category P compliance statement for your submission.
+As you finalise plans for ${company}, we are happy to help however is most useful — revising quantities, confirming delivery staging, or putting you in touch with the right person at Plasgain for any product detail you need.
 
 Current production lead times for ${productsStr} are running at ${leadTimeStr}. If your project schedule has shifted or you need adjusted delivery staging, we can hold allocation accordingly.
 
@@ -221,12 +221,9 @@ ${signoffLines}`;
 
 With tender submission deadlines approaching for ${project}, I wanted to make sure you have all the required documentation from Plasgain.
 
-We have prepared the complete technical tender package for ${productsStr}${options.quoteRef ? ` under Quote Ref ${quoteRef}` : ""}, including:
-• Product engineering datasheets and photometric summaries
-• AS/NZS 1158 Category P/V compliance declaration
-• 5-Year Plasgain System Warranty & local support statement
+Our quotation for ${productsStr}${options.quoteRef ? ` under Quote Ref ${quoteRef}` : ""} covers pricing, quantities, lead times and local support.
 
-Please let me know if you need any last-minute amendments or additional spec sheets prior to submission.
+If you need any last-minute amendments, or there is supporting documentation your submission requires, let me know and I will get it organised for you.
 
 ${options.customNote ? `${options.customNote}
 

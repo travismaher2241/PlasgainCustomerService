@@ -386,7 +386,7 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
                 }`}
               >
                 <p className="font-bold text-meta">In two weeks</p>
-                <p className="text-spec text-ink-dim line-clamp-1">Offer technical help with the spec</p>
+                <p className="text-spec text-ink-dim line-clamp-1">Ask what they need to move forward</p>
               </button>
 
               <button

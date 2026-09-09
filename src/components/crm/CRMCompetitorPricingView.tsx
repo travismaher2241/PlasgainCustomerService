@@ -381,7 +381,7 @@ export const CRMCompetitorPricingView: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div className="space-y-1.5">
                       <div className="text-3xs font-bold uppercase tracking-wider text-ink-dim">
-                        Plasgain Engineering & Commercial Advantages
+                        Plasgain Commercial Advantages
                       </div>
                       <ul className="space-y-1 text-xs text-ink">
                         {activeBattlecard.positioningBattlecard.plasgainDifferentiators.map((diff, idx) => (

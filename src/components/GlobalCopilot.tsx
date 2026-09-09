@@ -24,22 +24,9 @@ import { apiStreamPost, apiGet } from "../utils/apiClient";
 import { CRMActionPayload, CopilotActionProposal, NextBestActionItem, CRMOpportunity, Account } from "../types/crm";
 import { executeCRMAction, ActionDispatchContext } from "../utils/copilotActionDispatcher";
 
-export interface CopilotCitation {
-  sourceId: string;
-  sourceType: "document" | "standard" | "product" | "project" | "crm";
-  title: string;
-  version?: string;
-  page?: number;
-  clause?: string;
-  documentId?: string;
-  excerpt?: string;
-  fileUrl?: string;
-}
-
 export interface CopilotMessage {
   role: "user" | "assistant";
   content: string;
-  citations?: CopilotCitation[];
   actions?: CopilotActionProposal[];
   isError?: boolean;
   failedPrompt?: string;
@@ -289,27 +276,6 @@ export const GlobalCopilot: React.FC = () => {
   const [copilotState, setCopilotState] = useState<"ready" | "working" | "offline" | "failed">("ready");
   const [lastFailedPrompt, setLastFailedPrompt] = useState<string | null>(null);
 
-  // Whether the assistant has any Plasgain reference documents to cite. A rep
-  // asking about a lumen output or an AS/NZS clause needs to know up front
-  // whether the answer can be sourced, rather than inferring it from the
-  // absence of citations after the fact.
-  const [knowledgeDocCount, setKnowledgeDocCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!isCopilotOpen || knowledgeDocCount !== null) return;
-    let cancelled = false;
-    apiGet<{ documentCount: number }>("/api/knowledge")
-      .then((data) => {
-        if (!cancelled) setKnowledgeDocCount(data?.documentCount ?? 0);
-      })
-      .catch(() => {
-        if (!cancelled) setKnowledgeDocCount(0);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [isCopilotOpen, knowledgeDocCount]);
-
   // Derive Context
   const currentAccount = accounts.find((a) => a.id === selectedAccountId);
   const currentDeal = crmOpportunities.find((d) => d.id === selectedCrmOpportunityId);
@@ -362,14 +328,6 @@ export const GlobalCopilot: React.FC = () => {
     });
   }, [nextBestActions, currentDeal, currentAccount]);
 
-  const handleOpenCitation = (cit: CopilotCitation) => {
-    if (cit.sourceType === "standard") {
-      showToast(`Standards Citation: ${cit.title} ${cit.clause || ""}`, "info");
-    } else {
-      showToast(`Referenced source: ${cit.title}`, "info");
-    }
-  };
-
   const handleSend = async (userPromptText?: string) => {
     const promptToSend = (userPromptText || input).trim();
     if (!promptToSend || isLoading) return;
@@ -384,7 +342,6 @@ export const GlobalCopilot: React.FC = () => {
 
     try {
       let streamedAnswer = "";
-      let incomingCitations: CopilotCitation[] = [];
 
       await apiStreamPost(
         "/api/copilot/chat",
@@ -405,21 +362,17 @@ export const GlobalCopilot: React.FC = () => {
             streamedAnswer += delta;
             setMessages([
               ...newMessages,
-              { role: "assistant", content: streamedAnswer, citations: incomingCitations }
+              { role: "assistant", content: streamedAnswer }
             ]);
           },
           onComplete: (data: any) => {
             const finalContent = streamedAnswer || data?.content || data?.reply || "";
-            if (data?.citations) {
-              incomingCitations = data.citations;
-            }
             const actions = deriveActionsFromContext(finalContent, currentDeal, currentAccount, nextBestActions);
             setMessages([
               ...newMessages,
               {
                 role: "assistant",
                 content: finalContent,
-                citations: incomingCitations,
                 actions: actions.length > 0 ? actions : undefined
               }
             ]);
@@ -435,7 +388,7 @@ export const GlobalCopilot: React.FC = () => {
         ...newMessages,
         {
           role: "assistant",
-          content: "Sorry, I encountered an issue connecting to the knowledge service. You can retry your question below.",
+          content: "Sorry, I could not reach the assistant service. You can retry your question below.",
           isError: true,
           failedPrompt: promptToSend
         }
@@ -461,25 +414,6 @@ export const GlobalCopilot: React.FC = () => {
               <span className="text-[11px] text-ink-dim font-mono block">
                 {currentDeal ? `Context: ${currentDeal.name}` : currentAccount ? `Context: ${currentAccount.name}` : "General Workspace Context"}
               </span>
-              {knowledgeDocCount !== null && (
-                <span
-                  className={`text-[11px] flex items-center gap-1 ${
-                    knowledgeDocCount > 0 ? "text-emerald-700" : "text-ink-faint"
-                  }`}
-                  title={
-                    knowledgeDocCount > 0
-                      ? "Product and standards answers are quoted from these documents and cited below the reply."
-                      : "No reference documents are loaded, so specifications and standards clauses cannot be sourced."
-                  }
-                >
-                  <ShieldCheck className="w-3 h-3 shrink-0" />
-                  <span>
-                    {knowledgeDocCount > 0
-                      ? `Citing ${knowledgeDocCount} reference ${knowledgeDocCount === 1 ? "document" : "documents"}`
-                      : "No reference documents loaded"}
-                  </span>
-                </span>
-              )}
             </div>
           </div>
 
@@ -582,31 +516,6 @@ export const GlobalCopilot: React.FC = () => {
                   </div>
                 )}
 
-                {/* Citations */}
-                {m.citations && m.citations.length > 0 && (
-                  <div className="mt-2.5 pt-2 border-t border-line/60 space-y-1">
-                    <div className="flex items-center gap-1 text-[10px] font-bold text-ink-dim uppercase tracking-wider">
-                      <ShieldCheck className="w-3 h-3 text-emerald-600" />
-                      <span>Verified Sources</span>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {m.citations.map((cit, cIdx) => (
-                        <button
-                          key={cIdx}
-                          type="button"
-                          onClick={() => handleOpenCitation(cit)}
-                          className="inline-flex items-center gap-1 text-[11px] font-medium bg-white hover:bg-brand-wash text-brand-deep border border-line px-2 py-0.5 rounded cursor-pointer transition-colors shadow-2xs"
-                        >
-                          <FileText className="w-2.5 h-2.5" />
-                          <span className="truncate max-w-[170px]">{cit.title}</span>
-                          {cit.page && <span>p. {cit.page}</span>}
-                          <ExternalLink className="w-2 h-2 opacity-60" />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {/* Embedded Action Proposal Buttons */}
                 {m.actions && m.actions.length > 0 && (
                   <div className="mt-3 pt-2.5 border-t border-line/70 space-y-2">
@@ -700,7 +609,7 @@ export const GlobalCopilot: React.FC = () => {
               },
               {
                 label: "Sales Call Prep",
-                prompt: "Help me prepare for an upcoming sales call with an electrical contractor or council engineer."
+                prompt: "Help me prepare for an upcoming sales call with a contractor or council customer."
               },
               {
                 label: "Pipeline Review",

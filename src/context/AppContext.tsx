@@ -2469,7 +2469,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       projectApplication: lead.enquiryType,
       location: lead.location,
       customerNeed: lead.notes,
-      keyRequirements: ["Verify AS/NZS 1158 compliance", "Confirm mounting height"],
+      keyRequirements: ["Confirm quantities", "Confirm delivery timing"],
       source: lead.source,
       latestActivity: `Lead converted to opportunity by ${lead.assignedSalesperson || currentUser.name}`,
       latestActivityDate: new Date().toISOString().split("T")[0],

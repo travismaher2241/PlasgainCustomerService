@@ -470,7 +470,6 @@ export interface CRMActivity {
 }
 
 export type CRMKnowledgeCategory =
-  | "Technical & Specification"
   | "Product & Pole Preference"
   | "Decision & Criteria"
   | "Decision Criteria & Timeline"
@@ -548,7 +547,7 @@ export interface MeetingPreparationPlan {
   executiveBriefing: string;
   agendaItems: string[];
   talkingPoints: Array<{
-    category: "Commercial" | "Context" | "Technical" | "Commitment" | "Question" | "Follow-up";
+    category: "Commercial" | "Context" | "Product" | "Commitment" | "Question" | "Follow-up";
     text: string;
     sourceRef?: string;
   }>;

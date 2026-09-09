@@ -67,7 +67,7 @@ export const CRMLeadsView: React.FC = () => {
     estimatedValue: 35000,
     location: "VIC",
     notes: "",
-    nextAction: "Initial discovery call to confirm photometric requirements"
+    nextAction: "Initial discovery call to confirm project requirements"
   });
 
   const filteredLeads = useMemo(() => {
