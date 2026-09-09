@@ -146,12 +146,13 @@ export const HomeDashboard: React.FC = () => {
         <button
           type="button"
           onClick={() => openQuoteImport()}
+          title="Import an Ostendo quote PDF"
           className="p-3 rounded-edge bg-white hover:bg-raised border border-line hover:border-brand-deep transition-all cursor-pointer shadow-2xs flex items-center gap-2.5"
         >
           <div className="p-1.5 rounded bg-brand-wash text-brand-deep shrink-0">
             <Plus className="w-4 h-4" />
           </div>
-          <span className="text-spec font-bold text-body truncate">Import Ostendo quote</span>
+          <span className="text-spec font-bold text-body truncate">Import quote</span>
         </button>
 
         <button

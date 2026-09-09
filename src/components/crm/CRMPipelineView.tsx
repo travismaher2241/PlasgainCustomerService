@@ -215,9 +215,10 @@ export const CRMPipelineView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto">
-          {/* The import lives here as well as in the mobile Log menu - this is
-              the screen a rep is on when they have a quote PDF in hand, and the
-              Log menu is hidden at desktop widths. */}
+          {/* The only quote import in this workspace's chrome: this is the
+              screen a rep is on when they have a quote PDF in hand. It used to
+              be duplicated in the mobile Log menu, which put two doors to the
+              same modal on this one screen. */}
           <button
             type="button"
             onClick={() => openQuoteImport()}

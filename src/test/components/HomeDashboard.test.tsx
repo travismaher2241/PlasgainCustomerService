@@ -39,7 +39,7 @@ describe('HomeDashboard Step 8 Suite', () => {
     expect(screen.getByText(/No sales records yet/i)).toBeInTheDocument();
 
     // 3. Compact quick creation actions
-    expect(screen.getByRole('button', { name: /Import Ostendo quote/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Import quote/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Add account/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Quotes/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Log a call/i })).toBeInTheDocument();
@@ -69,7 +69,7 @@ describe('HomeDashboard Step 8 Suite', () => {
       </AppProvider>
     );
 
-    expect(screen.getByRole('button', { name: /Import Ostendo quote/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Import quote/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Create Quote/i })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/\$ Value/i)).not.toBeInTheDocument();
   });

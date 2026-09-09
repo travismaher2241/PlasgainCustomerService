@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   TrendingUp,
   Trophy,
-  FileText,
   ChevronDown,
   Phone,
   Plus,
@@ -70,7 +69,6 @@ export const CRMCommandCenter: React.FC = () => {
     openQuickLog,
     openVoiceCapture,
     openEnquiryParser,
-    openQuoteImport,
     openInboundEmailModal,
     competitorPricingRecords
   } = useApp();
@@ -331,7 +329,9 @@ export const CRMCommandCenter: React.FC = () => {
                 destination tabs 135px to render 330px of content — so every
                 scroll position showed a half-word ("Accc", "Ca"). They collapse
                 into one Log menu below md; all four stay inline on desktop,
-                where there is room for them.
+                where there is room for them. The menu mirrors that bar exactly
+                — quote import is not a capture action and lives on the screens
+                that own quotes (Home, Quotes, an account), so it is not here.
               */}
               <div className="relative md:hidden shrink-0" ref={logMenuRef}>
                 <button
@@ -396,18 +396,6 @@ export const CRMCommandCenter: React.FC = () => {
                     >
                       <Sparkles className="w-3.5 h-3.5 text-brand-deep shrink-0" />
                       <span>Turn an enquiry into a lead</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        openQuoteImport();
-                        setIsLogMenuOpen(false);
-                      }}
-                      className="w-full min-h-[44px] px-3 py-2 text-left flex items-center gap-2 text-ink hover:bg-hover cursor-pointer"
-                    >
-                      <FileText className="w-3.5 h-3.5 text-brand-deep shrink-0" />
-                      <span>Import a quote PDF</span>
                     </button>
                   </div>
                 )}

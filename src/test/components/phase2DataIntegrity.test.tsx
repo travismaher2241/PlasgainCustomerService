@@ -158,7 +158,7 @@ describe('Phase 2 — Wrong data and invented data tests', () => {
       </AppProvider>
     );
 
-    expect(screen.getByRole('button', { name: /Import Ostendo quote/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Import quote/i })).toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: /Create New Quote/i })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/\$ Value/i)).not.toBeInTheDocument();
   });
