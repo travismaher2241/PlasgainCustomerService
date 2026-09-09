@@ -2,12 +2,12 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { competitorPricingStore } from '../../server/competitorPricingStore';
 
 describe('Competitor Pricing Store & Intelligence Repository', () => {
-  beforeEach(() => {
-    competitorPricingStore.resetData(false);
+  beforeEach(async () => {
+    await competitorPricingStore.resetData();
   });
 
-  it('retrieves all competitor pricing records and supports account filtering', () => {
-    competitorPricingStore.createPricingRecord({
+  it('retrieves all competitor pricing records and supports account filtering', async () => {
+    await competitorPricingStore.createPricingRecord({
       accountId: 'acc-test-1',
       accountName: 'Test Regional Council',
       competitorName: 'Test Competitor',
@@ -24,17 +24,17 @@ describe('Competitor Pricing Store & Intelligence Repository', () => {
       notes: 'Test note'
     });
 
-    const allRecords = competitorPricingStore.getAllPricingRecords();
+    const allRecords = await competitorPricingStore.getAllPricingRecords();
     expect(allRecords.length).toBe(1);
 
     const firstAccountId = allRecords[0].accountId;
-    const filtered = competitorPricingStore.getAllPricingRecords({ accountId: firstAccountId });
+    const filtered = await competitorPricingStore.getAllPricingRecords({ accountId: firstAccountId });
     expect(filtered.length).toBe(1);
     expect(filtered.every((r) => r.accountId === firstAccountId)).toBe(true);
   });
 
-  it('creates a new competitor pricing record and automatically generates a team alert', () => {
-    const { record, alert } = competitorPricingStore.createPricingRecord({
+  it('creates a new competitor pricing record and automatically generates a team alert', async () => {
+    const { record, alert } = await competitorPricingStore.createPricingRecord({
       accountId: 'acc-test-2',
       accountName: 'City of Greater Bendigo',
       competitorName: 'SunTech Lighting',
@@ -63,13 +63,13 @@ describe('Competitor Pricing Store & Intelligence Repository', () => {
     expect(alert.isRead).toBe(false);
 
     // Verify alert is in all alerts
-    const alerts = competitorPricingStore.getAllAlerts();
+    const alerts = await competitorPricingStore.getAllAlerts();
     const matchingAlert = alerts.find((a) => a.recordId === record.id);
     expect(matchingAlert).toBeDefined();
   });
 
-  it('updates competitor pricing status to Superseded', () => {
-    const { record } = competitorPricingStore.createPricingRecord({
+  it('updates competitor pricing status to Superseded', async () => {
+    const { record } = await competitorPricingStore.createPricingRecord({
       accountId: 'acc-test-3',
       accountName: 'Test Shire',
       competitorName: 'Other Vendor',
@@ -86,7 +86,7 @@ describe('Competitor Pricing Store & Intelligence Repository', () => {
       notes: 'Initial verbal quote'
     });
 
-    const updated = competitorPricingStore.updatePricingRecord(record.id, {
+    const updated = await competitorPricingStore.updatePricingRecord(record.id, {
       status: 'Superseded',
       notes: 'Superseded by newer 2026 rate card'
     });
@@ -96,8 +96,8 @@ describe('Competitor Pricing Store & Intelligence Repository', () => {
     expect(updated?.notes).toBe('Superseded by newer 2026 rate card');
   });
 
-  it('marks competitor alerts as read', () => {
-    const { alert } = competitorPricingStore.createPricingRecord({
+  it('marks competitor alerts as read', async () => {
+    const { alert } = await competitorPricingStore.createPricingRecord({
       accountId: 'acc-test-4',
       accountName: 'Test Council',
       competitorName: 'Vendor B',
@@ -115,7 +115,7 @@ describe('Competitor Pricing Store & Intelligence Repository', () => {
     });
 
     expect(alert.isRead).toBe(false);
-    const updated = competitorPricingStore.markAlertRead(alert.id);
+    const updated = await competitorPricingStore.markAlertRead(alert.id);
     expect(updated?.isRead).toBe(true);
   });
 });

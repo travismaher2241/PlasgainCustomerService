@@ -21,7 +21,6 @@ service cloud.firestore {
     // CRM business records.
     match /crm_accounts/{docId}    { allow read, write: if signedIn(); }
     match /crm_contacts/{docId}    { allow read, write: if signedIn(); }
-    match /crm_deals/{docId}       { allow read, write: if signedIn(); }
     match /crm_leads/{docId}       { allow read, write: if signedIn(); }
     match /crm_activities/{docId}  { allow read, write: if signedIn(); }
     match /crm_tasks/{docId}       { allow read, write: if signedIn(); }
@@ -31,12 +30,33 @@ service cloud.firestore {
     match /commercial_pricing_requests/{docId} { allow read, write: if signedIn(); }
     match /project_analyses/{docId}            { allow read, write: if signedIn(); }
     match /duplicate_override_audits/{docId}   { allow read, write: if signedIn(); }
-    // Immutable audit logs: Deny client creation (must go through server-side verified API). No user can update or delete.
+    // Immutable audit logs. Only the server writes them, through the Admin SDK,
+    // which bypasses these rules — so create/update/delete stay denied to every
+    // client. Reads remain open to a signed-in caller because the admin audit
+    // view loads them directly.
     match /audit_logs/{docId} {
       allow read: if signedIn();
-      allow create: if false;
-      allow update, delete: if false;
+      allow create, update, delete: if false;
     }
+
+    // Server-owned collections.
+    //
+    // These are written by the server through the Admin SDK, which authenticates
+    // as the project and bypasses these rules entirely. Denying clients here is
+    // therefore not a restriction on the app — it is the point.
+    //
+    // user_profiles holds PIN hashes. PINs are short, so a readable hash is a
+    // crackable hash; no client may read this collection at all.
+    match /user_profiles/{docId} { allow read, write: if false; }
+
+    // Quotes, pricing and notifications are server-owned so that a stale browser
+    // tab cannot overwrite them directly, the failure mode that dismantled
+    // syncBatchToCloud. Clients reach them through the REST endpoints.
+    match /crm_deals/{docId}            { allow read, write: if false; }
+    match /quote_documents/{docId}      { allow read, write: if false; }
+    match /competitor_pricing/{docId}   { allow read, write: if false; }
+    match /competitor_alerts/{docId}    { allow read, write: if false; }
+    match /notifications/{docId}        { allow read, write: if false; }
 
     // Workspace configuration and profiles.
     match /settings/{docId} { allow read, write: if signedIn(); }

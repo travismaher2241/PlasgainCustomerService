@@ -279,7 +279,7 @@ interface AppContextType {
   setSelectedCrmOpportunityId: (id: string | null) => void;
 
   activities: CRMActivity[];
-  logActivity: (activity: Omit<CRMActivity, "id" | "timestamp">) => {
+  logActivity: (activity: Omit<CRMActivity, "id" | "timestamp"> & { timestamp?: string }) => {
     activity: CRMActivity;
     candidateNotableEvents: ContactNotableEvent[];
     extractedKnowledge: CRMKnowledgeItem[];
@@ -2567,7 +2567,13 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const logActivity = (activityData: Omit<CRMActivity, "id" | "timestamp">) => {
+  // The timestamp is normally derived from the date and time fields the rep
+  // entered, but a caller may supply one directly — the implementation below
+  // already reads it. Naming it here rather than reaching through `as any`
+  // lets the compiler check those callers instead of silently accepting them.
+  const logActivity = (
+    activityData: Omit<CRMActivity, "id" | "timestamp"> & { timestamp?: string }
+  ) => {
     // P1: Deduplicate rapid identical technical draft / copy events (within 10 minutes)
     const isTechnicalDraft =
       activityData.title.toLowerCase().includes("ai email draft") ||
@@ -2625,7 +2631,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       (activityData as any).activityTime ||
       (activityData as any).time;
 
-    let actTimestamp = (activityData as any).timestamp;
+    let actTimestamp: string | undefined = activityData.timestamp;
     if (!actTimestamp) {
       if (rawDate) {
         let timePart = "10:00";

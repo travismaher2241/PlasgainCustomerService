@@ -1,6 +1,5 @@
-import fs from "fs";
-import path from "path";
 import { CRMOpportunity } from "../types/crm";
+import { createDocBackend, DocBackend } from "./docStore";
 import { CreateOpportunityInput, UpdateOpportunityInput, OpportunityQueryInput } from "../validators/opportunityValidator";
 
 export class ConcurrencyConflictError extends Error {
@@ -23,71 +22,53 @@ export interface StoredOpportunity extends CRMOpportunity {
   updatedAt: string;
 }
 
-const DATA_DIR = process.env.VERCEL ? path.join("/tmp", "server_data") : path.resolve(process.cwd(), "server_data");
-const OPPORTUNITIES_FILE = path.join(DATA_DIR, "opportunities.json");
-
-const isTestEnv = (): boolean =>
-  process.env.NODE_ENV === "test" || Boolean(process.env.VITEST);
+/**
+ * Quotes and deals.
+ *
+ * Backed by Firestore through the Admin SDK when credentials are configured,
+ * and by a local JSON file otherwise. This previously wrote only to a file
+ * which, on a serverless host, lived in /tmp — wiped on every deployment and
+ * separate for each instance, so a quote one rep saved could be invisible to
+ * another and then disappear entirely.
+ *
+ * Reads go to the backing store rather than an in-memory cache. Caching would
+ * be faster, but two instances holding separate caches diverge the moment
+ * either writes, and showing two reps different pipelines is worse than a
+ * brief pause on read.
+ */
+/**
+ * Deliberately NOT "opportunities". That collection is still read and written
+ * directly by the browser through AppContext's legacy sync, using an older
+ * `Opportunity` shape. Pointing this store at the same collection would mix two
+ * record types in one place and let a stale tab overwrite a server-managed
+ * quote. The REST-backed deals the CRM actually shows live here.
+ */
+const COLLECTION = "crm_deals";
 
 export class OpportunityStore {
-  private opportunities: Map<string, StoredOpportunity> = new Map();
-  private isInitialized = false;
+  private backend: DocBackend<StoredOpportunity> | null = null;
 
-  constructor() {
-    this.init();
+  private getBackend(): DocBackend<StoredOpportunity> {
+    if (!this.backend) {
+      this.backend = createDocBackend<StoredOpportunity>(COLLECTION, "opportunities.json");
+    }
+    return this.backend;
   }
 
-  private init() {
-    if (this.isInitialized) return;
-    if (isTestEnv()) {
-      this.isInitialized = true;
-      return;
-    }
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-
-      if (fs.existsSync(OPPORTUNITIES_FILE)) {
-        const raw = fs.readFileSync(OPPORTUNITIES_FILE, "utf-8");
-        const list: StoredOpportunity[] = JSON.parse(raw);
-        list.forEach((opp) => {
-          if (opp && opp.id) {
-            this.opportunities.set(opp.id, {
-              ...opp,
-              version: opp.version || 1,
-              createdAt: opp.createdAt || new Date().toISOString(),
-              updatedAt: opp.updatedAt || new Date().toISOString(),
-              isArchived: Boolean(opp.isArchived)
-            });
-          }
-        });
-      } else {
-        this.save();
-      }
-      this.isInitialized = true;
-    } catch (err) {
-      console.warn("[OpportunityStore] Failed to initialize from disk, using memory store:", err);
-      this.isInitialized = true;
-    }
+  /** Normalises records written before this store enforced its own shape. */
+  private normalise(opp: StoredOpportunity): StoredOpportunity {
+    return {
+      ...opp,
+      version: opp.version || 1,
+      createdAt: opp.createdAt || new Date().toISOString(),
+      updatedAt: opp.updatedAt || new Date().toISOString(),
+      isArchived: Boolean(opp.isArchived)
+    };
   }
 
-  private save() {
-    if (isTestEnv()) return;
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-      const list = Array.from(this.opportunities.values());
-      fs.writeFileSync(OPPORTUNITIES_FILE, JSON.stringify(list, null, 2), "utf-8");
-    } catch (err) {
-      console.error("[OpportunityStore] Failed to save opportunities to disk:", err);
-    }
-  }
-
-  public getById(id: string): StoredOpportunity | null {
-    this.init();
-    return this.opportunities.get(id) || null;
+  public async getById(id: string): Promise<StoredOpportunity | null> {
+    const found = await this.getBackend().get(id);
+    return found ? this.normalise(found) : null;
   }
 
   /**
@@ -95,14 +76,13 @@ export class OpportunityStore {
    * whole book rather than a page of it — `list()` is the paginated read for
    * callers with a query.
    */
-  public getAll(): StoredOpportunity[] {
-    this.init();
-    return Array.from(this.opportunities.values());
+  public async getAll(): Promise<StoredOpportunity[]> {
+    const all = await this.getBackend().loadAll();
+    return all.map((o) => this.normalise(o));
   }
 
-  public list(query: OpportunityQueryInput): { data: StoredOpportunity[]; total: number; page: number; limit: number; totalPages: number } {
-    this.init();
-    let records = Array.from(this.opportunities.values());
+  public async list(query: OpportunityQueryInput): Promise<{ data: StoredOpportunity[]; total: number; page: number; limit: number; totalPages: number }> {
+    let records = await this.getAll();
 
     // 1. Archival Filter
     if (!query.isArchived) {
@@ -167,8 +147,7 @@ export class OpportunityStore {
     return { data, total, page, limit, totalPages };
   }
 
-  public create(data: CreateOpportunityInput, creator: { userId: string; name: string }): StoredOpportunity {
-    this.init();
+  public async create(data: CreateOpportunityInput, creator: { userId: string; name: string }): Promise<StoredOpportunity> {
 
     // A caller may supply the id of a quote that already exists elsewhere (the
     // one-time migration of records created before this store existed). Honour
@@ -177,7 +156,7 @@ export class OpportunityStore {
     // migration must be safe to run more than once, from more than one browser.
     const suppliedId = data.id?.trim();
     if (suppliedId) {
-      const existing = this.opportunities.get(suppliedId);
+      const existing = await this.getById(suppliedId);
       if (existing) return existing;
     }
 
@@ -200,23 +179,26 @@ export class OpportunityStore {
       updatedAt: now
     } as StoredOpportunity;
 
-    this.opportunities.set(id, record);
-    this.save();
+    await this.getBackend().put(id, record);
     return record;
   }
 
-  public update(
+  public async update(
     id: string,
     updates: UpdateOpportunityInput,
     expectedVersion?: number,
     expectedUpdatedAt?: string
-  ): { updated: StoredOpportunity; previous: StoredOpportunity } {
-    this.init();
-    const existing = this.opportunities.get(id);
-    if (!existing) {
-      throw new Error(`Opportunity with ID "${id}" not found.`);
-    }
+  ): Promise<{ updated: StoredOpportunity; previous: StoredOpportunity }> {
+    let previous: StoredOpportunity | null = null;
 
+    // The version check and the write happen inside one transaction, so two
+    // reps saving the same quote cannot both pass the check and have the later
+    // write silently discard the earlier edit.
+    const updated = await this.getBackend().mutate(id, (raw) => {
+      if (!raw) {
+        throw new Error(`Opportunity with ID "${id}" not found.`);
+      }
+      const existing = this.normalise(raw);
     // Optimistic Concurrency Control
     if (expectedVersion !== undefined && expectedVersion !== null) {
       if (existing.version !== expectedVersion) {
@@ -239,52 +221,50 @@ export class OpportunityStore {
       }
     }
 
-    // Field-level update: preserves all existing fields and only overlays validated changes
-    const previous = { ...existing };
-    const now = new Date().toISOString();
-    const { version: _ignoredVersion, updatedAt: _ignoredUpdatedAt, ...cleanUpdates } = updates;
+      // Field-level update: preserves all existing fields and only overlays validated changes
+      previous = { ...existing };
+      const now = new Date().toISOString();
+      const { version: _ignoredVersion, updatedAt: _ignoredUpdatedAt, ...cleanUpdates } = updates;
 
-    const updated: StoredOpportunity = {
-      ...existing,
-      ...cleanUpdates,
-      version: existing.version + 1,
-      updatedAt: now
-    } as StoredOpportunity;
+      return {
+        ...existing,
+        ...cleanUpdates,
+        version: existing.version + 1,
+        updatedAt: now
+      } as StoredOpportunity;
+    });
 
-    this.opportunities.set(id, updated);
-    this.save();
-    return { updated, previous };
+    return { updated, previous: previous as unknown as StoredOpportunity };
   }
 
-  public softDelete(
+  public async softDelete(
     id: string,
     reason: string = "Deleted by user",
     user: { userId: string; name: string }
-  ): StoredOpportunity {
-    this.init();
-    const existing = this.opportunities.get(id);
-    if (!existing) {
-      throw new Error(`Opportunity with ID "${id}" not found.`);
-    }
-
-    const now = new Date().toISOString();
-    const updated: StoredOpportunity = {
-      ...existing,
-      isArchived: true,
-      archivedAt: now,
-      archivedBy: user.userId,
-      archivedReason: reason,
-      version: existing.version + 1,
-      updatedAt: now
-    };
-
-    this.opportunities.set(id, updated);
-    this.save();
-    return updated;
+  ): Promise<StoredOpportunity> {
+    return this.getBackend().mutate(id, (raw) => {
+      if (!raw) {
+        throw new Error(`Opportunity with ID "${id}" not found.`);
+      }
+      const existing = this.normalise(raw);
+      const now = new Date().toISOString();
+      return {
+        ...existing,
+        isArchived: true,
+        archivedAt: now,
+        archivedBy: user.userId,
+        archivedReason: reason,
+        version: existing.version + 1,
+        updatedAt: now
+      };
+    });
   }
 
-  public clearForTesting() {
-    this.opportunities.clear();
+  public async clearForTesting() {
+    const all = await this.getBackend().loadAll();
+    for (const opp of all) {
+      await this.getBackend().remove(opp.id);
+    }
   }
 }
 

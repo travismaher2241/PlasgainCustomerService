@@ -1,83 +1,69 @@
-﻿import fs from "fs";
-import path from "path";
 import { AuditLogRecord } from "../types/crm";
+import { createDocBackend, DocBackend } from "./docStore";
 
 /**
  * Server-Side Append-Only Audit Log Repository
  *
  * Persists verified audit records emitted by server-side actions or
  * client requests authenticated via verified server sessions.
+ *
+ * Backed by Firestore through the Admin SDK. The client rules deliberately say
+ * `allow create: if false` on audit_logs — an audit trail a client can write is
+ * not an audit trail — so this is the only path that can add to it.
+ *
+ * Previously this wrote a JSON file which, on a serverless host, lived in /tmp:
+ * wiped on every deployment and not shared between the instances serving
+ * concurrent users. An audit trail that disappears is worse than none, because
+ * it is trusted.
  */
 
-const DATA_DIR = process.env.VERCEL ? path.join("/tmp", "server_data") : path.resolve(process.cwd(), "server_data");
-const AUDIT_LOGS_FILE = path.join(DATA_DIR, "audit_logs.json");
+const RETAINED_RECORDS = 5000;
 
 class AuditLogStore {
-  private logs: AuditLogRecord[] = [];
-  private isInitialized = false;
+  private backend: DocBackend<AuditLogRecord> | null = null;
 
-  constructor() {
-    this.init();
+  private getBackend(): DocBackend<AuditLogRecord> {
+    if (!this.backend) {
+      this.backend = createDocBackend<AuditLogRecord>("audit_logs", "audit_logs.json");
+    }
+    return this.backend;
   }
 
-  private init() {
-    if (this.isInitialized) return;
-    if (process.env.NODE_ENV === "test" || process.env.VITEST) {
-      this.logs = [];
-      this.isInitialized = true;
-      return;
-    }
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-
-      if (fs.existsSync(AUDIT_LOGS_FILE)) {
-        const raw = fs.readFileSync(AUDIT_LOGS_FILE, "utf-8");
-        const list = JSON.parse(raw);
-        if (Array.isArray(list)) {
-          this.logs = list;
-        }
-      }
-      this.isInitialized = true;
-    } catch (err) {
-      console.warn("[AuditLogStore] Failed to initialize from disk:", err);
-      this.logs = [];
-      this.isInitialized = true;
-    }
+  /** Newest first, matching the order the endpoint and UI expect. */
+  private sortNewestFirst(records: AuditLogRecord[]): AuditLogRecord[] {
+    return [...records].sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || ""));
   }
 
-  private save() {
-    if (process.env.NODE_ENV === "test" || process.env.VITEST) return;
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-      fs.writeFileSync(AUDIT_LOGS_FILE, JSON.stringify(this.logs, null, 2), "utf-8");
-    } catch (err) {
-      console.warn("[AuditLogStore] Failed to write audit logs to disk:", err);
-    }
-  }
-
-  public append(record: AuditLogRecord): AuditLogRecord {
-    this.init();
-    // Append-only: newest first
-    this.logs.unshift(record);
-    if (this.logs.length > 5000) {
-      this.logs = this.logs.slice(0, 5000);
-    }
-    this.save();
+  public async append(record: AuditLogRecord): Promise<AuditLogRecord> {
+    await this.getBackend().put(record.id, record);
     return record;
   }
 
-  public getAll(limit = 500): AuditLogRecord[] {
-    this.init();
-    return this.logs.slice(0, limit);
+  public async getAll(limit = 500): Promise<AuditLogRecord[]> {
+    const all = await this.getBackend().loadAll();
+    return this.sortNewestFirst(all).slice(0, Math.max(0, limit));
   }
 
-  public clearForTesting() {
-    this.logs = [];
-    this.save();
+  /**
+   * Trims the oldest records beyond the retention ceiling. Kept separate from
+   * append so a single write is one round trip rather than a read of the whole
+   * collection; call it on a schedule or after bulk imports.
+   */
+  public async prune(): Promise<number> {
+    const all = this.sortNewestFirst(await this.getBackend().loadAll());
+    if (all.length <= RETAINED_RECORDS) return 0;
+    const excess = all.slice(RETAINED_RECORDS);
+    for (const record of excess) {
+      await this.getBackend().remove(record.id);
+    }
+    return excess.length;
+  }
+
+  public async clearForTesting() {
+    const all = await this.getBackend().loadAll();
+    for (const record of all) {
+      await this.getBackend().remove(record.id);
+    }
   }
 }
 

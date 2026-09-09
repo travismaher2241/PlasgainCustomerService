@@ -1,123 +1,74 @@
-import fs from "fs";
-import path from "path";
 import { CompetitorPricingRecord, CompetitorPricingAlert } from "../types/crm";
+import { createDocBackend, DocBackend } from "./docStore";
 
 /**
  * Server-Side Competitor Pricing Intelligence Repository
  *
- * NOTE FOR PRODUCTION DEPLOYMENT:
- * This implementation provides single-server file-backed persistence. For multi-instance
- * horizontal scaling in production, replace this file storage abstraction with a distributed
- * database (e.g. PostgreSQL / Prisma, Supabase, Cloud Firestore, or Redis).
+ * Backed by Firestore through the Admin SDK when credentials are configured,
+ * and by local JSON files otherwise.
+ *
+ * The previous file-only implementation carried a note asking for exactly this
+ * change. On a serverless host those files lived in /tmp: pricing a rep logged
+ * after a site visit was lost on the next deployment, and was never visible to
+ * the other instances serving their colleagues.
  */
 
-const DATA_DIR = process.env.VERCEL ? path.join("/tmp", "server_data") : path.resolve(process.cwd(), "server_data");
-const PRICING_FILE = path.join(DATA_DIR, "competitor_pricing.json");
-const ALERTS_FILE = path.join(DATA_DIR, "competitor_alerts.json");
-
-const SEED_PRICING: CompetitorPricingRecord[] = [];
-const SEED_ALERTS: CompetitorPricingAlert[] = [];
-
-// Under test this store used to read and write the real server_data files, so
-// a plain `vitest run` mutated them and left the working tree dirty with
-// regenerated ids and timestamps. NotificationStore already skipped disk in
-// tests; this brings the two into line. Tests get in-memory seed state.
-const isTestEnv = (): boolean =>
-  process.env.NODE_ENV === "test" || Boolean(process.env.VITEST);
-
 class CompetitorPricingStore {
-  private pricingRecords: CompetitorPricingRecord[] = [];
-  private alerts: CompetitorPricingAlert[] = [];
-  private isInitialized = false;
+  private pricingBackend: DocBackend<CompetitorPricingRecord> | null = null;
+  private alertBackend: DocBackend<CompetitorPricingAlert> | null = null;
 
-  constructor() {
-    this.init();
+  private pricing(): DocBackend<CompetitorPricingRecord> {
+    if (!this.pricingBackend) {
+      this.pricingBackend = createDocBackend<CompetitorPricingRecord>(
+        "competitor_pricing",
+        "competitor_pricing.json"
+      );
+    }
+    return this.pricingBackend;
   }
 
-  private init() {
-    if (this.isInitialized) return;
-    if (isTestEnv()) {
-      this.pricingRecords = [...SEED_PRICING];
-      this.alerts = [...SEED_ALERTS];
-      this.isInitialized = true;
-      return;
+  private alertStore(): DocBackend<CompetitorPricingAlert> {
+    if (!this.alertBackend) {
+      this.alertBackend = createDocBackend<CompetitorPricingAlert>(
+        "competitor_alerts",
+        "competitor_alerts.json"
+      );
     }
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-
-      if (fs.existsSync(PRICING_FILE)) {
-        const raw = fs.readFileSync(PRICING_FILE, "utf-8");
-        this.pricingRecords = JSON.parse(raw);
-      } else {
-        this.pricingRecords = [...SEED_PRICING];
-        this.savePricing();
-      }
-
-      if (fs.existsSync(ALERTS_FILE)) {
-        const raw = fs.readFileSync(ALERTS_FILE, "utf-8");
-        this.alerts = JSON.parse(raw);
-      } else {
-        this.alerts = [...SEED_ALERTS];
-        this.saveAlerts();
-      }
-
-      this.isInitialized = true;
-    } catch (err) {
-      console.error("[CompetitorPricingStore] Failed to load store from disk, using memory state:", err);
-      this.pricingRecords = [...SEED_PRICING];
-      this.alerts = [...SEED_ALERTS];
-      this.isInitialized = true;
-    }
+    return this.alertBackend;
   }
 
-  private savePricing() {
-    if (isTestEnv()) return;
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-      fs.writeFileSync(PRICING_FILE, JSON.stringify(this.pricingRecords, null, 2), "utf-8");
-    } catch (err) {
-      console.error("[CompetitorPricingStore] Failed to write pricing to disk:", err);
-    }
-  }
-
-  private saveAlerts() {
-    if (isTestEnv()) return;
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-      fs.writeFileSync(ALERTS_FILE, JSON.stringify(this.alerts, null, 2), "utf-8");
-    } catch (err) {
-      console.error("[CompetitorPricingStore] Failed to write alerts to disk:", err);
-    }
-  }
-
-  public getAllPricingRecords(filters?: { accountId?: string; competitorName?: string; status?: string }): CompetitorPricingRecord[] {
-    let list = [...this.pricingRecords];
+  public async getAllPricingRecords(filters?: {
+    accountId?: string;
+    competitorName?: string;
+    status?: string;
+  }): Promise<CompetitorPricingRecord[]> {
+    let list = await this.pricing().loadAll();
     if (filters?.accountId) {
       list = list.filter((r) => r.accountId.toLowerCase() === filters.accountId!.toLowerCase());
     }
     if (filters?.competitorName) {
-      list = list.filter((r) => r.competitorName.toLowerCase().includes(filters.competitorName!.toLowerCase()));
+      list = list.filter((r) =>
+        r.competitorName.toLowerCase().includes(filters.competitorName!.toLowerCase())
+      );
     }
     if (filters?.status) {
       list = list.filter((r) => r.status === filters.status);
     }
-    // Sort descending by observedDate
-    return list.sort((a, b) => new Date(b.observedDate || b.createdAt).getTime() - new Date(a.observedDate || a.createdAt).getTime());
+    return list.sort(
+      (a, b) =>
+        new Date(b.observedDate || b.createdAt).getTime() -
+        new Date(a.observedDate || a.createdAt).getTime()
+    );
   }
 
-  public getPricingRecordById(id: string): CompetitorPricingRecord | undefined {
-    return this.pricingRecords.find((r) => r.id === id);
+  public async getPricingRecordById(id: string): Promise<CompetitorPricingRecord | undefined> {
+    const all = await this.pricing().loadAll();
+    return all.find((r) => r.id === id);
   }
 
-  public createPricingRecord(
+  public async createPricingRecord(
     data: Omit<CompetitorPricingRecord, "id" | "createdAt" | "updatedAt">
-  ): { record: CompetitorPricingRecord; alert: CompetitorPricingAlert } {
+  ): Promise<{ record: CompetitorPricingRecord; alert: CompetitorPricingAlert }> {
     const now = new Date().toISOString();
     const record: CompetitorPricingRecord = {
       ...data,
@@ -126,11 +77,12 @@ class CompetitorPricingStore {
       updatedAt: now
     };
 
-    this.pricingRecords.unshift(record);
-    this.savePricing();
+    await this.pricing().put(record.id, record);
 
-    // Format price for alert
-    const priceFormatted = `$${record.price.toLocaleString("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const priceFormatted = `$${record.price.toLocaleString("en-AU", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })}`;
     const basisText = record.priceBasis ? ` (${record.priceBasis})` : "";
     const alertMessage = `${record.competitorName} quoted ${record.competitorProduct} at ${priceFormatted}${basisText} for ${record.accountName}`;
 
@@ -150,20 +102,18 @@ class CompetitorPricingStore {
       isRead: false
     };
 
-    this.alerts.unshift(alert);
-    this.saveAlerts();
+    await this.alertStore().put(alert.id, alert);
 
     return { record, alert };
   }
 
-  public updatePricingRecord(
+  public async updatePricingRecord(
     id: string,
     updates: Partial<CompetitorPricingRecord>
-  ): CompetitorPricingRecord | undefined {
-    const index = this.pricingRecords.findIndex((r) => r.id === id);
-    if (index === -1) return undefined;
+  ): Promise<CompetitorPricingRecord | undefined> {
+    const existing = await this.getPricingRecordById(id);
+    if (!existing) return undefined;
 
-    const existing = this.pricingRecords[index];
     const updated: CompetitorPricingRecord = {
       ...existing,
       ...updates,
@@ -172,30 +122,31 @@ class CompetitorPricingStore {
       updatedAt: new Date().toISOString()
     };
 
-    this.pricingRecords[index] = updated;
-    this.savePricing();
+    await this.pricing().put(id, updated);
     return updated;
   }
 
-  public getAllAlerts(): CompetitorPricingAlert[] {
-    return [...this.alerts].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+  public async getAllAlerts(): Promise<CompetitorPricingAlert[]> {
+    const all = await this.alertStore().loadAll();
+    return all.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }
 
-  public markAlertRead(alertId: string): CompetitorPricingAlert | undefined {
-    const alert = this.alerts.find((a) => a.id === alertId);
+  public async markAlertRead(alertId: string): Promise<CompetitorPricingAlert | undefined> {
+    const all = await this.alertStore().loadAll();
+    const alert = all.find((a) => a.id === alertId);
     if (!alert) return undefined;
-    alert.isRead = true;
-    this.saveAlerts();
-    return alert;
+    const updated = { ...alert, isRead: true };
+    await this.alertStore().put(alertId, updated);
+    return updated;
   }
 
-  public resetData(useSeed = true): void {
-    this.pricingRecords = useSeed ? [...SEED_PRICING] : [];
-    this.alerts = useSeed ? [...SEED_ALERTS] : [];
-    this.savePricing();
-    this.saveAlerts();
+  public async resetData(): Promise<void> {
+    for (const r of await this.pricing().loadAll()) {
+      await this.pricing().remove(r.id);
+    }
+    for (const a of await this.alertStore().loadAll()) {
+      await this.alertStore().remove(a.id);
+    }
   }
 }
 

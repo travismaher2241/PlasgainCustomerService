@@ -10,9 +10,9 @@ describe('POST /api/automation/follow-up-sweep', () => {
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
 
   beforeEach(async () => {
-    opportunityStore.clearForTesting();
-    auditLogStore.clearForTesting();
-    notificationStore.resetData(false);
+    await opportunityStore.clearForTesting();
+    await auditLogStore.clearForTesting();
+    await notificationStore.resetData();
 
     const res = await request(app)
       .post('/api/auth/verify-profile')
@@ -72,7 +72,7 @@ describe('POST /api/automation/follow-up-sweep', () => {
       .set('Authorization', `Bearer ${repToken}`);
 
     expect(second.body.triggered).toHaveLength(0);
-    expect(notificationStore.getAll()).toHaveLength(1);
+    expect(await notificationStore.getAll()).toHaveLength(1);
   });
 
   it('surfaces the reminder through the notifications the app already polls', async () => {

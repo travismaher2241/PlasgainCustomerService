@@ -70,15 +70,15 @@ function isAwaitingFollowUp(quote: StoredOpportunity, now: number, afterMs: numb
  * Safe to call repeatedly. `now` and `afterMs` are injectable so the rule can be
  * tested without waiting two days or mutating the clock.
  */
-export function runFollowUpSweep(
+export async function runFollowUpSweep(
   options: { now?: Date; afterMs?: number } = {}
-): FollowUpSweepResult {
+): Promise<FollowUpSweepResult> {
   const nowDate = options.now || new Date();
   const now = nowDate.getTime();
   const afterMs = options.afterMs ?? FOLLOW_UP_AFTER_MS;
   const todayStr = nowDate.toISOString().split("T")[0];
 
-  const quotes = opportunityStore.getAll();
+  const quotes = await opportunityStore.getAll();
   const triggered: FollowUpTrigger[] = [];
   const failed: Array<{ id: string; reason: string }> = [];
 
@@ -89,7 +89,7 @@ export function runFollowUpSweep(
     const label = quote.quoteNumber || quote.name;
 
     try {
-      const { updated, previous } = opportunityStore.update(quote.id, {
+      const { updated, previous } = await opportunityStore.update(quote.id, {
         stageId: FOLLOW_UP_STAGE_ID,
         stageName: FOLLOW_UP_STAGE_NAME,
         nextAction: quote.nextAction || `Follow up on submitted quote ${label}`,
@@ -97,7 +97,7 @@ export function runFollowUpSweep(
         followUpReminderTriggeredAt: nowDate.toISOString()
       });
 
-      notificationStore.create({
+      await notificationStore.create({
         title: `Follow up required: ${updated.name}`,
         message: `Quote${quote.quoteNumber ? ` ${quote.quoteNumber}` : ""} for ${
           updated.accountName || "the customer"
@@ -109,7 +109,7 @@ export function runFollowUpSweep(
         linkTo: { view: "pipeline", id: updated.id }
       });
 
-      auditLogStore.append({
+      await auditLogStore.append({
         id: `audit-${Date.now()}-${randomBytes(4).toString("hex")}`,
         timestamp: nowDate.toISOString(),
         userId: "system-automation",
@@ -163,9 +163,9 @@ export function startFollowUpSweepSchedule(
 ): () => void {
   stopFollowUpSweepSchedule();
 
-  const tick = () => {
+  const tick = async () => {
     try {
-      const result = runFollowUpSweep();
+      const result = await runFollowUpSweep();
       if (result.triggered.length > 0) {
         console.log(
           `[FollowUpSweep] Flagged ${result.triggered.length} quote(s) for follow-up: ${result.triggered
@@ -182,8 +182,10 @@ export function startFollowUpSweepSchedule(
     }
   };
 
-  tick();
-  sweepTimer = setInterval(tick, intervalMs);
+  // The tick is async now that the store is. Errors inside it are caught
+  // within tick itself, so an unhandled rejection cannot reach the process.
+  void tick();
+  sweepTimer = setInterval(() => void tick(), intervalMs);
   if (typeof sweepTimer.unref === "function") sweepTimer.unref();
 
   return stopFollowUpSweepSchedule;

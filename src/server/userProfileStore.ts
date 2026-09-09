@@ -1,6 +1,5 @@
-import fs from "fs";
-import path from "path";
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from "crypto";
+import { createDocBackend, DocBackend } from "./docStore";
 
 export function hashPinWithScrypt(pin: string, salt: Buffer = randomBytes(16)): string {
   const derivedKey = scryptSync(pin.trim(), salt, 32);
@@ -44,103 +43,78 @@ export interface StoredUserProfile {
   updatedAt: string;
 }
 
-const DATA_DIR = process.env.VERCEL ? path.join("/tmp", "server_data") : path.resolve(process.cwd(), "server_data");
-const PROFILES_FILE = path.join(DATA_DIR, "user_profiles.json");
+/**
+ * User profiles, including PIN hashes.
+ *
+ * Backed by Firestore through the Admin SDK. This collection is deliberately
+ * NOT readable by clients: the security rules deny it outright, and only the
+ * server holds credentials that bypass them. PINs are short, so a readable
+ * hash is a crackable hash — storing these under the ordinary "any signed-in
+ * caller" rule the CRM records use would be a real downgrade.
+ *
+ * Documents are keyed by userId, which is also the document id.
+ */
+const COLLECTION = "user_profiles";
 
 class UserProfileStore {
-  private profiles: Map<string, StoredUserProfile> = new Map();
-  private isInitialized = false;
+  private backend: DocBackend<StoredUserProfile & { id?: string }> | null = null;
 
-  constructor() {
-    this.init();
-  }
-
-  private init() {
-    if (this.isInitialized) return;
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-
-      if (fs.existsSync(PROFILES_FILE)) {
-        const raw = fs.readFileSync(PROFILES_FILE, "utf-8");
-        const list: StoredUserProfile[] = JSON.parse(raw);
-        if (Array.isArray(list)) {
-          list.forEach((p) => {
-            if (p && p.userId) this.profiles.set(p.userId, p);
-          });
-        }
-      }
-      this.isInitialized = true;
-    } catch (err) {
-      console.warn("[UserProfileStore] Failed to initialize from disk:", err);
-      this.isInitialized = true;
+  private getBackend(): DocBackend<StoredUserProfile & { id?: string }> {
+    if (!this.backend) {
+      this.backend = createDocBackend<StoredUserProfile & { id?: string }>(COLLECTION, "user_profiles.json");
     }
+    return this.backend;
   }
 
-  private save() {
-    if (process.env.NODE_ENV === "test" || process.env.VITEST) return;
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-      const list = Array.from(this.profiles.values());
-      fs.writeFileSync(PROFILES_FILE, JSON.stringify(list, null, 2), "utf-8");
-    } catch (err) {
-      console.warn("[UserProfileStore] Failed to write profiles to disk:", err);
-    }
+  public async getProfile(userId: string): Promise<StoredUserProfile | undefined> {
+    const all = await this.getBackend().loadAll();
+    return all.find((p) => p.userId === userId);
   }
 
-  public getProfile(userId: string): StoredUserProfile | undefined {
-    this.init();
-    return this.profiles.get(userId);
+  public async getAllProfiles(): Promise<StoredUserProfile[]> {
+    return this.getBackend().loadAll();
   }
 
-  public getAllProfiles(): StoredUserProfile[] {
-    this.init();
-    return Array.from(this.profiles.values());
-  }
-
-  public setProfile(profile: Omit<StoredUserProfile, "updatedAt">): StoredUserProfile {
-    this.init();
+  public async setProfile(profile: Omit<StoredUserProfile, "updatedAt">): Promise<StoredUserProfile> {
     const stored: StoredUserProfile = {
       ...profile,
       updatedAt: new Date().toISOString()
     };
-    this.profiles.set(profile.userId, stored);
-    this.save();
+    await this.getBackend().put(profile.userId, { ...stored, id: profile.userId });
     return stored;
   }
 
-  public setPin(userId: string, rawPin: string): boolean {
-    this.init();
-    const existing = this.profiles.get(userId);
+  public async setPin(userId: string, rawPin: string): Promise<boolean> {
+    const existing = await this.getProfile(userId);
     if (!existing) return false;
-    existing.pinHash = hashPinWithScrypt(rawPin.trim());
-    existing.updatedAt = new Date().toISOString();
-    this.profiles.set(userId, existing);
-    this.save();
+    const updated: StoredUserProfile = {
+      ...existing,
+      pinHash: hashPinWithScrypt(rawPin.trim()),
+      updatedAt: new Date().toISOString()
+    };
+    await this.getBackend().put(userId, { ...updated, id: userId });
     return true;
   }
 
-  public deleteProfile(userId: string): boolean {
-    this.init();
-    const removed = this.profiles.delete(userId);
-    if (removed) {
-      this.save();
-    }
-    return removed;
+  public async deleteProfile(userId: string): Promise<boolean> {
+    const existing = await this.getProfile(userId);
+    if (!existing) return false;
+    await this.getBackend().remove(userId);
+    return true;
   }
 
-  public verifyPin(userId: string, rawPin: string): boolean {
-    this.init();
-    const profile = this.profiles.get(userId);
+  public async verifyPin(userId: string, rawPin: string): Promise<boolean> {
+    const profile = await this.getProfile(userId);
     if (!profile || !profile.pinHash) return false;
     const matches = verifyPinWithScrypt(rawPin.trim(), profile.pinHash);
     if (matches && !profile.pinHash.includes(":")) {
-      // Automatically migrate legacy sha256 to scrypt upon successful verification
-      profile.pinHash = hashPinWithScrypt(rawPin.trim());
-      this.save();
+      // Upgrade a legacy unsalted SHA-256 hash to scrypt on successful sign-in.
+      await this.getBackend().put(userId, {
+        ...profile,
+        id: userId,
+        pinHash: hashPinWithScrypt(rawPin.trim()),
+        updatedAt: new Date().toISOString()
+      });
     }
     return matches;
   }

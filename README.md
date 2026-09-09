@@ -109,6 +109,73 @@ The whole import is recorded as a single audit entry naming the file, not one
 entry per row. Files exported from accounting systems are often Windows-1252
 rather than UTF-8; both are read correctly, so names like O'Brien survive.
 
+## Where server data is stored (read this before going live)
+
+Accounts and contacts live in Firestore, written by the browser. Everything the
+server owns — quotes and deals, uploaded quote PDFs, competitor pricing,
+notifications, the audit trail and user profiles — used to be written to JSON
+files on local disk.
+
+On a serverless host that is not durable. The files land in `/tmp`, which is
+wiped between deployments and is not shared between the instances serving
+concurrent users, so a quote one rep saved could be invisible to another and
+then disappear on the next deploy.
+
+Those stores now write to Firestore through the Firebase Admin SDK, which
+authenticates as the project rather than as a signed-in browser. Two collections
+depend on that distinction:
+
+- `audit_logs` — the client rules say `allow create: if false`, because an audit
+  trail a client can write is not an audit trail.
+- `user_profiles` — these hold PIN hashes. PINs are short, so a readable hash is
+  a crackable hash. No client may read this collection at all.
+
+Uploaded PDFs go to a Cloud Storage bucket, because Firestore holds documents
+rather than files and caps a document at 1 MB — smaller than most quotes.
+
+**Without credentials the server falls back to local files and keeps working,**
+so development needs no setup. That fallback is not durable in production.
+
+### Checking which mode you are in
+
+```bash
+curl https://<your-app>/api/health
+```
+
+`persistence.durable` is `true` when records survive a deployment. When it is
+`false` the response says why, and anything entered will be lost on the next
+deploy.
+
+### Configuring durable storage
+
+1. **Firebase Console → Project settings → Service accounts → Generate new
+   private key.** This downloads a JSON file. It is a credential: do not commit
+   it, and do not paste it anywhere public.
+2. **Firebase Console → Storage → Get started**, if it is not already on. Accept
+   the default bucket. Keep the default rules; the server reaches the bucket
+   with its own credentials, not through them.
+3. **Vercel → your project → Settings → Environment Variables.** Add:
+
+   | Name | Value |
+   | --- | --- |
+   | `FIREBASE_SERVICE_ACCOUNT` | the entire contents of the JSON file, pasted as one line |
+   | `PLASGAIN_STORAGE_BUCKET` | optional; defaults to `<project-id>.firebasestorage.app` |
+
+4. **Redeploy.** Environment variables are read at boot, so an existing
+   deployment will not pick them up.
+5. **Confirm** with the `/api/health` call above.
+
+Application Default Credentials are used instead when the platform supplies them
+(`GOOGLE_APPLICATION_CREDENTIALS`), so a Google-hosted deployment needs no key.
+
+### Deploying the security rules
+
+The rules changed alongside this. Deploy them or the client keeps its old access:
+
+```bash
+firebase deploy --only firestore:rules
+```
+
 ## Firestore access
 
 `firestore.rules` requires an authenticated caller on every collection and denies

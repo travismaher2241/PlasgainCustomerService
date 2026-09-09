@@ -12,6 +12,7 @@ import { userProfileStore, hashPinWithScrypt, verifyPinWithScrypt } from "./src/
 import { auditLogStore } from "./src/server/auditLogStore";
 import { opportunityStore, ConcurrencyConflictError } from "./src/server/opportunityStore";
 import { runFollowUpSweep, startFollowUpSweepSchedule } from "./src/server/followUpSweep";
+import { cloudPersistenceStatus } from "./src/server/firestoreAdmin";
 import {
   createOpportunitySchema,
   updateOpportunitySchema,
@@ -155,8 +156,8 @@ const PROFILE_DIRECTORY: Record<string, { name: string; role: string; isAdmin: b
   "user-rob-mitchell": { name: "Rob Mitchell", role: "Sales Director", isAdmin: true }
 };
 
-function getProfileById(userId: string): { name: string; role: string; isAdmin: boolean } | undefined {
-  const dynamic = userProfileStore.getProfile(userId);
+async function getProfileById(userId: string): Promise<{ name: string; role: string; isAdmin: boolean } | undefined> {
+  const dynamic = await userProfileStore.getProfile(userId);
   if (dynamic) {
     return { name: dynamic.name, role: dynamic.role, isAdmin: dynamic.isAdmin };
   }
@@ -166,8 +167,8 @@ function getProfileById(userId: string): { name: string; role: string; isAdmin: 
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const sessions = new Map<string, WorkspaceSession>();
 
-function issueSession(userId: string): { token: string; session: WorkspaceSession } {
-  const profile = getProfileById(userId);
+async function issueSession(userId: string): Promise<{ token: string; session: WorkspaceSession }> {
+  const profile = await getProfileById(userId);
   const now = Date.now();
   const session: WorkspaceSession = {
     userId,
@@ -208,7 +209,7 @@ function requireSession(
   return session;
 }
 
-app.post("/api/auth/verify-profile", (req, res) => {
+app.post("/api/auth/verify-profile", async (req, res) => {
   const userId = String(req.body?.userId || "");
   const pin = String(req.body?.pin || "");
   const clientPinHash = req.body?.pinHash ? String(req.body.pinHash).toLowerCase() : undefined;
@@ -226,11 +227,11 @@ app.post("/api/auth/verify-profile", (req, res) => {
 
   // Check persistent userProfileStore if not matched by env/preset
   if (!valid && pin.length >= 4) {
-    if (userProfileStore.verifyPin(userId, pin)) {
+    if (await userProfileStore.verifyPin(userId, pin)) {
       valid = true;
     } else if (clientPinHash && (clientPinHash === createHash("sha256").update(pin.trim()).digest("hex") || verifyPinWithScrypt(pin.trim(), clientPinHash))) {
       valid = true;
-      userProfileStore.setPin(userId, pin.trim());
+      await userProfileStore.setPin(userId, pin.trim());
     }
   }
 
@@ -241,7 +242,7 @@ app.post("/api/auth/verify-profile", (req, res) => {
   }
 
   authAttempts.delete(key);
-  const { token, session } = issueSession(userId);
+  const { token, session } = await issueSession(userId);
   return res.json({
     success: true,
     userId,
@@ -252,7 +253,7 @@ app.post("/api/auth/verify-profile", (req, res) => {
   });
 });
 
-app.post("/api/auth/register-profile", (req, res) => {
+app.post("/api/auth/register-profile", async (req, res) => {
   const { userId, name, role, location, email, phone, isAdmin, pin, pinHash } = req.body || {};
   if (!userId || !name) {
     return res.status(400).json({ error: "userId and name are required." });
@@ -261,7 +262,7 @@ app.post("/api/auth/register-profile", (req, res) => {
     ? hashPinWithScrypt(String(pin).trim())
     : (pinHash ? String(pinHash).toLowerCase() : "");
 
-  const stored = userProfileStore.setProfile({
+  const stored = await userProfileStore.setProfile({
     userId: String(userId),
     name: String(name),
     role: String(role || "Internal Sales"),
@@ -275,14 +276,14 @@ app.post("/api/auth/register-profile", (req, res) => {
   return res.json({ success: true, profile: stored });
 });
 
-app.post("/api/auth/set-pin", (req, res) => {
+app.post("/api/auth/set-pin", async (req, res) => {
   const { userId, pin } = req.body || {};
   if (!userId || !pin || String(pin).trim().length < 4) {
     return res.status(400).json({ error: "userId and a valid PIN (at least 4 digits) are required." });
   }
-  const updated = userProfileStore.setPin(String(userId), String(pin).trim());
+  const updated = await userProfileStore.setPin(String(userId), String(pin).trim());
   if (!updated) {
-    userProfileStore.setProfile({
+    await userProfileStore.setProfile({
       userId: String(userId),
       name: String(req.body?.name || userId),
       role: String(req.body?.role || "Internal Sales"),
@@ -293,10 +294,10 @@ app.post("/api/auth/set-pin", (req, res) => {
   return res.json({ success: true });
 });
 
-app.delete("/api/auth/profile/:userId", (req, res) => {
+app.delete("/api/auth/profile/:userId", async (req, res) => {
   const userId = req.params.userId;
   if (userId) {
-    userProfileStore.deleteProfile(userId);
+    await userProfileStore.deleteProfile(userId);
   }
   return res.json({ success: true });
 });
@@ -324,7 +325,7 @@ app.get("/api/auth/session", (req, res) => {
 // SERVER-CONTROLLED IMMUTABLE AUDIT TRAIL
 // -------------------------------------------------------------
 
-app.post("/api/audit", (req, res) => {
+app.post("/api/audit", async (req, res) => {
   const session = requireSession(req, res);
   if (!session) return;
 
@@ -354,16 +355,16 @@ app.post("/api/audit", (req, res) => {
     metadata: metadata && typeof metadata === "object" ? metadata : undefined
   };
 
-  auditLogStore.append(record);
+  await auditLogStore.append(record);
   return res.status(201).json({ success: true, ok: true, record });
 });
 
-app.get("/api/audit", (req, res) => {
+app.get("/api/audit", async (req, res) => {
   const session = requireSession(req, res);
   if (!session) return;
 
   const limit = Math.min(Number(req.query.limit) || 200, 1000);
-  const logs = auditLogStore.getAll(limit);
+  const logs = await auditLogStore.getAll(limit);
   return res.json({ success: true, ok: true, logs, records: logs });
 });
 
@@ -376,12 +377,12 @@ app.get("/api/audit", (req, res) => {
  * is inspectable rather than only visible in logs. Flagging is idempotent, so
  * calling it repeatedly is harmless.
  */
-app.post("/api/automation/follow-up-sweep", (req, res) => {
+app.post("/api/automation/follow-up-sweep", async (req, res) => {
   const session = requireSession(req, res);
   if (!session) return;
 
   try {
-    const result = runFollowUpSweep();
+    const result = await runFollowUpSweep();
     return res.json({ success: true, ...result });
   } catch (err: any) {
     console.error("[FollowUpSweep] On-demand sweep failed:", err);
@@ -395,7 +396,7 @@ app.post("/api/automation/follow-up-sweep", (req, res) => {
 
 // 1. GET /api/opportunities (list with pagination, search, and filtering)
 // SYSTEM POLICY: Everyone sees everything — open to all authenticated users.
-app.get("/api/opportunities", (req, res) => {
+app.get("/api/opportunities", async (req, res) => {
   const session = requireSession(req, res);
   if (!session) return;
 
@@ -407,7 +408,7 @@ app.get("/api/opportunities", (req, res) => {
     });
   }
 
-  const result = opportunityStore.list(parsed.data);
+  const result = await opportunityStore.list(parsed.data);
   return res.json({
     success: true,
     data: result.data,
@@ -422,11 +423,11 @@ app.get("/api/opportunities", (req, res) => {
 
 // 2. GET /api/opportunities/:id (read single opportunity)
 // SYSTEM POLICY: Everyone sees everything — open to all authenticated users.
-app.get("/api/opportunities/:id", (req, res) => {
+app.get("/api/opportunities/:id", async (req, res) => {
   const session = requireSession(req, res);
   if (!session) return;
 
-  const opp = opportunityStore.getById(req.params.id);
+  const opp = await opportunityStore.getById(req.params.id);
   const includeArchived = req.query.includeArchived === "true";
   if (!opp || (opp.isArchived && !includeArchived)) {
     return res.status(404).json({ error: `Opportunity with ID "${req.params.id}" not found.` });
@@ -436,7 +437,7 @@ app.get("/api/opportunities/:id", (req, res) => {
 });
 
 // 3. POST /api/opportunities (create opportunity with Zod validation and auto-audit)
-app.post("/api/opportunities", (req, res) => {
+app.post("/api/opportunities", async (req, res) => {
   const session = requireSession(req, res);
   if (!session) return;
 
@@ -448,12 +449,12 @@ app.post("/api/opportunities", (req, res) => {
     });
   }
 
-  const created = opportunityStore.create(parsed.data, session);
+  const created = await opportunityStore.create(parsed.data, session);
 
   // Automatic audit emission (derived from verified server session)
   const changes = diffFields(null, created);
   const auditId = `audit-${Date.now()}-${randomBytes(4).toString("hex")}`;
-  auditLogStore.append({
+  await auditLogStore.append({
     id: auditId,
     timestamp: new Date().toISOString(),
     userId: session.userId,
@@ -471,7 +472,7 @@ app.post("/api/opportunities", (req, res) => {
 });
 
 // 4. PUT /api/opportunities/:id (field-level updates with optimistic concurrency control and auto-audit)
-app.put("/api/opportunities/:id", (req, res) => {
+app.put("/api/opportunities/:id", async (req, res) => {
   const session = requireSession(req, res);
   if (!session) return;
 
@@ -490,7 +491,7 @@ app.put("/api/opportunities/:id", (req, res) => {
   const rawIfUnmodified = req.headers["if-unmodified-since"];
   const expectedUpdatedAt = parsed.data.updatedAt || (rawIfUnmodified ? String(rawIfUnmodified) : undefined);
 
-  // A concurrency token is mandatory, not advisory. opportunityStore.update()
+  // A concurrency token is mandatory, not advisory. await opportunityStore.update()
   // skips the version check entirely when neither token is supplied, so an
   // update sent without one silently reverts to last-write-wins — the exact
   // failure this endpoint exists to prevent. Reject it rather than accept a
@@ -504,7 +505,7 @@ app.put("/api/opportunities/:id", (req, res) => {
   }
 
   try {
-    const { updated, previous } = opportunityStore.update(
+    const { updated, previous } = await opportunityStore.update(
       req.params.id,
       parsed.data,
       expectedVersion,
@@ -515,7 +516,7 @@ app.put("/api/opportunities/:id", (req, res) => {
     const changes = diffFields(previous, updated);
     const isStageMove = Boolean(updated.stageName && updated.stageName !== previous.stageName);
     const auditId = `audit-${Date.now()}-${randomBytes(4).toString("hex")}`;
-    auditLogStore.append({
+    await auditLogStore.append({
       id: auditId,
       timestamp: new Date().toISOString(),
       userId: session.userId,
@@ -549,7 +550,7 @@ app.put("/api/opportunities/:id", (req, res) => {
 });
 
 // 5. DELETE /api/opportunities/:id (soft-delete governed by Role: Manager or Admin only)
-app.delete("/api/opportunities/:id", (req, res) => {
+app.delete("/api/opportunities/:id", async (req, res) => {
   const session = requireSession(req, res);
   if (!session) return;
 
@@ -563,11 +564,11 @@ app.delete("/api/opportunities/:id", (req, res) => {
   const reason = req.body?.reason ? String(req.body.reason) : "Deleted by user";
 
   try {
-    const deleted = opportunityStore.softDelete(req.params.id, reason, session);
+    const deleted = await opportunityStore.softDelete(req.params.id, reason, session);
 
     // Audit emission
     const auditId = `audit-${Date.now()}-${randomBytes(4).toString("hex")}`;
-    auditLogStore.append({
+    await auditLogStore.append({
       id: auditId,
       timestamp: new Date().toISOString(),
       userId: session.userId,
@@ -957,9 +958,21 @@ function extractJsonFromText(text: string): any {
 // Health check
 app.get("/api/health", (req, res) => {
   const aiConfigured = isAIConfigured();
+  const persistence = cloudPersistenceStatus();
   res.json({
-    status: aiConfigured ? "ok" : "degraded",
+    status: aiConfigured && persistence.enabled ? "ok" : "degraded",
     app: "Plasgain Sales Workspace",
+    // Whether quotes, pricing and audit records survive a deployment. Without
+    // credentials the stores fall back to local files, which on a serverless
+    // host live in /tmp and are wiped between deployments — so this reporting
+    // "false" in production means data entered today can disappear tomorrow.
+    persistence: {
+      durable: persistence.enabled,
+      backend: persistence.enabled ? "Cloud Firestore (Admin SDK)" : "Local files (not durable)",
+      detail: persistence.enabled
+        ? "Server records are stored in Firestore and survive deployments."
+        : `Server records are being written to local files and WILL be lost on redeploy. ${persistence.reason || ""}`.trim()
+    },
     ai: {
       configured: aiConfigured,
       model: DEFAULT_MODEL,
@@ -2726,7 +2739,7 @@ app.post("/api/quotes/import-pdf", async (req, res) => {
       });
     }
 
-    const document = quoteDocumentStore.save(buffer, {
+    const document = await quoteDocumentStore.save(buffer, {
       fileName: typeof fileName === "string" ? fileName : "quote.pdf",
       quoteNumber: parsed.quoteNumber
     });
@@ -2743,13 +2756,13 @@ app.post("/api/quotes/import-pdf", async (req, res) => {
 });
 
 // POST /api/quotes/:id/attach - links a stored document to the deal it landed on.
-app.post("/api/quotes/:id/attach", (req, res) => {
+app.post("/api/quotes/:id/attach", async (req, res) => {
   try {
     const { opportunityId, accountId } = req.body || {};
     if (!opportunityId) {
       return res.status(400).json({ error: "opportunityId is required." });
     }
-    const doc = quoteDocumentStore.attachToOpportunity(req.params.id, opportunityId, accountId);
+    const doc = await quoteDocumentStore.attachToOpportunity(req.params.id, opportunityId, accountId);
     if (!doc) return res.status(404).json({ error: "That quote document no longer exists." });
     return res.json({ document: doc });
   } catch (err: any) {
@@ -2759,9 +2772,9 @@ app.post("/api/quotes/:id/attach", (req, res) => {
 });
 
 // GET /api/quotes/by-opportunity/:opportunityId - every file held against a deal.
-app.get("/api/quotes/by-opportunity/:opportunityId", (req, res) => {
+app.get("/api/quotes/by-opportunity/:opportunityId", async (req, res) => {
   try {
-    return res.json({ documents: quoteDocumentStore.listForOpportunity(req.params.opportunityId) });
+    return res.json({ documents: await quoteDocumentStore.listForOpportunity(req.params.opportunityId) });
   } catch (err: any) {
     console.error("Quote list error:", err);
     return res.status(500).json({ error: "The quote documents could not be listed." });
@@ -2769,10 +2782,10 @@ app.get("/api/quotes/by-opportunity/:opportunityId", (req, res) => {
 });
 
 // GET /api/quotes/:id/file - the PDF itself, for viewing in the workspace.
-app.get("/api/quotes/:id/file", (req, res) => {
+app.get("/api/quotes/:id/file", async (req, res) => {
   try {
-    const doc = quoteDocumentStore.get(req.params.id);
-    const bytes = doc ? quoteDocumentStore.readFile(doc.id) : undefined;
+    const doc = await quoteDocumentStore.get(req.params.id);
+    const bytes = doc ? await quoteDocumentStore.readFile(doc.id) : undefined;
     if (!doc || !bytes) {
       return res.status(404).json({ error: "That quote document could not be found." });
     }
@@ -2798,13 +2811,13 @@ app.get("/api/quotes/:id/file", (req, res) => {
 // -------------------------------------------------------------
 
 // GET /api/competitor-pricing
-app.get("/api/competitor-pricing", (req, res) => {
+app.get("/api/competitor-pricing", async (req, res) => {
   try {
     const accountId = typeof req.query.accountId === "string" ? req.query.accountId : undefined;
     const competitorName = typeof req.query.competitorName === "string" ? req.query.competitorName : undefined;
     const status = typeof req.query.status === "string" ? req.query.status : undefined;
 
-    const records = competitorPricingStore.getAllPricingRecords({ accountId, competitorName, status });
+    const records = await competitorPricingStore.getAllPricingRecords({ accountId, competitorName, status });
     return res.json({ records, count: records.length });
   } catch (err: any) {
     console.error("Error fetching competitor pricing:", err);
@@ -2813,7 +2826,7 @@ app.get("/api/competitor-pricing", (req, res) => {
 });
 
 // POST /api/competitor-pricing
-app.post("/api/competitor-pricing", (req, res) => {
+app.post("/api/competitor-pricing", async (req, res) => {
   try {
     const body = req.body || {};
     const accountId = readString(body.accountId);
@@ -2839,7 +2852,7 @@ app.post("/api/competitor-pricing", (req, res) => {
       return res.status(400).json({ error: "Validation failed", details: errors });
     }
 
-    const { record, alert } = competitorPricingStore.createPricingRecord({
+    const { record, alert } = await competitorPricingStore.createPricingRecord({
       accountId: accountId!,
       accountName: accountName!,
       opportunityId: readString(body.opportunityId) || undefined,
@@ -2859,7 +2872,7 @@ app.post("/api/competitor-pricing", (req, res) => {
     });
 
     // Broadcast team notification
-    notificationStore.create({
+    await notificationStore.create({
       title: "New competitor pricing",
       message: `${competitorName} quoted ${competitorProduct} at ${price.toLocaleString("en-AU", { minimumFractionDigits: 2 })} (${priceBasis}) for ${accountName}`,
       timestamp: "Just now",
@@ -2875,7 +2888,7 @@ app.post("/api/competitor-pricing", (req, res) => {
 });
 
 // PATCH /api/competitor-pricing/:id
-app.patch("/api/competitor-pricing/:id", (req, res) => {
+app.patch("/api/competitor-pricing/:id", async (req, res) => {
   try {
     const id = req.params.id;
     const body = req.body || {};
@@ -2895,7 +2908,7 @@ app.patch("/api/competitor-pricing/:id", (req, res) => {
     if (body.sourceType !== undefined) updates.sourceType = body.sourceType;
     if (body.competitorProduct !== undefined) updates.competitorProduct = body.competitorProduct;
 
-    const updated = competitorPricingStore.updatePricingRecord(id, updates);
+    const updated = await competitorPricingStore.updatePricingRecord(id, updates);
     if (!updated) {
       return res.status(404).json({ error: "Competitor pricing record not found" });
     }
@@ -2907,9 +2920,9 @@ app.patch("/api/competitor-pricing/:id", (req, res) => {
 });
 
 // GET /api/competitor-pricing/alerts
-app.get("/api/competitor-pricing/alerts", (_req, res) => {
+app.get("/api/competitor-pricing/alerts", async (_req, res) => {
   try {
-    const alerts = competitorPricingStore.getAllAlerts();
+    const alerts = await competitorPricingStore.getAllAlerts();
     return res.json({ alerts, count: alerts.length });
   } catch (err: any) {
     console.error("Error fetching competitor alerts:", err);
@@ -2918,10 +2931,10 @@ app.get("/api/competitor-pricing/alerts", (_req, res) => {
 });
 
 // PATCH /api/competitor-pricing/alerts/:id/read
-app.patch("/api/competitor-pricing/alerts/:id/read", (req, res) => {
+app.patch("/api/competitor-pricing/alerts/:id/read", async (req, res) => {
   try {
     const id = req.params.id;
-    const alert = competitorPricingStore.markAlertRead(id);
+    const alert = await competitorPricingStore.markAlertRead(id);
     if (!alert) {
       return res.status(404).json({ error: "Alert not found" });
     }
@@ -2938,10 +2951,10 @@ app.patch("/api/competitor-pricing/alerts/:id/read", (req, res) => {
 // -------------------------------------------------------------
 
 // GET /api/notifications
-app.get("/api/notifications", (req, res) => {
+app.get("/api/notifications", async (req, res) => {
   try {
     const includeArchived = req.query.includeArchived === "true";
-    const notifications = notificationStore.getAll(includeArchived);
+    const notifications = await notificationStore.getAll(includeArchived);
     return res.json({ notifications, count: notifications.length });
   } catch (err: any) {
     console.error("Error fetching notifications:", err);
@@ -2950,7 +2963,7 @@ app.get("/api/notifications", (req, res) => {
 });
 
 // POST /api/notifications
-app.post("/api/notifications", (req, res) => {
+app.post("/api/notifications", async (req, res) => {
   try {
     const body = req.body || {};
     const title = readString(body.title);
@@ -2959,7 +2972,7 @@ app.post("/api/notifications", (req, res) => {
       return res.status(400).json({ error: "Title and message are required." });
     }
 
-    const notification = notificationStore.create({
+    const notification = await notificationStore.create({
       title,
       message,
       timestamp: readStringOr(body.timestamp, "Just now"),
@@ -2977,10 +2990,10 @@ app.post("/api/notifications", (req, res) => {
 });
 
 // PATCH /api/notifications/:id/read
-app.patch("/api/notifications/:id/read", (req, res) => {
+app.patch("/api/notifications/:id/read", async (req, res) => {
   try {
     const id = req.params.id;
-    const notification = notificationStore.markRead(id);
+    const notification = await notificationStore.markRead(id);
     if (!notification) {
       return res.status(404).json({ error: "Notification not found" });
     }
@@ -2992,9 +3005,9 @@ app.patch("/api/notifications/:id/read", (req, res) => {
 });
 
 // POST /api/notifications/mark-all-read
-app.post("/api/notifications/mark-all-read", (_req, res) => {
+app.post("/api/notifications/mark-all-read", async (_req, res) => {
   try {
-    notificationStore.markAllRead();
+    await notificationStore.markAllRead();
     return res.json({ success: true });
   } catch (err: any) {
     console.error("Error marking all notifications read:", err);
@@ -3003,10 +3016,10 @@ app.post("/api/notifications/mark-all-read", (_req, res) => {
 });
 
 // PATCH /api/notifications/:id/archive
-app.patch("/api/notifications/:id/archive", (req, res) => {
+app.patch("/api/notifications/:id/archive", async (req, res) => {
   try {
     const id = req.params.id;
-    const notification = notificationStore.archive(id);
+    const notification = await notificationStore.archive(id);
     if (!notification) {
       return res.status(404).json({ error: "Notification not found" });
     }

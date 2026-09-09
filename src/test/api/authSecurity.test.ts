@@ -118,9 +118,9 @@ describe('Auth Security Hardening', () => {
       expect(verifyPinWithScrypt('1111', legacySha256)).toBe(false);
     });
 
-    it('stores PIN in userProfileStore as scrypt format and validates correctly', () => {
+    it('stores PIN in userProfileStore as scrypt format and validates correctly', async () => {
       const testUserId = `test-user-${Date.now()}`;
-      userProfileStore.setProfile({
+      await userProfileStore.setProfile({
         userId: testUserId,
         name: 'Test Rep',
         role: 'Internal Sales',
@@ -128,17 +128,17 @@ describe('Auth Security Hardening', () => {
         pinHash: ''
       });
 
-      const setSuccess = userProfileStore.setPin(testUserId, '7890');
+      const setSuccess = await userProfileStore.setPin(testUserId, '7890');
       expect(setSuccess).toBe(true);
 
-      const profile = userProfileStore.getProfile(testUserId);
+      const profile = await userProfileStore.getProfile(testUserId);
       expect(profile).toBeDefined();
       expect(profile?.pinHash).toContain(':'); // scrypt format
 
-      expect(userProfileStore.verifyPin(testUserId, '7890')).toBe(true);
-      expect(userProfileStore.verifyPin(testUserId, '0000')).toBe(false);
+      expect(await userProfileStore.verifyPin(testUserId, '7890')).toBe(true);
+      expect(await userProfileStore.verifyPin(testUserId, '0000')).toBe(false);
 
-      userProfileStore.deleteProfile(testUserId);
+      await userProfileStore.deleteProfile(testUserId);
     });
   });
 

@@ -1,126 +1,96 @@
-import fs from "fs";
-import path from "path";
 import { ServerNotification } from "../types/crm";
+import { createDocBackend, DocBackend } from "./docStore";
 
 /**
  * Server-Side Shared Notification Repository
  *
- * NOTE FOR PRODUCTION DEPLOYMENT:
- * This implementation provides single-server file-backed persistence. For multi-instance
- * horizontal scaling in production, replace this file storage abstraction with a distributed
- * database (e.g. PostgreSQL, Redis, or Cloud Firestore).
+ * Backed by Firestore through the Admin SDK when credentials are configured,
+ * and by a local JSON file otherwise.
+ *
+ * The previous file-only implementation carried a note asking for exactly this
+ * change: on a serverless host the file lived in /tmp, so notifications were
+ * lost on every deployment and were never shared between the instances serving
+ * concurrent reps — one rep could mark a notification read and another would
+ * still see it unread.
  */
 
-const DATA_DIR = process.env.VERCEL ? path.join("/tmp", "server_data") : path.resolve(process.cwd(), "server_data");
-const NOTIFICATIONS_FILE = path.join(DATA_DIR, "notifications.json");
-
-const SEED_NOTIFICATIONS: ServerNotification[] = [];
-
 class NotificationStore {
-  private notifications: ServerNotification[] = [];
-  private isInitialized = false;
+  private backend: DocBackend<ServerNotification> | null = null;
 
-  constructor() {
-    this.init();
+  private getBackend(): DocBackend<ServerNotification> {
+    if (!this.backend) {
+      this.backend = createDocBackend<ServerNotification>("notifications", "notifications.json");
+    }
+    return this.backend;
   }
 
-  private init() {
-    if (this.isInitialized) return;
-    if (process.env.NODE_ENV === "test" || process.env.VITEST) {
-      this.notifications = [...SEED_NOTIFICATIONS];
-      this.isInitialized = true;
-      return;
-    }
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-
-      if (fs.existsSync(NOTIFICATIONS_FILE)) {
-        const raw = fs.readFileSync(NOTIFICATIONS_FILE, "utf-8");
-        this.notifications = JSON.parse(raw);
-      } else {
-        this.notifications = [...SEED_NOTIFICATIONS];
-        this.save();
-      }
-      this.isInitialized = true;
-    } catch (err) {
-      console.warn("[NotificationStore] Failed to initialize from disk, using seed data:", err);
-      this.notifications = [...SEED_NOTIFICATIONS];
-      this.isInitialized = true;
-    }
-  }
-
-  private save() {
-    if (process.env.NODE_ENV === "test" || process.env.VITEST) return;
-    try {
-      if (!fs.existsSync(DATA_DIR)) {
-        fs.mkdirSync(DATA_DIR, { recursive: true });
-      }
-      fs.writeFileSync(NOTIFICATIONS_FILE, JSON.stringify(this.notifications, null, 2), "utf-8");
-    } catch (err) {
-      console.error("[NotificationStore] Failed to write notifications to disk:", err);
-    }
-  }
-
-  public getAll(includeArchived = false): ServerNotification[] {
-    let list = this.notifications;
-    if (!includeArchived) {
-      list = list.filter((n) => !n.isArchived);
-    }
+  private sortNewestFirst(list: ServerNotification[]): ServerNotification[] {
     return [...list].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
   }
 
-  public getById(id: string): ServerNotification | undefined {
-    return this.notifications.find((n) => n.id === id);
+  public async getAll(includeArchived = false): Promise<ServerNotification[]> {
+    const all = await this.getBackend().loadAll();
+    const list = includeArchived ? all : all.filter((n) => !n.isArchived);
+    return this.sortNewestFirst(list);
   }
 
-  public create(
-    data: Omit<ServerNotification, "id" | "createdAt" | "isRead" | "isArchived"> & { isRead?: boolean; isArchived?: boolean }
-  ): ServerNotification {
-    const now = new Date().toISOString();
+  public async getById(id: string): Promise<ServerNotification | undefined> {
+    const all = await this.getBackend().loadAll();
+    return all.find((n) => n.id === id);
+  }
+
+  public async create(
+    data: Omit<ServerNotification, "id" | "createdAt" | "isRead" | "isArchived"> & {
+      isRead?: boolean;
+      isArchived?: boolean;
+    }
+  ): Promise<ServerNotification> {
     const notification: ServerNotification = {
       ...data,
       id: `notif-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       isRead: data.isRead ?? false,
       isArchived: data.isArchived ?? false,
-      createdAt: now
+      createdAt: new Date().toISOString()
     };
 
-    this.notifications.unshift(notification);
-    this.save();
+    await this.getBackend().put(notification.id, notification);
     return notification;
   }
 
-  public markRead(id: string): ServerNotification | undefined {
-    const item = this.notifications.find((n) => n.id === id);
+  public async markRead(id: string): Promise<ServerNotification | undefined> {
+    const item = await this.getById(id);
     if (!item) return undefined;
-    item.isRead = true;
-    this.save();
-    return item;
+    const updated = { ...item, isRead: true };
+    await this.getBackend().put(id, updated);
+    return updated;
   }
 
-  public markAllRead(): ServerNotification[] {
-    this.notifications.forEach((n) => {
-      n.isRead = true;
-    });
-    this.save();
+  public async markAllRead(): Promise<ServerNotification[]> {
+    const all = await this.getBackend().loadAll();
+    const unread = all.filter((n) => !n.isRead);
+    if (unread.length > 0) {
+      await this.getBackend().putMany(
+        unread.map((n) => ({ id: n.id, doc: { ...n, isRead: true } }))
+      );
+    }
     return this.getAll();
   }
 
-  public archive(id: string): ServerNotification | undefined {
-    const item = this.notifications.find((n) => n.id === id);
+  public async archive(id: string): Promise<ServerNotification | undefined> {
+    const item = await this.getById(id);
     if (!item) return undefined;
-    item.isArchived = true;
-    this.save();
-    return item;
+    const updated = { ...item, isArchived: true };
+    await this.getBackend().put(id, updated);
+    return updated;
   }
 
-  public resetData(useSeed = true): void {
-    this.notifications = useSeed ? [...SEED_NOTIFICATIONS] : [];
-    this.save();
+  public async resetData(): Promise<void> {
+    const all = await this.getBackend().loadAll();
+    for (const n of all) {
+      await this.getBackend().remove(n.id);
+    }
   }
 }
 

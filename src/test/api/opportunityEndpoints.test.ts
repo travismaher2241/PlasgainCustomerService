@@ -10,8 +10,8 @@ describe('Opportunity REST API & Shared-Database Integrity', () => {
 
   beforeEach(async () => {
     // Reset in-memory stores for clean test isolation
-    opportunityStore.clearForTesting();
-    auditLogStore.clearForTesting();
+    await opportunityStore.clearForTesting();
+    await auditLogStore.clearForTesting();
 
     // 1. Authenticate Rep (Sarah Reed - Internal Sales)
     const sarahRes = await request(app)
@@ -369,7 +369,7 @@ describe('Opportunity REST API & Shared-Database Integrity', () => {
         });
       const oppId = createRes.body.data.id;
 
-      let logs = auditLogStore.getAll();
+      let logs = await auditLogStore.getAll();
       const createAudit = logs.find((l) => l.entityId === oppId && l.action === 'CREATE');
       expect(createAudit).toBeDefined();
       expect(createAudit?.userId).toBe('user-sarah-reed');
@@ -387,7 +387,7 @@ describe('Opportunity REST API & Shared-Database Integrity', () => {
         });
       expect(updateRes.status).toBe(200);
 
-      logs = auditLogStore.getAll();
+      logs = await auditLogStore.getAll();
       const updateAudit = logs.find((l) => l.entityId === oppId && (l.action === 'STAGE_CHANGE' || l.action === 'UPDATE'));
       expect(updateAudit).toBeDefined();
       expect(updateAudit?.userId).toBe('user-sarah-reed');
@@ -401,7 +401,7 @@ describe('Opportunity REST API & Shared-Database Integrity', () => {
         .send({ reason: 'Project cancelled by client' });
       expect(deleteRes.status).toBe(200);
 
-      logs = auditLogStore.getAll();
+      logs = await auditLogStore.getAll();
       const deleteAudit = logs.find((l) => l.entityId === oppId && l.action === 'DELETE');
       expect(deleteAudit).toBeDefined();
       expect(deleteAudit?.userId).toBe('user-jane-manager');

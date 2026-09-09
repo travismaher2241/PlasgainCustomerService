@@ -12,7 +12,6 @@ server_data_*.json
 controlled-documents-backup-*.json
 imported-accounts-backup-*.json
 .claude/
-server_data/knowledge/
 # Runtime state written by the server as it runs, not source. These were
 # tracked, so every test run and every local session rewrote ids and
 # timestamps and dirtied the tree. The stores seed an empty array and create
