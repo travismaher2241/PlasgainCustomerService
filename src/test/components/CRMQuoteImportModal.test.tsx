@@ -75,20 +75,37 @@ describe('Quote import — saving against the account', () => {
     });
   });
 
-  it('files the quote without writing to the customer discussion timeline', async () => {
+  const saveAndWaitForCompletion = async () => {
+    fireEvent.click(screen.getByRole('button', { name: /save the quote/i }));
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: /import a quote pdf/i })).not.toBeInTheDocument()
+    );
+    expect(JSON.parse(screen.getByTestId('deals').textContent || '[]')).toHaveLength(1);
+    return JSON.parse(screen.getByTestId('activities').textContent || '[]');
+  };
+
+  it('logs a quote that has gone to the customer as a touchpoint', async () => {
     render(<AppProvider><Probe /></AppProvider>);
     await uploadAndReachReview();
 
-    fireEvent.click(screen.getByRole('button', { name: /save the quote/i }));
+    // "Already sent to client" is on by default.
+    const activities = await saveAndWaitForCompletion();
 
-    await waitFor(() => {
-      const deals = JSON.parse(screen.getByTestId('deals').textContent || '[]');
-      expect(deals).toHaveLength(1);
-    });
+    expect(activities).toHaveLength(1);
+    expect(activities[0].type).toBe('quote_sent');
+    expect(activities[0].accountId).toBe('acc-alpha');
+    // Dated when the customer received it, not when the PDF was filed.
+    expect(activities[0].timestamp).toContain('2026-09-01');
+  });
 
-    // Importing a PDF is not a conversation with the customer, and must not
-    // reset the contact-overdue clock on an account nobody has spoken to.
-    expect(JSON.parse(screen.getByTestId('activities').textContent || '[]')).toEqual([]);
+  it('does not log a touchpoint for a draft that never reached the customer', async () => {
+    render(<AppProvider><Probe /></AppProvider>);
+    await uploadAndReachReview();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: /already sent to client/i }));
+
+    // Nobody has been contacted, so nothing may reset the contact-overdue clock.
+    expect(await saveAndWaitForCompletion()).toEqual([]);
   });
 
   it('reports a failed write instead of claiming the quote was saved', async () => {

@@ -85,6 +85,7 @@ export const CRMQuoteImportModal: React.FC = () => {
     crmOpportunities,
     addCrmOpportunity,
     updateCrmOpportunity,
+    logActivity,
     showToast,
     currentUser,
     navigateToCRM
@@ -324,11 +325,23 @@ export const CRMQuoteImportModal: React.FC = () => {
       }
     }
 
-    // No activity is logged here. The timeline answers "who spoke with the
-    // customer, what was discussed, and what happens next" — filing a PDF is
-    // none of those, and an import standing in for a conversation also reset
-    // the contact-overdue clock on an account nobody had actually contacted.
-    // The quote records the import itself, in latestActivity and its stage.
+    // A quote that has gone to the customer is a real touchpoint, dated the day
+    // they received it rather than the day the PDF was filed. A draft that has
+    // only been stored is not: nobody has been contacted, and logging one reset
+    // the contact-overdue clock on an account nobody had spoken to. The import
+    // itself is recorded on the quote, in latestActivity and its stage.
+    if (isAlreadySent) {
+      logActivity({
+        type: "quote_sent",
+        title: `Quote ${parsed.quoteNumber || ""} sent to customer`.trim(),
+        description: `${money(parsed.nettTotal)} ex GST${parsed.projectName ? ` — ${parsed.projectName}` : ""} · follow-up due ${formatAuDate(followUpDate)}`,
+        accountId,
+        accountName,
+        opportunityId,
+        performedBy: currentUser.name,
+        ...(sentDate ? { timestamp: `${sentDate}T12:00:00.000Z` } : {})
+      } as any);
+    }
 
     showToast(
       existingDeal
