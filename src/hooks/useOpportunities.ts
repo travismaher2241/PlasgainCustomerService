@@ -100,6 +100,12 @@ export function useCreateOpportunity() {
   return useMutation({
     mutationFn: (data: CreateOpportunityInput) => createOpportunityApi(data),
     onMutate: async (newRecord) => {
+      // Snapshot before touching anything, so a rejected write can be undone.
+      // Deliberately not awaiting a cancelQueries first: that would defer the
+      // optimistic row by a tick, and the row appearing immediately is the
+      // whole point of it.
+      const previousLists = queryClient.getQueriesData({ queryKey: OPPORTUNITY_KEYS.lists() });
+
       const optimisticDeal: CRMOpportunity = {
         id: (newRecord as any).id || `opp-opt-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         version: 1,
@@ -125,7 +131,22 @@ export function useCreateOpportunity() {
       );
 
       queryClient.setQueryData(OPPORTUNITY_KEYS.detail(optimisticDeal.id), optimisticDeal);
-      return { optimisticDeal };
+      return { optimisticDeal, previousLists };
+    },
+    /**
+     * A quote that failed to save must leave nothing behind.
+     *
+     * Without this the optimistic row stayed in the cache, so a rejected write
+     * looked exactly like a saved quote — and each retry added another. Eight
+     * attempts against an unreachable server left eight quotes on screen, each
+     * carrying its own "follow up on this quote" next action, for a quote that
+     * was never stored at all.
+     */
+    onError: (_error, _variables, context) => {
+      context?.previousLists?.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      if (context?.optimisticDeal) {
+        queryClient.removeQueries({ queryKey: OPPORTUNITY_KEYS.detail(context.optimisticDeal.id) });
+      }
     },
     onSuccess: (newRecord) => {
       queryClient.invalidateQueries({ queryKey: OPPORTUNITY_KEYS.all });
@@ -144,6 +165,9 @@ export function useUpdateOpportunity() {
     mutationFn: ({ id, updates }: { id: string; updates: UpdateOpportunityInput }) =>
       updateOpportunityApi(id, updates),
     onMutate: async ({ id, updates }) => {
+      const previousLists = queryClient.getQueriesData({ queryKey: OPPORTUNITY_KEYS.lists() });
+      const previousDetail = queryClient.getQueryData(OPPORTUNITY_KEYS.detail(id));
+
       queryClient.setQueriesData(
         { queryKey: OPPORTUNITY_KEYS.lists() },
         (old: any) => {
@@ -160,6 +184,17 @@ export function useUpdateOpportunity() {
       queryClient.setQueryData(OPPORTUNITY_KEYS.detail(id), (old: any) =>
         old ? { ...old, ...updates, updatedAt: new Date().toISOString() } : old
       );
+
+      return { previousLists, previousDetail, id };
+    },
+    // A rejected edit must not keep showing the values it failed to save —
+    // including a version conflict, where what is on screen is another rep's
+    // work being overwritten in appearance only.
+    onError: (_error, _variables, context) => {
+      context?.previousLists?.forEach(([key, data]) => queryClient.setQueryData(key, data));
+      if (context) {
+        queryClient.setQueryData(OPPORTUNITY_KEYS.detail(context.id), context.previousDetail);
+      }
     },
     onSuccess: (updatedRecord) => {
       // Invalidate list queries so all views refresh
@@ -180,6 +215,8 @@ export function useDeleteOpportunity() {
     mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
       deleteOpportunityApi(id, reason),
     onMutate: async ({ id }) => {
+      const previousLists = queryClient.getQueriesData({ queryKey: OPPORTUNITY_KEYS.lists() });
+
       queryClient.setQueriesData(
         { queryKey: OPPORTUNITY_KEYS.lists() },
         (old: any) => {
@@ -191,6 +228,13 @@ export function useDeleteOpportunity() {
           };
         }
       );
+
+      return { previousLists };
+    },
+    // A delete the server refused — no permission, or the quote is gone already
+    // — must put the quote back rather than leave it looking deleted.
+    onError: (_error, _variables, context) => {
+      context?.previousLists?.forEach(([key, data]) => queryClient.setQueryData(key, data));
     },
     onSuccess: (_, { id }) => {
       queryClient.invalidateQueries({ queryKey: OPPORTUNITY_KEYS.all });

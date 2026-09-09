@@ -13,6 +13,7 @@ import {
   ApiConflictError
 } from "../../api/opportunityClient";
 import {
+  OPPORTUNITY_KEYS,
   useOpportunities,
   useOpportunity,
   useCreateOpportunity,
@@ -416,6 +417,98 @@ describe("Opportunity API Client & React Query Hooks Suite", () => {
       });
 
       expect(invalidateSpy).toHaveBeenCalledWith(expect.objectContaining({ queryKey: ["opportunities"] }));
+    });
+
+    it("leaves nothing behind when a create is rejected, however many times it is retried", async () => {
+      // What eight retries against an unreachable server actually did: every
+      // rejected write left its optimistic row in the cache, so eight phantom
+      // quotes sat on screen — each with its own "follow up on this quote" next
+      // action — for a quote that was never stored at all.
+      queryClient.setQueryData(OPPORTUNITY_KEYS.list(), {
+        data: [{ id: "opp-real", name: "A saved quote" }],
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1
+      });
+
+      vi.spyOn(globalThis, "fetch").mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ error: "Sign in again — this action requires a verified profile." })
+      } as Response);
+
+      const { result } = renderHook(() => useCreateOpportunity(), { wrapper });
+
+      for (let attempt = 0; attempt < 8; attempt++) {
+        await expect(
+          result.current.mutateAsync({
+            id: `deal-attempt-${attempt}`,
+            name: "Incline Bracket",
+            accountId: "acc-healey",
+            accountName: "Healey Infrastructure Group Pty Ltd",
+            dealValue: 485.33
+          })
+        ).rejects.toThrow();
+      }
+
+      const cached = queryClient.getQueryData(OPPORTUNITY_KEYS.list()) as any;
+      expect(cached.data).toHaveLength(1);
+      expect(cached.data[0].id).toBe("opp-real");
+      expect(cached.total).toBe(1);
+      expect(queryClient.getQueryData(OPPORTUNITY_KEYS.detail("deal-attempt-0"))).toBeUndefined();
+    });
+
+    it("puts a quote back when an edit is rejected", async () => {
+      queryClient.setQueryData(OPPORTUNITY_KEYS.list(), {
+        data: [{ id: "opp-1", name: "Original name", dealValue: 1000 }],
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1
+      });
+
+      vi.spyOn(globalThis, "fetch").mockResolvedValue({
+        ok: false,
+        status: 409,
+        json: async () => ({ error: "Conflict" })
+      } as Response);
+
+      const { result } = renderHook(() => useUpdateOpportunity(), { wrapper });
+
+      await expect(
+        result.current.mutateAsync({ id: "opp-1", updates: { name: "Renamed", dealValue: 9999 } })
+      ).rejects.toThrow();
+
+      // Showing the rejected values would present another rep's work as
+      // overwritten when it never was.
+      const cached = queryClient.getQueryData(OPPORTUNITY_KEYS.list()) as any;
+      expect(cached.data[0].name).toBe("Original name");
+      expect(cached.data[0].dealValue).toBe(1000);
+    });
+
+    it("puts a quote back when a delete is refused", async () => {
+      queryClient.setQueryData(OPPORTUNITY_KEYS.list(), {
+        data: [{ id: "opp-1", name: "Still here" }],
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1
+      });
+
+      vi.spyOn(globalThis, "fetch").mockResolvedValue({
+        ok: false,
+        status: 403,
+        json: async () => ({ error: "Forbidden" })
+      } as Response);
+
+      const { result } = renderHook(() => useDeleteOpportunity(), { wrapper });
+
+      await expect(result.current.mutateAsync({ id: "opp-1" })).rejects.toThrow();
+
+      const cached = queryClient.getQueryData(OPPORTUNITY_KEYS.list()) as any;
+      expect(cached.data).toHaveLength(1);
+      expect(cached.data[0].id).toBe("opp-1");
     });
 
     it("useMarkQuoteWon updates stage to Won and sets wonReason", async () => {
