@@ -85,7 +85,6 @@ export const CRMQuoteImportModal: React.FC = () => {
     crmOpportunities,
     addCrmOpportunity,
     updateCrmOpportunity,
-    logActivity,
     showToast,
     currentUser,
     navigateToCRM
@@ -325,16 +324,11 @@ export const CRMQuoteImportModal: React.FC = () => {
       }
     }
 
-    logActivity({
-      type: isAlreadySent ? "quote_sent" : "note",
-      title: `Quote ${parsed.quoteNumber || ""} ${isAlreadySent ? "sent and imported" : "draft imported"}`.trim(),
-      description: `${money(parsed.nettTotal)} ex GST${parsed.projectName ? ` — ${parsed.projectName}` : ""}${isAlreadySent ? ` · follow-up due ${formatAuDate(followUpDate)}` : ""}`,
-      accountId,
-      accountName,
-      opportunityId,
-      performedBy: currentUser.name,
-      ...(isAlreadySent && sentDate ? { timestamp: `${sentDate}T12:00:00.000Z` } : {})
-    } as any);
+    // No activity is logged here. The timeline answers "who spoke with the
+    // customer, what was discussed, and what happens next" — filing a PDF is
+    // none of those, and an import standing in for a conversation also reset
+    // the contact-overdue clock on an account nobody had actually contacted.
+    // The quote records the import itself, in latestActivity and its stage.
 
     showToast(
       existingDeal

@@ -30,7 +30,7 @@ vi.mock('../../utils/apiClient', async (orig) => {
 });
 
 const Probe: React.FC = () => {
-  const { openQuoteImport, addAccount, crmOpportunities } = useApp();
+  const { openQuoteImport, addAccount, crmOpportunities, activities } = useApp();
   React.useEffect(() => {
     addAccount({
       id: 'acc-alpha', name: 'Alpha Industrial', accountType: 'Account',
@@ -43,6 +43,7 @@ const Probe: React.FC = () => {
       <div data-testid="deals">
         {JSON.stringify(crmOpportunities.map((d: any) => ({ accountId: d.accountId })))}
       </div>
+      <div data-testid="activities">{JSON.stringify(activities)}</div>
       <CRMQuoteImportModal />
     </div>
   );
@@ -72,6 +73,22 @@ describe('Quote import — saving against the account', () => {
       const deals = JSON.parse(screen.getByTestId('deals').textContent || '[]');
       expect(deals).toEqual([{ accountId: 'acc-alpha' }]);
     });
+  });
+
+  it('files the quote without writing to the customer discussion timeline', async () => {
+    render(<AppProvider><Probe /></AppProvider>);
+    await uploadAndReachReview();
+
+    fireEvent.click(screen.getByRole('button', { name: /save the quote/i }));
+
+    await waitFor(() => {
+      const deals = JSON.parse(screen.getByTestId('deals').textContent || '[]');
+      expect(deals).toHaveLength(1);
+    });
+
+    // Importing a PDF is not a conversation with the customer, and must not
+    // reset the contact-overdue clock on an account nobody has spoken to.
+    expect(JSON.parse(screen.getByTestId('activities').textContent || '[]')).toEqual([]);
   });
 
   it('reports a failed write instead of claiming the quote was saved', async () => {
