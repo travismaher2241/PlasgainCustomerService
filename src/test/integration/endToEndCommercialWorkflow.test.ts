@@ -1,48 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { formatOstendoCSV, validateOstendoItems } from "../../utils/ostendoExporter";
 
 describe("End-to-End Commercial Sales Workflow Acceptance Test", () => {
-
-  // ==========================================
-  // STAGE 3: Deal BOM Schedule Validation
-  // ==========================================
-  describe("Stage 3: Ostendo BOM Schedule Export", () => {
-    it("validates and formats itemized BOM for Ostendo ERP", () => {
-      const bomItems = [
-        {
-          itemCode: "50W-INTENSE",
-          description: "Plasgain Intense Light 50W Solar Luminaire (3000K)",
-          quantity: 24,
-          unit: "ea",
-          lineNotes: "AS/NZS 1158 Cat P4 Wildlife Fauna Compliant"
-        },
-        {
-          itemCode: "PLASPOLE-6M-DB",
-          description: "Plaspole 6.0m Recycled Composite Light Pole (Direct Burial)",
-          quantity: 24,
-          unit: "ea",
-          lineNotes: "Direct burial with 1.2m embedment depth"
-        },
-        {
-          itemCode: "PCC-200-1M",
-          description: "Plasgain Polymeric Cable Cover Slabs (1000x200mm)",
-          quantity: 1200,
-          unit: "m",
-          lineNotes: "AS 4702 Cat 1 Mechanical Protection - 1200 interlocking units"
-        }
-      ];
-
-      const validation = validateOstendoItems(bomItems);
-      expect(validation.valid).toBe(true);
-      expect(validation.errors).toHaveLength(0);
-
-      const csvContent = formatOstendoCSV(bomItems, "OST-BALLARAT-2025");
-      expect(csvContent).toContain("50W-INTENSE");
-      expect(csvContent).toContain("PLASPOLE-6M-DB");
-      expect(csvContent).toContain("PCC-200-1M");
-      expect(csvContent).toContain("OST-BALLARAT-2025");
-    });
-  });
 
   // ==========================================
   // STAGE 4: Engineering Calculations & Sizing

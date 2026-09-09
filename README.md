@@ -207,6 +207,17 @@ Vitest, and `PLASGAIN_DISABLE_CLOUD=1` turns cloud sync off for local work.
 | `npm test` | Unit, component, and API tests |
 | `npm run test:e2e` | Playwright end-to-end tests |
 
+## Desktop app
+
+The workspace can also be installed as a program with its own icon and window,
+rather than opened as a browser tab. It is a native shell around the hosted
+workspace — the same server, the same database, so nothing about the data
+changes. See [`desktop/README.md`](desktop/README.md) for how to build the
+installer and how to point it at a different deployment.
+
+It lives in `desktop/` as its own npm package on purpose: Electron never enters
+the web app's dependencies, so the Vercel build is unaffected.
+
 ## Models
 
 The model ladder lives at the top of `server.ts`:

@@ -39,7 +39,6 @@ describe('HomeDashboard Step 8 Suite', () => {
     expect(screen.getByText(/No sales records yet/i)).toBeInTheDocument();
 
     // 3. Compact quick creation actions
-    expect(screen.getByRole('button', { name: /Import Ostendo quote/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Add account/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Quotes/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Log a call/i })).toBeInTheDocument();
@@ -62,14 +61,17 @@ describe('HomeDashboard Step 8 Suite', () => {
     expect(openButtons.length).toBe(1);
   });
 
-  it('offers Ostendo quote import without exposing manual quote creation', () => {
+  it('routes to the Quotes page for quote work rather than importing from Home', () => {
     render(
       <AppProvider>
         <HomeDashboard />
       </AppProvider>
     );
 
-    expect(screen.getByRole('button', { name: /Import Ostendo quote/i })).toBeInTheDocument();
+    // The import tile used to sit beside the Quotes tile, putting the modal and
+    // the screen that owns it side by side. Quotes is the way through now.
+    expect(screen.getByRole('button', { name: /Quotes/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Import quote/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Create Quote/i })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/\$ Value/i)).not.toBeInTheDocument();
   });

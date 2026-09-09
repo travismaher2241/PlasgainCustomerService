@@ -21,7 +21,6 @@ export const HomeDashboard: React.FC = () => {
     accounts,
     tasks,
     openQuickLog,
-    openQuoteImport,
     currentUser
   } = useApp();
 
@@ -141,19 +140,11 @@ export const HomeDashboard: React.FC = () => {
         ) : null}
       </div>
 
-      {/* 2. COMPACT CREATION ACTIONS ROW (PART H: REPLACES DUPLICATIVE NAVIGATION) */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <button
-          type="button"
-          onClick={() => openQuoteImport()}
-          className="p-3 rounded-edge bg-white hover:bg-raised border border-line hover:border-brand-deep transition-all cursor-pointer shadow-2xs flex items-center gap-2.5"
-        >
-          <div className="p-1.5 rounded bg-brand-wash text-brand-deep shrink-0">
-            <Plus className="w-4 h-4" />
-          </div>
-          <span className="text-spec font-bold text-body truncate">Import Ostendo quote</span>
-        </button>
-
+      {/* 2. COMPACT CREATION ACTIONS ROW (PART H: REPLACES DUPLICATIVE NAVIGATION)
+          Quote import is not here: it sat beside the Quotes tile, offering the
+          modal and the screen that owns it side by side. It lives on the Quotes
+          page, which this tile navigates to. */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
         <button
           type="button"
           onClick={() => requestCreateOn("accounts")}
@@ -179,7 +170,7 @@ export const HomeDashboard: React.FC = () => {
         <button
           type="button"
           onClick={() => openQuickLog({ type: "call" })}
-          className="p-3 rounded-edge bg-white hover:bg-raised border border-line hover:border-brand-deep transition-all cursor-pointer shadow-2xs flex items-center gap-2.5"
+          className="col-span-2 sm:col-span-1 p-3 rounded-edge bg-white hover:bg-raised border border-line hover:border-brand-deep transition-all cursor-pointer shadow-2xs flex items-center gap-2.5"
         >
           <div className="p-1.5 rounded bg-paper text-ink-dim shrink-0">
             <PhoneCall className="w-4 h-4" />

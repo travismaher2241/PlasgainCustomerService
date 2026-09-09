@@ -7,6 +7,44 @@ import { CRMQuickLogModal } from "../../components/crm/CRMQuickLogModal";
 import { CRMAccountsView } from "../../components/crm/CRMAccountsView";
 import { makeAccount, makeContact, makeOpportunity } from "../factories";
 
+/**
+ * A quote store that behaves like a reachable server.
+ *
+ * The real client answers an unreachable API with an empty list, so once the
+ * audit trail waits for a create to be confirmed, the refetch that follows it
+ * emptied the book and the stage-change entry had no quote to name. This keeps
+ * the created quote readable, which is what the assertions are about.
+ */
+const storedDeals: any[] = [];
+
+vi.mock("../../api/opportunityClient", async (orig) => {
+  const actual = await (orig() as any);
+  const page = () => ({
+    data: [...storedDeals],
+    total: storedDeals.length,
+    page: 1,
+    limit: 20,
+    totalPages: 1
+  });
+  return {
+    ...actual,
+    fetchOpportunities: vi.fn(async () => page()),
+    fetchAllOpportunities: vi.fn(async () => page()),
+    migrateLegacyDeals: vi.fn(async () => ({ migrated: 0, failed: 0 })),
+    createOpportunityApi: vi.fn(async (data: any) => {
+      const record = { ...data, version: 1, isArchived: false };
+      storedDeals.push(record);
+      return record;
+    }),
+    updateOpportunityApi: vi.fn(async (id: string, updates: any) => {
+      const index = storedDeals.findIndex((d) => d.id === id);
+      if (index === -1) throw new Error(`No quote ${id}`);
+      storedDeals[index] = { ...storedDeals[index], ...updates };
+      return storedDeals[index];
+    })
+  };
+});
+
 // Mock Firebase cloud functions
 vi.mock("../../utils/firebase", () => ({
   saveDocToCloud: vi.fn().mockResolvedValue(true),
@@ -122,6 +160,7 @@ describe("Multi-User Shared Database, Call Attribution & Admin Audit Trail", () 
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    storedDeals.length = 0;
   });
 
   it("1. automatically records audit log entries when accounts, contacts, and deals are created and modified", async () => {
@@ -144,13 +183,18 @@ describe("Multi-User Shared Database, Call Attribution & Admin Audit Trail", () 
     fireEvent.click(screen.getByText("Log Test Call"));
     expect(screen.getByText(/Logged call: "Project Discovery Call with David"/i)).toBeInTheDocument();
 
-    // Create Deal
+    // Create Deal. The audit entry is written once the store confirms the
+    // write, so that a quote that failed to save is never logged as created.
     fireEvent.click(screen.getByText("Add Test Deal"));
-    expect(screen.getByText(/Created quote: Riverside Shared Path Lighting \(\$45,000\)/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText(/Created quote: Riverside Shared Path Lighting \(\$45,000\)/i)).toBeInTheDocument()
+    );
 
     // Advance Deal Stage
     fireEvent.click(screen.getByText("Advance Deal Stage"));
-    expect(screen.getByText(/Moved quote "Riverside Shared Path Lighting" from Discovery & Qualification -> Quote Sent & Follow-up/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText(/Moved quote "Riverside Shared Path Lighting" from Discovery & Qualification -> Quote Sent & Follow-up/i)).toBeInTheDocument()
+    );
   });
 
   it("2. provides filtering by user, action type, entity type, and search query in AdminAuditLogView", async () => {

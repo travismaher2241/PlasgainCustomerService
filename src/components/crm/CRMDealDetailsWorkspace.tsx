@@ -18,8 +18,6 @@ import {
   TrendingUp,
   Mail,
   FileSpreadsheet,
-  Download,
-  Copy,
   Trash2,
   Tag,
   Check,
@@ -54,12 +52,6 @@ import {
   ApiConflictError
 } from "../../hooks/useOpportunities";
 import { CustomerFollowUpModal } from "../CustomerFollowUpModal";
-import {
-  formatOstendoCSV,
-  validateOstendoItems,
-  downloadOstendoCSV,
-  copyOstendoProductList
-} from "../../utils/ostendoExporter";
 import { sortActivitiesChronological } from "../../utils/activityUtils";
 import { addDaysLocal, getLocalDateInputValue, formatAuDate } from "../../utils/dateUtils";
 import { useDialogDismiss } from "../../utils/useDialogDismiss";
@@ -121,52 +113,10 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
     }
   };
 
-  const handleExportOstendo = () => {
-    const rawItems = (currentDeal.products || []).map((p) => ({
-      itemCode: p.productCode,
-      description: p.productName,
-      quantity: p.quantity,
-      unit: "ea",
-      lineNotes: p.notes,
-      quoteRef: currentDeal.quoteNumber || currentDeal.name
-    }));
-    const validation = validateOstendoItems(rawItems);
-    if (!validation.valid) {
-      showToast(validation.errors[0] || "Invalid Ostendo items", "error");
-      return;
-    }
-    const csv = formatOstendoCSV(rawItems, currentDeal.quoteNumber || currentDeal.name);
-    downloadOstendoCSV(csv, `Ostendo-${currentDeal.quoteNumber || currentDeal.id}.csv`);
-    showToast("Ostendo CSV downloaded", "success");
-  };
-
-  const handleCopyOstendo = async () => {
-    const rawItems = (currentDeal.products || []).map((p) => ({
-      itemCode: p.productCode,
-      description: p.productName,
-      quantity: p.quantity,
-      unit: "ea",
-      lineNotes: p.notes,
-      quoteRef: currentDeal.quoteNumber || currentDeal.name
-    }));
-    const validation = validateOstendoItems(rawItems);
-    if (!validation.valid) {
-      showToast(validation.errors[0] || "Invalid Ostendo items", "error");
-      return;
-    }
-    const copied = await copyOstendoProductList(rawItems, currentDeal.quoteNumber || currentDeal.name);
-    if (copied) {
-      showToast("Ostendo matrix copied to clipboard", "success");
-    } else {
-      showToast("Failed to copy to clipboard", "error");
-    }
-  };
-
   const [activeTab, setActiveTab] = useState<DealDetailsTab>(initialTab);
 
   // Dropdown menus
   const [isCommMenuOpen, setIsCommMenuOpen] = useState(false);
-  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
 
   // Modals
@@ -227,7 +177,6 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
   React.useEffect(() => {
     const handleDocumentClick = () => {
       setIsCommMenuOpen(false);
-      setIsExportMenuOpen(false);
       setIsMoreMenuOpen(false);
     };
     document.addEventListener("click", handleDocumentClick);
@@ -499,49 +448,6 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
     showToast(`Purchase order received. Quote moved to ${wonStage.name}.`, "success");
   };
 
-  // Export full quote CSV
-  const handleExportDealCSV = () => {
-    const headers = [
-      "Quote ID",
-      "Quote Name",
-      "Account Name",
-      "Stage",
-      "Quote Value (ex GST)",
-      "Target Gross Margin %",
-      "Expected Decision Date",
-      "Quote Ref",
-      "Quote Status",
-      "Next Action",
-      "Next Action Due"
-    ];
-
-    const row = [
-      `"${deal.id}"`,
-      `"${deal.name.replace(/"/g, '""')}"`,
-      `"${deal.accountName.replace(/"/g, '""')}"`,
-      `"${deal.stageName}"`,
-      deal.dealValue,
-      deal.grossMarginPercent !== undefined ? deal.grossMarginPercent : "",
-      `"${deal.expectedCloseDate}"`,
-      `"${deal.ostendoQuoteRef || deal.quoteNumber || ""}"`,
-      `"${deal.quoteStatus || "Draft"}"`,
-      `"${(deal.nextAction || "").replace(/"/g, '""')}"`,
-      `"${deal.nextActionDate || ""}"`
-    ];
-
-    const csvContent = "\uFEFF" + [headers.join(","), row.join(",")].join("\r\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Quote_Summary_${deal.name.replace(/\s+/g, "_")}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-    showToast("Downloaded Quote Summary CSV", "success");
-  };
-
   // Toggle activity notes expansion
   const toggleActivityExpand = (id: string) => {
     setExpandedActivityIds((prev) => {
@@ -719,7 +625,6 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                   type="button"
                   onClick={() => {
                     setIsCommMenuOpen((prev) => !prev);
-                    setIsExportMenuOpen(false);
                     setIsMoreMenuOpen(false);
                   }}
                   className="px-2.5 py-1.5 text-meta font-semibold bg-white hover:bg-raised text-body border border-line rounded-edge shadow-2xs flex items-center gap-1 cursor-pointer transition-colors"
@@ -799,63 +704,6 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                 )}
               </div>
 
-              {/* 4. Grouped Export Dropdown */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsExportMenuOpen((prev) => !prev);
-                    setIsCommMenuOpen(false);
-                    setIsMoreMenuOpen(false);
-                  }}
-                  className="px-2.5 py-1.5 text-meta font-semibold bg-white hover:bg-raised text-body border border-line rounded-edge shadow-2xs flex items-center gap-1 cursor-pointer transition-colors"
-                >
-                  <Download className="w-3.5 h-3.5 text-ink-dim" />
-                  <span>Export</span>
-                  <ChevronDown className="w-3 h-3 text-ink-faint" />
-                </button>
-
-                {isExportMenuOpen && (
-                  <div className="absolute left-0 mt-1 w-64 bg-white rounded-panel shadow-lg border border-line py-1 z-30 animate-in fade-in zoom-in-95 duration-100">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleExportOstendo();
-                        setIsExportMenuOpen(false);
-                      }}
-                      className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body"
-                    >
-                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>Download Ostendo CSV</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await handleCopyOstendo();
-                        setIsExportMenuOpen(false);
-                      }}
-                      className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body border-t border-line"
-                    >
-                      <Copy className="w-3.5 h-3.5 text-brand" />
-                      <span>Copy Ostendo Matrix</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        handleExportDealCSV();
-                        setIsExportMenuOpen(false);
-                      }}
-                      className="w-full text-left px-3 py-2 text-meta hover:bg-raised flex items-center gap-2 text-body border-t border-line"
-                    >
-                      <FileText className="w-3.5 h-3.5 text-ink-dim" />
-                      <span>Export Quote Summary CSV</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-
               {/* 5. More Actions Dropdown */}
               <div className="relative">
                 <button
@@ -863,7 +711,6 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                   onClick={() => {
                     setIsMoreMenuOpen((prev) => !prev);
                     setIsCommMenuOpen(false);
-                    setIsExportMenuOpen(false);
                   }}
                   className="p-1.5 text-meta bg-white hover:bg-raised text-ink-dim hover:text-body border border-line rounded-edge shadow-2xs flex items-center cursor-pointer transition-colors"
                   title="More actions"

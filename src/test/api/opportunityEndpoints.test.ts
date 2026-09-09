@@ -27,9 +27,11 @@ describe('Opportunity REST API & Shared-Database Integrity', () => {
     expect(travisRes.status).toBe(200);
     adminToken = travisRes.body.token;
 
-    // 3. Register and Authenticate Manager (Jane Manager - Sales Manager)
+    // 3. Register and Authenticate Manager (Jane Manager - Sales Manager).
+    // Creating a profile takes an admin session, so it goes with Travis's.
     await request(app)
       .post('/api/auth/register-profile')
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({
         userId: 'user-jane-manager',
         name: 'Jane Manager',

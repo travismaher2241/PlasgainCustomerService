@@ -43,7 +43,7 @@ import {
 import { CRMIntelligenceEngine } from "../utils/crmIntelligence";
 import { normalizeNotification, getUnreadNotificationsCount } from "../utils/notificationUtils";
 import { addDaysLocal, formatAuDate, formatAuTime, getLocalDateInputValue } from "../utils/dateUtils";
-import { setSessionToken, getSessionToken } from "../utils/apiClient";
+import { setSessionToken, getSessionToken, authHeaders } from "../utils/apiClient";
 import { diffFields } from "../utils/diffUtils";
 import {
   saveDocToCloud,
@@ -311,7 +311,8 @@ interface AppContextType {
 
   crmOpportunities: CRMOpportunity[];
   setCrmOpportunities: React.Dispatch<React.SetStateAction<CRMOpportunity[]>>;
-  addCrmOpportunity: (opp: CRMOpportunity) => void;
+  /** Resolves true when the quote reached the store, false when it did not. */
+  addCrmOpportunity: (opp: CRMOpportunity) => Promise<boolean>;
   updateCrmOpportunity: (id: string, updates: Partial<CRMOpportunity>) => void;
   deleteCrmOpportunity: (id: string, reason?: string) => Promise<void>;
   markQuoteSent: (id: string, notes?: string) => void;
@@ -477,8 +478,9 @@ interface AppContextType {
   } | null;
   openEnquiryParser: (initialText?: string) => void;
   closeEnquiryParser: () => void;
-  quoteImportModal: { isOpen: boolean } | null;
-  openQuoteImport: () => void;
+  /** accountId is set when the import was started from an account's own page. */
+  quoteImportModal: { isOpen: boolean; accountId?: string } | null;
+  openQuoteImport: (accountId?: string) => void;
   closeQuoteImport: () => void;
 
   // Feature 03: Inbound Email Ingestion Modal State
@@ -738,23 +740,13 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Register with server backend for PIN verification in background
     (async () => {
-      let calculatedPinHash = member.pinHash;
-      if (member.pin && !calculatedPinHash && typeof crypto !== "undefined" && crypto.subtle) {
-        try {
-          const encoder = new TextEncoder();
-          const data = encoder.encode(member.pin.trim());
-          const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-          const hashArray = Array.from(new Uint8Array(hashBuffer));
-          calculatedPinHash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-        } catch {
-          // fallback
-        }
-      }
-
       try {
+        // Creating a profile is an administrator action, so it goes with the
+        // caller's session. The server no longer takes a client-computed
+        // pinHash: a hash the browser worked out is a credential it chose.
         fetch(getApiUrl("/api/auth/register-profile"), {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({
             userId,
             name: newMember.name,
@@ -763,8 +755,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
             email: newMember.email,
             phone: newMember.phone,
             isAdmin: newMember.isAdmin,
-            pin: newMember.pin,
-            pinHash: calculatedPinHash
+            pin: newMember.pin
           })
         }).catch(() => {});
       } catch {
@@ -820,7 +811,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       await fetch(getApiUrl("/api/auth/set-pin"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           userId: target.id,
           pin: trimmedPin,
@@ -1226,8 +1217,11 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Quote PDF import modal state
-  const [quoteImportModal, setQuoteImportModal] = useState<{ isOpen: boolean } | null>(null);
-  const openQuoteImport = () => setQuoteImportModal({ isOpen: true });
+  const [quoteImportModal, setQuoteImportModal] = useState<{ isOpen: boolean; accountId?: string } | null>(null);
+  // Started from an account's page, the quote belongs to that account: the rep
+  // has already told us which one, so the import should not make them say it
+  // again, nor guess it from the customer name printed on the PDF.
+  const openQuoteImport = (accountId?: string) => setQuoteImportModal({ isOpen: true, accountId });
   const closeQuoteImport = () => setQuoteImportModal(null);
 
   // Feature 03: Inbound Email Ingestion Modal State
@@ -2610,10 +2604,29 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
     return { accountId: accountId!, contactId, oppId };
   };
 
-  const addCrmOpportunity = (opp: CRMOpportunity) => {
-    createOpportunityMutation.mutate(opp as any);
+  /**
+   * Creates a quote, and reports whether it was actually stored.
+   *
+   * This used to fire the mutation and announce success in the same breath. The
+   * server is the only durable home a quote has — nothing writes the local deal
+   * cache any more — so when a write failed, the rep was told the quote was
+   * saved, watched the optimistic row appear, and lost it at the next refetch
+   * with no error anywhere. Callers get the outcome now, and a failure says so.
+   */
+  const addCrmOpportunity = async (opp: CRMOpportunity): Promise<boolean> => {
+    try {
+      await createOpportunityMutation.mutateAsync(opp as any);
+    } catch (err: any) {
+      console.error("[Quotes] Could not save quote:", err);
+      showToast(
+        `"${opp.name}" could not be saved. It is not stored — check your connection and try again.`,
+        "error"
+      );
+      return false;
+    }
     recordAuditLog("CREATE", "Deal", opp.id, opp.name, `Created quote: ${opp.name} ($${opp.dealValue?.toLocaleString() || 0}) for ${opp.accountName}`);
     showToast(`Quote "${opp.name}" created.`, "success");
+    return true;
   };
 
   const updateCrmOpportunity = (id: string, updates: Partial<CRMOpportunity>) => {

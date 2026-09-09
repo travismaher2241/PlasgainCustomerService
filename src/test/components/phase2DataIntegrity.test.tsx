@@ -5,7 +5,7 @@ import { AppProvider, useApp } from '../../context/AppContext';
 import { CRMQuickLogModal } from '../../components/crm/CRMQuickLogModal';
 import { CRMAccountsView } from '../../components/crm/CRMAccountsView';
 import { CRMDealDetailsWorkspace } from '../../components/crm/CRMDealDetailsWorkspace';
-import { HomeDashboard } from '../../components/HomeDashboard';
+import { CRMPipelineView } from '../../components/crm/CRMPipelineView';
 import { makeAccount, makeOpportunity } from '../factories';
 
 describe('Phase 2 — Wrong data and invented data tests', () => {
@@ -154,11 +154,11 @@ describe('Phase 2 — Wrong data and invented data tests', () => {
   it('2.5 & 2.6 — Quote entry is import-only and does not expose manual pricing fields', () => {
     render(
       <AppProvider>
-        <HomeDashboard />
+        <CRMPipelineView />
       </AppProvider>
     );
 
-    expect(screen.getByRole('button', { name: /Import Ostendo quote/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Import quote PDF/i })).toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: /Create New Quote/i })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/\$ Value/i)).not.toBeInTheDocument();
   });

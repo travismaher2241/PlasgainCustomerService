@@ -44,6 +44,11 @@ describe('CRM Command Center Navigation Suite (Step 6)', () => {
       fireEvent.click(logBtn);
       expect(screen.getByRole('button', { name: /record a voice debrief/i })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /turn an enquiry into a lead/i })).toBeInTheDocument();
+
+      // The menu mirrors the desktop capture bar. Quote import is not a capture
+      // action and belongs to the screens that own quotes, so a second door to
+      // it here would sit right beside the Quotes page's own import button.
+      expect(screen.queryByRole('button', { name: /import a quote pdf/i })).not.toBeInTheDocument();
     });
   });
 

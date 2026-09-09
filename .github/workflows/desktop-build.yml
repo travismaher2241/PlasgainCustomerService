@@ -1,0 +1,63 @@
+# Builds the desktop installers.
+#
+# electron-builder produces a Windows installer only on Windows and a macOS
+# .dmg only on macOS, so the installers are built here rather than on a
+# developer's laptop. Run it from the Actions tab, or push a tag like
+# desktop-v1.0.0, and download the installer from the run's artifacts.
+name: Desktop installers
+
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Which installers to build
+        required: true
+        default: windows
+        type: choice
+        options: [windows, macos, both]
+  push:
+    tags:
+      - "desktop-v*"
+
+jobs:
+  windows:
+    if: >-
+      github.event_name == 'push' ||
+      contains(fromJSON('["windows","both"]'), github.event.inputs.platform)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # The desktop shell is its own package, deliberately: keeping Electron out
+      # of the web app's dependencies leaves the Vercel build untouched.
+      - run: npm ci
+        working-directory: desktop
+      - run: npx electron-builder --win --publish never
+        working-directory: desktop
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plasgain-desktop-windows
+          path: desktop/release/*.exe
+          if-no-files-found: error
+
+  macos:
+    if: >-
+      github.event_name == 'push' ||
+      contains(fromJSON('["macos","both"]'), github.event.inputs.platform)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+        working-directory: desktop
+      - run: npx electron-builder --mac --publish never
+        working-directory: desktop
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plasgain-desktop-macos
+          path: desktop/release/*.dmg
+          if-no-files-found: error
