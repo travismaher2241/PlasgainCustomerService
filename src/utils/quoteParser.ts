@@ -58,6 +58,12 @@ const ROW_TOLERANCE = 4;
 const LABEL_COLUMN_MAX_X = 80;
 
 /**
+ * Anything beyond this belongs to the right-hand side of the page — the page
+ * counter, the price columns — rather than to a label on the left.
+ */
+const MID_PAGE_X = 350;
+
+/**
  * Ostendo writes dates as d/m/y. Parsing them as m/d/y would silently shift a
  * quote by months and take the follow-up date with it, so the day-first order
  * is enforced rather than left to Date's discretion.
@@ -266,13 +272,24 @@ export function parseQuoteFromPositionedText(items: PositionedText[]): ParsedQuo
     const toRow = rows[toRowIndex];
     const toIdx = toRow.findIndex((i) => /^(To|Attention|Attn):?$/i.test((i.text || "").trim()));
     const labelItem = toRow[toIdx];
-    const nameItem = toRow[toIdx + 1];
-    contactName = nameItem?.text?.trim();
-    const nameX = nameItem?.x ?? labelItem.x;
+
+    // Only an item close to the label is the addressee. An Ostendo quote prints
+    // "Page: 1 of 2" on the same row as "To:", far over to the right, and taking
+    // the next item blindly made the contact "Page:" — and then anchored the
+    // block search on its x, where the column window and the mid-page guard
+    // could not both be satisfied, so the customer never came out at all.
+    const candidate = toRow[toIdx + 1];
+    const sameRowName =
+      candidate && candidate.x - labelItem.x < 120 && candidate.x < MID_PAGE_X ? candidate : undefined;
+    contactName = sameRowName?.text?.trim();
+
+    // The block beneath is anchored on the label's own column when the row
+    // carries no name: the company sits indented just under "To:".
+    const anchorX = sameRowName?.x ?? labelItem.x;
 
     const block: string[] = [];
     for (let i = toRowIndex + 1; i < Math.min(toRowIndex + 8, rows.length); i++) {
-      const line = rows[i].filter((t) => nameX !== undefined && Math.abs(t.x - nameX) < 40 && t.x < 350);
+      const line = rows[i].filter((t) => t.x >= anchorX - 20 && t.x <= anchorX + 140);
       if (line.length === 0) break;
       const text = line.map((t) => t.text.trim()).join(" ");
       if (/^(Quote For|Project|Deliver To|Terms|Item|Product|Drawing):/i.test(text)) break;

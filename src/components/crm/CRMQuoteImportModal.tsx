@@ -92,6 +92,8 @@ export const CRMQuoteImportModal: React.FC = () => {
   } = useApp();
 
   const isOpen = Boolean(quoteImportModal?.isOpen);
+  /** Set when the import was started from an account's own page. */
+  const contextAccountId = quoteImportModal?.accountId;
 
   const [step, setStep] = useState<"choose" | "review">("choose");
   const [isReading, setIsReading] = useState(false);
@@ -187,7 +189,11 @@ export const CRMQuoteImportModal: React.FC = () => {
       }
 
       setResult(response);
-      setAccountChoice(findMatchingAccount(accounts, response.parsed.customerName)?.id || "");
+      // Started from an account's page, that account wins: the rep has already
+      // said which one, and it beats guessing from the name on the PDF.
+      setAccountChoice(
+        contextAccountId || findMatchingAccount(accounts, response.parsed.customerName)?.id || ""
+      );
       const effectiveSentDate = response.parsed.quoteDate || getLocalDateInputValue();
       setSentDate(effectiveSentDate);
       setFollowUpDate(followUpDateFromSentDate(effectiveSentDate));
@@ -491,7 +497,30 @@ export const CRMQuoteImportModal: React.FC = () => {
                     </option>
                   ))}
                 </select>
-                {matchedAccount && accountChoice === matchedAccount.id && (
+                {contextAccountId && accountChoice === contextAccountId && (
+                  <p className="mt-1 text-spec text-emerald-700 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>The account you opened this from.</span>
+                  </p>
+                )}
+
+                {/* Opened from an account but addressed to someone else: worth a
+                    look before a quote is filed against the wrong customer. */}
+                {contextAccountId && accountChoice === contextAccountId && parsed.customerName &&
+                  !findMatchingAccount(
+                    accounts.filter((a) => a.id === contextAccountId),
+                    parsed.customerName
+                  ) && (
+                    <p className="mt-1 text-spec text-amber-800 flex items-start gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      <span>
+                        The quote is addressed to <strong>{parsed.customerName}</strong>, which does
+                        not look like this account. Check before saving.
+                      </span>
+                    </p>
+                  )}
+
+                {!contextAccountId && matchedAccount && accountChoice === matchedAccount.id && (
                   <p className="mt-1 text-spec text-emerald-700 flex items-center gap-1">
                     <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                     <span>Matched to an existing account by name.</span>

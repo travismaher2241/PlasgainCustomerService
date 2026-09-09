@@ -29,14 +29,18 @@ vi.mock('../../utils/apiClient', async (orig) => {
   };
 });
 
-const Probe: React.FC = () => {
+const Probe: React.FC<{ fromAccountId?: string }> = ({ fromAccountId }) => {
   const { openQuoteImport, addAccount, crmOpportunities, activities } = useApp();
   React.useEffect(() => {
     addAccount({
       id: 'acc-alpha', name: 'Alpha Industrial', accountType: 'Account',
       territory: 'VIC/TAS', accountOwner: 'Travis Maher', tags: []
     } as any);
-    openQuoteImport();
+    addAccount({
+      id: 'acc-healey', name: 'Healey Infrastructure Group Pty Ltd', accountType: 'Account',
+      territory: 'National', accountOwner: 'Alan Berryman', tags: []
+    } as any);
+    openQuoteImport(fromAccountId);
   }, []);
   return (
     <div>
@@ -83,6 +87,18 @@ describe('Quote import — saving against the account', () => {
     expect(JSON.parse(screen.getByTestId('deals').textContent || '[]')).toHaveLength(1);
     return JSON.parse(screen.getByTestId('activities').textContent || '[]');
   };
+
+  it('files against the account the import was started from', async () => {
+    // Opened from Healey's page, while the PDF names Alpha Industrial: the page
+    // the rep was on is the stronger signal, and it must win over the name.
+    render(<AppProvider><Probe fromAccountId="acc-healey" /></AppProvider>);
+    await uploadAndReachReview();
+
+    expect((screen.getByLabelText('Save against') as HTMLSelectElement).value).toBe('acc-healey');
+    expect(screen.getByText(/account you opened this from/i)).toBeInTheDocument();
+    // Addressed elsewhere, so it says so rather than quietly filing it.
+    expect(screen.getByText(/does not look like this account/i)).toBeInTheDocument();
+  });
 
   it('logs a quote that has gone to the customer as a touchpoint', async () => {
     render(<AppProvider><Probe /></AppProvider>);

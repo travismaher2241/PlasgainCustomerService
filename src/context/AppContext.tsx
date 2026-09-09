@@ -478,8 +478,9 @@ interface AppContextType {
   } | null;
   openEnquiryParser: (initialText?: string) => void;
   closeEnquiryParser: () => void;
-  quoteImportModal: { isOpen: boolean } | null;
-  openQuoteImport: () => void;
+  /** accountId is set when the import was started from an account's own page. */
+  quoteImportModal: { isOpen: boolean; accountId?: string } | null;
+  openQuoteImport: (accountId?: string) => void;
   closeQuoteImport: () => void;
 
   // Feature 03: Inbound Email Ingestion Modal State
@@ -1227,8 +1228,11 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Quote PDF import modal state
-  const [quoteImportModal, setQuoteImportModal] = useState<{ isOpen: boolean } | null>(null);
-  const openQuoteImport = () => setQuoteImportModal({ isOpen: true });
+  const [quoteImportModal, setQuoteImportModal] = useState<{ isOpen: boolean; accountId?: string } | null>(null);
+  // Started from an account's page, the quote belongs to that account: the rep
+  // has already told us which one, so the import should not make them say it
+  // again, nor guess it from the customer name printed on the PDF.
+  const openQuoteImport = (accountId?: string) => setQuoteImportModal({ isOpen: true, accountId });
   const closeQuoteImport = () => setQuoteImportModal(null);
 
   // Feature 03: Inbound Email Ingestion Modal State

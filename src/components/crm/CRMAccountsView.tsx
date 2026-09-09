@@ -1601,7 +1601,7 @@ export const CRMAccountsView: React.FC = () => {
 
                     <button
                       type="button"
-                      onClick={() => openQuoteImport()}
+                      onClick={() => openQuoteImport(selectedAccount.id)}
                       className="px-3.5 py-1.5 rounded-edge bg-brand-deep hover:bg-brand text-white font-bold text-spec transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
                       title="Import an Ostendo quote PDF"
                     >
@@ -2391,7 +2391,7 @@ export const CRMAccountsView: React.FC = () => {
 
                         <button
                           type="button"
-                          onClick={() => openQuoteImport()}
+                          onClick={() => openQuoteImport(selectedAccount.id)}
                           className="px-3 py-1.5 bg-brand-deep hover:bg-brand text-white font-bold text-spec rounded-edge transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
                           title="Import an Ostendo quote PDF"
                         >

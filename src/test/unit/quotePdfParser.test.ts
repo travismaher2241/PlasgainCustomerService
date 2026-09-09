@@ -163,6 +163,50 @@ describe("Warnings", () => {
     expect(parsed.warnings.join(" ")).toMatch(/could not find the quote date/i);
   });
 
+  it("reads the customer when the To: row also carries the page counter", () => {
+    // The exact shape of a real Ostendo quote: "To:" sits alone on the left of
+    // its row with "Page: 1 of 2" away to the right, and the company is on the
+    // row beneath. Taking whatever followed "To:" made the contact "Page:" and
+    // anchored the search on its x, where the column window and the mid-page
+    // guard could not both hold — so the customer never came out, and no
+    // imported quote ever matched an account by name.
+    const items: PositionedText[] = [
+      ...row(708, [[161, "PL6795"], [285, "QUOTE DATE:"], [365, "23/06/2026"]]),
+      ...row(704, [[59, "QUOTATION #:"]]),
+      ...row(652, [[59, "To:"], [407, "Page:"], [447, "1 of 2"]]),
+      ...row(644, [[81, "Healey Infrastructure Group Pty Ltd"]]),
+      ...row(628, [[81, "22 Commerical Drive"]]),
+      ...row(616, [[81, "Lynbrook VIC 3975"]]),
+      ...row(592, [[59, "Quote For:"]]),
+      ...row(576, [[59, "Incline Bracket"]]),
+      ...row(496, [[59, "F18514013F"], [357, "1"], [381, "Each"], [435, "$485.33"], [504, "$485.33"]]),
+      ...row(480, [[59, "5.0m Single Incline Bracket with 4.2m uplift"]]),
+      ...row(460, [[426, "Nett Total:"], [505, "$485.33"]])
+    ];
+
+    const parsed = parseQuoteFromPositionedText(items);
+
+    expect(parsed.customerName).toBe("Healey Infrastructure Group Pty Ltd");
+    expect(parsed.customerAddress).toBe("22 Commerical Drive, Lynbrook VIC 3975");
+    // The page counter is not a person.
+    expect(parsed.contactName).toBeUndefined();
+    expect(parsed.warnings.join(" ")).not.toMatch(/choose the account by hand/i);
+  });
+
+  it("still reads a named addressee on the To: row", () => {
+    const items: PositionedText[] = [
+      ...row(707, [[161, "PL1234"], [285, "QUOTE DATE:"], [365, "01/06/2026"]]),
+      ...row(705, [[59, "QUOTATION #:"]]),
+      ...row(653, [[59, "To:"], [81, "Jane Doe"], [407, "Page:"], [447, "1 of 1"]]),
+      ...row(642, [[81, "A Customer Pty Ltd"]])
+    ];
+
+    const parsed = parseQuoteFromPositionedText(items);
+
+    expect(parsed.contactName).toBe("Jane Doe");
+    expect(parsed.customerName).toBe("A Customer Pty Ltd");
+  });
+
   it("reports an unreadable customer block instead of guessing", () => {
     const items: PositionedText[] = [
       ...row(707, [[161, "PL1234"], [285, "QUOTE DATE:"], [365, "01/06/2026"]]),
