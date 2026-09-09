@@ -125,7 +125,6 @@ describe('CRMDealDetailsWorkspace Component', () => {
     expect(screen.getAllByRole('button', { name: /Log activity/i }).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByRole('button', { name: /Follow up/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Communicate/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Export/i })).toBeInTheDocument();
 
     // 5. Permanent call-outcome shortcuts banner removed
     expect(screen.queryByText(/1-Click Call Outcome Shortcuts/i)).not.toBeInTheDocument();
@@ -222,15 +221,15 @@ describe('CRMDealDetailsWorkspace Component', () => {
     expect(screen.getByText(/View Account 360°/i)).toBeInTheDocument();
   });
 
-  it('Test 9 — opens consolidated Export menu for Ostendo CSV and Matrix', () => {
+  it('Test 9 — offers no CSV or matrix export from a quote', () => {
     renderWorkspace();
 
-    const exportMenuBtn = screen.getByRole('button', { name: /Export/i });
-    fireEvent.click(exportMenuBtn);
-
-    expect(screen.getByText(/Download Ostendo CSV/i)).toBeInTheDocument();
-    expect(screen.getByText(/Copy Ostendo Matrix/i)).toBeInTheDocument();
-    expect(screen.getByText(/Export (Deal|Quote) Summary CSV/i)).toBeInTheDocument();
+    // The Export menu was removed: nothing here writes to Ostendo, and a quote
+    // that arrived as a PDF import does not need exporting back out.
+    expect(screen.queryByRole('button', { name: /^Export/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Download Ostendo CSV/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Copy Ostendo Matrix/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Export (Deal|Quote) Summary CSV/i)).not.toBeInTheDocument();
   });
 
   it('Test 10 — renders Activity tab with filters and expandable chronology', () => {
