@@ -128,6 +128,26 @@ describe("accountStatusUtils Suite", () => {
       expect(asNeededCadence.isOverdue).toBe(false);
       expect(asNeededCadence.nextDueInDays).toBe(52); // 90 - 38
     });
+
+    it("does not report an account as routine contact overdue when there are zero logged activities and no lastContactDate", () => {
+      const cadence = computeAccountContactCadence(
+        {
+          ...baseAccount,
+          contactFrequency: "Opportunity",
+          lastContactDate: undefined,
+          lastInteractionDate: undefined,
+          createdAt: "2026-02-10T11:00:00.000Z", // Account created 211 days ago
+          createdDate: "2026-02-10"
+        },
+        [], // Zero activities
+        refDate
+      );
+
+      expect(cadence.isOverdue).toBe(false);
+      expect(cadence.daysSinceLastContact).toBe(0);
+      expect(cadence.daysOverdue).toBe(0);
+      expect(cadence.lastContactDate).toBeUndefined();
+    });
   });
 
   describe("computeAccountCommercialStatus", () => {

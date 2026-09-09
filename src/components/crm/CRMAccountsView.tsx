@@ -1802,7 +1802,7 @@ export const CRMAccountsView: React.FC = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-[11px] font-mono text-ink-dim">
-                            {selectedAccount.lastInteractionDate ? `Last contact ${formatAuDate(selectedAccount.lastInteractionDate)}` : "Recent"}
+                            {selectedAccount.lastInteractionDate ? `Last contact ${formatAuDate(selectedAccount.lastInteractionDate)}` : "No contact logged"}
                           </span>
                           {!isEditingNextAction && (
                             <button

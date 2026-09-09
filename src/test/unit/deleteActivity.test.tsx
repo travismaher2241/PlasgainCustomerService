@@ -35,8 +35,17 @@ const ActivityDeleteTestConsumer: React.FC = () => {
     <div>
       <div data-testid="activity-count">{activities.length}</div>
       <div data-testid="task-count">{tasks.length}</div>
+      <div data-testid="meeting-task-count">
+        {tasks.filter((t) => t.id.startsWith("meeting-log-") || t.sourceActivityId).length}
+      </div>
+      <div data-testid="checkin-task-count">
+        {tasks.filter((t) => t.isCheckInTask || t.id.startsWith("checkin-")).length}
+      </div>
       <div data-testid="account-last-contact">
         {accounts.find((a) => a.id === "acc-delete-test")?.lastContactDate || "none"}
+      </div>
+      <div data-testid="account-last-interaction">
+        {accounts.find((a) => a.id === "acc-delete-test")?.lastInteractionDate || "none"}
       </div>
       <div data-testid="audit-log-count">{auditLogs.length}</div>
 
@@ -154,17 +163,15 @@ describe("deleteActivity functionality", () => {
     await waitFor(() => {
       expect(screen.getByTestId("activity-count").textContent).toBe("1");
       // Meeting generates an auto-created task in tasks list
-      expect(Number(screen.getByTestId("task-count").textContent)).toBeGreaterThan(0);
+      expect(Number(screen.getByTestId("meeting-task-count").textContent)).toBe(1);
     });
-
-    const initialTaskCount = Number(screen.getByTestId("task-count").textContent);
 
     // Delete meeting activity
     fireEvent.click(screen.getByText("Delete Meeting Activity"));
 
     await waitFor(() => {
       expect(screen.getByTestId("activity-count").textContent).toBe("0");
-      expect(Number(screen.getByTestId("task-count").textContent)).toBe(initialTaskCount - 1);
+      expect(Number(screen.getByTestId("meeting-task-count").textContent)).toBe(0);
     });
 
     // Verify task was deleted from cloud
@@ -195,6 +202,35 @@ describe("deleteActivity functionality", () => {
     await waitFor(() => {
       // Recalculates to the remaining call activity date
       expect(screen.getByTestId("account-last-contact").textContent).toBe("2026-02-10");
+    });
+  });
+
+  it("clears contact dates and removes routine check-in tasks when all activities are deleted", async () => {
+    render(
+      <AppProvider>
+        <ActivityDeleteTestConsumer />
+      </AppProvider>
+    );
+
+    fireEvent.click(screen.getByText("Setup Account"));
+    fireEvent.click(screen.getByText("Log Call")); // 2026-02-10
+
+    await waitFor(() => {
+      expect(screen.getByTestId("activity-count").textContent).toBe("1");
+      expect(screen.getByTestId("account-last-contact").textContent).toBe("2026-02-10");
+      expect(screen.getByTestId("account-last-interaction").textContent).toBe("2026-02-10");
+    });
+
+    // Delete the single call activity
+    fireEvent.click(screen.getByText("Delete Call Activity"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("activity-count").textContent).toBe("0");
+      // Contact and interaction dates should be completely cleared (none)
+      expect(screen.getByTestId("account-last-contact").textContent).toBe("none");
+      expect(screen.getByTestId("account-last-interaction").textContent).toBe("none");
+      // Check-in tasks should be 0
+      expect(Number(screen.getByTestId("checkin-task-count").textContent)).toBe(0);
     });
   });
 

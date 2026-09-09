@@ -996,29 +996,6 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
     return Array.isArray(parsed) ? parsed.filter((a: any) => !isSampleRecord(a)) : [];
   });
 
-  // Dynamically compute account metrics from real CRM deals
-  const accounts = useMemo(() => {
-    return rawAccounts.map((acc) => {
-      const accDeals = crmOpportunities.filter((d) => d.accountId === acc.id);
-      const activeDeals = accDeals.filter((d) => d.stageId !== "stage-won" && d.stageId !== "stage-lost");
-      const wonDeals = accDeals.filter((d) => d.stageId === "stage-won");
-      const openPipelineValue = activeDeals.reduce((sum, d) => sum + (d.dealValue || 0), 0);
-      const totalDealsWon = wonDeals.reduce((sum, d) => sum + (d.dealValue || 0), 0) + (acc.metrics?.totalDealsWon && wonDeals.length === 0 ? acc.metrics.totalDealsWon : 0);
-
-      return {
-        ...acc,
-        metrics: {
-          openPipelineValue,
-          totalDealsWon,
-          activeDealsCount: activeDeals.length,
-          totalEnquiries: accDeals.length + (acc.metrics?.totalEnquiries && accDeals.length === 0 ? acc.metrics.totalEnquiries : 0)
-        }
-      };
-    });
-  }, [rawAccounts, crmOpportunities]);
-
-  const setAccounts = setRawAccounts;
-
   const [contacts, setContacts] = useState<CRMContact[]>(() => {
     const saved = localStorage.getItem("plasgain_crm_contacts");
     const parsed = saved ? JSON.parse(saved) : INITIAL_CONTACTS;
@@ -1048,6 +1025,52 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
     const parsed = saved ? JSON.parse(saved) : [];
     return Array.isArray(parsed) ? parsed : [];
   });
+
+  // Dynamically compute account metrics from real CRM deals and logged activities
+  const accounts = useMemo(() => {
+    return rawAccounts.map((acc) => {
+      const accDeals = crmOpportunities.filter((d) => d.accountId === acc.id);
+      const activeDeals = accDeals.filter((d) => d.stageId !== "stage-won" && d.stageId !== "stage-lost");
+      const wonDeals = accDeals.filter((d) => d.stageId === "stage-won");
+      const openPipelineValue = activeDeals.reduce((sum, d) => sum + (d.dealValue || 0), 0);
+      const totalDealsWon = wonDeals.reduce((sum, d) => sum + (d.dealValue || 0), 0) + (acc.metrics?.totalDealsWon && wonDeals.length === 0 ? acc.metrics.totalDealsWon : 0);
+
+      // Reconcile interaction and contact dates with actual logged activities
+      const accActivities = activities.filter((a) => a.accountId === acc.id && a.timestamp);
+      let latestActivityDate: string | undefined = undefined;
+      let maxTime = 0;
+      for (const a of accActivities) {
+        const t = new Date(a.timestamp).getTime();
+        if (!isNaN(t) && t > maxTime) {
+          maxTime = t;
+          latestActivityDate = a.metadata?.activityDate || a.metadata?.meetingDate || (a.timestamp ? a.timestamp.split("T")[0] : undefined);
+        }
+      }
+
+      // If activities exist for this account, strictly use the latest activity date.
+      // If zero activities exist, preserve the account's existing last contact/interaction date (e.g. from seed/import).
+      const effectiveLastInteractionDate = accActivities.length > 0
+        ? latestActivityDate
+        : acc.lastInteractionDate;
+      const effectiveLastContactDate = accActivities.length > 0
+        ? latestActivityDate
+        : acc.lastContactDate;
+
+      return {
+        ...acc,
+        lastInteractionDate: effectiveLastInteractionDate,
+        lastContactDate: effectiveLastContactDate,
+        metrics: {
+          openPipelineValue,
+          totalDealsWon,
+          activeDealsCount: activeDeals.length,
+          totalEnquiries: accDeals.length + (acc.metrics?.totalEnquiries && accDeals.length === 0 ? acc.metrics.totalEnquiries : 0)
+        }
+      };
+    });
+  }, [rawAccounts, crmOpportunities, activities]);
+
+  const setAccounts = setRawAccounts;
 
   const [pipelines] = useState<PipelineConfig[]>(DEFAULT_PIPELINES);
   const [activePipelineId, setActivePipelineId] = useState<string>("pipe-major-projects");
@@ -2870,17 +2893,35 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
         return cadence.isOverdue;
       });
 
-      if (overdueAccounts.length === 0) return;
-
       setTasks((prevTasks) => {
         let changed = false;
-        const newTasks = [...prevTasks];
+
+        // Clean up check-in tasks for accounts that are no longer overdue
+        const filteredTasks = prevTasks.filter((t) => {
+          if (t.isCheckInTask && t.status !== "Completed" && t.accountId) {
+            const acc = accounts.find((a) => a.id === t.accountId);
+            if (!acc) return true;
+            const cadence = computeAccountContactCadence(acc, activities);
+            if (!cadence.isOverdue) {
+              deleteDocFromCloud("crm_tasks", t.id);
+              changed = true;
+              return false;
+            }
+          }
+          return true;
+        });
+
+        if (overdueAccounts.length === 0) {
+          return changed ? filteredTasks : prevTasks;
+        }
+
+        const newTasks = [...filteredTasks];
 
         for (const acc of overdueAccounts) {
-          const hasOpenTask = prevTasks.some(
+          const hasOpenTask = newTasks.some(
             (t) => t.accountId === acc.id && t.isCheckInTask && t.status !== "Completed"
           );
-          const hasSameIdTask = prevTasks.some(
+          const hasSameIdTask = newTasks.some(
             (t) => t.id === `checkin-${acc.id}`
           );
           if (!hasOpenTask && !hasSameIdTask) {
@@ -3199,12 +3240,31 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
               lastInteractionDate: latestDateStr,
               lastContactDate: latestDateStr
             };
-            saveDocToCloud("crm_accounts", acc.id, updated);
+            saveDocToCloud("crm_accounts", acc.id, {
+              ...updated,
+              lastInteractionDate: latestDateStr || null,
+              lastContactDate: latestDateStr || null
+            });
             return updated;
           }
           return acc;
         })
       );
+
+      // Clean up routine check-in task for this account if no longer overdue
+      const targetAcc = accounts.find((a) => a.id === act.accountId);
+      const newCadence = targetAcc ? computeAccountContactCadence(targetAcc, remainingActs) : null;
+      if (!newCadence || !newCadence.isOverdue || remainingActs.length === 0) {
+        setTasks((prev) => {
+          const checkinTasks = prev.filter(
+            (t) => (t.id === `checkin-${act.accountId}` || (t.accountId === act.accountId && t.isCheckInTask)) && t.status !== "Completed"
+          );
+          checkinTasks.forEach((t) => deleteDocFromCloud("crm_tasks", t.id));
+          return prev.filter(
+            (t) => !((t.id === `checkin-${act.accountId}` || (t.accountId === act.accountId && t.isCheckInTask)) && t.status !== "Completed")
+          );
+        });
+      }
     }
 
     // 4. Update opportunity latestActivity / latestActivityDate if linked

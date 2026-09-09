@@ -101,27 +101,28 @@ export function computeAccountContactCadence(
     }
   }
 
-  // If no logged activity, fall back to account's recorded contact dates or creation date
-  if (latestContactTime === 0) {
-    const fallbackDateStr =
-      account.lastContactDate ||
-      account.lastInteractionDate ||
-      account.createdAt ||
-      account.createdDate;
-
-    if (fallbackDateStr) {
-      const fbTime = new Date(fallbackDateStr).getTime();
-      if (!isNaN(fbTime)) {
-        latestContactTime = fbTime;
-        lastContactDate = fallbackDateStr;
-      }
+  // If no logged activity objects, fall back to account's explicit recorded lastContactDate (if set),
+  // but never treat account creation dates (createdAt / createdDate) as a logged contact.
+  if (latestContactTime === 0 && account.lastContactDate) {
+    const fbTime = new Date(account.lastContactDate).getTime();
+    if (!isNaN(fbTime)) {
+      latestContactTime = fbTime;
+      lastContactDate = account.lastContactDate;
     }
   }
 
-  // If still no date, default to creation time or current time
+  // If no contact activity has been logged for this account, it is not "routine contact overdue"
   if (latestContactTime === 0) {
-    latestContactTime = refTime;
-    lastContactDate = new Date(refTime).toISOString();
+    return {
+      frequency,
+      thresholdDays,
+      daysSinceLastContact: 0,
+      isOverdue: false,
+      daysOverdue: 0,
+      nextDueInDays: thresholdDays,
+      lastContactDate: undefined,
+      nextDueDateStr: new Date(refTime + thresholdDays * 86400000).toISOString().split("T")[0]
+    };
   }
 
   const diffMs = Math.max(0, refTime - latestContactTime);

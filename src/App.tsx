@@ -1,5 +1,6 @@
 import React, { useState, Suspense, lazy } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Analytics } from "@vercel/analytics/react";
 import { AppProvider, useApp } from "./context/AppContext";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
@@ -105,6 +106,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <AppProvider>
         <MainLayout />
+        <Analytics />
       </AppProvider>
     </QueryClientProvider>
   );
