@@ -759,5 +759,53 @@ describe("CRMAccountsView Component (Step 5)", () => {
     expect(screen.queryByText("Alpha Council")).not.toBeInTheDocument();
     expect(screen.getAllByText("Beta Water").length).toBeGreaterThanOrEqual(1);
   });
+
+  it("Test 14 — Deleting an account immediately removes it from the UI without requiring browser refresh", async () => {
+    const accounts = [
+      {
+        id: "acc-del-1",
+        name: "Delete Me Council",
+        accountType: "Council",
+        territory: "QLD/NT",
+        accountOwner: "Travis Maher",
+        tags: []
+      },
+      {
+        id: "acc-keep-2",
+        name: "Keep Me Water",
+        accountType: "Contractor",
+        territory: "VIC/TAS",
+        accountOwner: "Travis Maher",
+        tags: []
+      }
+    ];
+
+    render(
+      <AppProvider>
+        <AccountsTestWrapper initialAccounts={accounts} />
+      </AppProvider>
+    );
+
+    // Both accounts exist initially
+    expect(screen.getByText("Delete Me Council")).toBeInTheDocument();
+    expect(screen.getAllByText("Keep Me Water").length).toBeGreaterThanOrEqual(1);
+
+    // Click delete button on Delete Me Council
+    const deleteButton = screen.getByRole("button", { name: "Delete Delete Me Council" });
+    fireEvent.click(deleteButton);
+
+    // Immediately removed without browser refresh
+    await waitFor(() => {
+      expect(screen.queryByText("Delete Me Council")).not.toBeInTheDocument();
+    });
+    expect(screen.getAllByText("Keep Me Water").length).toBeGreaterThanOrEqual(1);
+
+    // Simulating window focus event (fired when native browser confirm modal closes)
+    window.dispatchEvent(new Event("focus"));
+
+    // The deleted account MUST NOT be resurrected on window focus
+    expect(screen.queryByText("Delete Me Council")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Keep Me Water").length).toBeGreaterThanOrEqual(1);
+  });
 });
 

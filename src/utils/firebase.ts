@@ -342,9 +342,16 @@ export async function loadCollectionFromCloud<T extends { id: string }>(
     await ensureFirebaseAuth();
     const colRef = collection(db, collectionName);
     const snap = await getDocs(colRef);
+    const queuedDeletes = new Set(
+      getQueuedWrites()
+        .filter((op) => op.collectionName === collectionName && op.type === "delete" && op.docId)
+        .map((op) => op.docId as string)
+    );
     const items: T[] = [];
     snap.forEach((d) => {
-      items.push({ ...d.data(), id: d.id } as T);
+      if (!queuedDeletes.has(d.id)) {
+        items.push({ ...d.data(), id: d.id } as T);
+      }
     });
     recordSuccessfulSync();
     return items;

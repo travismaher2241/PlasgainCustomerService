@@ -704,9 +704,13 @@ export const CRMAccountsView: React.FC = () => {
         `Permanently delete "${accountToDelete.name}"?\n\n${consequence}\n\nThis cannot be undone.`
       )
     ) {
-      if (selectedAccountId === accountToDelete.id) {
-        setSelectedAccountId(null);
-        setMobileShowDetail(false);
+      const remainingAccounts = filteredAccounts.filter((a) => a.id !== accountToDelete.id);
+      const nextId = remainingAccounts[0]?.id || null;
+      if (selectedAccountId === accountToDelete.id || selectedAccount?.id === accountToDelete.id) {
+        setSelectedAccountId(nextId);
+        if (!nextId) {
+          setMobileShowDetail(false);
+        }
       }
       await deleteAccount(accountToDelete.id);
     }

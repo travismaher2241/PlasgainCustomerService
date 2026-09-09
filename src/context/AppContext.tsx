@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from "react";
 import {
   Account,
   CRMContact,
@@ -162,6 +162,49 @@ export const PRESET_TEAM_MEMBERS: UserProfile[] = [
     isAdmin: true
   }
 ];
+
+export const DELETED_ACCOUNTS_STORAGE_KEY = "plasgain_deleted_account_ids";
+
+export function getDeletedAccountIds(): Set<string> {
+  try {
+    const raw =
+      typeof window !== "undefined"
+        ? window.sessionStorage?.getItem(DELETED_ACCOUNTS_STORAGE_KEY) ||
+          window.localStorage?.getItem(DELETED_ACCOUNTS_STORAGE_KEY)
+        : null;
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? new Set(parsed) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+export function markAccountAsDeleted(id: string): void {
+  try {
+    const current = getDeletedAccountIds();
+    current.add(id);
+    const serialized = JSON.stringify(Array.from(current));
+    if (typeof window !== "undefined") {
+      window.sessionStorage?.setItem(DELETED_ACCOUNTS_STORAGE_KEY, serialized);
+      window.localStorage?.setItem(DELETED_ACCOUNTS_STORAGE_KEY, serialized);
+    }
+  } catch {}
+}
+
+export function unmarkAccountAsDeleted(id: string): void {
+  try {
+    const current = getDeletedAccountIds();
+    if (current.has(id)) {
+      current.delete(id);
+      const serialized = JSON.stringify(Array.from(current));
+      if (typeof window !== "undefined") {
+        window.sessionStorage?.setItem(DELETED_ACCOUNTS_STORAGE_KEY, serialized);
+        window.localStorage?.setItem(DELETED_ACCOUNTS_STORAGE_KEY, serialized);
+      }
+    }
+  } catch {}
+}
 
 export const DEFAULT_USER_PROFILE: UserProfile = {
   id: "user-travis-maher",
@@ -506,6 +549,8 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, []);
+
+  const lastMutationTimeRef = useRef<number>(0);
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
     try {
@@ -991,9 +1036,12 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const [rawAccounts, setRawAccounts] = useState<Account[]>(() => {
+    const deleted = getDeletedAccountIds();
     const saved = localStorage.getItem("plasgain_crm_accounts");
     const parsed = saved ? JSON.parse(saved) : INITIAL_ACCOUNTS;
-    return Array.isArray(parsed) ? parsed.filter((a: any) => !isSampleRecord(a)) : [];
+    return Array.isArray(parsed)
+      ? parsed.filter((a: any) => !isSampleRecord(a) && !deleted.has(a.id))
+      : [];
   });
 
   const [contacts, setContacts] = useState<CRMContact[]>(() => {
@@ -1606,7 +1654,8 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
             totalPurged++;
           });
         }
-        const realAccounts = cloudAccounts.filter((a) => !isSampleRecord(a));
+        const deletedIds = getDeletedAccountIds();
+        const realAccounts = cloudAccounts.filter((a) => !isSampleRecord(a) && !deletedIds.has(a.id));
         if (isMounted) setAccounts(realAccounts);
 
         // 3. Contacts
@@ -1723,7 +1772,18 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       refreshSharedData();
     }, 25000);
 
+    let lastFocusSyncTime = 0;
     const onWindowFocus = () => {
+      const now = Date.now();
+      // Skip sync if a local mutation happened within the last 4 seconds (e.g. user just confirmed deletion)
+      if (now - lastMutationTimeRef.current < 4000) {
+        return;
+      }
+      // Throttle window focus sync to at most once per 10 seconds
+      if (now - lastFocusSyncTime < 10000) {
+        return;
+      }
+      lastFocusSyncTime = now;
       refreshSharedData();
     };
 
@@ -1771,8 +1831,13 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      const realAccounts = cloudAccounts.filter((a) => !isSampleRecord(a));
-      if (realAccounts.length > 0) setAccounts(realAccounts);
+      const deletedAccountIds = getDeletedAccountIds();
+      const realAccounts = cloudAccounts.filter((a) => !isSampleRecord(a) && !deletedAccountIds.has(a.id));
+      if (realAccounts.length > 0) {
+        setAccounts(realAccounts);
+      } else if (cloudAccounts.length > 0 && realAccounts.length === 0) {
+        setAccounts([]);
+      }
 
       const realContacts = cloudContacts.filter((c) => !isSampleRecord(c));
       if (realContacts.length > 0) setContacts(realContacts);
@@ -1956,6 +2021,8 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addAccount = (account: Account) => {
+    lastMutationTimeRef.current = Date.now();
+    unmarkAccountAsDeleted(account.id);
     setAccounts((prev) => [account, ...prev]);
     saveDocToCloud("crm_accounts", account.id, account);
     recordAuditLog("CREATE", "Account", account.id, account.name, `Created ${account.accountType || "Account"}: ${account.name}`);
@@ -1980,6 +2047,8 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     if (newAccounts.length > 0) {
+      lastMutationTimeRef.current = Date.now();
+      newAccounts.forEach((a) => unmarkAccountAsDeleted(a.id));
       setAccounts((prev) => [...newAccounts, ...prev]);
     }
     if (newContacts.length > 0) {
@@ -2070,6 +2139,9 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteAccount = async (id: string, reason?: string) => {
+    lastMutationTimeRef.current = Date.now();
+    markAccountAsDeleted(id);
+
     const acc = accounts.find((a) => a.id === id);
     const accName = acc?.name || id;
 
@@ -2079,12 +2151,31 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       setSelectedAccountId(null);
     }
 
+    // Immediately persist updated list to localStorage
+    try {
+      const saved = localStorage.getItem("plasgain_crm_accounts");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          localStorage.setItem(
+            "plasgain_crm_accounts",
+            JSON.stringify(parsed.filter((a: any) => a.id !== id))
+          );
+        }
+      }
+    } catch {}
+
+    // Immediately fire account deletion to Cloud Firestore so server document is deleted without waiting for cascade loops
+    const cloudAccountDeletePromise = deleteDocFromCloud("crm_accounts", id);
+
     // Cascade delete attached contacts
     const attachedContacts = contacts.filter((c) => c.accountId === id);
     if (attachedContacts.length > 0) {
       setContacts((prev) => prev.filter((c) => c.accountId !== id));
       for (const con of attachedContacts) {
-        await deleteDocFromCloud("crm_contacts", con.id);
+        deleteDocFromCloud("crm_contacts", con.id).catch((err) =>
+          console.warn("[CRM] Could not cascade delete contact:", con.id, err)
+        );
       }
     }
 
@@ -2098,8 +2189,15 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    // Permanently delete document from Firestore
-    await deleteDocFromCloud("crm_accounts", id);
+    // Await account deletion from Cloud Firestore
+    try {
+      await cloudAccountDeletePromise;
+    } catch (err) {
+      console.warn("[CRM] Cloud account delete error:", id, err);
+    }
+
+    // Reinforce removal in React state
+    setAccounts((prev) => prev.filter((a) => a.id !== id));
 
     recordAuditLog(
       "DELETE",
