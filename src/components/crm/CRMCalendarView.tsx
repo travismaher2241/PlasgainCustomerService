@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { formatAuDateLong, formatAuTime, formatAuDate, addDaysLocal, getLocalDateInputValue } from "../../utils/dateUtils";
+import { useDialogDismiss } from "../../utils/useDialogDismiss";
 import { CRMTask, TaskType } from "../../types/crm";
 import { getNextDayMeetings, getTomorrowDateString } from "../../utils/crmMeetingPreparation";
 
@@ -49,8 +50,9 @@ export const CRMCalendarView: React.FC = () => {
   const [editingMeeting, setEditingMeeting] = useState<{ id: string; title: string; date: string; time?: string } | null>(null);
   const [newMeetingDate, setNewMeetingDate] = useState("");
   const [newMeetingTime, setNewMeetingTime] = useState("");
+  useDialogDismiss(Boolean(editingMeeting), () => setEditingMeeting(null));
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = getLocalDateInputValue();
   const tomorrowStr = getTomorrowDateString();
 
   // 1. Gather all calendar scheduled items
@@ -232,7 +234,7 @@ export const CRMCalendarView: React.FC = () => {
     for (let i = startDayOfWeek - 1; i >= 0; i--) {
       const day = prevMonthLastDay - i;
       const prevDate = new Date(currentYear, currentMonth - 1, day);
-      const dateStr = prevDate.toISOString().split("T")[0];
+      const dateStr = getLocalDateInputValue(prevDate);
       days.push({
         dateStr,
         dayNum: day,
@@ -260,7 +262,7 @@ export const CRMCalendarView: React.FC = () => {
     const remainingCells = (7 - (days.length % 7)) % 7;
     for (let i = 1; i <= remainingCells; i++) {
       const nextDate = new Date(currentYear, currentMonth + 1, i);
-      const dateStr = nextDate.toISOString().split("T")[0];
+      const dateStr = getLocalDateInputValue(nextDate);
       days.push({
         dateStr,
         dayNum: i,

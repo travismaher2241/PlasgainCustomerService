@@ -13,18 +13,14 @@ import {
   ReplenishmentTimeline,
   ParsedSupplyCycle
 } from "./crmKnowledgeEngine";
-import { formatAuDate, formatAuDateTime } from "./dateUtils";
+import { addDaysLocal, formatAuDate, formatAuDateTime, getLocalDateInputValue } from "./dateUtils";
 import { CallTalkingPoint } from "./crmCallPreparation";
 
 /**
  * Returns tomorrow's date string (YYYY-MM-DD) based on a reference date (or today).
  */
 export function getTomorrowDateString(referenceDateStr?: string): string {
-  const ref = referenceDateStr ? new Date(referenceDateStr) : new Date();
-  const validRef = isNaN(ref.getTime()) ? new Date() : ref;
-  const tomorrow = new Date(validRef);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  return tomorrow.toISOString().split("T")[0];
+  return addDaysLocal(1, referenceDateStr || new Date());
 }
 
 /**
@@ -43,7 +39,7 @@ export function getNextDayMeetings(tasks: CRMTask[], referenceDateStr?: string):
  * Filters all upcoming scheduled meetings from a reference date onward.
  */
 export function getUpcomingMeetings(tasks: CRMTask[], fromDateStr?: string): CRMTask[] {
-  const todayStr = fromDateStr || new Date().toISOString().split("T")[0];
+  const todayStr = fromDateStr || getLocalDateInputValue();
   return tasks
     .filter((t) => {
       const isMeetingType = t.type === "Meeting" || t.type === "Site Visit";

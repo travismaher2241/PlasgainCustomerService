@@ -18,6 +18,7 @@ import {
 import { useApp } from "../../context/AppContext";
 import { useDialogDismiss } from "../../utils/useDialogDismiss";
 import { generateCallPreparationBriefing } from "../../utils/crmCallPreparation";
+import { getLocalDateInputValue } from "../../utils/dateUtils";
 
 export const CRMCallPrepModal: React.FC = () => {
   const {
@@ -81,7 +82,7 @@ export const CRMCallPrepModal: React.FC = () => {
     if (meetingOffsetMonths > 0) {
       d.setMonth(d.getMonth() + meetingOffsetMonths);
     }
-    return d.toISOString().split("T")[0];
+    return getLocalDateInputValue(d);
   }, [meetingOffsetMonths]);
 
   // Generate dynamic, grounded natural language briefing

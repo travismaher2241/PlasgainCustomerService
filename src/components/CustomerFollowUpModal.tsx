@@ -19,6 +19,7 @@ import {
 import { useApp } from "../context/AppContext";
 import { generateCustomerFollowUpEmail } from "../utils/ostendoExporter";
 import { getLocalDateInputValue, addBusinessDaysLocal, formatAuDate } from "../utils/dateUtils";
+import { useDialogDismiss } from "../utils/useDialogDismiss";
 
 export interface CustomerFollowUpModalProps {
   isOpen: boolean;
@@ -63,6 +64,7 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
     logActivity,
     addTask
   } = useApp();
+  useDialogDismiss(isOpen, onClose);
 
   const [cadence, setCadence] = useState<"day7" | "day14" | "urgent">("day7");
 

@@ -29,6 +29,8 @@ import { useApp } from "../../context/AppContext";
 import { CRMLead, LeadStatus } from "../../types/crm";
 import { detectDuplicateLead, DuplicateMatchResult } from "../../utils/duplicateDetector";
 import { CRMDuplicateWarningModal } from "./CRMDuplicateWarningModal";
+import { useDialogDismiss } from "../../utils/useDialogDismiss";
+import { getLocalDateInputValue } from "../../utils/dateUtils";
 
 export const CRMLeadsView: React.FC = () => {
   const {
@@ -55,6 +57,8 @@ export const CRMLeadsView: React.FC = () => {
   // Conversion Modal State
   const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
   const [convertTargetAccountId, setConvertTargetAccountId] = useState<string>("");
+  useDialogDismiss(isNewLeadModalOpen, () => setIsNewLeadModalOpen(false));
+  useDialogDismiss(isConvertModalOpen, () => setIsConvertModalOpen(false));
 
   const [newLeadForm, setNewLeadForm] = useState({
     leadName: "",
@@ -149,7 +153,7 @@ export const CRMLeadsView: React.FC = () => {
       lastActivity: "Lead created",
       lastActivityDate: new Date().toISOString(),
       nextAction: newLeadForm.nextAction,
-      nextActionDate: new Date().toISOString().split("T")[0],
+      nextActionDate: getLocalDateInputValue(),
       assignedSalesperson: currentUser.name
     };
 

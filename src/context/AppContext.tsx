@@ -42,7 +42,7 @@ import {
 } from "../data/crmMockData";
 import { CRMIntelligenceEngine } from "../utils/crmIntelligence";
 import { normalizeNotification, getUnreadNotificationsCount } from "../utils/notificationUtils";
-import { formatAuDate, formatAuTime, getLocalDateInputValue } from "../utils/dateUtils";
+import { addDaysLocal, formatAuDate, formatAuTime, getLocalDateInputValue } from "../utils/dateUtils";
 import { setSessionToken, getSessionToken } from "../utils/apiClient";
 import { diffFields } from "../utils/diffUtils";
 import {
@@ -2278,7 +2278,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       role: contact.jobTitle || contact.role,
       email: contact.email,
       phone: contact.phone || contact.mobile,
-      endDate: new Date().toISOString().split("T")[0],
+      endDate: getLocalDateInputValue(),
       movedAt: new Date().toISOString(),
       movedBy: currentUser.name,
       notes: reason || `Moved from "${previousAccountName}" to "${destAccount.name}"`
@@ -2497,8 +2497,8 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
           territory: "QLD/NT",
           accountOwner: lead.assignedSalesperson || currentUser.name,
           leadSource: lead.source,
-          createdDate: new Date().toISOString().split("T")[0],
-          lastInteractionDate: new Date().toISOString().split("T")[0],
+          createdDate: getLocalDateInputValue(),
+          lastInteractionDate: getLocalDateInputValue(),
           tags: ["Converted Lead", lead.enquiryType],
           notes: lead.notes,
           metrics: {
@@ -2556,7 +2556,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       weightedValue: lead.estimatedValue * 0.25,
       probability: 25,
       forecastCategory: "Pipeline",
-      expectedCloseDate: lead.enquiryDeadline || new Date(Date.now() + 45 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      expectedCloseDate: lead.enquiryDeadline || addDaysLocal(45),
       products: lead.productInterest.map((p, idx) => ({
         id: `prod-line-${idx}`,
         productCode: "",
@@ -2570,9 +2570,9 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       keyRequirements: ["Confirm quantities", "Confirm delivery timing"],
       source: lead.source,
       latestActivity: `Lead converted to opportunity by ${lead.assignedSalesperson || currentUser.name}`,
-      latestActivityDate: new Date().toISOString().split("T")[0],
+      latestActivityDate: getLocalDateInputValue(),
       nextAction: lead.nextAction || "Contact customer to begin discovery phase",
-      nextActionDate: lead.nextActionDate || new Date().toISOString().split("T")[0],
+      nextActionDate: lead.nextActionDate || getLocalDateInputValue(),
       daysInCurrentStage: 0,
       totalDealAgeDays: 0,
       dealHealth: "Healthy",
@@ -3052,7 +3052,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const today = new Date();
     const twoDaysLater = new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000);
-    const twoDaysLaterStr = twoDaysLater.toISOString().split("T")[0];
+    const twoDaysLaterStr = getLocalDateInputValue(twoDaysLater);
     const nowIso = today.toISOString();
 
     const updates: Partial<CRMOpportunity> = {
@@ -3091,7 +3091,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       stageName: "Followed Up",
       followUpCompletedAt: nowIso,
       nextAction: "Review feedback / awaiting decision",
-      nextActionDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+      nextActionDate: addDaysLocal(3)
     };
 
     updateCrmOpportunity(id, updates);
@@ -3173,7 +3173,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       type: (meetingData.type || "Meeting") as TaskType,
       priority: meetingData.priority || "High",
       status: "To Do",
-      dueDate: meetingData.dueDate || new Date().toISOString().split("T")[0],
+      dueDate: meetingData.dueDate || getLocalDateInputValue(),
       dueTime: meetingData.dueTime || "10:00 AM",
       accountId: meetingData.accountId,
       accountName: meetingData.accountName,
@@ -3447,7 +3447,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
                 ...acc,
                 nextAction: diff.nextAction || acc.nextAction,
                 nextActionDate: diff.nextActionDate || acc.nextActionDate,
-                lastInteractionDate: new Date().toISOString().split("T")[0]
+                lastInteractionDate: getLocalDateInputValue()
               };
               saveDocToCloud("crm_accounts", acc.id, updated);
               return updated;
@@ -3467,7 +3467,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
               nextAction: diff.nextAction || opp.nextAction,
               nextActionDate: diff.nextActionDate || opp.nextActionDate,
               latestActivity: diff.activityTitle,
-              latestActivityDate: new Date().toISOString().split("T")[0],
+              latestActivityDate: getLocalDateInputValue(),
               dealValue: diff.updateOpportunityValue && diff.estimatedValue ? diff.estimatedValue : opp.dealValue,
               version: opp.version
             }
@@ -3477,7 +3477,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // 4. Create Task if toggled
       if (diff.createTask && (diff.taskTitle || diff.nextAction)) {
-        const todayStr = new Date().toISOString().split("T")[0];
+        const todayStr = getLocalDateInputValue();
         addTask({
           title: diff.taskTitle || diff.nextAction || `Follow up: ${diff.accountName}`,
           type: "Follow-up",
@@ -3516,7 +3516,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
   // Feature 03: Apply Inbound Email Changes Diff
   const applyInboundEmailDiff = async (diff: InboundEmailDiffProposal): Promise<boolean> => {
     try {
-      const todayStr = new Date().toISOString().split("T")[0];
+      const todayStr = getLocalDateInputValue();
       const resolvedContact = contacts.find((c) => c.id === diff.contactId);
 
       // 1. Log Activity as email

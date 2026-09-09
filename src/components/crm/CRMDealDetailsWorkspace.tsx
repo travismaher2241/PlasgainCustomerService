@@ -61,7 +61,8 @@ import {
   copyOstendoProductList
 } from "../../utils/ostendoExporter";
 import { sortActivitiesChronological } from "../../utils/activityUtils";
-import { getLocalDateInputValue, formatAuDate } from "../../utils/dateUtils";
+import { addDaysLocal, getLocalDateInputValue, formatAuDate } from "../../utils/dateUtils";
+import { useDialogDismiss } from "../../utils/useDialogDismiss";
 
 export type DealDetailsTab = "overview" | "products" | "quote" | "activity";
 
@@ -178,6 +179,10 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
   const [isLostModalOpen, setIsLostModalOpen] = useState(false);
   const [lostReason, setLostReason] = useState<"Price" | "Competitor" | "Technical Fit" | "Project Cancelled" | "Timeline / Lead Time" | "No Response" | "Other">("Competitor");
   const [lostNotes, setLostNotes] = useState("");
+  useDialogDismiss(isDeleteConfirmOpen, () => setIsDeleteConfirmOpen(false));
+  useDialogDismiss(isFollowUpCompletedModalOpen, () => setIsFollowUpCompletedModalOpen(false));
+  useDialogDismiss(isWonModalOpen, () => setIsWonModalOpen(false));
+  useDialogDismiss(isLostModalOpen, () => setIsLostModalOpen(false));
 
   // Products & Pricing local state
   const [isAddingBomLine, setIsAddingBomLine] = useState(false);
@@ -209,7 +214,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
     quoteStatus: (deal.quoteStatus || "Draft") as NonNullable<CRMOpportunity["quoteStatus"]>,
     quoteExpiryDate:
       deal.quoteExpiryDate ||
-      new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      addDaysLocal(30),
     notes: deal.notes || "",
     customerNeed: deal.customerNeed || ""
   });
@@ -254,9 +259,9 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
   // Group activities by date
   const groupedActivities = useMemo(() => {
     const groups: { [dateLabel: string]: CRMActivity[] } = {};
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = getLocalDateInputValue();
     const yesterdayDate = new Date(Date.now() - 86400000);
-    const yesterdayStr = yesterdayDate.toISOString().split("T")[0];
+    const yesterdayStr = getLocalDateInputValue(yesterdayDate);
 
     filteredActivities.forEach((act) => {
       const actDate = act.timestamp ? act.timestamp.split("T")[0] : todayStr;
@@ -348,7 +353,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
       );
     }
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = getLocalDateInputValue();
     if (!opp.nextAction || !opp.nextAction.trim() || !opp.nextActionDate) {
       return (
         <span className="text-spec font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-300 inline-flex items-center gap-1">
@@ -418,7 +423,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
       weightedValue: (currentDeal.dealValue || 0) * (stageObj.probability / 100),
       quoteStatus: isWon ? "PO Received" : isLost ? "Declined" : currentDeal.quoteStatus,
       latestActivity: `Stage updated to ${stageObj.name}`,
-      latestActivityDate: new Date().toISOString().split("T")[0]
+      latestActivityDate: getLocalDateInputValue()
     });
     showToast(`Moved quote to ${stageObj.name} (${stageObj.probability}%)`, "success");
   };
@@ -434,7 +439,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
       notes: quoteFormData.notes,
       customerNeed: quoteFormData.customerNeed,
       latestActivity: `Updated quote details (${quoteFormData.ostendoQuoteRef || "Draft"})`,
-      latestActivityDate: new Date().toISOString().split("T")[0]
+      latestActivityDate: getLocalDateInputValue()
     });
     setIsEditingQuoteDetails(false);
     showToast("Quote details updated", "success");
@@ -453,7 +458,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
       ostendoQuoteRef: newQuoteRef,
       quoteStatus: "Revising",
       latestActivity: `Created quote revision ${nextRev} (${newQuoteRef})`,
-      latestActivityDate: new Date().toISOString().split("T")[0]
+      latestActivityDate: getLocalDateInputValue()
     });
     setQuoteFormData((prev) => ({
       ...prev,
@@ -933,12 +938,12 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
 
             {deal.nextActionDate && (
               <span className={`text-spec font-bold px-2 py-0.5 rounded border shrink-0 ${
-                deal.nextActionDate < new Date().toISOString().split("T")[0]
+                deal.nextActionDate < getLocalDateInputValue()
                   ? "bg-amber-100 text-amber-900 border-amber-300"
                   : "bg-white text-ink-dim border-line"
               }`}>
                 Due {formatAuDate(deal.nextActionDate)}
-                {deal.nextActionDate < new Date().toISOString().split("T")[0] ? " · Overdue" : ""}
+                {deal.nextActionDate < getLocalDateInputValue() ? " · Overdue" : ""}
               </span>
             )}
           </div>
@@ -1921,7 +1926,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
       {/* Delete Deal Confirmation Dialog */}
       {isDeleteConfirmOpen && (
         <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-panel max-w-md w-full p-5 border border-line shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div role="dialog" aria-modal="true" aria-label="Confirm delete quote" className="bg-white rounded-panel max-w-md w-full p-5 border border-line shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center gap-2 text-red-600 font-bold">
               <AlertTriangle className="w-5 h-5" />
               <span>Confirm Delete Quote</span>
@@ -1961,7 +1966,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
       {/* Log Follow-Up Completed Dialog */}
       {isFollowUpCompletedModalOpen && (
         <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-panel max-w-md w-full p-5 border border-line shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div role="dialog" aria-modal="true" aria-label="Log follow-up completed" className="bg-white rounded-panel max-w-md w-full p-5 border border-line shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center gap-2 text-purple-700 font-bold">
               <CheckCircle2 className="w-5 h-5" />
               <span>Log Follow-Up Completed</span>
@@ -2017,7 +2022,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
       {/* Mark Won Dialog */}
       {isWonModalOpen && (
         <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-panel max-w-md w-full p-5 border border-line shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div role="dialog" aria-modal="true" aria-label="Mark quote as won" className="bg-white rounded-panel max-w-md w-full p-5 border border-line shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center gap-2 text-emerald-700 font-bold">
               <CheckCircle2 className="w-5 h-5" />
               <span>Mark Quote as Won</span>
@@ -2073,7 +2078,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
       {/* Mark Lost Dialog */}
       {isLostModalOpen && (
         <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-panel max-w-md w-full p-5 border border-line shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div role="dialog" aria-modal="true" aria-label="Mark quote as lost" className="bg-white rounded-panel max-w-md w-full p-5 border border-line shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center gap-2 text-red-600 font-bold">
               <XCircle className="w-5 h-5" />
               <span>Mark Quote as Lost</span>

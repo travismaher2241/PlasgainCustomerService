@@ -5,6 +5,7 @@ import {
   CRMKnowledgeItem,
   ContactNotableEvent
 } from "../types/crm";
+import { getLocalDateInputValue } from "./dateUtils";
 
 export interface KnowledgeAnalysisResult {
   candidateNotableEvents: ContactNotableEvent[];
@@ -81,13 +82,13 @@ export function parseSupplyCyclesFromText(text: string, referenceDateStr?: strin
 
   const refDate = referenceDateStr ? new Date(referenceDateStr) : new Date();
   const validRefDate = isNaN(refDate.getTime()) ? new Date() : refDate;
-  const orderDateStr = validRefDate.toISOString().split("T")[0];
+  const orderDateStr = getLocalDateInputValue(validRefDate);
 
   const computeRunOut = (durationMonths: number) => {
     const runOutDate = new Date(validRefDate);
     const totalDays = Math.round(durationMonths * 30.44);
     runOutDate.setDate(runOutDate.getDate() + totalDays);
-    return runOutDate.toISOString().split("T")[0];
+    return getLocalDateInputValue(runOutDate);
   };
 
   const extractDest = (str: string) => {
@@ -396,7 +397,7 @@ export function extractCrmKnowledge(
     contactIds = contacts.map((c) => c.id);
   }
 
-  const activityDate = activity.timestamp ? activity.timestamp.split("T")[0] : new Date().toISOString().split("T")[0];
+  const activityDate = getLocalDateInputValue(activity.timestamp || new Date());
 
   const rules: Array<{
     category: CRMKnowledgeCategory;

@@ -2,6 +2,7 @@ import React from "react";
 import { AlertTriangle, ArrowRightLeft, Check, ExternalLink, ShieldAlert, X } from "lucide-react";
 import { DuplicateConfidence, DuplicateMatchResult } from "../../utils/duplicateDetector";
 import { saveDocToCloud } from "../../utils/firebase";
+import { useDialogDismiss } from "../../utils/useDialogDismiss";
 
 interface CRMDuplicateWarningModalProps<T> {
   isOpen: boolean;
@@ -28,6 +29,7 @@ export function CRMDuplicateWarningModal<T extends Record<string, any>>({
   onMoveContact,
   targetAccountName
 }: CRMDuplicateWarningModalProps<T>) {
+  useDialogDismiss(isOpen, onClose);
   if (!isOpen || !matchResult) return null;
 
   const { confidence, matchReason, existingRecord } = matchResult;

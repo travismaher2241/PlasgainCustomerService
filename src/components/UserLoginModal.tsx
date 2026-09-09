@@ -21,6 +21,7 @@ import {
   Check
 } from "lucide-react";
 import { useApp, UserProfile, initialsOf } from "../context/AppContext";
+import { useDialogDismiss } from "../utils/useDialogDismiss";
 
 export const UserLoginModal: React.FC = () => {
   const {
@@ -34,6 +35,7 @@ export const UserLoginModal: React.FC = () => {
     addTeamMember,
     updateTeamMemberPin
   } = useApp();
+  useDialogDismiss(isLoginModalOpen, closeLoginModal);
 
   const generatePin = () => String(Math.floor(1000 + Math.random() * 9000));
 

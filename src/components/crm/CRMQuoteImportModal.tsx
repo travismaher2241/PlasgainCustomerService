@@ -271,7 +271,7 @@ export const CRMQuoteImportModal: React.FC = () => {
         nextAction: isAlreadySent ? nextAction : null,
         nextActionDate: isAlreadySent ? (followUpDate || undefined) : null,
         latestActivity: `Revised quote ${parsed.quoteNumber} imported (${stageName})`,
-        latestActivityDate: new Date().toISOString().split("T")[0]
+        latestActivityDate: getLocalDateInputValue()
       } as Partial<CRMOpportunity>);
     } else {
       opportunityId = `deal-${Date.now()}`;
@@ -299,7 +299,7 @@ export const CRMQuoteImportModal: React.FC = () => {
         nextAction,
         nextActionDate: isAlreadySent ? (followUpDate || undefined) : undefined,
         latestActivity: `Quote ${parsed.quoteNumber} imported from PDF (${stageName})`,
-        latestActivityDate: new Date().toISOString().split("T")[0],
+        latestActivityDate: getLocalDateInputValue(),
         daysInCurrentStage: 0,
         attachedDocumentIds: []
       } as CRMOpportunity);

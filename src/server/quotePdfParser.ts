@@ -19,9 +19,6 @@ import path from "path";
 import { pathToFileURL } from "url";
 import { createRequire } from "module";
 import {
-  PositionedText,
-  QuoteLineItem,
-  ParsedQuote,
   parseAustralianDate,
   splitAustralianAddress,
   parseMoney,
@@ -29,17 +26,24 @@ import {
   parseQuoteFromPositionedText,
   followUpDateFor
 } from "../utils/quoteParser";
-
-export {
+import type {
   PositionedText,
   QuoteLineItem,
-  ParsedQuote,
+  ParsedQuote
+} from "../utils/quoteParser";
+
+export {
   parseAustralianDate,
   splitAustralianAddress,
   parseMoney,
   groupIntoRows,
   parseQuoteFromPositionedText,
   followUpDateFor
+};
+export type {
+  PositionedText,
+  QuoteLineItem,
+  ParsedQuote
 };
 
 // Polyfill DOMMatrix and Path2D if running in a headless Node/serverless runtime

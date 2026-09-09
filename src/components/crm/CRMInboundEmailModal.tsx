@@ -22,6 +22,8 @@ import {
   AlertTriangle
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
+import { useDialogDismiss } from "../../utils/useDialogDismiss";
+import { getLocalDateInputValue } from "../../utils/dateUtils";
 import {
   InboundEmailParseResult,
   InboundEmailDiffProposal,
@@ -117,6 +119,7 @@ export const CRMInboundEmailModal: React.FC = () => {
   } = useApp();
 
   const isOpen = Boolean(inboundEmailModal?.isOpen);
+  useDialogDismiss(isOpen, closeInboundEmailModal);
   const initialText = inboundEmailModal?.initialText || "";
   const prefillAccountId = inboundEmailModal?.accountId;
   const prefillOppId = inboundEmailModal?.opportunityId;
@@ -172,7 +175,7 @@ export const CRMInboundEmailModal: React.FC = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           rawEmailText: rawText,
-          currentDate: new Date().toISOString().split("T")[0],
+          currentDate: getLocalDateInputValue(),
           knownAccounts,
           knownContacts,
           knownOpportunities
@@ -229,7 +232,7 @@ export const CRMInboundEmailModal: React.FC = () => {
         }
       }
 
-      const todayStr = new Date().toISOString().split("T")[0];
+      const todayStr = getLocalDateInputValue();
 
       // Build staged diff proposal
       const stagedDiff: InboundEmailDiffProposal = {

@@ -21,6 +21,8 @@ import {
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { useVoiceRecorder } from "../../hooks/useVoiceRecorder";
+import { useDialogDismiss } from "../../utils/useDialogDismiss";
+import { getLocalDateInputValue } from "../../utils/dateUtils";
 import {
   ActivityType,
   Account,
@@ -42,6 +44,7 @@ export const CRMVoiceCaptureModal: React.FC = () => {
   } = useApp();
 
   const isOpen = Boolean(voiceCaptureModal?.isOpen);
+  useDialogDismiss(isOpen, closeVoiceCapture);
   const prefillAccountId = voiceCaptureModal?.prefillAccountId;
   const prefillOppId = voiceCaptureModal?.prefillOppId;
 
@@ -120,7 +123,7 @@ export const CRMVoiceCaptureModal: React.FC = () => {
 
       const payload = {
         rawTranscript: activeTranscript,
-        currentDate: new Date().toISOString().split("T")[0],
+        currentDate: getLocalDateInputValue(),
         knownAccounts,
         knownContacts,
         knownOpportunities
@@ -188,7 +191,7 @@ export const CRMVoiceCaptureModal: React.FC = () => {
         activityNotes: result.activity?.notes || activeTranscript,
         notesSourcePhrase: result.activity?.sourcePhrase,
         nextAction: result.nextAction?.action || "Follow up with client",
-        nextActionDate: result.nextAction?.date || new Date().toISOString().split("T")[0],
+        nextActionDate: result.nextAction?.date || getLocalDateInputValue(),
         nextActionSourcePhrase: result.nextAction?.sourcePhrase,
         createTask: true,
         taskTitle: result.proposedTask?.title || result.nextAction?.action || "Follow up",

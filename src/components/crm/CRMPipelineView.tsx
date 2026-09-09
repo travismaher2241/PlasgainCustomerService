@@ -36,7 +36,7 @@ import {
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { CRMOpportunity, OpportunityProductLine } from "../../types/crm";
-import { formatAuDate } from "../../utils/dateUtils";
+import { formatAuDate, getLocalDateInputValue } from "../../utils/dateUtils";
 import { CustomerFollowUpModal } from "../CustomerFollowUpModal";
 import { CRMDealDetailsWorkspace } from "./CRMDealDetailsWorkspace";
 import {
@@ -167,7 +167,7 @@ export const CRMPipelineView: React.FC = () => {
       );
     }
 
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = getLocalDateInputValue();
     if (!opp.nextAction || !opp.nextAction.trim() || !opp.nextActionDate) {
       return (
         <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 inline-flex items-center gap-1">

@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
 import { AuditActionType, AuditEntityType, AuditLogRecord } from "../types/crm";
+import { getLocalDateInputValue } from "../utils/dateUtils";
 
 export const AdminAuditLogView: React.FC = () => {
   const { auditLogs, teamMembers, refreshSharedData, currentUser, showToast } = useApp();
@@ -101,7 +102,7 @@ export const AdminAuditLogView: React.FC = () => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `plasgain_audit_log_${new Date().toISOString().split("T")[0]}.csv`);
+    link.setAttribute("download", `plasgain_audit_log_${getLocalDateInputValue()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

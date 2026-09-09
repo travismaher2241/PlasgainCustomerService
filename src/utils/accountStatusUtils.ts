@@ -6,6 +6,7 @@ import {
   ContactFrequency,
   AccountCommercialStatus
 } from "../types/crm";
+import { getLocalDateInputValue } from "./dateUtils";
 
 /**
  * Resolves the contact frequency for an account, with fallback mapping from legacy relationship status.
@@ -82,7 +83,7 @@ export function computeAccountContactCadence(
       isOverdue: false,
       daysOverdue: 0,
       nextDueInDays: 14,
-      nextDueDateStr: new Date(refTime + 14 * 86400000).toISOString().split("T")[0]
+      nextDueDateStr: getLocalDateInputValue(new Date(refTime + 14 * 86400000))
     };
   }
   const frequency = getAccountContactFrequency(account);
@@ -121,7 +122,7 @@ export function computeAccountContactCadence(
       daysOverdue: 0,
       nextDueInDays: thresholdDays,
       lastContactDate: undefined,
-      nextDueDateStr: new Date(refTime + thresholdDays * 86400000).toISOString().split("T")[0]
+      nextDueDateStr: getLocalDateInputValue(new Date(refTime + thresholdDays * 86400000))
     };
   }
 
@@ -132,7 +133,7 @@ export function computeAccountContactCadence(
   const nextDueInDays = isOverdue ? 0 : thresholdDays - daysSinceLastContact;
 
   const nextDueDate = new Date(latestContactTime + thresholdDays * 24 * 60 * 60 * 1000);
-  const nextDueDateStr = nextDueDate.toISOString().split("T")[0];
+  const nextDueDateStr = getLocalDateInputValue(nextDueDate);
 
   return {
     frequency,
@@ -263,7 +264,7 @@ export function buildAccountCheckInTask(
   cadence: AccountContactCadence
 ): CRMTask {
   const isUrgent = cadence.daysOverdue > 14;
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = getLocalDateInputValue();
 
   return {
     id: `checkin-${account.id}`,

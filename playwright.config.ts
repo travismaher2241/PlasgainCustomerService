@@ -13,7 +13,10 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'npm start',
+    // Browser tests must not require or invent production PIN secrets. The
+    // development server uses the same routes/UI while production continues
+    // to fail closed when its PLASGAIN_PIN_* variables are absent.
+    command: 'node --import tsx server.ts',
     url: 'http://localhost:3000/api/health',
     reuseExistingServer: !process.env.CI,
     timeout: 30000,

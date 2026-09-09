@@ -11,6 +11,7 @@
 
 import { Account, AccountType, AccountStatus, CRMContact, ContactFrequency, CustomerRelationshipStatus } from "../types/crm";
 import { normalizeCompanyName, normalizePhone } from "./duplicateDetector";
+import { getLocalDateInputValue } from "./dateUtils";
 
 /* ------------------------------------------------------------------ */
 /* Decoding                                                            */
@@ -447,7 +448,7 @@ export function buildAccountImportPlan(
   }
 
   const seed = options.idSeed || String(Date.now());
-  const today = options.today || new Date().toISOString().split("T")[0];
+  const today = options.today || getLocalDateInputValue();
   const frequency: ContactFrequency = options.contactFrequency || "As needed";
   const defaultTerritory = options.defaultTerritory || "National";
 

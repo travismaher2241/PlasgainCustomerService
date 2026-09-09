@@ -33,6 +33,7 @@ import { CustomerFollowUpModal, CustomerFollowUpModalProps } from "../CustomerFo
 import { CRMIntelligenceEngine } from "../../utils/crmIntelligence";
 import { NextBestActionItem, CRMOpportunity, CRMTask, CRMLead, CRMActionPayload } from "../../types/crm";
 import { executeCRMAction, ActionDispatchContext } from "../../utils/copilotActionDispatcher";
+import { getLocalDateInputValue } from "../../utils/dateUtils";
 import {
   getNextDayMeetings,
   getUpcomingMeetings,
@@ -153,7 +154,7 @@ export const CRMTodayWorkspace: React.FC = () => {
     onClose: () => setFollowUpModalProps((prev) => ({ ...prev, isOpen: false }))
   });
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = getLocalDateInputValue();
   const formattedToday = new Date().toLocaleDateString("en-AU", {
     weekday: "long",
     day: "numeric",

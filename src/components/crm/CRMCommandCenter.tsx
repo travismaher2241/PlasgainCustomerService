@@ -20,6 +20,7 @@ import { useApp, CRMSubTab } from "../../context/AppContext";
 import { ErrorBoundary } from "../ErrorBoundary";
 import { getNextDayMeetings } from "../../utils/crmMeetingPreparation";
 import { countOutstandingQuotes } from "../../utils/winLossPatterns";
+import { getLocalDateInputValue } from "../../utils/dateUtils";
 
 const CRMTodayWorkspace = lazy(() =>
   import("./CRMTodayWorkspace").then((m) => ({ default: m.CRMTodayWorkspace }))
@@ -96,7 +97,7 @@ export const CRMCommandCenter: React.FC = () => {
     (t) =>
       t.status !== "Completed" &&
       t.status !== "Cancelled" &&
-      t.dueDate < new Date().toISOString().split("T")[0]
+      t.dueDate < getLocalDateInputValue()
   ).length;
 
   const hotLeadsCount = leads.filter(

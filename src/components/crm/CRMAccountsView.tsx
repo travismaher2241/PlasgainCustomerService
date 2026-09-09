@@ -68,6 +68,7 @@ import {
   AccountCommercialStatus
 } from "../../types/crm";
 import { getLocalDateInputValue, formatAuDate, addDaysLocal } from "../../utils/dateUtils";
+import { useDialogDismiss } from "../../utils/useDialogDismiss";
 import { sortActivitiesChronological, formatActivityTimestamp } from "../../utils/activityUtils";
 import {
   getAccountContactFrequency,
@@ -279,6 +280,11 @@ export const CRMAccountsView: React.FC = () => {
   // Competitor Pricing Modal State
   const [isCompetitorModalOpen, setIsCompetitorModalOpen] = useState(false);
   const [editingCompetitorRecord, setEditingCompetitorRecord] = useState<CompetitorPricingRecord | null>(null);
+  useDialogDismiss(isNewAccountModalOpen, () => setIsNewAccountModalOpen(false));
+  useDialogDismiss(isEditAccountModalOpen, () => setIsEditAccountModalOpen(false));
+  useDialogDismiss(Boolean(drawerContact), () => setDrawerContact(null));
+  useDialogDismiss(Boolean(contactToMove), () => setContactToMove(null));
+  useDialogDismiss(Boolean(editingActivityDate), () => setEditingActivityDate(null));
   const [competitorForm, setCompetitorForm] = useState({
     competitorName: "",
     competitorProduct: "",
@@ -638,7 +644,7 @@ export const CRMAccountsView: React.FC = () => {
     const isNowArchived = !accountToToggle.isArchived;
     updateAccount(accountToToggle.id, {
       isArchived: isNowArchived,
-      archivedDate: isNowArchived ? new Date().toISOString().split("T")[0] : undefined,
+      archivedDate: isNowArchived ? getLocalDateInputValue() : undefined,
       archivedReason: isNowArchived ? "Manually archived by user" : undefined,
       status: isNowArchived ? "Archived" : (accountToToggle.accountType === "Prospect" ? "Prospect" : "Customer")
     });
@@ -736,8 +742,8 @@ export const CRMAccountsView: React.FC = () => {
       territory: newAccountForm.territory,
       accountOwner: newAccountForm.accountOwner,
       leadSource: "Direct Contact",
-      createdDate: new Date().toISOString().split("T")[0],
-      lastInteractionDate: new Date().toISOString().split("T")[0],
+      createdDate: getLocalDateInputValue(),
+      lastInteractionDate: getLocalDateInputValue(),
       mainPhone: newAccountForm.mainPhone,
       generalEmail: newAccountForm.generalEmail,
       website: newAccountForm.website,
@@ -1031,8 +1037,8 @@ export const CRMAccountsView: React.FC = () => {
   const groupedActivities = accountActivities.reduce((acc, act) => {
     const d = act.timestamp ? act.timestamp.split("T")[0] : "Recent";
     let groupLabel = d;
-    const todayStr = new Date().toISOString().split("T")[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+    const todayStr = getLocalDateInputValue();
+    const yesterday = addDaysLocal(-1);
     if (d === todayStr) groupLabel = "Today";
     else if (d === yesterday) groupLabel = "Yesterday";
     if (!acc[groupLabel]) acc[groupLabel] = [];

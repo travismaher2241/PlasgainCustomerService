@@ -35,6 +35,7 @@ import {
   CompetitorPricingStatus
 } from "../../types/crm";
 import { getLocalDateInputValue, formatAuDate } from "../../utils/dateUtils";
+import { useDialogDismiss } from "../../utils/useDialogDismiss";
 import { computeCompetitorIntelligence } from "../../utils/competitorIntelligence";
 
 // The form used to offer "Installed / Turnkey", "Full Package",
@@ -113,6 +114,7 @@ export const CRMCompetitorPricingView: React.FC = () => {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState<CompetitorPricingRecord | null>(null);
+  useDialogDismiss(isModalOpen, () => setIsModalOpen(false));
   const [formState, setFormState] = useState({
     accountId: accounts[0]?.id || "",
     competitorName: "",

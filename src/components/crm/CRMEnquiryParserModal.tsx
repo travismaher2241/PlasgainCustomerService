@@ -22,6 +22,8 @@ import {
   ShieldAlert
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
+import { useDialogDismiss } from "../../utils/useDialogDismiss";
+import { getLocalDateInputValue } from "../../utils/dateUtils";
 import {
   CRMLead,
   EnquiryParseResult,
@@ -104,6 +106,7 @@ export const CRMEnquiryParserModal: React.FC = () => {
   } = useApp();
 
   const isOpen = Boolean(enquiryParserModal?.isOpen);
+  useDialogDismiss(isOpen, closeEnquiryParser);
   const initialText = enquiryParserModal?.initialText || "";
 
   // Step state: "input" | "review"
@@ -247,7 +250,7 @@ export const CRMEnquiryParserModal: React.FC = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           rawEnquiryText: rawText.trim(),
-          currentDate: new Date().toISOString().split("T")[0]
+          currentDate: getLocalDateInputValue()
         })
       });
 
@@ -274,7 +277,7 @@ export const CRMEnquiryParserModal: React.FC = () => {
       setUrgency(data.commercial?.urgency || "Within 1 Month");
       setEstimatedValue(data.commercial?.estimatedValue != null ? String(data.commercial.estimatedValue) : "");
       setNextAction(data.nextAction?.action || "Review specifications and prepare quotation");
-      setNextActionDate(data.nextAction?.date || new Date().toISOString().split("T")[0]);
+      setNextActionDate(data.nextAction?.date || getLocalDateInputValue());
       setNotes(data.summaryNotes || rawText.slice(0, 300));
 
       setStep("review");
@@ -331,11 +334,11 @@ export const CRMEnquiryParserModal: React.FC = () => {
       urgency,
       location: location.trim(),
       notes: `${notes.trim()}\n\n--- Inbound Raw Text ---\n${rawText}`,
-      dateReceived: new Date().toISOString().split("T")[0],
+      dateReceived: getLocalDateInputValue(),
       lastActivity: "Parsed from raw inbound enquiry with AI attribution",
-      lastActivityDate: new Date().toISOString().split("T")[0],
+      lastActivityDate: getLocalDateInputValue(),
       nextAction: nextAction.trim() || "Prepare preliminary quotation",
-      nextActionDate: nextActionDate || new Date().toISOString().split("T")[0],
+      nextActionDate: nextActionDate || getLocalDateInputValue(),
       qualificationInfo: {
         hasBudget: urgency !== "Budgetary / Exploratory",
         hasAuthority: Boolean(contactJobTitle),

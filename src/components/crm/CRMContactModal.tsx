@@ -17,6 +17,7 @@ import { CRMContact, ContactNotableEvent } from "../../types/crm";
 import { useApp } from "../../context/AppContext";
 import { detectDuplicateContact, DuplicateMatchResult } from "../../utils/duplicateDetector";
 import { CRMDuplicateWarningModal } from "./CRMDuplicateWarningModal";
+import { useDialogDismiss } from "../../utils/useDialogDismiss";
 
 interface CRMContactModalProps {
   isOpen: boolean;
@@ -42,6 +43,7 @@ export const CRMContactModal: React.FC<CRMContactModalProps> = ({
   accountOwner
 }) => {
   const { currentUser, contacts, showToast, moveContact } = useApp();
+  useDialogDismiss(isOpen, onClose);
   const isEditMode = !!contactToEdit;
   const [duplicateMatch, setDuplicateMatch] = useState<DuplicateMatchResult<CRMContact> | null>(null);
   const [pendingContactPayload, setPendingContactPayload] = useState<Omit<CRMContact, "id"> | null>(null);

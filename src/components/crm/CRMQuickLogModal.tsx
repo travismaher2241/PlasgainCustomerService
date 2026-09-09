@@ -644,7 +644,7 @@ export const CRMQuickLogModal: React.FC = () => {
               </div>
             )}
 
-            {/* ACTIVITY DATE & TIME (Available for all activity types so users can log past interactions like last Thursday) */}
+            {/* Activity date and time for recording past interactions accurately. */}
             <div className={`p-3 rounded-edge border space-y-2 ${
               type === "meeting" || type === "site_visit"
                 ? "bg-brand-wash/40 border-brand-edge/70"

@@ -9,6 +9,7 @@ import {
 import { useApp } from "../../context/AppContext";
 import { CRMTask, TaskPriority, TaskType } from "../../types/crm";
 import { getLocalDateInputValue, formatAuDate } from "../../utils/dateUtils";
+import { useDialogDismiss } from "../../utils/useDialogDismiss";
 
 export const CRMTasksActivitiesView: React.FC = () => {
   const {
@@ -33,6 +34,7 @@ export const CRMTasksActivitiesView: React.FC = () => {
   const [isBulkSelectMode, setIsBulkSelectMode] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([]);
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
+  useDialogDismiss(isNewTaskModalOpen, () => setIsNewTaskModalOpen(false));
 
   const todayStr = getLocalDateInputValue();
 

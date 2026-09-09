@@ -8,7 +8,7 @@ import {
   DealHealthRating,
   CompetitorPricingRecord
 } from "../types/crm";
-import { formatAuDate } from "./dateUtils";
+import { formatAuDate, getLocalDateInputValue } from "./dateUtils";
 
 export interface DealSilenceRiskEvaluation {
   isSilent: boolean;
@@ -37,7 +37,7 @@ export function evaluateDealSilenceRisk(
     todayStr?: string;
   } = {}
 ): DealSilenceRiskEvaluation {
-  const todayStr = options.todayStr || new Date().toISOString().split("T")[0];
+  const todayStr = options.todayStr || getLocalDateInputValue();
 
   // 1. Calculate latest customer contact date
   let latestDate = deal.quoteSentDate || deal.latestActivityDate;
@@ -186,7 +186,7 @@ export class CRMIntelligenceEngine {
     competitorPricing: CompetitorPricingRecord[] = []
   ): NextBestActionItem[] {
     const actions: NextBestActionItem[] = [];
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = getLocalDateInputValue();
 
     // Rule 1: Quotes Sent without follow-up in > 3 days
     deals.forEach((deal) => {
@@ -358,7 +358,7 @@ export class CRMIntelligenceEngine {
    */
   static evaluateDealHealth(
     deal: CRMOpportunity,
-    todayStr: string = new Date().toISOString().split("T")[0],
+    todayStr: string = getLocalDateInputValue(),
     options?: {
       competitorPricing?: CompetitorPricingRecord[];
       activities?: CRMActivity[];

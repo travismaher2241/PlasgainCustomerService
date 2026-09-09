@@ -1,4 +1,5 @@
 import { CRMActionPayload, Account, CRMOpportunity, CRMLead, CRMContact, CRMTask } from "../types/crm";
+import { addDaysLocal } from "./dateUtils";
 
 export interface ActionDispatchContext {
   openEmailComposer: (context?: any) => void;
@@ -77,7 +78,7 @@ export function executeCRMAction(
 
     case "create_task": {
       const taskId = `task-${Date.now()}`;
-      const dueDate = action.dueDate || new Date(Date.now() + 2 * 86400000).toISOString().split("T")[0];
+      const dueDate = action.dueDate || addDaysLocal(2);
       const taskTitle = action.defaultTitle || `Follow up: ${deal?.name || account?.name || "Task"}`;
 
       ctx.addTask({

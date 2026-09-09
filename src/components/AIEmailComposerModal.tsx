@@ -23,6 +23,7 @@ import {
   Check
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
+import { useDialogDismiss } from "../utils/useDialogDismiss";
 import {
   EmailComposerMode,
   AIEmailResearchResult,
@@ -51,6 +52,7 @@ export const AIEmailComposerModal: React.FC<AIEmailComposerModalProps> = () => {
     logActivity,
     showToast
   } = useApp();
+  useDialogDismiss(isEmailComposerOpen, closeEmailComposer);
 
   // Mode & Form Inputs
   const [mode, setMode] = useState<EmailComposerMode>("cold-outreach");

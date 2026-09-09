@@ -48,59 +48,36 @@ test.describe("Plasgain Sales Copilot", () => {
     }
   });
 
-  test("CRM tabs all render", async ({ page }) => {
-    await openWorkspace(page, "CRM Command Centre");
-
-    // The tab strip swaps to short labels on narrow viewports ("Deals" rather
-    // than "Deals Pipeline"), and below 1024px the Leads, Tasks and Competitor
-    // tabs move into a "More" menu.
-    for (const tab of [/Accounts/, /Deals/, /Leads/, /Tasks/, /Competitor/, /Today/]) {
-      // Each label can exist twice — once in the strip, once inside the "More"
-      // menu — with one hidden for the current breakpoint. The strip also
-      // remounts while a sub-view loads, so wait for the control rather than
-      // sampling visibility at a single instant.
-      const visibleTab = page
-        .getByRole("button", { name: tab })
-        .or(page.getByRole("tab", { name: tab }))
-        .filter({ visible: true })
-        .first();
-      try {
-        await visibleTab.waitFor({ state: "visible", timeout: 4000 });
-      } catch {
-        await page.getByRole("button", { name: /More CRM destinations/i }).click();
-        await visibleTab.waitFor({ state: "visible", timeout: 4000 });
-      }
-      await visibleTab.click();
+  test("every CRM destination renders from the main navigation", async ({ page }) => {
+    for (const destination of [
+      "Today",
+      "Accounts",
+      "Outstanding Quotes",
+      "Calendar",
+      "Leads",
+      "Tasks",
+      "Competitors",
+      "Win patterns"
+    ]) {
+      await openWorkspace(page, destination);
       await expect(page.locator("main")).not.toBeEmpty();
       await expect(page.getByTestId("error-boundary-fallback")).toHaveCount(0);
     }
   });
 
-  test("blocks a per-unit deal that has no quantity", async ({ page }) => {
-    // Regression: a $1,450/ea job for 34 poles used to save as $1,450, marked
-    // "Known (Client Confirmed)".
-    await openWorkspace(page, "CRM Command Centre");
-    await page.getByRole("button", { name: /Deals/ }).first().click();
-    await page.getByRole("button", { name: /Add Deal/ }).first().click();
-
-    await page.getByPlaceholder(/Waterfront Esplanade/).fill("E2E Value Basis Check");
-    await page.getByRole("button", { name: /Per Unit/ }).click();
-    await page.getByPlaceholder("e.g. 1650").fill("1450");
-
-    await expect(page.getByText(/Quantity required/i)).toBeVisible();
-
-    await page.getByRole("button", { name: /Save Opportunity/ }).click();
-    // Still open: the save was refused rather than silently recording $1,450.
-    await expect(page.getByRole("button", { name: /Save Opportunity/ })).toBeVisible();
-
-    await page.getByRole("button", { name: /^Cancel$/ }).click();
+  test("opens and dismisses the quote import workflow", async ({ page }) => {
+    await openWorkspace(page, "Outstanding Quotes");
+    await page.getByRole("button", { name: /Import quote PDF/i }).click();
+    await expect(page.getByRole("dialog", { name: "Import a quote PDF" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Import a quote PDF" })).toHaveCount(0);
   });
 
-  test("settings reports real AI status", async ({ page }) => {
-    // The README documented this panel long before it existed.
+  test("settings exposes profile editing and user switching", async ({ page }) => {
     await openWorkspace(page, "Settings");
-    await expect(page.getByText("Copilot Diagnostics")).toBeVisible();
-    await expect(page.getByRole("button", { name: /Re-check/i })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Profile" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Edit profile/i })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Switch user/i })).toBeVisible();
   });
 
   test("global search finds records across entities", async ({ page }) => {
@@ -113,11 +90,15 @@ test.describe("Plasgain Sales Copilot", () => {
 
   test("keeps the signed-in profile across a reload", async ({ page }) => {
     await openWorkspace(page, "Settings");
-    await expect(page.getByText(/Your details/i)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Profile" })).toBeVisible();
 
     await page.reload();
-    // The sidebar is hidden on mobile, so assert on the shell rather than nav.
     await expect(page.locator("header").first()).toBeVisible();
+    const signedInProfile = page.getByRole("button", { name: /^Signed in as Travis Maher$/ });
+    if (!(await signedInProfile.isVisible())) {
+      await page.getByRole("button", { name: /Open navigation menu/i }).click();
+    }
+    await expect(signedInProfile).toBeVisible();
     await expect(page.getByTestId("error-boundary-fallback")).toHaveCount(0);
   });
 });

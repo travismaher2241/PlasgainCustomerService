@@ -13,6 +13,7 @@ import {
   Clock
 } from "lucide-react";
 import { useApp } from "../context/AppContext";
+import { useDialogDismiss } from "../utils/useDialogDismiss";
 
 export const GlobalSearchModal: React.FC = () => {
   const {
@@ -28,6 +29,7 @@ export const GlobalSearchModal: React.FC = () => {
   } = useApp();
 
   const [query, setQuery] = useState("");
+  useDialogDismiss(isSearchOpen, () => setIsSearchOpen(false));
 
   // Listen for Cmd+K / Ctrl+K and Escape
   useEffect(() => {
@@ -190,7 +192,12 @@ export const GlobalSearchModal: React.FC = () => {
 
   return (
     <div className="fixed inset-0 bg-chrome/50 backdrop-blur-xs z-50 flex items-start justify-center pt-16 sm:pt-20 p-4">
-      <div className="bg-white rounded-panel max-w-2xl w-full shadow-2xl border border-line overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-150">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Global search"
+        className="bg-white rounded-panel max-w-2xl w-full shadow-2xl border border-line overflow-hidden flex flex-col max-h-[85vh] animate-in fade-in zoom-in-95 duration-150"
+      >
         {/* Search Input */}
         <div className="p-4 border-b border-line flex items-center gap-3 bg-white">
           {isCommandMode ? (

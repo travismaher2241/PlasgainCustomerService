@@ -13,7 +13,7 @@ import {
   ReplenishmentTimeline,
   ParsedSupplyCycle
 } from "./crmKnowledgeEngine";
-import { formatAuDate } from "./dateUtils";
+import { formatAuDate, getLocalDateInputValue } from "./dateUtils";
 
 export interface CallTalkingPoint {
   category: "Follow-up" | "Question" | "Commitment" | "Commercial" | "Product" | "Context";
@@ -62,7 +62,7 @@ export function generateCallPreparationBriefing(params: {
   const contactRole = contact?.jobTitle || contact?.role;
   const accountName = account?.name || opportunity?.accountName || "Account";
 
-  const effectiveTargetDate = targetDate || new Date().toISOString().split("T")[0];
+  const effectiveTargetDate = targetDate || getLocalDateInputValue();
 
   // 1. Gather activities: distinguish direct contact interactions from company-level colleague interactions
   const directActivities = activities.filter((a) => {
@@ -185,7 +185,7 @@ export function generateCallPreparationBriefing(params: {
   }
 
   // 6. Gather overdue tasks / follow-ups
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = getLocalDateInputValue();
   const overdueTasks = tasks.filter((t) => {
     const matchesEntity = (account && t.accountId === account.id) || (opportunity && t.opportunityId === opportunity.id);
     return matchesEntity && t.status !== "Completed" && t.status !== "Cancelled" && t.dueDate < todayStr;
