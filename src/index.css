@@ -13,7 +13,7 @@
       "healthy". Status has its own warm ramp below, deliberately held away from
       the brand hue, so the accent keeps its meaning.
 
-   2. The brand green is a DARK-GROUND colour. #00A65C on white is only 3.18:1,
+   2. The brand green is a DARK-GROUND colour. #00A651 on white is only 3.18:1,
       which fails AA for body text — that is why the old build drifted to a muddy
       emerald-700. Use `brand` on ink, and `brand-deep` (5.95:1 with white) for
       filled controls on light surfaces.
@@ -26,10 +26,10 @@
 
   /* --- Brand ----------------------------------------------------------- */
   /* Sampled from the Plasgain logo. Replace if the brand guide differs. */
-  --color-brand: #00a65c;
+  --color-brand: #00a651;
   --color-brand-lift: #2bd183; /* emphasis on ink */
   --color-brand-deep: #00733f; /* filled controls on light — AA with white */
-  --color-brand-wash: rgba(0, 166, 92, 0.1);
+  --color-brand-wash: rgba(0, 166, 81, 0.1);
   --color-brand-edge: rgba(0, 115, 63, 0.28);
 
   /* --- Chrome ---------------------------------------------------------- */
