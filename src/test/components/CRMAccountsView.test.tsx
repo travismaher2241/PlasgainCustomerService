@@ -749,7 +749,7 @@ describe("CRMAccountsView Component (Step 5)", () => {
       </AppProvider>
     );
 
-    expect(screen.getByText("Alpha Council")).toBeInTheDocument();
+    expect(screen.getAllByText("Alpha Council").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("Beta Water").length).toBeGreaterThanOrEqual(1);
 
     // Filter by Jordan Smith
@@ -787,7 +787,7 @@ describe("CRMAccountsView Component (Step 5)", () => {
     );
 
     // Both accounts exist initially
-    expect(screen.getByText("Delete Me Council")).toBeInTheDocument();
+    expect(screen.getAllByText("Delete Me Council").length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText("Keep Me Water").length).toBeGreaterThanOrEqual(1);
 
     // Click delete button on Delete Me Council
@@ -806,6 +806,120 @@ describe("CRMAccountsView Component (Step 5)", () => {
     // The deleted account MUST NOT be resurrected on window focus
     expect(screen.queryByText("Delete Me Council")).not.toBeInTheDocument();
     expect(screen.getAllByText("Keep Me Water").length).toBeGreaterThanOrEqual(1);
+  });
+
+  const daysAgoIso = (days: number) =>
+    new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
+  const sortableAccounts = [
+    {
+      id: "acc-sort-zulu",
+      name: "Zulu Contracting",
+      accountType: "Council",
+      territory: "QLD/NT",
+      accountOwner: "Travis Maher",
+      // ~10 months since the last sale reads as Dormant.
+      lastSaleDate: daysAgoIso(300),
+      tags: []
+    },
+    {
+      id: "acc-sort-alpha",
+      name: "Alpha Industrial",
+      accountType: "Account",
+      territory: "VIC/TAS",
+      accountOwner: "Travis Maher",
+      // Sale and contact both older than 24 months reads as Inactive.
+      lastSaleDate: daysAgoIso(1200),
+      lastInteractionDate: daysAgoIso(1200),
+      createdDate: daysAgoIso(1300),
+      tags: []
+    },
+    {
+      id: "acc-sort-mike",
+      name: "Mike Water Group",
+      accountType: "Account",
+      territory: "NSW/ACT",
+      accountOwner: "Travis Maher",
+      // A sale inside 90 days reads as Active.
+      lastSaleDate: daysAgoIso(5),
+      tags: []
+    },
+    {
+      id: "acc-sort-bravo",
+      name: "Bravo Energy",
+      accountType: "Prospect",
+      prospectStage: "Engaged",
+      territory: "SA/WA",
+      accountOwner: "Travis Maher",
+      tags: []
+    }
+  ];
+
+  const getDirectoryOrder = () =>
+    within(screen.getByLabelText("Accounts directory"))
+      .getAllByRole("heading")
+      .map((heading) => heading.textContent);
+
+  it("Test 23 — Directory sorts alphabetically by name and reverses on direction toggle", () => {
+    render(
+      <AppProvider>
+        <AccountsTestWrapper initialAccounts={sortableAccounts} />
+      </AppProvider>
+    );
+
+    expect(getDirectoryOrder()).toEqual([
+      "Alpha Industrial",
+      "Bravo Energy",
+      "Mike Water Group",
+      "Zulu Contracting"
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: /switch to descending/i }));
+
+    expect(getDirectoryOrder()).toEqual([
+      "Zulu Contracting",
+      "Mike Water Group",
+      "Bravo Energy",
+      "Alpha Industrial"
+    ]);
+  });
+
+  it("Test 24 — Directory sorts by account type, then by name within each type", () => {
+    render(
+      <AppProvider>
+        <AccountsTestWrapper initialAccounts={sortableAccounts} />
+      </AppProvider>
+    );
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Sort accounts by" }), {
+      target: { value: "type" }
+    });
+
+    expect(getDirectoryOrder()).toEqual([
+      "Alpha Industrial",
+      "Mike Water Group",
+      "Zulu Contracting",
+      "Bravo Energy"
+    ]);
+  });
+
+  it("Test 25 — Directory sorts by status, keeping prospects in their own block", () => {
+    render(
+      <AppProvider>
+        <AccountsTestWrapper initialAccounts={sortableAccounts} />
+      </AppProvider>
+    );
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Sort accounts by" }), {
+      target: { value: "status" }
+    });
+
+    expect(getDirectoryOrder()).toEqual([
+      "Mike Water Group",
+      "Zulu Contracting",
+      "Alpha Industrial",
+      "Bravo Energy"
+    ]);
   });
 });
 
