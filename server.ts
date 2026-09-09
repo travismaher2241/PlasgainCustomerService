@@ -211,7 +211,6 @@ async function requireSession(
 app.post("/api/auth/verify-profile", async (req, res) => {
   const userId = String(req.body?.userId || "");
   const pin = String(req.body?.pin || "");
-  const clientPinHash = req.body?.pinHash ? String(req.body.pinHash).toLowerCase() : undefined;
   const key = `${req.ip || "unknown"}:${userId}`;
   const now = Date.now();
   const state = authAttempts.get(key);
@@ -224,14 +223,17 @@ app.post("/api/auth/verify-profile", async (req, res) => {
   const expectedHash = profilePinHashes[userId] || (configuredCustomPin ? hashPinWithScrypt(configuredCustomPin) : undefined);
   let valid = Boolean(expectedHash && pin.length >= 4 && verifyPinWithScrypt(pin, expectedHash));
 
-  // Check persistent userProfileStore if not matched by env/preset
+  // Check persistent userProfileStore if not matched by env/preset.
+  //
+  // A third branch used to sit here: the caller could send a `pinHash` beside
+  // the PIN, and it was accepted when it matched a hash of that same PIN. Both
+  // values came from the request, so the condition held for any request that
+  // cared to satisfy it — signing the caller in as any userId, with the
+  // isAdmin of whatever profile it named, and then writing their chosen PIN to
+  // that profile. It made every PIN in the system decorative. A credential the
+  // caller supplies cannot verify the caller.
   if (!valid && pin.length >= 4) {
-    if (await userProfileStore.verifyPin(userId, pin)) {
-      valid = true;
-    } else if (clientPinHash && (clientPinHash === createHash("sha256").update(pin.trim()).digest("hex") || verifyPinWithScrypt(pin.trim(), clientPinHash))) {
-      valid = true;
-      await userProfileStore.setPin(userId, pin.trim());
-    }
+    valid = await userProfileStore.verifyPin(userId, pin);
   }
 
   if (!valid) {
@@ -252,14 +254,38 @@ app.post("/api/auth/verify-profile", async (req, res) => {
   });
 });
 
+/**
+ * Create or amend a workspace profile. Administrators only.
+ *
+ * This was open to anyone. It takes the userId from the body and writes with
+ * setProfile, which replaces the record outright — so an unauthenticated caller
+ * could overwrite an existing profile, hand it isAdmin and a PIN of their
+ * choosing, and sign in as that person. Creating a colleague's account is an
+ * administrator's job, and the caller's own session now decides whether they
+ * are one; `isAdmin` in the body no longer speaks for itself.
+ *
+ * A caller-supplied `pinHash` is not accepted either: a PIN hash the client
+ * computed is a credential the client chose (see verify-profile).
+ */
 app.post("/api/auth/register-profile", async (req, res) => {
-  const { userId, name, role, location, email, phone, isAdmin, pin, pinHash } = req.body || {};
+  const session = await requireSession(req, res);
+  if (!session) return;
+  if (!session.isAdmin) {
+    return res.status(403).json({ error: "Only an administrator can create or change a profile." });
+  }
+
+  const { userId, name, role, location, email, phone, isAdmin, pin } = req.body || {};
   if (!userId || !name) {
     return res.status(400).json({ error: "userId and name are required." });
   }
-  const calculatedPinHash = pin
-    ? hashPinWithScrypt(String(pin).trim())
-    : (pinHash ? String(pinHash).toLowerCase() : "");
+  if (pin !== undefined && String(pin).trim().length < 4) {
+    return res.status(400).json({ error: "A PIN must be at least 4 characters." });
+  }
+
+  // Amending someone's details must not silently strip their PIN, which an
+  // empty hash here would do — it would lock them out on the next sign-in.
+  const existing = await userProfileStore.getProfile(String(userId));
+  const pinHash = pin ? hashPinWithScrypt(String(pin).trim()) : (existing?.pinHash || "");
 
   const stored = await userProfileStore.setProfile({
     userId: String(userId),
@@ -269,26 +295,56 @@ app.post("/api/auth/register-profile", async (req, res) => {
     email: email ? String(email) : undefined,
     phone: phone ? String(phone) : undefined,
     isAdmin: Boolean(isAdmin),
-    pinHash: calculatedPinHash
+    pinHash
   });
 
-  return res.json({ success: true, profile: stored });
+  return res.json({ success: true, profile: { ...stored, pinHash: undefined } });
 });
 
+/**
+ * Set a PIN: your own, or anyone's if you are an administrator.
+ *
+ * This was open too, and took the target userId from the body — so the shortest
+ * way in was to reset someone's PIN and then sign in with it. Its fallback
+ * branch also created a profile with `isAdmin` straight from the body, which
+ * made it a way to mint an administrator as well.
+ */
 app.post("/api/auth/set-pin", async (req, res) => {
+  const session = await requireSession(req, res);
+  if (!session) return;
+
   const { userId, pin } = req.body || {};
   if (!userId || !pin || String(pin).trim().length < 4) {
     return res.status(400).json({ error: "userId and a valid PIN (at least 4 digits) are required." });
   }
-  const updated = await userProfileStore.setPin(String(userId), String(pin).trim());
+
+  const targetUserId = String(userId);
+  if (targetUserId !== session.userId && !session.isAdmin) {
+    return res.status(403).json({ error: "You can only change your own PIN." });
+  }
+
+  const updated = await userProfileStore.setPin(targetUserId, String(pin).trim());
   if (!updated) {
+    // No profile yet. Creating one is an administrator's job, and isAdmin comes
+    // from that decision rather than from the request.
+    if (!session.isAdmin) {
+      return res.status(403).json({ error: "That profile does not exist yet. An administrator must create it." });
+    }
     await userProfileStore.setProfile({
-      userId: String(userId),
-      name: String(req.body?.name || userId),
+      userId: targetUserId,
+      name: String(req.body?.name || targetUserId),
       role: String(req.body?.role || "Internal Sales"),
       isAdmin: Boolean(req.body?.isAdmin),
       pinHash: hashPinWithScrypt(String(pin).trim())
     });
+  }
+
+  // An administrator resetting someone else's PIN ends that person's sessions:
+  // a PIN changed because it was known to the wrong person leaves them signed
+  // in until it is. Changing your own PIN leaves you where you are — being
+  // signed out of your own workspace mid-quote reads as a fault.
+  if (targetUserId !== session.userId) {
+    await sessionStore.destroyForUser(targetUserId);
   }
   return res.json({ success: true });
 });

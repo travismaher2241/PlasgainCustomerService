@@ -43,7 +43,7 @@ import {
 import { CRMIntelligenceEngine } from "../utils/crmIntelligence";
 import { normalizeNotification, getUnreadNotificationsCount } from "../utils/notificationUtils";
 import { formatAuDate, formatAuTime, getLocalDateInputValue } from "../utils/dateUtils";
-import { setSessionToken, getSessionToken } from "../utils/apiClient";
+import { setSessionToken, getSessionToken, authHeaders } from "../utils/apiClient";
 import { diffFields } from "../utils/diffUtils";
 import {
   saveDocToCloud,
@@ -740,23 +740,13 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Register with server backend for PIN verification in background
     (async () => {
-      let calculatedPinHash = member.pinHash;
-      if (member.pin && !calculatedPinHash && typeof crypto !== "undefined" && crypto.subtle) {
-        try {
-          const encoder = new TextEncoder();
-          const data = encoder.encode(member.pin.trim());
-          const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-          const hashArray = Array.from(new Uint8Array(hashBuffer));
-          calculatedPinHash = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-        } catch {
-          // fallback
-        }
-      }
-
       try {
+        // Creating a profile is an administrator action, so it goes with the
+        // caller's session. The server no longer takes a client-computed
+        // pinHash: a hash the browser worked out is a credential it chose.
         fetch(getApiUrl("/api/auth/register-profile"), {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({
             userId,
             name: newMember.name,
@@ -765,8 +755,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
             email: newMember.email,
             phone: newMember.phone,
             isAdmin: newMember.isAdmin,
-            pin: newMember.pin,
-            pinHash: calculatedPinHash
+            pin: newMember.pin
           })
         }).catch(() => {});
       } catch {
@@ -822,7 +811,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       await fetch(getApiUrl("/api/auth/set-pin"), {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: authHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify({
           userId: target.id,
           pin: trimmedPin,

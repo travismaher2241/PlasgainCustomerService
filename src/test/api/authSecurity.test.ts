@@ -144,6 +144,102 @@ describe('Auth Security Hardening', () => {
     });
   });
 
+  describe('The credential is never the caller\'s to supply', () => {
+    // The preset PIN hashes are built once when the module loads, so this uses
+    // the dev default rather than setting an env var the server will not re-read.
+    const signInAsAdmin = async () => {
+      const res = await request(app)
+        .post('/api/auth/verify-profile')
+        .send({ userId: 'user-travis-maher', pin: '1234' });
+      return res.body.token as string | undefined;
+    };
+
+    it('refuses a sign-in whose PIN hash was supplied by the caller', async () => {
+      // The hole: the request carried both the PIN and its hash, and one branch
+      // checked them against each other. Anyone could satisfy that for any
+      // profile, take an admin session, and have their chosen PIN written to it.
+      const pin = 'not-the-real-pin';
+      const res = await request(app)
+        .post('/api/auth/verify-profile')
+        .send({
+          userId: 'user-travis-maher',
+          pin,
+          pinHash: createHash('sha256').update(pin).digest('hex')
+        });
+
+      expect(res.status).toBe(401);
+      expect(res.body.token).toBeUndefined();
+
+      // And it must not have quietly adopted that PIN as the profile's own.
+      expect(await userProfileStore.verifyPin('user-travis-maher', pin)).toBe(false);
+    });
+
+    it('refuses to create or overwrite a profile without an admin session', async () => {
+      const attempt = (req: request.Test) =>
+        req.send({ userId: 'user-travis-maher', name: 'Travis Maher', isAdmin: true, pin: 'seized-9999' });
+
+      const anonymous = await attempt(request(app).post('/api/auth/register-profile'));
+      expect(anonymous.status).toBe(401);
+
+      const badToken = await attempt(
+        request(app).post('/api/auth/register-profile').set('Authorization', 'Bearer not-a-token')
+      );
+      expect(badToken.status).toBe(401);
+
+      expect(await userProfileStore.verifyPin('user-travis-maher', 'seized-9999')).toBe(false);
+    });
+
+    it('refuses to set a PIN without a session', async () => {
+      const res = await request(app)
+        .post('/api/auth/set-pin')
+        .send({ userId: 'user-travis-maher', pin: 'seized-9999' });
+
+      expect(res.status).toBe(401);
+      expect(await userProfileStore.verifyPin('user-travis-maher', 'seized-9999')).toBe(false);
+    });
+
+    it('lets a signed-in admin create a profile, and that profile can then sign in', async () => {
+      const token = await signInAsAdmin();
+      expect(token).toBeTruthy();
+
+      const created = await request(app)
+        .post('/api/auth/register-profile')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ userId: 'user-alan-berryman', name: 'Alan Berryman', pin: 'alan-pin-7731' });
+
+      expect(created.status).toBe(200);
+      // The stored hash is never handed back out.
+      expect(created.body.profile?.pinHash).toBeUndefined();
+
+      const signIn = await request(app)
+        .post('/api/auth/verify-profile')
+        .send({ userId: 'user-alan-berryman', pin: 'alan-pin-7731' });
+
+      expect(signIn.status).toBe(200);
+      expect(signIn.body.token).toBeTruthy();
+      expect(signIn.body.profile.isAdmin).toBe(false);
+
+      await userProfileStore.deleteProfile('user-alan-berryman');
+    });
+
+    it('keeps a profile\'s PIN when an admin amends their details', async () => {
+      const token = await signInAsAdmin();
+      await request(app)
+        .post('/api/auth/register-profile')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ userId: 'user-amend-me', name: 'Before', pin: 'keep-me-5150' });
+
+      // No pin in this call: an empty hash here would lock them out.
+      await request(app)
+        .post('/api/auth/register-profile')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ userId: 'user-amend-me', name: 'After', role: 'Estimator' });
+
+      expect(await userProfileStore.verifyPin('user-amend-me', 'keep-me-5150')).toBe(true);
+      await userProfileStore.deleteProfile('user-amend-me');
+    });
+  });
+
   describe('Task 4: Production Fail-Closed Boot Enforcement', () => {
     it('assertProductionSecurityConfig does not throw in non-production (test/dev) mode', () => {
       delete process.env.PLASGAIN_PIN_TRAVIS;
