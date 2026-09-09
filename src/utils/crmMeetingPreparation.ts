@@ -312,7 +312,7 @@ export function generateMeetingPreparationPlan(
 
   if (openQuotes.length > 0 && !openQuotes[0].hasRecordedResponse) {
     suggestedQuestions.push(
-      `Have you had an opportunity to review Quote ${openQuotes[0].quoteNumber}, and are there any specific technical or commercial revisions required?`
+      `Have you had an opportunity to review Quote ${openQuotes[0].quoteNumber}, and are there any revisions you need from us?`
     );
   } else {
     suggestedQuestions.push(

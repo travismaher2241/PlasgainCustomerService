@@ -95,12 +95,12 @@ export function evaluateDealSilenceRisk(
       daysSilent,
       riskLevel: "Critical",
       reasonCategory: "Competitor Presence",
-      diagnosis: `Active Competitor Risk: ${activeCompetitor.competitorName} pricing recorded${varianceSnippet}. ${daysSilent} days of silence suggests ${deal.accountName || "the customer"} is actively evaluating competing proposals. Re-anchor on Plasgain's 50-year design life, zero thermal sag, and IK10 durability.`,
+      diagnosis: `Active Competitor Risk: ${activeCompetitor.competitorName} pricing recorded${varianceSnippet}. ${daysSilent} days of silence suggests ${deal.accountName || "the customer"} is actively evaluating competing proposals. Re-anchor on whole-of-life cost, Australian supply and local support rather than the unit rate.`,
       recommendedAction: {
         actionLabel: "Send Competitor Defense Email",
         actionType: "send_email",
-        subject: `Proposal review & technical specifications for ${deal.name}`,
-        suggestedNotes: `Re-anchor client on Plasgain's engineered composite core, IK10 vandal resistance, and 50-year maintenance-free lifecycle compared to ${activeCompetitor.competitorName}.`
+        subject: `Proposal review for ${deal.name}`,
+        suggestedNotes: `Re-anchor the client on whole-of-life cost, Australian supply and local support compared to ${activeCompetitor.competitorName}, rather than competing on the unit rate.`
       }
     };
   }
@@ -112,12 +112,12 @@ export function evaluateDealSilenceRisk(
       daysSilent,
       riskLevel: dealVal >= 50000 ? "Critical" : "Warning",
       reasonCategory: "Council Tender Window",
-      diagnosis: `Council Procurement Silence: ${daysSilent} days since touchpoint on $${dealVal.toLocaleString()} project. Council committees review tenders on monthly schedules; silence signals waiting for agenda sign-off or pending compliance submittals.`,
+      diagnosis: `Council Procurement Silence: ${daysSilent} days since touchpoint on $${dealVal.toLocaleString()} project. Council committees review tenders on monthly schedules; silence usually means the item is waiting on an agenda slot or on paperwork someone else owes them.`,
       recommendedAction: {
-        actionLabel: "Offer Council Compliance Submittal",
+        actionLabel: "Ask What the Committee Needs",
         actionType: "send_email",
-        subject: `Engineering compliance & DIALux package for ${deal.name}`,
-        suggestedNotes: `Offer to provide certified AS/NZS 1158 engineering calculations, photometric reports, or environmental certificates to support council committee approval.`
+        subject: `Supporting documentation for ${deal.name}`,
+        suggestedNotes: `Ask what documentation the council committee needs for approval, then get it organised through the product team.`
       }
     };
   }
@@ -129,12 +129,12 @@ export function evaluateDealSilenceRisk(
       daysSilent,
       riskLevel: dealVal >= 50000 ? "Critical" : "Warning",
       reasonCategory: "Contractor Tender Closing",
-      diagnosis: `Contractor Tender Closing Risk: ${daysSilent} days of silence on $${dealVal.toLocaleString()} quotation. Head contractors finalize sub-packages within 7–14 days. Urgent touchpoint required to guarantee delivery dates and lock specifications.`,
+      diagnosis: `Contractor Tender Closing Risk: ${daysSilent} days of silence on $${dealVal.toLocaleString()} quotation. Head contractors finalize sub-packages within 7–14 days. Urgent touchpoint required to confirm the award date and secure delivery.`,
       recommendedAction: {
-        actionLabel: "Call Contractor to Lock Spec",
+        actionLabel: "Call Contractor to Confirm Award",
         actionType: "log_call",
         subject: `Tender closing follow-up for ${deal.name}`,
-        suggestedNotes: `Confirm tender award date with head contractor, verify bill of materials, and commit factory manufacturing slot to secure delivery timeline.`
+        suggestedNotes: `Confirm the tender award date with the head contractor, check the quantities are still right, and commit a manufacturing slot to secure the delivery timeline.`
       }
     };
   }

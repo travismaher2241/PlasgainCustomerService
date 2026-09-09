@@ -16,7 +16,7 @@ import {
 import { formatAuDate } from "./dateUtils";
 
 export interface CallTalkingPoint {
-  category: "Follow-up" | "Question" | "Commitment" | "Commercial" | "Technical" | "Context";
+  category: "Follow-up" | "Question" | "Commitment" | "Commercial" | "Product" | "Context";
   text: string;
   sourceRef?: string;
 }
@@ -272,7 +272,7 @@ export function generateCallPreparationBriefing(params: {
     if (!q.hasRecordedResponse) {
       talkingPoints.push({
         category: "Commercial",
-        text: `Check status of quote ${q.quoteNumber} ($${q.dealValue.toLocaleString()}) for "${q.dealName}". ${q.sentDate ? `Sent ${formatAuDate(q.sentDate)}.` : ""} Ask if technical package was satisfactory or if revisions are needed.`
+        text: `Check status of quote ${q.quoteNumber} ($${q.dealValue.toLocaleString()}) for "${q.dealName}". ${q.sentDate ? `Sent ${formatAuDate(q.sentDate)}.` : ""} Ask whether anything needs revising.`
       });
     }
   }
@@ -287,14 +287,12 @@ export function generateCallPreparationBriefing(params: {
     });
   }
 
-  // F. Technical & Product preferences
-  const techKnowledge = relevantKnowledge.filter(
-    (k) => k.category === "Product & Pole Preference" || k.category === "Technical & Specification"
-  );
-  for (const t of techKnowledge.slice(0, 2)) {
+  // F. Product preferences the customer has stated
+  const productKnowledge = relevantKnowledge.filter((k) => k.category === "Product & Pole Preference");
+  for (const t of productKnowledge.slice(0, 2)) {
     talkingPoints.push({
-      category: "Technical",
-      text: `Keep specification in mind: "${t.statement}".`,
+      category: "Product",
+      text: `Keep their stated preference in mind: "${t.statement}".`,
       sourceRef: t.sourceActivityDate
     });
   }

@@ -83,23 +83,24 @@ describe("Competitor Intelligence Engine (Feature 06)", () => {
   it("synthesizes actionable market takeaways and battlecards for sales reps", () => {
     const intel = computeCompetitorIntelligence(sampleRecords);
 
-    // Replas is top competitor, should highlight -9% variance and TCO / IK10 angle
+    // Replas is top competitor. The takeaway positions on whole-of-life cost and
+    // local support - never on product claims the app cannot substantiate.
     expect(intel.marketTakeaway).toContain("Replas");
-    expect(intel.marketTakeaway).toContain("IK10 durability");
-    expect(intel.marketTakeaway).toContain("50-year TCO");
+    expect(intel.marketTakeaway).toContain("whole-of-life cost");
+    expect(intel.marketTakeaway).toContain("local support");
 
     // Check Replas battlecard
     const replasCard = intel.battlecards.find((b) => b.competitorName === "Replas");
     expect(replasCard).toBeDefined();
     expect(replasCard?.positioningBattlecard.plasgainDifferentiators.length).toBeGreaterThanOrEqual(3);
-    expect(replasCard?.positioningBattlecard.plasgainDifferentiators.some((d) => d.includes("IK10"))).toBe(true);
-    expect(replasCard?.positioningBattlecard.plasgainDifferentiators.some((d) => d.includes("Zero Thermal Sagging"))).toBe(true);
+    expect(replasCard?.positioningBattlecard.plasgainDifferentiators.some((d) => d.includes("Australian-made"))).toBe(true);
+    expect(replasCard?.positioningBattlecard.plasgainDifferentiators.some((d) => d.includes("replacement schedule"))).toBe(true);
 
     // Check objection handling
     const objections = replasCard?.positioningBattlecard.objectionHandling;
     expect(objections && objections.length > 0).toBe(true);
     expect(objections![0].objection.toLowerCase()).toContain("cheaper");
-    expect(objections![0].counterResponse.toLowerCase()).toContain("thermal creep");
+    expect(objections![0].counterResponse.toLowerCase()).toContain("replacement schedule");
   });
 
   it("gracefully handles empty records without crashing", () => {

@@ -85,7 +85,7 @@ export const AIEmailComposerModal: React.FC<AIEmailComposerModalProps> = () => {
     "Reviewing CRM context & internal data",
     "Researching public web sources & project facts",
     "Identifying likely lighting opportunities",
-    "Matching Plasgain engineering capabilities",
+    "Matching the Plasgain product range",
     "Drafting consultative sales email"
   ];
 
@@ -272,7 +272,7 @@ export const AIEmailComposerModal: React.FC<AIEmailComposerModalProps> = () => {
   };
 
   // Tone & Length Refinements
-  const handleRefine = async (refineAction: "shorter" | "warmer" | "technical" | "regenerate") => {
+  const handleRefine = async (refineAction: "shorter" | "warmer" | "regenerate") => {
     if (!emailBody.trim() || isRefining) return;
 
     setIsRefining(true);
@@ -702,9 +702,9 @@ Plasgain Australia`
                     setEmailBody(
 `Hi ${recipientName || "there"},
 
-Regarding the public lighting and civil trenching schedule for ${researchSubject || "the project"}, we've put together a preliminary product match against the specification.
+Regarding the public lighting and civil trenching schedule for ${researchSubject || "the project"}, we've put together a preliminary product match against your requirements.
 
-We'd be glad to provide full product datasheets to support your submission.
+Happy to pull together whatever supporting documentation your submission needs — just let me know what the tender asks for.
 
 Could you confirm the tender closing date and whether alternative Australian-made composite poles and solar fittings can be submitted as an option?
 
@@ -733,7 +733,7 @@ Plasgain Australia`
 
 I'm following up on the formal pricing and product schedule we provided for ${researchSubject || "your project"}.
 
-Please let us know if you or your team require any further technical documentation or product datasheets to finalise the procurement review.
+Please let us know if you or your team need anything further from us to finalise the procurement review.
 
 We look forward to partnering with your team on this rollout.
 
@@ -1036,14 +1036,6 @@ Plasgain Australia`
                     className="px-2.5 py-1 text-spec font-bold bg-white hover:bg-raised text-body border border-line rounded-edge transition-colors cursor-pointer disabled:opacity-50"
                   >
                     Make Warmer
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleRefine("technical")}
-                    disabled={isRefining}
-                    className="px-2.5 py-1 text-spec font-bold bg-white hover:bg-raised text-body border border-line rounded-edge transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    Make More Technical
                   </button>
                   <button
                     type="button"

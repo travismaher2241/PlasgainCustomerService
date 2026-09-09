@@ -54,7 +54,7 @@ const AccountsTestWrapper: React.FC<{ initialAccounts?: any[] }> = ({ initialAcc
           stageName: "Proposal & Quoting",
           dealValue: 45000,
           expectedCloseDate: "2026-10-15",
-          nextAction: "Present photometric report to civil engineering committee",
+          nextAction: "Present the quote to the procurement committee",
           pipelineId: "pipe-major-projects",
           stageId: "stage-proposal",
           weightedValue: 22500,
@@ -583,14 +583,14 @@ describe("CRMAccountsView Component (Step 5)", () => {
     fireEvent.click(screen.getByRole("button", { name: /Set Next Step/i }));
 
     // Input new next action
-    const input = screen.getByPlaceholderText(/Schedule technical review or issue revised/i);
-    fireEvent.change(input, { target: { value: "Submit revised tender photometric layout" } });
+    const input = screen.getByPlaceholderText(/Call to confirm tender timing/i);
+    fireEvent.change(input, { target: { value: "Submit revised tender pricing" } });
 
     // Click Save
     fireEvent.click(screen.getByRole("button", { name: /Save/i }));
 
     // Verify it is updated and displayed with Account Action badge
-    expect(screen.getByText("Submit revised tender photometric layout")).toBeInTheDocument();
+    expect(screen.getByText("Submit revised tender pricing")).toBeInTheDocument();
     expect(screen.getByText("Account Action")).toBeInTheDocument();
   });
 
@@ -607,12 +607,12 @@ describe("CRMAccountsView Component (Step 5)", () => {
 
     expect(screen.getByRole("dialog", { name: /Edit Account/i })).toBeInTheDocument();
 
-    const nextActionInput = screen.getByPlaceholderText(/e\.g\. Issue revised photometric design/i);
-    fireEvent.change(nextActionInput, { target: { value: "Finalize engineering compliance signoff" } });
+    const nextActionInput = screen.getByPlaceholderText(/e\.g\. Send revised pricing/i);
+    fireEvent.change(nextActionInput, { target: { value: "Confirm committee approval date" } });
 
     fireEvent.click(screen.getByRole("button", { name: /Save Changes/i }));
 
-    expect(screen.getByText("Finalize engineering compliance signoff")).toBeInTheDocument();
+    expect(screen.getByText("Confirm committee approval date")).toBeInTheDocument();
   });
 
   it("Test 18 — Displays auto-calculated Commercial Status badge and Contact Frequency badge", () => {

@@ -489,7 +489,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
       weightedValue: deal.dealValue,
       latestActivity: "Purchase order received. Quote marked as won.",
       latestActivityDate: getLocalDateInputValue(new Date()),
-      wonReason: "Accepted technical specification and competitive commercial offer."
+      wonReason: "Accepted the proposal on price and delivery."
     });
     showToast(`Purchase order received. Quote moved to ${wonStage.name}.`, "success");
   };

@@ -6,7 +6,6 @@ import { fileURLToPath } from "url";
 import { GoogleGenAI } from "@google/genai";
 import { competitorPricingStore } from "./src/server/competitorPricingStore";
 import { notificationStore } from "./src/server/notificationStore";
-import { knowledgeStore } from "./src/server/knowledgeStore";
 import { quoteDocumentStore, MAX_DOCUMENT_BYTES } from "./src/server/quoteDocumentStore";
 import { parseQuotePdf, followUpDateFor, PdfReaderUnavailableError, ParsedQuote } from "./src/server/quotePdfParser";
 import { userProfileStore, hashPinWithScrypt, verifyPinWithScrypt } from "./src/server/userProfileStore";
@@ -653,9 +652,9 @@ function sendAIUnavailable(res: express.Response, context: string, err: any) {
       degraded: false,
       context,
       detail: errMsg.includes("Unsupported MIME type")
-        ? "The uploaded file format is not supported. Please upload a standard engineering PDF, PNG, or JPG document."
+        ? "The uploaded file format is not supported. Please upload a PDF, PNG, or JPG document."
         : "Invalid request payload. Please verify the document format.",
-      guidance: "Please upload an engineering PDF or high-resolution PNG/JPG drawing under 25 MB."
+      guidance: "Please upload a PDF or high-resolution PNG/JPG under 25 MB."
     });
   }
 
@@ -798,48 +797,20 @@ function sendSSEChunk(res: express.Response, delta: string) {
 }
 
 /**
- * Builds the grounded-context block and the matching citations for a question.
+ * The app holds no product, specification or standards source of any kind.
+ * The reference-document library that once backed those answers has been
+ * removed, so there is nothing left to check a spec claim against.
  *
- * The instruction is deliberately strict: answer from these passages, and say
- * so when they do not cover the question. A confident invented lumen output or
- * clearance figure inside a tender response is a commercial and legal
- * exposure, so "I do not have that documented" is the correct answer whenever
- * retrieval comes back empty.
+ * This instruction is therefore the only remaining rail. A confident invented
+ * lumen output or clearance figure inside a tender response is a commercial and
+ * legal exposure, so "that is not held in this app" is the correct answer to
+ * every product-detail question, not a fallback for when retrieval misses.
  */
-function buildGrounding(question: string): { instruction: string; citations: any[] } {
-  const passages = knowledgeStore.search(question, 4);
-
-  if (passages.length === 0) {
-    const { documentCount } = knowledgeStore.getStatus();
-    return {
-      instruction:
-        documentCount === 0
-          ? "\n\nNo Plasgain reference documents are loaded in this workspace. Do not state product specifications, photometric figures, standards clauses or compliance claims as fact. Say that the detail is not documented here and suggest the rep check the source document."
-          : "\n\nNone of the loaded Plasgain reference documents match this question. Do not invent product specifications, photometric figures or standards clauses - say the detail is not in the loaded documents.",
-      citations: []
-    };
-  }
-
-  const block = passages
-    .map((p, i) => `[${i + 1}] ${p.documentTitle}${p.section ? ` - ${p.section}` : ""}\n${p.text}`)
-    .join("\n\n");
-
-  return {
-    instruction:
-      "\n\nGROUNDED SOURCES - Plasgain's own reference documents.\n" +
-      "For any product specification, photometric figure, standards clause or compliance claim, use ONLY the passages below and cite them by their number. " +
-      "If they do not cover what was asked, say so plainly rather than filling the gap from general knowledge.\n\n" +
-      block,
-    citations: passages.map((p) => ({
-      sourceId: p.id,
-      sourceType: "document",
-      title: p.documentTitle,
-      clause: p.section,
-      documentId: p.documentId,
-      excerpt: p.text.length > 240 ? `${p.text.slice(0, 240)}...` : p.text
-    }))
-  };
-}
+const NO_PRODUCT_SOURCE_INSTRUCTION =
+  "\n\nThis app holds no product, specification, standards or compliance data. " +
+  "Never state a product specification, measurement, rating, standards clause or compliance claim as fact, " +
+  "and never reconstruct one from general knowledge. Say the detail is not held in this app and that the rep " +
+  "should confirm it with the Plasgain product team. Answer from the CRM records supplied with the request.";
 
 function sendSSEComplete(res: express.Response, result: any) {
   res.write(`event: complete\ndata: ${JSON.stringify({ result })}\n\n`);
@@ -864,16 +835,15 @@ CRITICAL OPERATING RULES:
    - Priority 1: The CRM record content supplied with the request (accounts, contacts,
      deals, activities, tasks and notes the representative has entered).
    - Priority 2: Public Plasgain website and catalogue information.
-   - Priority 3: General model knowledge - ONLY to explain generic technical concepts
-     (e.g. what is CCT, CRI, IP rating, MPPT). NEVER use general model knowledge to
-     invent, guess, override, or assume Plasgain product specifications, warranties,
-     or compatibility.
+   - Priority 3: General model knowledge - ONLY for ordinary business and sales
+     writing (tone, structure, phrasing). NEVER use general model knowledge to
+     explain, invent, guess, override, or assume product specifications, technical
+     concepts, standards, warranties or compatibility. Those are not this app's job.
 
 2. ABSOLUTE PROHIBITION ON FABRICATION / DATA INVENTING:
    - This app holds no Plasgain product specification data. You therefore cannot
      confirm any product specification. If asked for one, say plainly that it must be
-     confirmed against the current Plasgain datasheet or with the engineering team,
-     then continue with the rest of the task.
+     confirmed with the Plasgain product team, then continue with the rest of the task.
    - Do NOT estimate, guess, or fabricate:
      * Luminaire wattage, lumens, efficacy, or chip models
      * Solar panel wattage, dimensions, or mounting tilt
@@ -895,6 +865,24 @@ CRITICAL OPERATING RULES:
      "Pricing data is not currently connected to the app. Please refer to current internal commercial price schedules or request pricing from the commercial team."
    - NEVER invent or estimate a price. Deal values a representative has entered may be
      quoted back as entered.
+
+4. SCOPE - SALES, NOT ENGINEERING:
+   - You are a sales-relationship assistant. Plasgain does not offer design,
+     engineering or compliance services through this app, and this app holds no
+     product, specification or standards source of any kind.
+   - NEVER propose, offer, schedule or draft engineering or technical work on
+     Plasgain's behalf. That includes photometric or lighting-design studies,
+     Dialux or similar calculations, standards compliance statements or
+     declarations, specification packages, datasheets and spec sheets.
+   - NEVER volunteer technical vocabulary the rep did not use first. Do not
+     introduce standards numbers, ratings, measurements or specification jargon
+     into a subject line, email body, summary, task or suggested next step.
+   - Every next step you suggest must be a SALES action: a call, a meeting, a
+     quote, a follow-up, a pricing or timeline discussion, a sample, a site visit,
+     or a question that gets the rep the information they need.
+   - Where a customer raises a product or compliance question, the correct output
+     is to capture the question as-asked and route it to the Plasgain product
+     team. Do not answer it, and do not draft an answer for the rep to send.
 
 Ground every claim in the CRM content supplied with this request. Where something is not
 in that content, say so rather than substituting memorised or assumed detail.
@@ -1215,7 +1203,7 @@ You draft consultative, tailored Australian English B2B sales emails.
 
 EMAIL RULES:
 - Language: Australian English (e.g., colour, organise, metre, optimise, aluminium).
-- Mode: "${mode}" (${mode === "cold-outreach" ? "Cold Outreach: 80–130 words, personal, consultative, 1 low-friction next step" : "Upcoming Project Enquiry: 100–170 words, accurately acknowledge project, ask 1–2 smart questions about lighting package responsibility/design/procurement timing, offer technical/product support"}).
+- Mode: "${mode}" (${mode === "cold-outreach" ? "Cold Outreach: 80–130 words, personal, consultative, 1 low-friction next step" : "Upcoming Project Enquiry: 100–170 words, accurately acknowledge project, ask 1–2 smart questions about lighting package responsibility/design/procurement timing, offer to help with pricing, timing or quantities"}).
 - Recipient: ${recipient?.name || "Client/Team"} (${recipient?.role || "Decision Maker"} at ${recipient?.company || researchSubject})
 - Desired Outcome: ${desiredOutcome}
 - SENDER SIGNATURE: Use the provided sender signature:
@@ -1371,8 +1359,6 @@ app.post("/api/email/refine-draft", async (req, res) => {
       instruction = "Make the email more concise, punchy, and under 90 words while preserving the key value point and call to action.";
     } else if (refineAction === "warmer") {
       instruction = "Adjust the tone to be warmer, more conversational, friendly, and consultative without being overly informal.";
-    } else if (refineAction === "technical") {
-      instruction = "Add precise technical depth, but only using specifications already present in this draft or the CRM/document context supplied — never invent a compliance claim or specification.";
     } else {
       instruction = "Provide a fresh alternative phrasing for the subject line and email body.";
     }
@@ -1477,6 +1463,7 @@ Format as JSON:
         preferredModel: DEFAULT_MODEL,
         contents: prompt,
         config: {
+          systemInstruction: MASTER_PLASGAIN_SYSTEM_INSTRUCTION,
           tools: [{ googleSearch: {} }],
           responseMimeType: "application/json",
           temperature: 0.3,
@@ -1523,7 +1510,7 @@ app.post(["/api/call/prep", "/api/tools/call-prep"], async (req, res) => {
       const ai = getAI();
       const systemPrompt = `${MASTER_PLASGAIN_SYSTEM_INSTRUCTION}
 Prepare a crisp, 1-minute sales call brief for an internal sales rep.
-Ensure all questions are grounded, no unverified claims are suggested, and technical verification steps are noted.`;
+Ensure all questions are grounded and no unverified claims are suggested. Suggest sales next steps only - never engineering, design or compliance work.`;
 
       const prompt = `Prepare a crisp, 1-minute sales call preparation sheet for a Plasgain Lighting sales rep calling:
 Customer: ${resolvedCustomer}
@@ -1531,7 +1518,7 @@ Company: ${resolvedCompany}
 Project: ${resolvedProject}
 Current Stage: ${stage || opportunity?.stage || "Qualifying / Quoting"}
 Last Interaction: ${lastInteraction || "Sent initial catalogue"}
-Context / Notes: ${notes || "Needs 30 solar lights for 1.2km shared path. Council prefers 3000K. Budget pricing requested."}
+Context / Notes: ${notes || "Needs 30 solar lights for 1.2km shared path. Budget pricing requested."}
 
 Return JSON:
 {
@@ -1608,6 +1595,7 @@ Return JSON:
         preferredModel: DEFAULT_MODEL,
         contents: prompt,
         config: {
+          systemInstruction: MASTER_PLASGAIN_SYSTEM_INSTRUCTION,
           responseMimeType: "application/json",
           temperature: 0.2,
         },
@@ -1815,6 +1803,7 @@ Return ONLY a JSON object matching this schema:
         preferredModel: DEFAULT_MODEL,
         contents: prompt,
         config: {
+          systemInstruction: MASTER_PLASGAIN_SYSTEM_INSTRUCTION,
           responseMimeType: "application/json",
           temperature: 0.1
         }
@@ -1999,9 +1988,9 @@ app.post(["/api/crm/parse-enquiry", "/api/enquiry/parse-to-lead"], async (req, r
     }
 
     try {
-      const prompt = `You are the Plasgain Sales Engineering Enquiry Parser. An inbound enquiry has arrived via email, tender portal, or web form RFQ.
+      const prompt = `You are the Plasgain Sales Enquiry Parser. An inbound enquiry has arrived via email, tender portal, or web form RFQ.
 Your job is to parse this raw text into a structured CRM Lead record, extracting all actionable operational and commercial data.
-Crucially, you MUST extract the verbatim 'sourcePhrase' (short snippet of text) that justifies every single extracted field, so the sales engineer can verify the AI's provenance without re-reading the entire document.
+Crucially, you MUST extract the verbatim 'sourcePhrase' (short snippet of text) that justifies every single extracted field, so the sales representative can verify the AI's provenance without re-reading the entire document.
 
 CURRENT DATE: ${currentDate}
 
@@ -2027,9 +2016,9 @@ EXTRACTION RULES:
    - estimatedValue: Rough dollar figure if specified or estimated ($3,500 - $6,000 per solar pole is typical).
    - estimatedValueBasis: "Known", "Estimate", or "Unknown".
 6. nextAction:
-   - action: Next concrete sales step (e.g. "Send AS/NZS 1158.3.1 lighting design & formal quote").
+   - action: Next concrete sales step (e.g. "Send formal quote", "Call to confirm quantities and timing").
    - date: Suggested due date (YYYY-MM-DD), considering the deadline or defaulting to 2-3 business days.
-7. summaryNotes: Crisp 2-3 bullet point summary of key technical challenges, site conditions, or special requirements mentioned.
+7. summaryNotes: Crisp 2-3 bullet point summary of the site conditions, quantities, timing or special requirements the customer mentioned. Record what they asked for in their own words; never add specification detail they did not state.
 8. sourcePhrase: Verbatim quote from the text demonstrating where each field came from.
 
 Return ONLY a JSON object matching this schema:
@@ -2077,6 +2066,7 @@ Return ONLY a JSON object matching this schema:
         preferredModel: DEFAULT_MODEL,
         contents: prompt,
         config: {
+          systemInstruction: MASTER_PLASGAIN_SYSTEM_INSTRUCTION,
           responseMimeType: "application/json",
           temperature: 0.1
         }
@@ -2355,7 +2345,7 @@ Task:
 1. Extract sender information (senderName, senderEmail, subject, emailDate).
 2. Match against Known Accounts, Known Opportunities, and Known Contacts if applicable. If matched to a known record, provide its exact "id" and "name" with confidence and the "sourcePhrase" in the email that confirms it.
 3. Extract clientCommitments: any promises or timelines made by the client (e.g., "tender will be released in October", "reviewing with engineering committee next Tuesday"). Include the verbatim sourcePhrase.
-4. Extract clientObjectionsOrConcerns: any pricing questions, technical reservations, competitor alternatives, or schedule delays. Include verbatim sourcePhrase.
+4. Extract clientObjectionsOrConcerns: any pricing questions, product or delivery concerns, competitor alternatives, or schedule delays. Include verbatim sourcePhrase.
 5. sentiment: One of ["Positive", "Neutral", "Negative", "Concerned"].
 6. suggestedNextAction: Concrete next sales action for the Plasgain rep (e.g., "Follow up David in October ahead of council tender release").
 7. suggestedNextActionDate: Explicit ISO YYYY-MM-DD target date derived from their commitment or deadline.
@@ -2424,6 +2414,7 @@ Return ONLY a JSON object matching this schema:
         preferredModel: DEFAULT_MODEL,
         contents: prompt,
         config: {
+          systemInstruction: MASTER_PLASGAIN_SYSTEM_INSTRUCTION,
           responseMimeType: "application/json",
           temperature: 0.1
         }
@@ -2474,14 +2465,15 @@ Opportunity Context: ${resolvedContext}
 
 Requirements:
 - Never use generic "just checking in" or "following up on my email".
-- Find a real, compelling technical/commercial reason to contact (e.g. Dialux review update, pole engineering drawings, solar autonomy assessment).
+- Find a real, specific commercial reason to contact (e.g. quote validity or pricing expiry, a decision or tender date approaching, stock and lead-time position, an unanswered question from the last conversation, a delivery or staging change).
+- Never propose engineering, design or compliance work as the reason. Never introduce specification, standards or product jargon the CRM record does not already contain.
 
 Return JSON:
 {
   "whyFollowUpNow": string,
   "whatToAsk": string[],
   "suggestedMessage": string,
-  "channelRecommended": "Phone Call" | "Email" | "Email + Spec Sheet",
+  "channelRecommended": "Phone Call" | "Email",
   "urgencyScore": "High" | "Medium" | "Low"
 }`;
 
@@ -2489,6 +2481,7 @@ Return JSON:
         preferredModel: DEFAULT_MODEL,
         contents: prompt,
         config: {
+          systemInstruction: MASTER_PLASGAIN_SYSTEM_INSTRUCTION,
           responseMimeType: "application/json",
           temperature: 0.3,
         },
@@ -2530,7 +2523,7 @@ You have situational awareness of what the user is currently viewing on their sc
 Screen: ${resolvedScreen}
 Context Data: ${JSON.stringify(activeContextData || {})}
 
-Keep answers concise, actionable, and grounded in approved Plasgain knowledge.${buildGrounding(message).instruction}`;
+Keep answers concise, actionable, and grounded in the CRM records supplied.${NO_PRODUCT_SOURCE_INSTRUCTION}`;
 
       const userPrompt = `USER MESSAGE: "${message}"
 CHAT HISTORY: ${JSON.stringify(resolvedHistory)}`;
@@ -2544,7 +2537,7 @@ CHAT HISTORY: ${JSON.stringify(resolvedHistory)}`;
         },
       });
 
-      return res.json({ reply: response.text || "I'm here to help with Plasgain enquiries, products, or technical questions." });
+      return res.json({ reply: response.text || "I'm here to help with your accounts, quotes and follow-ups." });
     } catch (aiErr: any) {
       return sendAIUnavailable(res, "copilot chat", aiErr);
     }
@@ -2801,32 +2794,7 @@ app.get("/api/quotes/:id/file", (req, res) => {
 });
 
 // -------------------------------------------------------------
-// GROUNDED KNOWLEDGE (Feature 08)
-// -------------------------------------------------------------
-
-// GET /api/knowledge - what the Copilot is able to cite right now.
-app.get("/api/knowledge", (_req, res) => {
-  try {
-    return res.json({ ...knowledgeStore.getStatus(), documents: knowledgeStore.getDocuments() });
-  } catch (err: any) {
-    console.error("Error reading knowledge status:", err);
-    return res.status(500).json({ error: "Failed to read the knowledge library" });
-  }
-});
-
-// POST /api/knowledge/reload - pick up documents added since startup.
-app.post("/api/knowledge/reload", (_req, res) => {
-  try {
-    knowledgeStore.reload();
-    return res.json({ ...knowledgeStore.getStatus(), documents: knowledgeStore.getDocuments() });
-  } catch (err: any) {
-    console.error("Error reloading knowledge library:", err);
-    return res.status(500).json({ error: "Failed to reload the knowledge library" });
-  }
-});
-
-// -------------------------------------------------------------
-// COMPETITOR PRICING INTELLIGENCE & TEAM ALERTS ENDPOINTS
+// COMPETITOR PRICING
 // -------------------------------------------------------------
 
 // GET /api/competitor-pricing
@@ -3091,7 +3059,7 @@ Respond with a JSON object strictly matching this schema:
 {
   "accountSummary": "Concise 2-3 sentence overview of the relationship status and key project momentum.",
   "recentActivity": ["Key interaction 1 with date/type tag", "Key interaction 2"],
-  "knownRequirements": ["Confirmed technical requirement 1", "Specification need 2"],
+  "knownRequirements": ["Requirement the customer has actually stated", "Another stated requirement"],
   "commercialIntelligence": ["Competitor intel or tender schedule observation with price basis"],
   "risks": [
     {
@@ -3102,7 +3070,7 @@ Respond with a JSON object strictly matching this schema:
   ],
   "recommendedNextActions": [
     {
-      "action": "Concrete sales or engineering follow-up step",
+      "action": "Concrete sales follow-up step - a call, meeting, quote, or question to ask",
       "reason": "Why this action is needed based on CRM evidence"
     }
   ],
@@ -3112,6 +3080,7 @@ Respond with a JSON object strictly matching this schema:
     const aiRes = await generateContentWithFailover({
       contents: prompt,
       config: {
+        systemInstruction: MASTER_PLASGAIN_SYSTEM_INSTRUCTION,
         responseMimeType: "application/json",
         temperature: 0.2
       }
@@ -3148,10 +3117,6 @@ app.post(["/api/copilot/chat-stream", "/api/chat-stream"], async (req, res) => {
 
     initSSE(res);
 
-    // Retrieval happens before the model is called, so the answer is written
-    // against Plasgain's own documents rather than checked afterwards.
-    const grounding = buildGrounding(message);
-
     try {
       const stream = await generateContentStreamWithFailover({
         contents: JSON.stringify({ message, activeScreen, activeContextData, chatHistory: chatHistory.slice(-6) }),
@@ -3159,7 +3124,7 @@ app.post(["/api/copilot/chat-stream", "/api/chat-stream"], async (req, res) => {
           systemInstruction:
             MASTER_PLASGAIN_SYSTEM_INSTRUCTION +
             "\nSay when information is not available." +
-            grounding.instruction,
+            NO_PRODUCT_SOURCE_INSTRUCTION,
           temperature: 0.1,
         }
       });
@@ -3168,7 +3133,7 @@ app.post(["/api/copilot/chat-stream", "/api/chat-stream"], async (req, res) => {
         fullText += chunk.text || "";
         sendSSEChunk(res, chunk.text || "");
       }
-      sendSSEComplete(res, { reply: fullText, citations: grounding.citations });
+      sendSSEComplete(res, { reply: fullText, citations: [] });
     } catch (aiErr: any) {
       sendSSEError(res, aiErr?.message || "Copilot stream failed");
     }
@@ -3212,8 +3177,7 @@ async function startServer() {
       server: {
         middlewareMode: true,
         fs: {
-          deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "**/server_data/**", "**/tmp/**",
-            `${path.resolve(process.env.PLASGAIN_KNOWLEDGE_DIR || "server_data/knowledge").replace(/\\/g, "/")}/**`],
+          deny: [".env", ".env.*", "*.{crt,pem}", "**/.git/**", "**/server_data/**", "**/tmp/**"],
         },
       },
       appType: "spa",

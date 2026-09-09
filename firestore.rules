@@ -42,15 +42,10 @@ service cloud.firestore {
     match /settings/{docId} { allow read, write: if signedIn(); }
     match /users/{docId}    { allow read, write: if signedIn(); }
 
-    // Knowledge base and controlled documents. The latter carry AS/NZS
-    // compliance evidence that goes to councils, so deletion is never a client
-    // operation — supersede a revision instead of removing the record.
-    match /knowledge_documents/{docId} { allow read, write: if signedIn(); }
-    match /controlled_documents/{docId} {
-      allow read: if signedIn();
-      allow create, update: if signedIn();
-      allow delete: if false;
-    }
+    // knowledge_documents and controlled_documents backed the reference-document
+    // library, which has been removed. No code reads them, so they fall through
+    // to the default deny below rather than staying open to any signed-in
+    // caller. Any historical records remain in Firestore, unreachable by the app.
 
     // Connectivity probe used by checkCloudHealth().
     match /system_health/{docId} {

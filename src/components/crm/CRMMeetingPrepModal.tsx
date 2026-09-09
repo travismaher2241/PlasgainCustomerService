@@ -326,7 +326,7 @@ ${meetingNotes ? `YOUR NOTES:\n${meetingNotes}` : ""}`;
                         ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
                         : tp.category === "Commitment"
                         ? "bg-amber-100 text-amber-900 border border-amber-300"
-                        : tp.category === "Technical"
+                        : tp.category === "Product"
                         ? "bg-sky-100 text-sky-900 border border-sky-300"
                         : tp.category === "Question"
                         ? "bg-purple-100 text-purple-900 border border-purple-300"

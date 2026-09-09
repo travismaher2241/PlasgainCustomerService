@@ -74,7 +74,7 @@ describe('Follow-up Generator & Ostendo Product-Only Exporter Utils', () => {
     expect(email.mailtoUrl).toContain('mailto:?subject=');
   });
 
-  it('generates Day 14 technical follow-up offering Dialux engineering calculations', () => {
+  it('generates Day 14 follow-up offering commercial help, not engineering work', () => {
     const email = generateCustomerFollowUpEmail({
       cadence: 'day14',
       contactName: 'David Evans',
@@ -85,9 +85,11 @@ describe('Follow-up Generator & Ostendo Product-Only Exporter Utils', () => {
       senderName: 'Sarah Jenkins'
     });
 
-    expect(email.subject).toContain('Technical Review & Engineering Support');
-    expect(email.body).toContain('Dialux photometric engineering support');
+    expect(email.subject).toContain('Checking in on your quote');
+    expect(email.body).toContain('revising quantities, confirming delivery staging');
     expect(email.body).toContain('lead times');
+    // The app must never offer design, photometric or compliance work.
+    expect(email.body).not.toMatch(/photometric|Dialux|AS\/NZS|engineering/i);
   });
 
   it('generates Urgent Tender Closing check-in email', () => {
@@ -100,7 +102,8 @@ describe('Follow-up Generator & Ostendo Product-Only Exporter Utils', () => {
     });
 
     expect(email.subject).toContain('Tender Closing Check-in');
-    expect(email.body).toContain('AS/NZS 1158 Category P/V compliance declaration');
+    expect(email.body).toContain('pricing, quantities, lead times and local support');
+    expect(email.body).not.toMatch(/photometric|Dialux|AS\/NZS|datasheet|spec sheet/i);
   });
 });
 
@@ -128,7 +131,7 @@ describe('CustomerFollowUpModal Component', () => {
     // Switch to Day 14
     const day14Button = screen.getByText(/In two weeks/i);
     fireEvent.click(day14Button);
-    expect(screen.getByDisplayValue(/Technical Review & Engineering Support/i)).toBeInTheDocument();
+    expect(screen.getByDisplayValue(/Checking in on your quote/i)).toBeInTheDocument();
 
     // Actions
     expect(screen.getByText(/Copy Email Text/i)).toBeInTheDocument();

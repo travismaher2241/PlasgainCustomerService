@@ -72,10 +72,11 @@ describe("Deal Silence Risk & Reason Diagnosis (Feature 05)", () => {
     expect(evalResult.diagnosis).toContain("145,000");
     expect(evalResult.diagnosis).toContain("monthly schedules");
 
-    // Re-engagement action offers compliance submittal
-    expect(evalResult.recommendedAction.actionLabel).toBe("Offer Council Compliance Submittal");
+    // Re-engagement asks what the committee needs rather than offering
+    // compliance work the app cannot back.
+    expect(evalResult.recommendedAction.actionLabel).toBe("Ask What the Committee Needs");
     expect(evalResult.recommendedAction.actionType).toBe("send_email");
-    expect(evalResult.recommendedAction.suggestedNotes).toContain("AS/NZS 1158");
+    expect(evalResult.recommendedAction.suggestedNotes).toContain("what documentation the council committee needs");
   });
 
   it("diagnoses Contractor tender closing risk with tight award window and spec confirmation", () => {
@@ -93,9 +94,9 @@ describe("Deal Silence Risk & Reason Diagnosis (Feature 05)", () => {
     expect(evalResult.diagnosis).toContain("7–14 days");
 
     // Re-engagement action calls contractor
-    expect(evalResult.recommendedAction.actionLabel).toBe("Call Contractor to Lock Spec");
+    expect(evalResult.recommendedAction.actionLabel).toBe("Call Contractor to Confirm Award");
     expect(evalResult.recommendedAction.actionType).toBe("log_call");
-    expect(evalResult.recommendedAction.suggestedNotes).toContain("factory manufacturing slot");
+    expect(evalResult.recommendedAction.suggestedNotes).toContain("manufacturing slot");
   });
 
   it("classifies a contractor from its segment when the company name gives nothing away", () => {
@@ -138,7 +139,7 @@ describe("Deal Silence Risk & Reason Diagnosis (Feature 05)", () => {
     });
 
     expect(evalResult.reasonCategory).toBe("Contractor Tender Closing");
-    expect(evalResult.recommendedAction.actionLabel).toBe("Call Contractor to Lock Spec");
+    expect(evalResult.recommendedAction.actionLabel).toBe("Call Contractor to Confirm Award");
   });
 
   it("does not treat an unsegmented, plainly named account as a contractor", () => {
@@ -210,13 +211,13 @@ describe("Deal Silence Risk & Reason Diagnosis (Feature 05)", () => {
     expect(evalResult.reasonCategory).toBe("Competitor Presence");
     expect(evalResult.diagnosis).toContain("Active Competitor Risk: Replas");
     expect(evalResult.diagnosis).toContain("132,000");
-    expect(evalResult.diagnosis).toContain("IK10 durability");
+    expect(evalResult.diagnosis).toContain("whole-of-life cost");
 
-    // Generates competitor defense email
+    // Generates competitor defense email positioned on commercial ground
     expect(evalResult.recommendedAction.actionLabel).toBe("Send Competitor Defense Email");
     expect(evalResult.recommendedAction.actionType).toBe("send_email");
-    expect(evalResult.recommendedAction.suggestedNotes).toContain("IK10 vandal resistance");
-    expect(evalResult.recommendedAction.suggestedNotes).toContain("50-year maintenance-free");
+    expect(evalResult.recommendedAction.suggestedNotes).toContain("whole-of-life cost");
+    expect(evalResult.recommendedAction.suggestedNotes).toContain("local support");
   });
 
   it("generates intelligent Next Best Actions incorporating silence diagnosis", () => {

@@ -412,17 +412,7 @@ export function extractCrmKnowledge(
         return m ? `Prefers ${m[1].trim()}` : "";
       }
     },
-    // 2. Technical & Specification
-    {
-      category: "Technical & Specification",
-      trigger: /(?:AS\/NZS\s*1158|category\s+[PV][1-5]|wind\s+region\s+[A-D]|direct\s+burial|rag\s*bolt|lux\s+level|cctv\s+mounting|battery\s+autonomy)/i,
-      extract: (t) => {
-        const sentences = t.split(/[.!?\n]+/);
-        const match = sentences.find((s) => /(?:AS\/NZS\s*1158|category\s+[PV][1-5]|wind\s+region|rag\s*bolt|burial|autonomy|lux)/i.test(s));
-        return match ? match.trim() : "";
-      }
-    },
-    // 3. Decision & Criteria / Timing
+    // 2. Decision & Criteria / Timing
     {
       category: "Decision Criteria & Timeline",
       trigger: /(?:decision\s+maker|council\s+meeting|funding\s+confirmation|tender\s+release|tender\s+committee|procurement\s+board|board\s+approval|final\s+vendor\s+decision|before\s+(?:the\s+)?(?:football|cricket|winter|summer|eoy|end\s+of\s+year|christmas))/i,

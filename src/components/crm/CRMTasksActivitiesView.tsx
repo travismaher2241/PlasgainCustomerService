@@ -389,7 +389,7 @@ export const CRMTasksActivitiesView: React.FC = () => {
                   value={newTaskForm.title}
                   onChange={(e) => setNewTaskForm({ ...newTaskForm, title: e.target.value })}
                   className="w-full p-2 border border-line rounded-edge bg-white text-spec"
-                  placeholder="e.g. Issue luminaire photometric schedule"
+                  placeholder="e.g. Send updated pricing"
                 />
               </div>
 
