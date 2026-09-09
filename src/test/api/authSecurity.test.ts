@@ -172,5 +172,29 @@ describe('Auth Security Hardening', () => {
 
       expect(() => assertProductionSecurityConfig()).not.toThrow();
     });
+
+    it('assertProductionSecurityConfig still requires the live profile PIN on its own', () => {
+      process.env.NODE_ENV = 'production';
+      delete process.env.PLASGAIN_PIN_TRAVIS;
+      delete process.env.PLASGAIN_PIN_TRAVIS_MAHER;
+      process.env.PLASGAIN_PIN_SARAH = 'secure-sarah-pin-8823';
+      process.env.PLASGAIN_PIN_ROB = 'secure-rob-pin-7734';
+
+      expect(() => assertProductionSecurityConfig()).toThrow(/PLASGAIN_PIN_TRAVIS/);
+    });
+
+    it('assertProductionSecurityConfig boots without PINs for the purged demo profiles', () => {
+      // Sarah Reed and Rob Mitchell are the legacy demo accounts the app filters
+      // out and deletes. Requiring their PINs took the whole API down on boot,
+      // which is what stopped quotes being saved against an account at all.
+      process.env.NODE_ENV = 'production';
+      process.env.PLASGAIN_PIN_TRAVIS = 'secure-travis-pin-9912';
+      delete process.env.PLASGAIN_PIN_SARAH;
+      delete process.env.PLASGAIN_PIN_SARAH_REED;
+      delete process.env.PLASGAIN_PIN_ROB;
+      delete process.env.PLASGAIN_PIN_ROB_MITCHELL;
+
+      expect(() => assertProductionSecurityConfig()).not.toThrow();
+    });
   });
 });

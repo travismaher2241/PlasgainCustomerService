@@ -93,22 +93,24 @@ app.use("/api", (req, res, next) => {
 /**
  * Ensures the server fails to boot (fails closed) if PLASGAIN_PIN_* environment
  * variables are missing in production, rather than falling back to default PINs.
+ *
+ * Only live profiles are required. Sarah Reed and Rob Mitchell are the legacy
+ * demo accounts the app itself treats as sample data: `isDemoProfile` filters
+ * them out of the team list, and the client deletes their records from the
+ * cloud on load. Requiring credentials for two purged demo users protected
+ * nothing and took the entire API down with it — every route 500ed on boot, so
+ * no quote, account or activity could be saved at all. Their PINs stay
+ * optional, and one set for them is still honoured; the live profile's PIN is
+ * still mandatory, so a real credential is never defaulted.
  */
 function assertProductionSecurityConfig(): void {
   const isProduction = process.env.NODE_ENV === "production" || (typeof __filename !== "undefined" && __filename.includes("dist"));
   if (!isProduction) return;
 
-  const missingPins: string[] = [];
   const travisPin = process.env.PLASGAIN_PIN_TRAVIS || process.env.PLASGAIN_PIN_TRAVIS_MAHER;
-  const sarahPin = process.env.PLASGAIN_PIN_SARAH || process.env.PLASGAIN_PIN_SARAH_REED;
-  const robPin = process.env.PLASGAIN_PIN_ROB || process.env.PLASGAIN_PIN_ROB_MITCHELL;
 
-  if (!travisPin) missingPins.push("PLASGAIN_PIN_TRAVIS");
-  if (!sarahPin) missingPins.push("PLASGAIN_PIN_SARAH");
-  if (!robPin) missingPins.push("PLASGAIN_PIN_ROB");
-
-  if (missingPins.length > 0) {
-    const errorMsg = `[FATAL] Missing required PIN environment variables in production: ${missingPins.join(", ")}. Server cannot boot with default credentials.`;
+  if (!travisPin) {
+    const errorMsg = "[FATAL] Missing required PIN environment variables in production: PLASGAIN_PIN_TRAVIS. Server cannot boot with default credentials.";
     console.error(errorMsg);
     throw new Error(errorMsg);
   }

@@ -311,7 +311,8 @@ interface AppContextType {
 
   crmOpportunities: CRMOpportunity[];
   setCrmOpportunities: React.Dispatch<React.SetStateAction<CRMOpportunity[]>>;
-  addCrmOpportunity: (opp: CRMOpportunity) => void;
+  /** Resolves true when the quote reached the store, false when it did not. */
+  addCrmOpportunity: (opp: CRMOpportunity) => Promise<boolean>;
   updateCrmOpportunity: (id: string, updates: Partial<CRMOpportunity>) => void;
   deleteCrmOpportunity: (id: string, reason?: string) => Promise<void>;
   markQuoteSent: (id: string, notes?: string) => void;
@@ -2610,10 +2611,29 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
     return { accountId: accountId!, contactId, oppId };
   };
 
-  const addCrmOpportunity = (opp: CRMOpportunity) => {
-    createOpportunityMutation.mutate(opp as any);
+  /**
+   * Creates a quote, and reports whether it was actually stored.
+   *
+   * This used to fire the mutation and announce success in the same breath. The
+   * server is the only durable home a quote has — nothing writes the local deal
+   * cache any more — so when a write failed, the rep was told the quote was
+   * saved, watched the optimistic row appear, and lost it at the next refetch
+   * with no error anywhere. Callers get the outcome now, and a failure says so.
+   */
+  const addCrmOpportunity = async (opp: CRMOpportunity): Promise<boolean> => {
+    try {
+      await createOpportunityMutation.mutateAsync(opp as any);
+    } catch (err: any) {
+      console.error("[Quotes] Could not save quote:", err);
+      showToast(
+        `"${opp.name}" could not be saved. It is not stored — check your connection and try again.`,
+        "error"
+      );
+      return false;
+    }
     recordAuditLog("CREATE", "Deal", opp.id, opp.name, `Created quote: ${opp.name} ($${opp.dealValue?.toLocaleString() || 0}) for ${opp.accountName}`);
     showToast(`Quote "${opp.name}" created.`, "success");
+    return true;
   };
 
   const updateCrmOpportunity = (id: string, updates: Partial<CRMOpportunity>) => {

@@ -204,6 +204,7 @@ export const CRMQuoteImportModal: React.FC = () => {
 
   const handleConfirm = async () => {
     if (!result || !parsed) return;
+    setError(null);
 
     // Account: an existing one, or a new record built from the quote's To: block.
     let accountId = accountChoice;
@@ -275,7 +276,10 @@ export const CRMQuoteImportModal: React.FC = () => {
       } as Partial<CRMOpportunity>);
     } else {
       opportunityId = `deal-${Date.now()}`;
-      addCrmOpportunity({
+      // Held open on failure. Announcing "saved to <account>" and navigating
+      // away when the write never landed is how an unsaved quote came to look
+      // like a filed one.
+      const saved = await addCrmOpportunity({
         id: opportunityId,
         name: parsed.projectName || `Quote ${parsed.quoteNumber || ""}`.trim(),
         accountId,
@@ -303,6 +307,13 @@ export const CRMQuoteImportModal: React.FC = () => {
         daysInCurrentStage: 0,
         attachedDocumentIds: []
       } as CRMOpportunity);
+
+      if (!saved) {
+        setError(
+          "That quote could not be saved. Nothing has been filed against the account — try again, and if it keeps failing the server is not reachable."
+        );
+        return;
+      }
     }
 
     // Link the stored file to the deal so it can be opened from the quote tab.
@@ -568,7 +579,14 @@ export const CRMQuoteImportModal: React.FC = () => {
         </div>
 
         {step === "review" && (
-          <div className="p-4 border-t border-line flex flex-col-reverse sm:flex-row sm:justify-end gap-2 shrink-0">
+          <div className="p-4 border-t border-line flex flex-col gap-2 shrink-0">
+            {error && (
+              <p className="text-spec text-red-700 flex items-start gap-1.5">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                <span>{error}</span>
+              </p>
+            )}
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
             <button
               type="button"
               onClick={reset}
@@ -583,6 +601,7 @@ export const CRMQuoteImportModal: React.FC = () => {
             >
               {existingDeal ? "Update the quote" : "Save the quote"}
             </button>
+            </div>
           </div>
         )}
       </div>
