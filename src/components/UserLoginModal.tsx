@@ -28,6 +28,8 @@ export const UserLoginModal: React.FC = () => {
     isLoginModalOpen,
     closeLoginModal,
     currentUser,
+    verifiedSessionUserId,
+    isSessionVerificationPending,
     loginAsUser,
     switchUserWithPin,
     teamMembers,
@@ -463,6 +465,7 @@ export const UserLoginModal: React.FC = () => {
               <div className="space-y-2 pt-1">
                 {teamMembers.map((member) => {
                   const isCurrent = currentUser.name.toLowerCase() === member.name.toLowerCase() || currentUser.id === member.id;
+                  const hasVerifiedSession = isCurrent && verifiedSessionUserId === member.id;
                   return (
                     <div
                       key={member.id || member.name}
@@ -507,7 +510,22 @@ export const UserLoginModal: React.FC = () => {
                       </div>
 
                       <div className="shrink-0 flex items-center gap-2">
-                        {isCurrent ? (
+                        {hasVerifiedSession ? (
+                          <span
+                            role="status"
+                            className="px-3 py-1.5 bg-emerald-100 text-emerald-800 border border-emerald-300 text-spec font-bold rounded-edge flex items-center gap-1.5"
+                          >
+                            <CheckCircle2 className="w-4 h-4" />
+                            Session verified
+                          </span>
+                        ) : isCurrent && isSessionVerificationPending ? (
+                          <span
+                            role="status"
+                            className="px-3 py-1.5 bg-paper text-ink-dim border border-line text-spec font-bold rounded-edge"
+                          >
+                            Checking session…
+                          </span>
+                        ) : isCurrent ? (
                           <button
                             type="button"
                             onClick={(event) => {

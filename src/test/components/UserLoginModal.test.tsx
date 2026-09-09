@@ -40,8 +40,14 @@ describe('User Login & Identity Switching Suite', () => {
     verifyProfileFetch.mockImplementation(async (url: any) => {
       if (String(url).includes('/api/auth/verify-profile')) {
         return pinAccepted
-          ? { ok: true, json: async () => ({ success: true }) }
+          ? { ok: true, json: async () => ({ success: true, token: 'verified-session-token' }) }
           : { ok: false, json: async () => ({ error: 'Incorrect PIN code for this profile.' }) };
+      }
+      if (String(url).includes('/api/auth/session')) {
+        return {
+          ok: true,
+          json: async () => ({ userId: DEFAULT_USER_PROFILE.id, name: DEFAULT_USER_PROFILE.name })
+        };
       }
       return { ok: true, json: async () => ([]) };
     });
@@ -105,6 +111,10 @@ describe('User Login & Identity Switching Suite', () => {
       expect.stringContaining('/api/auth/verify-profile'),
       expect.objectContaining({ body: expect.stringContaining('user-travis-maher') })
     ));
+
+    fireEvent.click(screen.getByTitle(/Switch user account or update details/i));
+    expect(screen.getByRole('status')).toHaveTextContent('Session verified');
+    expect(screen.queryByRole('button', { name: 'Verify session' })).not.toBeInTheDocument();
   });
 
   it('keeps the rejected PIN out of the next attempt', async () => {
@@ -129,6 +139,24 @@ describe('User Login & Identity Switching Suite', () => {
     );
 
     expect(pinInput.value).toBe('');
+  });
+
+  it('restores a verified session after the app is reloaded', async () => {
+    localStorage.setItem('plasgain_session_token', 'persisted-session-token');
+
+    render(<AppProvider><TestApp /></AppProvider>);
+    fireEvent.click(screen.getByTitle(/Switch user account or update details/i));
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent('Session verified');
+    });
+    expect(verifyProfileFetch).toHaveBeenCalledWith(
+      expect.stringContaining('/api/auth/session'),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: 'Bearer persisted-session-token' })
+      })
+    );
+    expect(screen.queryByRole('button', { name: 'Verify session' })).not.toBeInTheDocument();
   });
 
   it('allows deleting irrelevant users from workspace', async () => {

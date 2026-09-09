@@ -240,6 +240,8 @@ interface AppContextType {
   currentUser: UserProfile;
   updateCurrentUser: (updates: Partial<UserProfile>) => void;
   resetCurrentUser: () => void;
+  verifiedSessionUserId: string | null;
+  isSessionVerificationPending: boolean;
   isLoginModalOpen: boolean;
   openLoginModal: () => void;
   closeLoginModal: () => void;
@@ -595,10 +597,52 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
+  const [verifiedSessionUserId, setVerifiedSessionUserId] = useState<string | null>(null);
+  const [isSessionVerificationPending, setIsSessionVerificationPending] = useState(
+    () => Boolean(getSessionToken())
+  );
+
+  useEffect(() => {
+    const token = getSessionToken();
+    if (!token) {
+      setIsSessionVerificationPending(false);
+      return;
+    }
+
+    let cancelled = false;
+    const restoreVerifiedSession = async () => {
+      try {
+        const response = await fetch(getApiUrl("/api/auth/session"), {
+          headers: authHeaders()
+        });
+        const session = await response.json().catch(() => ({}));
+        if (cancelled) return;
+
+        if (response.ok && session.userId && session.userId === currentUser.id) {
+          setVerifiedSessionUserId(session.userId);
+        } else {
+          setSessionToken(null);
+          setVerifiedSessionUserId(null);
+        }
+      } catch {
+        if (!cancelled) setVerifiedSessionUserId(null);
+      } finally {
+        if (!cancelled) setIsSessionVerificationPending(false);
+      }
+    };
+
+    void restoreVerifiedSession();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const loginAsUser = (profile: UserProfile) => {
     const userId = profile.id || `user-${profile.name.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
     const { pin: _discardedPin, ...safeProfile } = profile;
     const userWithId: UserProfile = { ...safeProfile, id: userId };
+    setSessionToken(null);
+    setVerifiedSessionUserId(null);
     setCurrentUser(userWithId);
     localStorage.setItem("plasgain_user_profile", JSON.stringify(userWithId));
     localStorage.setItem("plasgain_active_user_id", userId);
@@ -624,13 +668,18 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!response.ok || !result.success) {
         return { success: false, error: result.error || "Unable to verify this profile." };
       }
-      // Hold the session token so privileged calls carry a verified identity.
-      setSessionToken(result.token || null);
+      if (!result.token) {
+        return { success: false, error: "The server did not create a valid session. Please try again." };
+      }
       loginAsUser({
         ...target,
         role: result.profile?.role || target.role,
         isAdmin: result.profile?.isAdmin === true
       });
+      // Hold the session token and identity so the UI and privileged calls use
+      // the same server-verified session until it expires or the user changes.
+      setSessionToken(result.token);
+      setVerifiedSessionUserId(target.id);
       return { success: true };
     } catch {
       return { success: false, error: "Authentication service unavailable. Please try again shortly." };
@@ -914,6 +963,8 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const resetCurrentUser = () => {
+    setSessionToken(null);
+    setVerifiedSessionUserId(null);
     setCurrentUser(DEFAULT_USER_PROFILE);
     localStorage.setItem("plasgain_user_profile", JSON.stringify(DEFAULT_USER_PROFILE));
     localStorage.removeItem("plasgain_active_user_id");
@@ -3736,6 +3787,8 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
         currentUser,
         updateCurrentUser,
         resetCurrentUser,
+        verifiedSessionUserId,
+        isSessionVerificationPending,
         isLoginModalOpen,
         openLoginModal,
         closeLoginModal,
