@@ -73,13 +73,15 @@ describe('Auth Security Hardening', () => {
       expect(sessionRes.body.isAdmin).toBe(true);
     });
 
-    it('readSession returns null when only X-User-Id header is present on request', () => {
+    it('readSession returns null when only X-User-Id header is present on request', async () => {
       const mockReq: any = {
         headers: {
           'x-user-id': 'user-travis-maher'
         }
       };
-      expect(readSession(mockReq)).toBeNull();
+      // Sessions are read from the shared store rather than a per-instance map,
+      // so this is async now.
+      await expect(readSession(mockReq)).resolves.toBeNull();
     });
   });
 

@@ -11,6 +11,7 @@ import { parseQuotePdf, followUpDateFor, PdfReaderUnavailableError, ParsedQuote 
 import { userProfileStore, hashPinWithScrypt, verifyPinWithScrypt } from "./src/server/userProfileStore";
 import { auditLogStore } from "./src/server/auditLogStore";
 import { opportunityStore, ConcurrencyConflictError } from "./src/server/opportunityStore";
+import { sessionStore } from "./src/server/sessionStore";
 import { runFollowUpSweep, startFollowUpSweepSchedule } from "./src/server/followUpSweep";
 import { cloudPersistenceStatus } from "./src/server/firestoreAdmin";
 import {
@@ -167,7 +168,6 @@ async function getProfileById(userId: string): Promise<{ name: string; role: str
 }
 
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
-const sessions = new Map<string, WorkspaceSession>();
 
 async function issueSession(userId: string): Promise<{ token: string; session: WorkspaceSession }> {
   const profile = await getProfileById(userId);
@@ -181,29 +181,26 @@ async function issueSession(userId: string): Promise<{ token: string; session: W
     expiresAt: now + SESSION_TTL_MS
   };
   const token = randomBytes(32).toString("hex");
-  sessions.set(token, session);
+  await sessionStore.create(token, session);
   return { token, session };
 }
 
-function readSession(req: express.Request): WorkspaceSession | null {
+const bearerToken = (req: express.Request): string => {
   const header = String(req.headers.authorization || "");
-  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-  if (token && sessions.has(token)) {
-    const session = sessions.get(token)!;
-    if (session.expiresAt >= Date.now()) {
-      return session;
-    }
-    sessions.delete(token);
-  }
-  return null;
+  return header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+};
+
+async function readSession(req: express.Request): Promise<WorkspaceSession | null> {
+  const session = await sessionStore.get(bearerToken(req));
+  return session ? (session as WorkspaceSession) : null;
 }
 
 /** Gate for endpoints that must know who is calling. */
-function requireSession(
+async function requireSession(
   req: express.Request,
   res: express.Response
-): WorkspaceSession | null {
-  const session = readSession(req);
+): Promise<WorkspaceSession | null> {
+  const session = await readSession(req);
   if (!session) {
     res.status(401).json({ error: "Sign in again — this action requires a verified profile." });
     return null;
@@ -304,15 +301,13 @@ app.delete("/api/auth/profile/:userId", async (req, res) => {
   return res.json({ success: true });
 });
 
-app.post("/api/auth/sign-out", (req, res) => {
-  const header = String(req.headers.authorization || "");
-  const token = header.startsWith("Bearer ") ? header.slice(7).trim() : "";
-  if (token) sessions.delete(token);
+app.post("/api/auth/sign-out", async (req, res) => {
+  await sessionStore.destroy(bearerToken(req));
   return res.json({ success: true });
 });
 
-app.get("/api/auth/session", (req, res) => {
-  const session = requireSession(req, res);
+app.get("/api/auth/session", async (req, res) => {
+  const session = await requireSession(req, res);
   if (!session) return;
   return res.json({
     userId: session.userId,
@@ -328,7 +323,7 @@ app.get("/api/auth/session", (req, res) => {
 // -------------------------------------------------------------
 
 app.post("/api/audit", async (req, res) => {
-  const session = requireSession(req, res);
+  const session = await requireSession(req, res);
   if (!session) return;
 
   const { action, entityType, entityId, entityName, details, changes, metadata } = req.body || {};
@@ -362,7 +357,7 @@ app.post("/api/audit", async (req, res) => {
 });
 
 app.get("/api/audit", async (req, res) => {
-  const session = requireSession(req, res);
+  const session = await requireSession(req, res);
   if (!session) return;
 
   const limit = Math.min(Number(req.query.limit) || 200, 1000);
@@ -380,7 +375,7 @@ app.get("/api/audit", async (req, res) => {
  * calling it repeatedly is harmless.
  */
 app.post("/api/automation/follow-up-sweep", async (req, res) => {
-  const session = requireSession(req, res);
+  const session = await requireSession(req, res);
   if (!session) return;
 
   try {
@@ -399,7 +394,7 @@ app.post("/api/automation/follow-up-sweep", async (req, res) => {
 // 1. GET /api/opportunities (list with pagination, search, and filtering)
 // SYSTEM POLICY: Everyone sees everything — open to all authenticated users.
 app.get("/api/opportunities", async (req, res) => {
-  const session = requireSession(req, res);
+  const session = await requireSession(req, res);
   if (!session) return;
 
   const parsed = opportunityQuerySchema.safeParse(req.query);
@@ -426,7 +421,7 @@ app.get("/api/opportunities", async (req, res) => {
 // 2. GET /api/opportunities/:id (read single opportunity)
 // SYSTEM POLICY: Everyone sees everything — open to all authenticated users.
 app.get("/api/opportunities/:id", async (req, res) => {
-  const session = requireSession(req, res);
+  const session = await requireSession(req, res);
   if (!session) return;
 
   const opp = await opportunityStore.getById(req.params.id);
@@ -440,7 +435,7 @@ app.get("/api/opportunities/:id", async (req, res) => {
 
 // 3. POST /api/opportunities (create opportunity with Zod validation and auto-audit)
 app.post("/api/opportunities", async (req, res) => {
-  const session = requireSession(req, res);
+  const session = await requireSession(req, res);
   if (!session) return;
 
   const parsed = createOpportunitySchema.safeParse(req.body);
@@ -475,7 +470,7 @@ app.post("/api/opportunities", async (req, res) => {
 
 // 4. PUT /api/opportunities/:id (field-level updates with optimistic concurrency control and auto-audit)
 app.put("/api/opportunities/:id", async (req, res) => {
-  const session = requireSession(req, res);
+  const session = await requireSession(req, res);
   if (!session) return;
 
   const parsed = updateOpportunitySchema.safeParse(req.body);
@@ -553,7 +548,7 @@ app.put("/api/opportunities/:id", async (req, res) => {
 
 // 5. DELETE /api/opportunities/:id (soft-delete governed by Role: Manager or Admin only)
 app.delete("/api/opportunities/:id", async (req, res) => {
-  const session = requireSession(req, res);
+  const session = await requireSession(req, res);
   if (!session) return;
 
   const role = getSystemRole(session);

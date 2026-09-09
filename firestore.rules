@@ -49,6 +49,11 @@ service cloud.firestore {
     // crackable hash; no client may read this collection at all.
     match /user_profiles/{docId} { allow read, write: if false; }
 
+    // sessions are signed-in sessions, keyed by a hash of the bearer token.
+    // A readable session is an impersonatable one, so this is denied outright;
+    // the server reaches it through the Admin SDK.
+    match /sessions/{docId} { allow read, write: if false; }
+
     // Quotes, pricing and notifications are server-owned so that a stale browser
     // tab cannot overwrite them directly, the failure mode that dismantled
     // syncBatchToCloud. Clients reach them through the REST endpoints.
