@@ -145,7 +145,8 @@ export const CRMAccountsView: React.FC = () => {
     showToast,
     nextBestActions,
     updateMeetingDate,
-    deleteActivity
+    deleteActivity,
+    openEditActivity
   } = useApp();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -2130,6 +2131,15 @@ export const CRMAccountsView: React.FC = () => {
                                   <span>{formatActivityTimestamp(act.timestamp)}</span>
                                   <button
                                     type="button"
+                                    onClick={() => openEditActivity(act)}
+                                    aria-label={`Edit activity ${act.title}`}
+                                    className="text-brand-deep hover:text-brand cursor-pointer p-0.5"
+                                    title="Edit activity"
+                                  >
+                                    <Edit3 className="w-3 h-3" />
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={() => {
                                       if (window.confirm(`Delete activity "${act.title}"?\n\nThis will remove it from the timeline and cannot be undone.`)) {
                                         deleteActivity(act.id);
@@ -2549,6 +2559,15 @@ export const CRMAccountsView: React.FC = () => {
                                             <span className="font-mono text-ink-dim">{formatActivityTimestamp(act.timestamp)}</span>
                                             <button
                                               type="button"
+                                              onClick={() => openEditActivity(act)}
+                                              aria-label={`Edit activity ${act.title}`}
+                                              className="text-[11px] font-semibold text-brand-deep hover:underline cursor-pointer flex items-center gap-0.5"
+                                            >
+                                              <Edit3 className="w-3 h-3" />
+                                              <span>Edit</span>
+                                            </button>
+                                            <button
+                                              type="button"
                                               onClick={() => {
                                                 const d = act.metadata?.meetingDate || (act.timestamp ? act.timestamp.split("T")[0] : getLocalDateInputValue());
                                                 const t = act.metadata?.meetingTime || "10:00 AM";
@@ -2562,7 +2581,7 @@ export const CRMAccountsView: React.FC = () => {
                                                 setActNewTime(t);
                                               }}
                                               aria-label={`Change date for ${act.title}`}
-                                              className="text-[11px] font-semibold text-brand-deep hover:underline cursor-pointer flex items-center gap-0.5"
+                                              className="text-[11px] font-semibold text-brand-deep hover:underline cursor-pointer flex items-center gap-0.5 ml-1"
                                             >
                                               <Calendar className="w-3 h-3" />
                                               <span>Change Date</span>

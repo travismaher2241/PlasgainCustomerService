@@ -18,7 +18,8 @@ import {
   Kanban,
   Check,
   X,
-  Trash2
+  Trash2,
+  Edit3
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { formatAuDateLong, formatAuTime, formatAuDate, addDaysLocal, getLocalDateInputValue } from "../../utils/dateUtils";
@@ -39,6 +40,7 @@ export const CRMCalendarView: React.FC = () => {
     openScheduleMeeting,
     openMeetingPrep,
     openQuickLog,
+    openEditActivity,
     updateMeetingDate,
     deleteActivity
   } = useApp();
@@ -745,6 +747,24 @@ export const CRMCalendarView: React.FC = () => {
                           </button>
                         )}
 
+                        {/* Edit Logged Meeting Button */}
+                        {isMeeting && ev.sourceActivityId && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const act = activities.find((a) => a.id === ev.sourceActivityId);
+                              if (act) {
+                                openEditActivity(act);
+                              }
+                            }}
+                            className="px-2.5 py-1 bg-white hover:bg-brand-wash text-brand-deep text-xs font-bold rounded border border-brand-edge shadow-2xs cursor-pointer flex items-center gap-1 transition-colors"
+                            title="Edit meeting details"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                            <span>Edit</span>
+                          </button>
+                        )}
+
                         {/* Delete Logged Meeting Button */}
                         {isMeeting && ev.sourceActivityId && (
                           <button
@@ -896,6 +916,25 @@ export const CRMCalendarView: React.FC = () => {
                         >
                           <CalendarIcon className="w-3.5 h-3.5" />
                           <span>Change Date</span>
+                        </button>
+                      )}
+
+                      {/* Edit Logged Meeting Button */}
+                      {isMeeting && ev.sourceActivityId && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const act = activities.find((a) => a.id === ev.sourceActivityId);
+                            if (act) {
+                              setEditingMeeting(null);
+                              openEditActivity(act);
+                            }
+                          }}
+                          className="px-2.5 py-1.5 bg-white hover:bg-brand-wash text-brand-deep text-xs font-bold rounded-edge border border-brand-edge shadow-2xs cursor-pointer flex items-center gap-1 transition-colors"
+                          title="Edit meeting details"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Edit</span>
                         </button>
                       )}
 

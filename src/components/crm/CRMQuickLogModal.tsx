@@ -12,7 +12,8 @@ import {
   AlertTriangle,
   ExternalLink,
   Check,
-  Mic
+  Mic,
+  Edit3
 } from "lucide-react";
 import { useApp } from "../../context/AppContext";
 import { useDialogDismiss } from "../../utils/useDialogDismiss";
@@ -35,6 +36,7 @@ export const CRMQuickLogModal: React.FC = () => {
     crmOpportunities,
     contacts,
     logActivity,
+    updateActivity,
     addTask,
     updateTask,
     updateCrmOpportunity,
@@ -45,6 +47,9 @@ export const CRMQuickLogModal: React.FC = () => {
     openVoiceCapture,
     currentUser
   } = useApp();
+
+  const isEditMode = Boolean(quickLogModal?.mode === "edit" || quickLogModal?.activityToEdit);
+  const activityToEdit = quickLogModal?.activityToEdit;
 
   useDialogDismiss(Boolean(quickLogModal?.isOpen), closeQuickLog);
 
@@ -101,8 +106,15 @@ export const CRMQuickLogModal: React.FC = () => {
   // Active contacts belonging to selected Account
   const accountContacts = useMemo(() => {
     if (!selectedAccountId) return [];
-    return contacts.filter((c) => c.accountId === selectedAccountId && !c.isArchived);
-  }, [contacts, selectedAccountId]);
+    const list = contacts.filter((c) => c.accountId === selectedAccountId && !c.isArchived);
+    if (activityToEdit?.contactId) {
+      const existingContact = contacts.find((c) => c.id === activityToEdit.contactId);
+      if (existingContact && !list.some((c) => c.id === existingContact.id)) {
+        list.unshift(existingContact);
+      }
+    }
+    return list;
+  }, [contacts, selectedAccountId, activityToEdit]);
 
   const primaryContact = useMemo(() => {
     if (selectedContactIds.length > 0) {
@@ -143,49 +155,106 @@ export const CRMQuickLogModal: React.FC = () => {
   // Synchronize when modal opens
   useEffect(() => {
     if (quickLogModal?.isOpen) {
-      const initialType = quickLogModal.type === "task" ? "call" : (quickLogModal.type as ActivityType) || "call";
-      const accId = quickLogModal.accountId || "";
-      let oppId = quickLogModal.opportunityId || "";
-      if (accId && oppId) {
-        const opp = crmOpportunities.find((d) => d.id === oppId);
-        if (opp && opp.accountId && opp.accountId !== accId) {
-          oppId = "";
+      if (quickLogModal.activityToEdit) {
+        const act = quickLogModal.activityToEdit;
+        const initialType = (act.type as ActivityType) || "call";
+        const accId = act.accountId || "";
+        const oppId = act.opportunityId || "";
+        const contactIds =
+          act.contactIds && act.contactIds.length > 0
+            ? act.contactIds
+            : act.contactId
+            ? [act.contactId]
+            : act.participants
+            ? act.participants.map((p) => p.contactId).filter(Boolean)
+            : [];
+
+        setType(initialType);
+        setSelectedAccountId(accId);
+        setSelectedOppId(oppId);
+        setSelectedContactIds(contactIds);
+        setShowAccountSelectors(!accId);
+        setTitle(act.title || "");
+        setIsTitleManuallyEdited(true);
+        setDescription(act.description || "");
+        setSelectedOutcome(act.outcome || act.metadata?.outcome || "");
+        setOutcomeError(false);
+        setValidationError("");
+        setScheduleFollowUp(Boolean(act.nextActionDate || act.nextAction));
+        setFollowUpDate(act.nextActionDate || addDaysLocal(3));
+
+        const actDate =
+          act.activityDate ||
+          act.meetingDate ||
+          act.metadata?.activityDate ||
+          act.metadata?.meetingDate ||
+          (act.timestamp ? act.timestamp.slice(0, 10) : getLocalDateInputValue());
+        setActivityDate(actDate);
+
+        const actTime =
+          act.activityTime ||
+          act.meetingTime ||
+          act.metadata?.activityTime ||
+          act.metadata?.meetingTime ||
+          "10:00 AM";
+        setActivityTime(actTime);
+
+        setIsInlineContactOpen(false);
+        setStagedNotableEvent(null);
+        setInlineDuplicateMatch(null);
+      } else {
+        const initialType = quickLogModal.type === "task" ? "call" : (quickLogModal.type as ActivityType) || "call";
+        const accId = quickLogModal.accountId || "";
+        let oppId = quickLogModal.opportunityId || "";
+        if (accId && oppId) {
+          const opp = crmOpportunities.find((d) => d.id === oppId);
+          if (opp && opp.accountId && opp.accountId !== accId) {
+            oppId = "";
+          }
         }
+        const contId = quickLogModal.contactId || "";
+
+        setType(initialType);
+        setSelectedAccountId(accId);
+        setSelectedOppId(oppId);
+        setSelectedContactIds(contId ? [contId] : []);
+        setShowAccountSelectors(!quickLogModal.accountId);
+        setIsTitleManuallyEdited(false);
+        setDescription(quickLogModal.prefillNotes || "");
+        setSelectedOutcome("");
+        setOutcomeError(false);
+        setValidationError("");
+        setScheduleFollowUp(false);
+        setFollowUpDate(addDaysLocal(3));
+        setActivityDate(getLocalDateInputValue());
+        setActivityTime("10:00 AM");
+        setIsInlineContactOpen(false);
+        setStagedNotableEvent(null);
+        setInlineDuplicateMatch(null);
+
+        const acc = accounts.find((a) => a.id === accId);
+        const opp = crmOpportunities.find((d) => d.id === oppId);
+        const cont = contacts.find((c) => c.id === contId);
+        setTitle(deriveDefaultTitle(initialType, acc, opp, cont));
       }
-      const contId = quickLogModal.contactId || "";
-
-      setType(initialType);
-      setSelectedAccountId(accId);
-      setSelectedOppId(oppId);
-      setSelectedContactIds(contId ? [contId] : []);
-      setShowAccountSelectors(!quickLogModal.accountId);
-      setIsTitleManuallyEdited(false);
-      setDescription(quickLogModal.prefillNotes || "");
-      setSelectedOutcome("");
-      setOutcomeError(false);
-      setValidationError("");
-      setScheduleFollowUp(false);
-      setFollowUpDate(addDaysLocal(3));
-      setActivityDate(getLocalDateInputValue());
-      setActivityTime("10:00 AM");
-      setIsInlineContactOpen(false);
-      setStagedNotableEvent(null);
-      setInlineDuplicateMatch(null);
-
-      const acc = accounts.find((a) => a.id === accId);
-      const opp = crmOpportunities.find((d) => d.id === oppId);
-      const cont = contacts.find((c) => c.id === contId);
-      setTitle(deriveDefaultTitle(initialType, acc, opp, cont));
     }
-  }, [quickLogModal?.isOpen, quickLogModal?.accountId, quickLogModal?.opportunityId, quickLogModal?.contactId, quickLogModal?.type, quickLogModal?.prefillNotes]);
+  }, [
+    quickLogModal?.isOpen,
+    quickLogModal?.accountId,
+    quickLogModal?.opportunityId,
+    quickLogModal?.contactId,
+    quickLogModal?.type,
+    quickLogModal?.prefillNotes,
+    quickLogModal?.activityToEdit
+  ]);
 
-  // Reactive title derivation as async data or account/deal selection resolves
+  // Reactive title derivation as async data or account/deal selection resolves (in create mode only)
   useEffect(() => {
-    if (quickLogModal?.isOpen && !isTitleManuallyEdited) {
+    if (quickLogModal?.isOpen && !isEditMode && !isTitleManuallyEdited) {
       const newTitle = deriveDefaultTitle(type, targetAccount, targetOpp, primaryContact);
       setTitle(newTitle);
     }
-  }, [type, targetAccount, targetOpp, primaryContact, isTitleManuallyEdited, quickLogModal?.isOpen]);
+  }, [type, targetAccount, targetOpp, primaryContact, isTitleManuallyEdited, isEditMode, quickLogModal?.isOpen]);
 
   const handleTypeChange = (newType: ActivityType) => {
     setType(newType);
@@ -198,11 +267,12 @@ export const CRMQuickLogModal: React.FC = () => {
 
   const handleToggleContactSelection = (contactId: string) => {
     setSelectedContactIds((prev) => {
-      if (prev.includes(contactId)) {
-        return prev.filter((id) => id !== contactId);
-      } else {
-        return [...prev, contactId];
+      const next = prev.includes(contactId) ? prev.filter((id) => id !== contactId) : [...prev, contactId];
+      if (!isTitleManuallyEdited) {
+        const nextPrimary = contacts.find((c) => c.id === next[0]) || null;
+        setTitle(deriveDefaultTitle(type, targetAccount, targetOpp, nextPrimary));
       }
+      return next;
     });
   };
 
@@ -311,6 +381,103 @@ export const CRMQuickLogModal: React.FC = () => {
       email: c.email,
       role: type === "call" ? "caller" : type === "meeting" || type === "site_visit" ? "attendee" : type === "email" ? "recipient" : "participant"
     }));
+
+    if (isEditMode && activityToEdit) {
+      let newTimestamp = activityToEdit.timestamp;
+      if (activityDate) {
+        try {
+          const [year, month, day] = activityDate.split("-").map(Number);
+          let hours = 10;
+          let minutes = 0;
+          if (activityTime) {
+            const match = activityTime.match(/(\d+):(\d+)\s*(AM|PM)?/i);
+            if (match) {
+              hours = parseInt(match[1], 10);
+              minutes = parseInt(match[2], 10);
+              const ampm = match[3]?.toUpperCase();
+              if (ampm === "PM" && hours < 12) hours += 12;
+              if (ampm === "AM" && hours === 12) hours = 0;
+            }
+          }
+          const d = new Date(year, month - 1, day, hours, minutes, 0);
+          if (!isNaN(d.getTime())) {
+            newTimestamp = d.toISOString();
+          }
+        } catch {}
+      }
+
+      updateActivity(activityToEdit.id, {
+        type,
+        title: title.trim(),
+        description: description.trim() || `Recorded ${type} with ${chosenContacts.length > 0 ? chosenContacts.map(c => `${c.firstName} ${c.lastName}`).join(", ") : targetAccount?.name || "client"}.${resolvedOutcome ? ` Outcome: ${resolvedOutcome}.` : ""}`,
+        accountId: targetAccount?.id,
+        accountName: targetAccount?.name,
+        opportunityId: targetOpp?.id,
+        opportunityName: targetOpp?.name,
+        contactId: primary?.id,
+        contactName: primary ? `${primary.firstName} ${primary.lastName}`.trim() : undefined,
+        contactIds: selectedContactIds,
+        participants,
+        outcome: resolvedOutcome,
+        nextAction: scheduleFollowUp ? `Follow-up required by ${followUpDate}` : undefined,
+        nextActionDate: scheduleFollowUp ? followUpDate : undefined,
+        activityDate,
+        activityTime,
+        timestamp: newTimestamp,
+        metadata: {
+          ...(activityToEdit.metadata || {}),
+          outcome: resolvedOutcome,
+          activityDate,
+          activityTime,
+          sourceTaskId: quickLogModal?.scheduledTaskId || activityToEdit.metadata?.sourceTaskId,
+          meetingDate: type === "meeting" || type === "site_visit" ? activityDate : undefined,
+          meetingTime: type === "meeting" || type === "site_visit" ? activityTime : undefined
+        },
+        ...((type === "meeting" || type === "site_visit") ? { meetingDate: activityDate, meetingTime: activityTime } : {})
+      });
+
+      const taskId = quickLogModal?.scheduledTaskId || activityToEdit.metadata?.sourceTaskId;
+      if (taskId) {
+        updateTask(taskId, {
+          dueDate: activityDate,
+          dueTime: activityTime,
+          outcome: resolvedOutcome,
+          notes: description.trim()
+        });
+      }
+
+      if (
+        selectedOppId &&
+        !scheduleFollowUp &&
+        /no further action|cancelled/i.test(resolvedOutcome || "")
+      ) {
+        updateCrmOpportunity(selectedOppId, {
+          nextAction: /cancelled/i.test(resolvedOutcome || "") ? "Meeting cancelled" : "No further action",
+          nextActionDate: null
+        } as Partial<CRMOpportunity>);
+      }
+
+      if (scheduleFollowUp && followUpDate) {
+        addTask({
+          title: `Follow-up: ${title.trim()}`,
+          type: "Follow-up",
+          status: "To Do",
+          priority: "High",
+          dueDate: followUpDate,
+          dueTime: "10:00 AM",
+          accountId: targetAccount?.id,
+          accountName: targetAccount?.name,
+          opportunityId: targetOpp?.id,
+          opportunityName: targetOpp?.name,
+          assignedTo: currentUser.name,
+          createdBy: currentUser.name,
+          notes: `Automated follow-up created from activity update.`
+        });
+      }
+
+      closeQuickLog();
+      return;
+    }
 
     const result = logActivity({
       type,
@@ -421,11 +588,16 @@ export const CRMQuickLogModal: React.FC = () => {
         <div className="flex items-center justify-between border-b border-line pb-2.5">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-brand-wash text-brand-deep rounded-edge">
-              <Phone className="w-4 h-4" />
+              {isEditMode ? <Edit3 className="w-4 h-4" /> : <Phone className="w-4 h-4" />}
             </div>
-            <h3 id="quick-log-title" className="text-base font-bold text-body">
-              Log customer interaction
-            </h3>
+            <div>
+              <h3 id="quick-log-title" className="text-base font-bold text-body">
+                {isEditMode ? "Edit customer interaction" : "Log customer interaction"}
+              </h3>
+              {isEditMode && (
+                <p className="text-[11px] text-ink-dim font-medium">Update contact, interaction details, notes, or date</p>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -981,11 +1153,35 @@ export const CRMQuickLogModal: React.FC = () => {
               />
             </div>
 
-            {/* Auto-derived title */}
-            <input
-              type="hidden"
-              value={title}
-            />
+            {/* Subject / Title */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-spec font-bold text-ink-dim uppercase">
+                  Subject / Title *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsTitleManuallyEdited(false);
+                    setTitle(deriveDefaultTitle(type, targetAccount, targetOpp, primaryContact));
+                  }}
+                  className="text-[11px] text-brand-deep hover:underline cursor-pointer font-medium"
+                  title="Generate standard title based on type and contact"
+                >
+                  Auto-generate title
+                </button>
+              </div>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => {
+                  setTitle(e.target.value);
+                  setIsTitleManuallyEdited(true);
+                }}
+                placeholder="e.g. Email sent to Sarah Jenkins"
+                className="w-full p-2 text-spec rounded-edge border border-line bg-white focus:outline-none focus:border-brand-deep font-sans font-medium"
+              />
+            </div>
 
             {/* 5. FOLLOW-UP SECTION */}
             <div className="pt-1 border-t border-line space-y-2">
@@ -1069,7 +1265,7 @@ export const CRMQuickLogModal: React.FC = () => {
                   className="px-4 py-2 font-bold text-spec rounded-edge shadow-xs bg-brand-deep hover:bg-brand text-white flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Save interaction</span>
+                  <span>{isEditMode ? "Save changes" : "Save interaction"}</span>
                 </button>
               </div>
             </div>

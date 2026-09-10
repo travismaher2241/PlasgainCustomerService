@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CRMCalendarView } from '../../components/crm/CRMCalendarView';
 import { AppProvider, useApp } from '../../context/AppContext';
+import { addDaysLocal } from '../../utils/dateUtils';
 
 // Test harness that seeds a meeting via scheduleCustomerMeeting
 const CalendarTestHarness: React.FC<{ seedTomorrowMeeting?: boolean }> = ({ seedTomorrowMeeting }) => {
@@ -15,9 +16,7 @@ const CalendarTestHarness: React.FC<{ seedTomorrowMeeting?: boolean }> = ({ seed
           type="button"
           data-testid="seed-btn"
           onClick={() => {
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            const tomorrowStr = tomorrow.toISOString().split('T')[0];
+            const tomorrowStr = addDaysLocal(1);
 
             app.scheduleCustomerMeeting({
               title: 'Strategic Account Review & Product Replenishment',

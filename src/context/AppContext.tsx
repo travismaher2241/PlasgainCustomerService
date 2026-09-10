@@ -233,6 +233,8 @@ export interface OpenQuickLogOptions {
   prefillNotes?: string;
   /** Scheduled task being completed by this interaction (for example a customer meeting). */
   scheduledTaskId?: string;
+  mode?: "create" | "edit";
+  activityToEdit?: CRMActivity;
 }
 
 interface AppContextType {
@@ -401,6 +403,8 @@ interface AppContextType {
     /** Carried over from the call briefing so the rep does not retype it. */
     prefillNotes?: string;
     scheduledTaskId?: string;
+    mode?: "create" | "edit";
+    activityToEdit?: CRMActivity;
   } | null;
   openQuickLog: {
     (options?: OpenQuickLogOptions): void;
@@ -412,6 +416,7 @@ interface AppContextType {
       prefillNotes?: string
     ): void;
   };
+  openEditActivity: (activity: CRMActivity) => void;
   closeQuickLog: () => void;
 
   // Call Preparation & Briefing Modal State
@@ -1191,6 +1196,8 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
     /** Carried over from the call briefing so the rep does not retype it. */
     prefillNotes?: string;
     scheduledTaskId?: string;
+    mode?: "create" | "edit";
+    activityToEdit?: CRMActivity;
   } | null>(null);
 
   const [callPrepModal, setCallPrepModal] = useState<{
@@ -2010,7 +2017,20 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       opportunityId: targetOppId,
       contactId: opts.contactId,
       prefillNotes: opts.prefillNotes,
-      scheduledTaskId: opts.scheduledTaskId
+      scheduledTaskId: opts.scheduledTaskId,
+      mode: opts.mode || (opts.activityToEdit ? "edit" : "create"),
+      activityToEdit: opts.activityToEdit
+    });
+  };
+
+  const openEditActivity = (activity: CRMActivity) => {
+    openQuickLog({
+      mode: "edit",
+      activityToEdit: activity,
+      type: activity.type,
+      accountId: activity.accountId,
+      opportunityId: activity.opportunityId,
+      contactId: activity.contactId
     });
   };
 
@@ -3279,18 +3299,22 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateActivity = (id: string, updates: Partial<CRMActivity>) => {
-    let activityTitle = "Activity";
-    setActivities((prev) =>
-      prev.map((a) => {
+    let activityTitle = updates.title || "Activity";
+    setActivities((prev) => {
+      const next = prev.map((a) => {
         if (a.id === id) {
-          activityTitle = a.title;
+          activityTitle = updates.title || a.title;
           const updated = { ...a, ...updates };
           saveDocToCloud("crm_activities", id, updated);
           return updated;
         }
         return a;
-      })
-    );
+      });
+      try {
+        localStorage.setItem("plasgain_crm_activities", JSON.stringify(next));
+      } catch {}
+      return next;
+    });
     recordAuditLog("UPDATE", "Activity", id, activityTitle, `Updated activity: ${activityTitle}`);
     showToast("Activity updated", "success");
   };
@@ -3887,6 +3911,7 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
         setIsSearchOpen,
         quickLogModal,
         openQuickLog,
+        openEditActivity,
         closeQuickLog,
         callPrepModal,
         openCallPrep,

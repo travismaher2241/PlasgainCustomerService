@@ -89,6 +89,7 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
     navigateToCRM,
     logActivity,
     deleteActivity,
+    openEditActivity,
     addTask,
     currentUser,
     showToast
@@ -1717,6 +1718,18 @@ export const CRMDealDetailsWorkspace: React.FC<CRMDealDetailsWorkspaceProps> = (
                               </div>
 
                               <div className="flex items-center gap-2 text-spec text-ink-dim shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openEditActivity(act);
+                                  }}
+                                  aria-label={`Edit activity ${act.title}`}
+                                  className="p-1 hover:bg-brand-wash text-ink-dim hover:text-brand-deep rounded transition-colors cursor-pointer"
+                                  title="Edit activity"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
                                 <button
                                   type="button"
                                   onClick={(e) => {
