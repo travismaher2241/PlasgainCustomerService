@@ -28,6 +28,9 @@ export const OUTCOMES_BY_TYPE: Record<"call" | "email" | "meeting" | "site_visit
   site_visit: ["Visit completed — follow-up needed", "Visit completed — no further action", "Cancelled", "No Show"]
 };
 
+const OFFICE_EMAIL_CONTACT_NAME = "Office Email";
+const isValidEmailAddress = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
 export const CRMQuickLogModal: React.FC = () => {
   const {
     quickLogModal,
@@ -41,6 +44,7 @@ export const CRMQuickLogModal: React.FC = () => {
     updateTask,
     updateCrmOpportunity,
     addContact,
+    restoreContact,
     moveContact,
     confirmCandidateNotableEvent,
     dismissCandidateNotableEvent,
@@ -68,6 +72,8 @@ export const CRMQuickLogModal: React.FC = () => {
   const [followUpDate, setFollowUpDate] = useState(() => addDaysLocal(3));
   const [activityDate, setActivityDate] = useState(() => getLocalDateInputValue());
   const [activityTime, setActivityTime] = useState("10:00 AM");
+  const [isOfficeEmail, setIsOfficeEmail] = useState(false);
+  const [officeEmailAddress, setOfficeEmailAddress] = useState("");
 
   // Inline Contact Creation State
   const [isInlineContactOpen, setIsInlineContactOpen] = useState(false);
@@ -198,6 +204,8 @@ export const CRMQuickLogModal: React.FC = () => {
           act.metadata?.meetingTime ||
           "10:00 AM";
         setActivityTime(actTime);
+        setIsOfficeEmail(false);
+        setOfficeEmailAddress("");
 
         setIsInlineContactOpen(false);
         setStagedNotableEvent(null);
@@ -228,6 +236,8 @@ export const CRMQuickLogModal: React.FC = () => {
         setFollowUpDate(addDaysLocal(3));
         setActivityDate(getLocalDateInputValue());
         setActivityTime("10:00 AM");
+        setIsOfficeEmail(false);
+        setOfficeEmailAddress("");
         setIsInlineContactOpen(false);
         setStagedNotableEvent(null);
         setInlineDuplicateMatch(null);
@@ -251,17 +261,35 @@ export const CRMQuickLogModal: React.FC = () => {
   // Reactive title derivation as async data or account/deal selection resolves (in create mode only)
   useEffect(() => {
     if (quickLogModal?.isOpen && !isEditMode && !isTitleManuallyEdited) {
-      const newTitle = deriveDefaultTitle(type, targetAccount, targetOpp, primaryContact);
+      const newTitle = type === "email" && isOfficeEmail
+        ? `Email sent to ${OFFICE_EMAIL_CONTACT_NAME}${targetOpp?.name && targetOpp.name !== (targetAccount?.name || "") ? ` — ${targetOpp.name}` : ""}`
+        : deriveDefaultTitle(type, targetAccount, targetOpp, primaryContact);
       setTitle(newTitle);
     }
-  }, [type, targetAccount, targetOpp, primaryContact, isTitleManuallyEdited, isEditMode, quickLogModal?.isOpen]);
+  }, [type, targetAccount, targetOpp, primaryContact, isOfficeEmail, isTitleManuallyEdited, isEditMode, quickLogModal?.isOpen]);
 
   const handleTypeChange = (newType: ActivityType) => {
     setType(newType);
     setSelectedOutcome("");
     setOutcomeError(false);
+    setValidationError("");
+    if (newType !== "email") {
+      setIsOfficeEmail(false);
+      setOfficeEmailAddress("");
+    }
     if (!isTitleManuallyEdited) {
       setTitle(deriveDefaultTitle(newType, targetAccount, targetOpp, primaryContact));
+    }
+  };
+
+  const handleOfficeEmailToggle = (checked: boolean) => {
+    setIsOfficeEmail(checked);
+    setValidationError("");
+    setIsInlineContactOpen(false);
+    if (!isTitleManuallyEdited) {
+      setTitle(checked
+        ? `Email sent to ${OFFICE_EMAIL_CONTACT_NAME}${targetOpp?.name && targetOpp.name !== (targetAccount?.name || "") ? ` — ${targetOpp.name}` : ""}`
+        : deriveDefaultTitle(type, targetAccount, targetOpp, primaryContact));
     }
   };
 
@@ -348,7 +376,18 @@ export const CRMQuickLogModal: React.FC = () => {
       setValidationError("Choose the customer this discussion belongs to.");
       return;
     }
-    if (type !== "note" && selectedContactIds.length === 0) {
+    const usesOfficeEmail = type === "email" && isOfficeEmail;
+    const normalizedOfficeEmail = officeEmailAddress.trim().toLowerCase();
+
+    if (usesOfficeEmail && !normalizedOfficeEmail) {
+      setValidationError("Enter the office email address.");
+      return;
+    }
+    if (usesOfficeEmail && !isValidEmailAddress(normalizedOfficeEmail)) {
+      setValidationError("Enter a valid office email address.");
+      return;
+    }
+    if (type !== "note" && !usesOfficeEmail && selectedContactIds.length === 0) {
       setValidationError("Select who you spoke with, emailed, or met.");
       return;
     }
@@ -370,7 +409,30 @@ export const CRMQuickLogModal: React.FC = () => {
 
     const resolvedOutcome = type === "note" ? undefined : selectedOutcome;
 
-    const chosenContacts = contacts.filter((c) => selectedContactIds.includes(c.id));
+    const existingOfficeContact = usesOfficeEmail
+      ? contacts.find((contact) =>
+          contact.accountId === selectedAccountId &&
+          contact.email.trim().toLowerCase() === normalizedOfficeEmail &&
+          `${contact.firstName} ${contact.lastName}`.trim().toLowerCase() === OFFICE_EMAIL_CONTACT_NAME.toLowerCase()
+        )
+      : undefined;
+    const newOfficeContact: CRMContact | undefined = usesOfficeEmail && !existingOfficeContact
+      ? {
+          id: `con-${Date.now()}`,
+          accountId: selectedAccountId,
+          accountName: targetAccount?.name || "Account",
+          firstName: "Office",
+          lastName: "Email",
+          jobTitle: "",
+          email: officeEmailAddress.trim(),
+          preferredContactMethod: "Email",
+          contactOwner: currentUser.name
+        }
+      : undefined;
+    const chosenContacts = usesOfficeEmail
+      ? [existingOfficeContact || newOfficeContact!]
+      : contacts.filter((c) => selectedContactIds.includes(c.id));
+    const submittedContactIds = chosenContacts.map((contact) => contact.id);
     const primary = chosenContacts[0] || null;
 
     const participants: ActivityParticipant[] = chosenContacts.map((c) => ({
@@ -416,7 +478,7 @@ export const CRMQuickLogModal: React.FC = () => {
         opportunityName: targetOpp?.name,
         contactId: primary?.id,
         contactName: primary ? `${primary.firstName} ${primary.lastName}`.trim() : undefined,
-        contactIds: selectedContactIds,
+        contactIds: submittedContactIds,
         participants,
         outcome: resolvedOutcome,
         nextAction: scheduleFollowUp ? `Follow-up required by ${followUpDate}` : undefined,
@@ -435,6 +497,9 @@ export const CRMQuickLogModal: React.FC = () => {
         },
         ...((type === "meeting" || type === "site_visit") ? { meetingDate: activityDate, meetingTime: activityTime } : {})
       });
+
+      if (newOfficeContact) addContact(newOfficeContact);
+      if (existingOfficeContact?.isArchived) restoreContact(existingOfficeContact.id);
 
       const taskId = quickLogModal?.scheduledTaskId || activityToEdit.metadata?.sourceTaskId;
       if (taskId) {
@@ -489,7 +554,7 @@ export const CRMQuickLogModal: React.FC = () => {
       opportunityName: targetOpp?.name,
       contactId: primary?.id,
       contactName: primary ? `${primary.firstName} ${primary.lastName}`.trim() : undefined,
-      contactIds: selectedContactIds,
+      contactIds: submittedContactIds,
       participants,
       performedBy: currentUser.name,
       authorId: currentUser.id,
@@ -509,6 +574,9 @@ export const CRMQuickLogModal: React.FC = () => {
       activityTime,
       ...((type === "meeting" || type === "site_visit") ? { meetingDate: activityDate, meetingTime: activityTime } : {})
     } as any);
+
+    if (newOfficeContact) addContact(newOfficeContact);
+    if (existingOfficeContact?.isArchived) restoreContact(existingOfficeContact.id);
 
     if (quickLogModal?.scheduledTaskId && result?.activity) {
       updateTask(quickLogModal.scheduledTaskId, {
@@ -709,6 +777,7 @@ export const CRMQuickLogModal: React.FC = () => {
                       const newAccId = e.target.value;
                       setSelectedAccountId(newAccId);
                       setSelectedContactIds([]);
+                      setOfficeEmailAddress("");
                       if (selectedOppId) {
                         const opp = crmOpportunities.find((d) => d.id === selectedOppId);
                         if (!opp || opp.accountId !== newAccId) {
@@ -909,7 +978,7 @@ export const CRMQuickLogModal: React.FC = () => {
                   {type === "note" && "RELATES TO SPECIFIC CONTACTS (OPTIONAL)"}
                 </label>
 
-                {accountContacts.length > 0 && !isInlineContactOpen && (
+                {accountContacts.length > 0 && !isInlineContactOpen && !isOfficeEmail && (
                   <button
                     type="button"
                     onClick={() => {
@@ -925,6 +994,39 @@ export const CRMQuickLogModal: React.FC = () => {
                 )}
               </div>
 
+              {type === "email" && (
+                <label className="inline-flex items-center gap-2 cursor-pointer select-none text-spec font-bold text-body">
+                  <input
+                    type="checkbox"
+                    checked={isOfficeEmail}
+                    onChange={(e) => handleOfficeEmailToggle(e.target.checked)}
+                    className="h-4 w-4 rounded border-line-strong text-brand-deep focus:ring-brand-deep cursor-pointer"
+                  />
+                  <span>Office Email</span>
+                </label>
+              )}
+
+              {isOfficeEmail ? (
+                <div className="p-3 bg-brand-wash/30 rounded-edge border border-brand-edge/60">
+                  <label htmlFor="office-email-address" className="block text-[11px] font-bold text-ink-dim uppercase mb-1">
+                    Office email address *
+                  </label>
+                  <input
+                    id="office-email-address"
+                    type="email"
+                    value={officeEmailAddress}
+                    onChange={(e) => {
+                      setOfficeEmailAddress(e.target.value);
+                      setValidationError("");
+                    }}
+                    placeholder="e.g. office@company.com.au"
+                    autoComplete="email"
+                    required
+                    className="w-full p-2 text-spec rounded border border-line bg-white focus:outline-none focus:border-brand-deep"
+                  />
+                </div>
+              ) : (
+                <>
               {/* Checkbox list or empty state */}
               {accountContacts.length === 0 && !isInlineContactOpen ? (
                 <div className="p-3 bg-paper rounded-edge border border-line text-center space-y-2">
@@ -1137,6 +1239,8 @@ export const CRMQuickLogModal: React.FC = () => {
                   )}
                 </div>
               )}
+                </>
+              )}
             </div>
 
             {/* 3. NOTES / CUSTOMER FEEDBACK */}
@@ -1163,7 +1267,9 @@ export const CRMQuickLogModal: React.FC = () => {
                   type="button"
                   onClick={() => {
                     setIsTitleManuallyEdited(false);
-                    setTitle(deriveDefaultTitle(type, targetAccount, targetOpp, primaryContact));
+                    setTitle(type === "email" && isOfficeEmail
+                      ? `Email sent to ${OFFICE_EMAIL_CONTACT_NAME}${targetOpp?.name && targetOpp.name !== (targetAccount?.name || "") ? ` — ${targetOpp.name}` : ""}`
+                      : deriveDefaultTitle(type, targetAccount, targetOpp, primaryContact));
                   }}
                   className="text-[11px] text-brand-deep hover:underline cursor-pointer font-medium"
                   title="Generate standard title based on type and contact"

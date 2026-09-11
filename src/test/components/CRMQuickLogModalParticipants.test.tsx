@@ -58,7 +58,7 @@ const dummyContacts: CRMContact[] = [
 ];
 
 const QuickLogTestWrapper: React.FC<{ initialAccount: Account }> = ({ initialAccount }) => {
-  const { setAccounts, setContacts, openQuickLog } = useApp();
+  const { setAccounts, setContacts, openQuickLog, contacts, activities } = useApp();
 
   React.useEffect(() => {
     setAccounts([dummyAccountWithContacts, dummyAccountNoContacts]);
@@ -91,6 +91,15 @@ const QuickLogTestWrapper: React.FC<{ initialAccount: Account }> = ({ initialAcc
       >
         Open Note Log
       </button>
+      <span data-testid="office-contact-count">
+        {contacts.filter((contact) =>
+          contact.accountId === initialAccount.id &&
+          `${contact.firstName} ${contact.lastName}`.trim() === "Office Email"
+        ).length}
+      </span>
+      <span data-testid="logged-contact-ids">
+        {activities.filter((activity) => activity.accountId === initialAccount.id).map((activity) => activity.contactId).join(",")}
+      </span>
       <CRMQuickLogModal />
     </div>
   );
@@ -210,5 +219,65 @@ describe("CRMQuickLogModal Contact Participants & Inline Creation", () => {
 
     const aliceCheckbox = screen.getByRole("checkbox", { name: /Alice Cooper/i });
     expect(aliceCheckbox).toBeChecked();
+  });
+
+  it("logs an Office Email recipient, creates it after validation, and reuses it without duplicates", async () => {
+    render(
+      <AppProvider>
+        <QuickLogTestWrapper initialAccount={dummyAccountNoContacts} />
+      </AppProvider>
+    );
+
+    fireEvent.click(screen.getByTestId("open-email-btn"));
+
+    const officeEmailCheckbox = screen.getByRole("checkbox", { name: /^Office Email$/i });
+    expect(officeEmailCheckbox).not.toBeChecked();
+    expect(screen.queryByLabelText(/Office email address/i)).not.toBeInTheDocument();
+
+    fireEvent.click(officeEmailCheckbox);
+    expect(screen.queryByText(/No contacts recorded for this customer yet/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /New Contact/i })).not.toBeInTheDocument();
+    expect(await screen.findByDisplayValue(/Email sent to Office Email/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("radio", { name: /Email Sent/i }));
+    fireEvent.change(screen.getByPlaceholderText(/What was discussed/i), {
+      target: { value: "Sent the updated pricing schedule." }
+    });
+
+    const submitButton = screen.getByRole("button", { name: /Save interaction/i });
+    const form = submitButton.closest("form")!;
+    fireEvent.submit(form);
+    expect(screen.getByRole("alert")).toHaveTextContent(/Enter the office email address/i);
+    expect(screen.getByTestId("office-contact-count")).toHaveTextContent("0");
+
+    fireEvent.change(screen.getByLabelText(/Office email address/i), { target: { value: "not-an-email" } });
+    fireEvent.submit(form);
+    expect(screen.getByRole("alert")).toHaveTextContent(/Enter a valid office email address/i);
+    expect(screen.getByTestId("office-contact-count")).toHaveTextContent("0");
+
+    fireEvent.change(screen.getByLabelText(/Office email address/i), { target: { value: "office@emptyshire.gov.au" } });
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Log customer interaction/i)).not.toBeInTheDocument();
+      expect(screen.getByTestId("office-contact-count")).toHaveTextContent("1");
+    });
+    const firstContactId = screen.getByTestId("logged-contact-ids").textContent;
+    expect(firstContactId).toMatch(/^con-/);
+
+    fireEvent.click(screen.getByTestId("open-email-btn"));
+    expect(screen.getByRole("checkbox", { name: /^Office Email$/i })).not.toBeChecked();
+    fireEvent.click(screen.getByRole("checkbox", { name: /^Office Email$/i }));
+    fireEvent.change(screen.getByLabelText(/Office email address/i), { target: { value: "OFFICE@EMPTYSHIRE.GOV.AU" } });
+    fireEvent.click(screen.getByRole("radio", { name: /Email Sent/i }));
+    fireEvent.change(screen.getByPlaceholderText(/What was discussed/i), {
+      target: { value: "Sent a second update." }
+    });
+    fireEvent.submit(screen.getByRole("button", { name: /Save interaction/i }).closest("form")!);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("office-contact-count")).toHaveTextContent("1");
+      expect(screen.getByTestId("logged-contact-ids").textContent?.split(",")).toEqual([firstContactId, firstContactId]);
+    });
   });
 });
