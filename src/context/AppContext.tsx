@@ -2835,9 +2835,19 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
+    const targetAcc = accounts.find(
+      (a) =>
+        (activityData.accountId && a.id === activityData.accountId) ||
+        (activityData.accountName && Boolean(a.name) && a.name.trim().toLowerCase() === activityData.accountName.trim().toLowerCase())
+    );
+    const resolvedAccountId = targetAcc?.id || activityData.accountId;
+    const resolvedAccountName = targetAcc?.name || activityData.accountName;
+
     const newAct: CRMActivity = {
       ...activityData,
       id: `act-${Date.now()}`,
+      accountId: resolvedAccountId,
+      accountName: resolvedAccountName,
       contactId: primaryContactId,
       contactName: primaryContactName,
       contactIds: resolvedContactIds,
@@ -2866,8 +2876,8 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
         priority: "Medium",
         dueDate: meetingDate,
         dueTime: meetingTime,
-        accountId: newAct.accountId,
-        accountName: newAct.accountName,
+        accountId: resolvedAccountId,
+        accountName: resolvedAccountName,
         contactId: primaryContactId,
         contactName: primaryContactName,
         contactIds: resolvedContactIds,
@@ -2891,16 +2901,20 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       "Activity",
       newAct.id,
       activityData.title,
-      `Logged ${activityData.type}: "${activityData.title}" (${activityData.outcome || "recorded"})${activityData.accountName ? ` for ${activityData.accountName}` : ""}`
+      `Logged ${activityData.type}: "${activityData.title}" (${activityData.outcome || "recorded"})${resolvedAccountName ? ` for ${resolvedAccountName}` : ""}`
     );
 
     const effectiveDate = rawDate || getLocalDateInputValue(actTimestamp);
 
     // Update last interaction and contact recency on related account
-    if (activityData.accountId) {
+    const effectiveAccId = resolvedAccountId;
+    if (effectiveAccId || resolvedAccountName) {
       setAccounts((prev) =>
         prev.map((acc) => {
-          if (acc.id === activityData.accountId) {
+          const matches =
+            (effectiveAccId && acc.id === effectiveAccId) ||
+            (resolvedAccountName && Boolean(acc.name) && acc.name.trim().toLowerCase() === resolvedAccountName.trim().toLowerCase());
+          if (matches) {
             const shouldUpdate = !acc.lastInteractionDate || effectiveDate >= acc.lastInteractionDate;
             const updated = shouldUpdate
               ? { ...acc, lastInteractionDate: effectiveDate, lastContactDate: effectiveDate }
@@ -2915,7 +2929,10 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       // Automatically complete any routine check-in tasks for this account
       setTasks((prev) =>
         prev.map((t) => {
-          if (t.accountId === activityData.accountId && t.isCheckInTask && t.status !== "Completed") {
+          const matches =
+            (effectiveAccId && t.accountId === effectiveAccId) ||
+            (resolvedAccountName && Boolean(t.accountName) && t.accountName.trim().toLowerCase() === resolvedAccountName.trim().toLowerCase());
+          if (matches && t.isCheckInTask && t.status !== "Completed") {
             const updated: CRMTask = {
               ...t,
               status: "Completed",
@@ -3268,6 +3285,14 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const scheduleCustomerMeeting = (meetingData: Partial<CRMTask>): CRMTask => {
+    const targetAcc = accounts.find(
+      (a) =>
+        (meetingData.accountId && a.id === meetingData.accountId) ||
+        (meetingData.accountName && Boolean(a.name) && a.name.trim().toLowerCase() === meetingData.accountName.trim().toLowerCase())
+    );
+    const resolvedAccountId = targetAcc?.id || meetingData.accountId;
+    const resolvedAccountName = targetAcc?.name || meetingData.accountName;
+
     const newTask: CRMTask = {
       id: `meeting-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       title: meetingData.title || "Customer Meeting",
@@ -3276,8 +3301,8 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       status: "To Do",
       dueDate: meetingData.dueDate || getLocalDateInputValue(),
       dueTime: meetingData.dueTime || "10:00 AM",
-      accountId: meetingData.accountId,
-      accountName: meetingData.accountName,
+      accountId: resolvedAccountId,
+      accountName: resolvedAccountName,
       contactId: meetingData.contactId,
       contactName: meetingData.contactName,
       contactIds: meetingData.contactIds || (meetingData.contactId ? [meetingData.contactId] : []),
@@ -3400,7 +3425,12 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteActivity = (id: string) => {
     const act = activities.find((a) => a.id === id);
-    if (!act) return;
+    if (!act) {
+      if (tasks.some((t) => t.id === id)) {
+        deleteTask(id);
+      }
+      return;
+    }
 
     // 1. Remove from activities state and cloud
     setActivities((prev) => prev.filter((a) => a.id !== id));

@@ -102,7 +102,10 @@ export const CRMQuickLogModal: React.FC = () => {
 
   // Resolved CRM records
   const targetAccount = useMemo(() => {
-    return accounts.find((a) => a.id === selectedAccountId);
+    return (
+      accounts.find((a) => a.id === selectedAccountId) ||
+      accounts.find((a) => Boolean(a.name) && a.name.trim().toLowerCase() === selectedAccountId.trim().toLowerCase())
+    );
   }, [accounts, selectedAccountId]);
 
   const targetOpp = useMemo(() => {
@@ -111,8 +114,15 @@ export const CRMQuickLogModal: React.FC = () => {
 
   // Active contacts belonging to selected Account
   const accountContacts = useMemo(() => {
-    if (!selectedAccountId) return [];
-    const list = contacts.filter((c) => c.accountId === selectedAccountId && !c.isArchived);
+    if (!selectedAccountId && !targetAccount) return [];
+    const targetName = targetAccount?.name?.trim().toLowerCase();
+    const list = contacts.filter(
+      (c) =>
+        (c.accountId === selectedAccountId ||
+          (targetAccount && c.accountId === targetAccount.id) ||
+          (Boolean(targetName) && Boolean(c.accountName) && c.accountName.trim().toLowerCase() === targetName)) &&
+        !c.isArchived
+    );
     if (activityToEdit?.contactId) {
       const existingContact = contacts.find((c) => c.id === activityToEdit.contactId);
       if (existingContact && !list.some((c) => c.id === existingContact.id)) {
@@ -120,7 +130,7 @@ export const CRMQuickLogModal: React.FC = () => {
       }
     }
     return list;
-  }, [contacts, selectedAccountId, activityToEdit]);
+  }, [contacts, selectedAccountId, targetAccount, activityToEdit]);
 
   const primaryContact = useMemo(() => {
     if (selectedContactIds.length > 0) {
@@ -544,12 +554,15 @@ export const CRMQuickLogModal: React.FC = () => {
       return;
     }
 
+    const resolvedAccountId = targetAccount?.id || selectedAccountId || primary?.accountId;
+    const resolvedAccountName = targetAccount?.name || primary?.accountName || accounts.find((a) => a.id === selectedAccountId)?.name;
+
     const result = logActivity({
       type,
       title: title.trim(),
-      description: description.trim() || `Recorded ${type} with ${chosenContacts.length > 0 ? chosenContacts.map(c => `${c.firstName} ${c.lastName}`).join(", ") : targetAccount?.name || "client"}.${resolvedOutcome ? ` Outcome: ${resolvedOutcome}.` : ""}`,
-      accountId: targetAccount?.id,
-      accountName: targetAccount?.name,
+      description: description.trim() || `Recorded ${type} with ${chosenContacts.length > 0 ? chosenContacts.map(c => `${c.firstName} ${c.lastName}`).join(", ") : resolvedAccountName || "client"}.${resolvedOutcome ? ` Outcome: ${resolvedOutcome}.` : ""}`,
+      accountId: resolvedAccountId,
+      accountName: resolvedAccountName,
       opportunityId: targetOpp?.id,
       opportunityName: targetOpp?.name,
       contactId: primary?.id,

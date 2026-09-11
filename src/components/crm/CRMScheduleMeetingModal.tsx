@@ -69,11 +69,29 @@ export const CRMScheduleMeetingModal: React.FC = () => {
 
   if (!scheduleMeetingModal || !scheduleMeetingModal.isOpen) return null;
 
+  const selectedAccount =
+    accounts.find((a) => a.id === accountId) ||
+    accounts.find((a) => Boolean(a.name) && a.name.trim().toLowerCase() === accountId.trim().toLowerCase());
+
   // Contacts belonging to the selected account
-  const accountContacts = contacts.filter((c) => c.accountId === accountId && !c.isArchived);
+  const accountContacts = contacts.filter(
+    (c) =>
+      (c.accountId === accountId ||
+        (selectedAccount && c.accountId === selectedAccount.id) ||
+        (Boolean(selectedAccount?.name) &&
+          Boolean(c.accountName) &&
+          c.accountName.trim().toLowerCase() === selectedAccount?.name.trim().toLowerCase())) &&
+      !c.isArchived
+  );
   // Deals belonging to the selected account
-  const accountDeals = crmOpportunities.filter((d) => d.accountId === accountId);
-  const selectedAccount = accounts.find((a) => a.id === accountId);
+  const accountDeals = crmOpportunities.filter(
+    (d) =>
+      d.accountId === accountId ||
+      (selectedAccount && d.accountId === selectedAccount.id) ||
+      (Boolean(selectedAccount?.name) &&
+        Boolean(d.accountName) &&
+        d.accountName.trim().toLowerCase() === selectedAccount?.name.trim().toLowerCase())
+  );
 
   const toggleContact = (cId: string) => {
     setSelectedContactIds((prev) =>
@@ -108,7 +126,9 @@ export const CRMScheduleMeetingModal: React.FC = () => {
     const primaryContact = contacts.find((c) => selectedContactIds.includes(c.id));
     const opp = crmOpportunities.find((o) => o.id === opportunityId);
 
-    const defaultTitle = `Meeting with ${selectedAccount?.name || "Customer"}`;
+    const resolvedAccId = selectedAccount?.id || accountId || primaryContact?.accountId;
+    const resolvedAccName = selectedAccount?.name || primaryContact?.accountName;
+    const defaultTitle = `Meeting with ${resolvedAccName || "Customer"}`;
 
     const scheduled = scheduleCustomerMeeting({
       title: title.trim() || defaultTitle,
@@ -116,8 +136,8 @@ export const CRMScheduleMeetingModal: React.FC = () => {
       priority: "High",
       dueDate: meetingDate,
       dueTime: meetingTime,
-      accountId: selectedAccount?.id,
-      accountName: selectedAccount?.name,
+      accountId: resolvedAccId,
+      accountName: resolvedAccName,
       contactId: primaryContact?.id,
       contactName: primaryContact ? `${primaryContact.firstName} ${primaryContact.lastName}` : undefined,
       contactIds: selectedContactIds,

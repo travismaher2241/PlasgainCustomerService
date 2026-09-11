@@ -90,7 +90,14 @@ export function computeAccountContactCadence(
   const thresholdDays = getContactFrequencyDays(frequency);
 
   // Find latest activity for this account
-  const accountActs = activities.filter((a) => a.accountId === account.id && a.timestamp);
+  const accountActs = activities.filter(
+    (a) =>
+      (a.accountId === account.id ||
+        (Boolean(account.name) &&
+          Boolean(a.accountName) &&
+          a.accountName.trim().toLowerCase() === account.name.trim().toLowerCase())) &&
+      a.timestamp
+  );
   let latestContactTime = 0;
   let lastContactDate: string | undefined = undefined;
 
@@ -169,7 +176,13 @@ export function computeAccountCommercialStatus(
   const sevenThirtyDaysMs = 730 * 24 * 60 * 60 * 1000; // ~24 months
 
   // Find all won deals or sales for this account
-  const accountDeals = deals.filter((d) => d.accountId === account.id);
+  const accountDeals = deals.filter(
+    (d) =>
+      d.accountId === account.id ||
+      (Boolean(account.name) &&
+        Boolean(d.accountName) &&
+        d.accountName.trim().toLowerCase() === account.name.trim().toLowerCase())
+  );
   const wonDeals = accountDeals.filter(
     (d) =>
       d.stageId === "stage-won" ||
@@ -200,7 +213,14 @@ export function computeAccountCommercialStatus(
 
   // Check latest activity time
   let latestActivityTime = 0;
-  const accountActs = activities.filter((a) => a.accountId === account.id && a.timestamp);
+  const accountActs = activities.filter(
+    (a) =>
+      (a.accountId === account.id ||
+        (Boolean(account.name) &&
+          Boolean(a.accountName) &&
+          a.accountName.trim().toLowerCase() === account.name.trim().toLowerCase())) &&
+      a.timestamp
+  );
   for (const a of accountActs) {
     const t = new Date(a.timestamp).getTime();
     if (!isNaN(t) && t > latestActivityTime) {

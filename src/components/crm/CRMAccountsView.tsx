@@ -498,22 +498,106 @@ export const CRMAccountsView: React.FC = () => {
   ).length;
 
   const accountKnowledge = knowledge.filter(
-    (k) => k.accountId === selectedAccount?.id && k.status === "active"
+    (k) =>
+      (k.accountId === selectedAccount?.id ||
+        (Boolean(selectedAccount?.name) &&
+          Boolean(k.accountName) &&
+          k.accountName.trim().toLowerCase() === selectedAccount?.name.trim().toLowerCase())) &&
+      k.status === "active"
   );
-  const accountDeals = crmOpportunities.filter((d) => d.accountId === selectedAccount?.id);
-  const accountActivities = sortActivitiesChronological(
-    activities.filter((act) => act.accountId === selectedAccount?.id),
-    "newest"
+  const accountDeals = crmOpportunities.filter(
+    (d) =>
+      d.accountId === selectedAccount?.id ||
+      (Boolean(selectedAccount?.name) &&
+        Boolean(d.accountName) &&
+        d.accountName.trim().toLowerCase() === selectedAccount?.name.trim().toLowerCase())
   );
-  const accountCompetitorPricing = competitorPricingRecords.filter((r) => r.accountId === selectedAccount?.id);
+  const accountActivities = useMemo(() => {
+    if (!selectedAccount) return [];
+    const selectedName = selectedAccount.name?.trim().toLowerCase();
+    const contactIdSet = new Set(accountContacts.map((c) => c.id));
+
+    // 1. Matched activities from CRMActivity
+    const matchedActivities = activities.filter((act) => {
+      if (act.accountId && act.accountId === selectedAccount.id) return true;
+      if (selectedName && act.accountName && act.accountName.trim().toLowerCase() === selectedName) return true;
+      if (act.contactId && contactIdSet.has(act.contactId)) return true;
+      if (Array.isArray(act.contactIds) && act.contactIds.some((cid) => contactIdSet.has(cid))) return true;
+      if (Array.isArray(act.participants) && act.participants.some((p) => p.contactId && contactIdSet.has(p.contactId))) return true;
+      return false;
+    });
+
+    // 2. Also incorporate meeting tasks from tasks that are not already covered
+    const coveredActivityIds = new Set<string>();
+    for (const act of matchedActivities) {
+      coveredActivityIds.add(act.id);
+      if (act.metadata?.sourceTaskId) {
+        coveredActivityIds.add(act.metadata.sourceTaskId);
+      }
+    }
+
+    const meetingTasksAsActivities: CRMActivity[] = [];
+    for (const t of tasks) {
+      const isMeeting = t.type === "Meeting" || t.type === "Site Visit";
+      if (!isMeeting) continue;
+
+      const matchesAccount =
+        (t.accountId && t.accountId === selectedAccount.id) ||
+        (selectedName && t.accountName && t.accountName.trim().toLowerCase() === selectedName) ||
+        (t.contactId && contactIdSet.has(t.contactId)) ||
+        (Array.isArray(t.contactIds) && t.contactIds.some((cid) => contactIdSet.has(cid)));
+
+      if (!matchesAccount) continue;
+
+      if (t.sourceActivityId && coveredActivityIds.has(t.sourceActivityId)) continue;
+      if (t.id.startsWith("meeting-log-") && coveredActivityIds.has(t.id.replace("meeting-log-", ""))) continue;
+      if (coveredActivityIds.has(t.id)) continue;
+
+      const meetingTimestamp = t.dueDate
+        ? `${t.dueDate}T${t.dueTime ? (t.dueTime.includes(":") ? (t.dueTime.toLowerCase().includes("pm") && parseInt(t.dueTime, 10) < 12 ? `${parseInt(t.dueTime, 10) + 12}:00:00` : `${t.dueTime.split(" ")[0]}:00`) : "10:00:00") : "10:00:00"}`
+        : (t.completedAt || new Date().toISOString());
+
+      meetingTasksAsActivities.push({
+        id: t.id,
+        type: t.type === "Site Visit" ? "site_visit" : "meeting",
+        title: t.title,
+        description: t.notes || (t.outcome ? `Meeting outcome: ${t.outcome}` : `Customer meeting scheduled for ${formatAuDate(t.dueDate)}`),
+        accountId: t.accountId || selectedAccount.id,
+        accountName: t.accountName || selectedAccount.name,
+        contactId: t.contactId,
+        contactName: t.contactName,
+        contactIds: t.contactIds,
+        performedBy: t.assignedTo || t.createdBy,
+        timestamp: t.completedAt || meetingTimestamp,
+        outcome: t.outcome || (t.status === "Completed" ? "Meeting Held" : undefined),
+        isImmutable: false,
+        metadata: {
+          meetingDate: t.dueDate,
+          meetingTime: t.dueTime,
+          sourceTaskId: t.id,
+          outcome: t.outcome
+        }
+      });
+    }
+
+    return sortActivitiesChronological([...matchedActivities, ...meetingTasksAsActivities], "newest");
+  }, [selectedAccount, activities, tasks, accountContacts]);
+
+  const accountCompetitorPricing = competitorPricingRecords.filter(
+    (r) =>
+      r.accountId === selectedAccount?.id ||
+      (Boolean(selectedAccount?.name) &&
+        Boolean(r.accountName) &&
+        r.accountName.trim().toLowerCase() === selectedAccount?.name.trim().toLowerCase())
+  );
 
   const selectedCadence = useMemo(
-    () => computeAccountContactCadence(selectedAccount, activities),
-    [selectedAccount, activities]
+    () => computeAccountContactCadence(selectedAccount, accountActivities),
+    [selectedAccount, accountActivities]
   );
   const selectedCommercialStatus = useMemo(
-    () => computeAccountCommercialStatus(selectedAccount, crmOpportunities, activities),
-    [selectedAccount, crmOpportunities, activities]
+    () => computeAccountCommercialStatus(selectedAccount, accountDeals, accountActivities),
+    [selectedAccount, accountDeals, accountActivities]
   );
 
   // Dynamic Next Step resolution cascade for selected account
