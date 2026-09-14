@@ -114,13 +114,10 @@ export const CustomerFollowUpModal: React.FC<CustomerFollowUpModalProps> = ({
       companyName,
       projectName,
       quoteRef,
-      productsList: initialProducts,
       senderName,
       senderEmail,
       senderPhone,
       companyAbn: "12 345 678 910",
-      leadTime,
-      warranty,
       customNote
     });
   }, [cadence, contactName, contactEmail, companyName, projectName, quoteRef, initialProducts, senderName, senderEmail, senderPhone, leadTime, warranty, customNote]);

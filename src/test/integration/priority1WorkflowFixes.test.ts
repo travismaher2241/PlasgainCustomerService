@@ -182,7 +182,6 @@ describe('PRIORITY 1 CORE SALES WORKFLOW VERIFICATION (P1-01 to P1-16)', () => {
         companyName: 'City of Ballarat',
         projectName: 'Victoria Park Lighting',
         quoteRef: 'Q-9821',
-        productsList: ['Intense 50W Solar Luminaire'],
         senderName: 'Travis Maher',
         senderEmail: 'travis.maher@plasgain.com.au',
         senderPhone: '+61 3 9000 0000'
