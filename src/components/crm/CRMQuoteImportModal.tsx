@@ -315,8 +315,12 @@ export const CRMQuoteImportModal: React.FC = () => {
       } as CRMOpportunity);
 
       if (!saved) {
+        // addCrmOpportunity has already toasted the specific reason, including
+        // the signed-out case. Repeating "the server is not reachable" here sent
+        // people hunting for an outage when they simply needed to sign in.
         setError(
-          "That quote could not be saved. Nothing has been filed against the account — try again, and if it keeps failing the server is not reachable."
+          "That quote was not saved. Nothing has been filed against the account. " +
+            "If you were signed out, sign in with your PIN and import it again."
         );
         return;
       }

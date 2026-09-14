@@ -62,6 +62,23 @@ export class AIUnavailableError extends Error {
   }
 }
 
+/**
+ * Thrown when the server does not recognise the caller.
+ *
+ * The workspace renders without requiring a sign-in, so a rep can work for a
+ * while holding no session — or one the server has since forgotten — and find
+ * out only when a write is refused. That surfaced as "the server is not
+ * reachable", which sent people looking for an outage that was not there. The
+ * stale token is cleared as this is thrown, so the next sign-in starts clean.
+ */
+export class NotSignedInError extends Error {
+  public readonly status = 401;
+  constructor(message = "You are signed out. Sign in with your PIN and try again.") {
+    super(message);
+    this.name = "NotSignedInError";
+  }
+}
+
 /** Thrown for ordinary request problems (validation, rate limit, server error). */
 export class ApiError extends Error {
   public readonly status: number;
@@ -130,6 +147,8 @@ export async function apiPost<T = any>(url: string, body: unknown, signal?: Abor
     );
   }
 
+  throwIfSignedOut(res.status);
+
   if (!res.ok) {
     throw new ApiError(res.status, (data && data.error) || `Request failed (${res.status}).`, data?.detail);
   }
@@ -163,6 +182,8 @@ export async function apiStreamPost<T = any>(
     }
     throw new ApiError(0, "Could not reach the Plasgain server. Check your connection and retry.");
   }
+
+  throwIfSignedOut(res.status);
 
   if (res.status === 503) {
     const data = await res.json().catch(() => null);
@@ -277,13 +298,27 @@ export async function apiStreamPost<T = any>(
 export async function apiGet<T = any>(url: string): Promise<T> {
   const res = await fetch(url, { headers: authHeaders() });
   const data = await res.json().catch(() => null);
+  throwIfSignedOut(res.status);
   if (!res.ok || !data) throw new ApiError(res.status, data?.error || `Request failed (${res.status}).`);
   return data as T;
 }
 
 
+/**
+ * Raises NotSignedInError for a 401 and clears the dead token.
+ *
+ * Called from every request path rather than at one choke point, because the
+ * three of them (POST, GET, stream) each parse their own response.
+ */
+function throwIfSignedOut(status: number): void {
+  if (status !== 401) return;
+  setSessionToken(null);
+  throw new NotSignedInError();
+}
+
 /** Turns any thrown error into a message safe to show a rep. */
 export function toUserMessage(err: unknown): string {
+  if (err instanceof NotSignedInError) return err.message;
   if (err instanceof AIUnavailableError) return `AI unavailable — ${err.detail}`;
   if (err instanceof ApiError) return err.message;
   if (err instanceof Error) return err.message;

@@ -69,8 +69,8 @@ class QuoteDocumentStore {
   }
 
   /** True when an uploaded PDF will still be here after the next deployment. */
-  public isDurable(): boolean {
-    return isCloudPersistenceEnabled() && getAdminBucket() !== null;
+  public async isDurable(): Promise<boolean> {
+    return isCloudPersistenceEnabled() && (await getAdminBucket()) !== null;
   }
 
   private filePathFor(id: string): string {
@@ -81,19 +81,35 @@ class QuoteDocumentStore {
     return `${BUCKET_PREFIX}/${id}.pdf`;
   }
 
+  /**
+   * Stores the PDF bytes, preferring the bucket and falling back to disk.
+   *
+   * A bucket failure must never fail the import. Losing the attached PDF costs
+   * the rep an attachment; failing the whole import costs them the quote, and
+   * that is what happened when a missing bucket threw from here — the quote was
+   * parsed on screen and then refused, with the error naming the server as
+   * unreachable. The PDF is the less important half of the record.
+   */
   private async writeBytes(id: string, buffer: Buffer): Promise<void> {
     if (isTestEnv()) {
       this.memoryFiles.set(id, buffer);
       return;
     }
 
-    const bucket = getAdminBucket();
+    const bucket = await getAdminBucket();
     if (bucket) {
-      await bucket.file(this.bucketPathFor(id)).save(buffer, {
-        contentType: "application/pdf",
-        resumable: false
-      });
-      return;
+      try {
+        await bucket.file(this.bucketPathFor(id)).save(buffer, {
+          contentType: "application/pdf",
+          resumable: false
+        });
+        return;
+      } catch (err: any) {
+        console.error(
+          "[QuoteDocumentStore] Bucket write failed, falling back to local storage:",
+          err?.message || err
+        );
+      }
     }
 
     try {
@@ -145,17 +161,20 @@ class QuoteDocumentStore {
   public async readFile(id: string): Promise<Buffer | undefined> {
     if (this.memoryFiles.has(id)) return this.memoryFiles.get(id);
 
-    const bucket = getAdminBucket();
+    // The bucket is tried first but is not the last word: a PDF written while
+    // the bucket was unreachable sits on local disk, so a miss here falls
+    // through rather than reporting the document as gone.
+    const bucket = await getAdminBucket();
     if (bucket) {
       try {
         const file = bucket.file(this.bucketPathFor(id));
         const [exists] = await file.exists();
-        if (!exists) return undefined;
-        const [contents] = await file.download();
-        return contents;
+        if (exists) {
+          const [contents] = await file.download();
+          return contents;
+        }
       } catch (err) {
         console.error("[QuoteDocumentStore] Bucket read failed:", err);
-        return undefined;
       }
     }
 

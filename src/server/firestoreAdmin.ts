@@ -3,6 +3,13 @@ import { getFirestore, Firestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 
 /**
+ * firebase-admin bundles its own copy of @google-cloud/storage, so importing
+ * Bucket from the top-level package yields a structurally different type.
+ * Deriving it from getStorage keeps the two in step.
+ */
+type AdminBucket = ReturnType<ReturnType<typeof getStorage>["bucket"]>;
+
+/**
  * Server-side Firebase access.
  *
  * The browser reaches Firestore with anonymous auth, which the security rules
@@ -128,15 +135,59 @@ export function getAdminFirestore(): Firestore | null {
   return getFirestore(app);
 }
 
-export function getAdminBucket() {
+/**
+ * The bucket holding quote PDFs, or null when there is not a usable one.
+ *
+ * `getStorage(app).bucket()` hands back a handle without checking anything, so
+ * a project where Storage was never switched on — or one whose bucket uses the
+ * older naming — looked configured right up until the first upload failed with
+ * "The specified bucket does not exist". That 500'd the whole quote import,
+ * which is worse than the non-durable storage it replaced.
+ *
+ * So the bucket is verified once and the result cached. Firebase projects
+ * created from late 2024 use <project>.firebasestorage.app; older ones use
+ * <project>.appspot.com. Both are tried before giving up, because guessing
+ * wrong is indistinguishable to the caller from Storage being off.
+ */
+let bucketProbe: { checked: boolean; bucket: AdminBucket | null } = { checked: false, bucket: null };
+
+async function probeBucket(): Promise<AdminBucket | null> {
   const app = initialise();
   if (!app) return null;
-  try {
-    return getStorage(app).bucket();
-  } catch (err: any) {
-    console.error("[Firestore Admin] Storage bucket unavailable:", err?.message || err);
-    return null;
+
+  const configured = process.env.PLASGAIN_STORAGE_BUCKET?.trim();
+  const projectId = (app.options as any)?.projectId || PROJECT_ID;
+  const candidates = configured
+    ? [configured]
+    : [`${projectId}.firebasestorage.app`, `${projectId}.appspot.com`];
+
+  for (const name of candidates) {
+    try {
+      const bucket = getStorage(app).bucket(name);
+      const [exists] = await bucket.exists();
+      if (exists) {
+        if (candidates.length > 1 && name !== candidates[0]) {
+          console.warn(`[Firestore Admin] Using storage bucket ${name}. Set PLASGAIN_STORAGE_BUCKET to skip this probe.`);
+        }
+        return bucket;
+      }
+    } catch (err: any) {
+      console.error(`[Firestore Admin] Could not reach storage bucket ${name}:`, err?.message || err);
+    }
   }
+
+  console.error(
+    `[Firestore Admin] No usable storage bucket (tried ${candidates.join(", ")}). ` +
+      "Quote PDFs will be held non-durably. Enable Firebase Storage, or set PLASGAIN_STORAGE_BUCKET."
+  );
+  return null;
+}
+
+export async function getAdminBucket(): Promise<AdminBucket | null> {
+  if (bucketProbe.checked) return bucketProbe.bucket;
+  const bucket = await probeBucket();
+  bucketProbe = { checked: true, bucket };
+  return bucket;
 }
 
 /** Test seam. */
@@ -144,4 +195,5 @@ export function resetAdminForTesting() {
   cachedApp = null;
   initialisationAttempted = false;
   initialisationError = null;
+  bucketProbe = { checked: false, bucket: null };
 }

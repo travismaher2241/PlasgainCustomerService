@@ -43,7 +43,7 @@ import {
 import { CRMIntelligenceEngine } from "../utils/crmIntelligence";
 import { normalizeNotification, getUnreadNotificationsCount } from "../utils/notificationUtils";
 import { addDaysLocal, formatAuDate, formatAuTime, getLocalDateInputValue } from "../utils/dateUtils";
-import { setSessionToken, getSessionToken, authHeaders } from "../utils/apiClient";
+import { setSessionToken, getSessionToken, authHeaders, NotSignedInError } from "../utils/apiClient";
 import { diffFields } from "../utils/diffUtils";
 import {
   saveDocToCloud,
@@ -2690,8 +2690,12 @@ const AppProviderContent: React.FC<{ children: React.ReactNode }> = ({ children 
       await createOpportunityMutation.mutateAsync(opp as any);
     } catch (err: any) {
       console.error("[Quotes] Could not save quote:", err);
+      // Being signed out is the common cause and the only one the rep can fix,
+      // so it must not be reported as a connection problem.
       showToast(
-        `"${opp.name}" could not be saved. It is not stored — check your connection and try again.`,
+        err instanceof NotSignedInError
+          ? `"${opp.name}" was not saved — you are signed out. Sign in with your PIN and try again.`
+          : `"${opp.name}" could not be saved. It is not stored — check your connection and try again.`,
         "error"
       );
       return false;

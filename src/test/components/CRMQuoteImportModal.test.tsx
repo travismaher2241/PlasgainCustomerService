@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { CRMQuoteImportModal } from '../../components/crm/CRMQuoteImportModal';
 import { AppProvider, useApp } from '../../context/AppContext';
 import * as opportunityClient from '../../api/opportunityClient';
+import { NotSignedInError } from '../../utils/apiClient';
 
 vi.mock('../../utils/apiClient', async (orig) => {
   const actual = await (orig() as any);
@@ -137,8 +138,28 @@ describe('Quote import — saving against the account', () => {
 
     // The modal stays open and says so, rather than announcing success.
     await waitFor(() =>
-      expect(screen.getByText(/could not be saved/i)).toBeInTheDocument()
+      expect(screen.getByText(/nothing has been filed against the account/i)).toBeInTheDocument()
     );
     expect(screen.queryByText(/saved to Alpha Industrial/i)).not.toBeInTheDocument();
+  });
+
+  it('points a signed-out rep at their PIN rather than blaming the server', async () => {
+    // The failure production actually hit: every write 401s because the
+    // workspace renders without requiring a sign-in, so a rep fills in a whole
+    // import and is then told the server is unreachable. It is reachable — they
+    // are signed out, and that is the one thing they can act on.
+    vi.spyOn(opportunityClient, 'createOpportunityApi').mockRejectedValue(
+      new NotSignedInError()
+    );
+
+    render(<AppProvider><Probe /></AppProvider>);
+    await uploadAndReachReview();
+
+    fireEvent.click(screen.getByRole('button', { name: /save the quote/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/sign in with your PIN/i)).toBeInTheDocument()
+    );
+    expect(screen.queryByText(/not reachable/i)).not.toBeInTheDocument();
   });
 });
