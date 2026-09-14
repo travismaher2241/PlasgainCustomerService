@@ -106,6 +106,7 @@ export const CRMTodayWorkspace: React.FC = () => {
     openMeetingPrep,
     knowledge,
     addTask,
+    deleteTask,
     updateOpportunity,
     showToast,
     currentUser,
@@ -147,6 +148,17 @@ export const CRMTodayWorkspace: React.FC = () => {
   const [activeFilter, setActiveFilter] = useState<FilterCategory>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [snoozedIds, setSnoozedIds] = useState<Set<string>>(new Set());
+
+  /**
+   * The task a rep has asked to delete, held until they confirm.
+   *
+   * A follow-up that turns out not to be needed has to be removable from here:
+   * it is where the rep actually meets it, and leaving it to go overdue trains
+   * them to ignore the overdue marker on the ones that do matter. Deleting is
+   * audit-logged and cannot be undone, so it asks first.
+   */
+  const [taskToDelete, setTaskToDelete] = useState<{ id: string; title: string } | null>(null);
+  const [isDeletingTask, setIsDeletingTask] = useState(false);
 
   // Follow-up modal state
   const [followUpModalProps, setFollowUpModalProps] = useState<CustomerFollowUpModalProps>({
@@ -802,12 +814,87 @@ export const CRMTodayWorkspace: React.FC = () => {
                     >
                       {item.primaryActionLabel}
                     </button>
+
+                    {/*
+                      Only a real task row can be removed. The other rows are
+                      derived views of a deal or a lead — there is no record
+                      behind them to delete, and dropping one would only make it
+                      reappear on the next render.
+                    */}
+                    {item.sourceType === "task" && (
+                      <button
+                        type="button"
+                        aria-label={`Delete task: ${item.title}`}
+                        title="Delete this task"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTaskToDelete({ id: item.id, title: item.title });
+                        }}
+                        className="p-1 rounded-edge text-ink-faint hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
           )}
+        </div>
+      )}
+
+      {/* Delete confirmation. Deleting is audit-logged and cannot be undone. */}
+      {taskToDelete && (
+        <div
+          className="fixed inset-0 z-50 bg-chrome/70 backdrop-blur-xs p-4 flex items-center justify-center animate-in fade-in duration-150"
+          onClick={() => !isDeletingTask && setTaskToDelete(null)}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label="Delete task"
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-panel border border-line shadow-lg w-full max-w-md p-5 space-y-4"
+          >
+            <div>
+              <h3 className="font-bold text-body">Delete this task?</h3>
+              <p className="text-spec text-ink-dim mt-1">
+                &ldquo;{taskToDelete.title}&rdquo; will be removed for everyone. This cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                disabled={isDeletingTask}
+                onClick={() => setTaskToDelete(null)}
+                className="px-4 py-2 rounded-edge border border-line bg-white text-body font-bold text-spec hover:bg-paper cursor-pointer disabled:opacity-50"
+              >
+                Keep it
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingTask}
+                onClick={async () => {
+                  setIsDeletingTask(true);
+                  try {
+                    await deleteTask(taskToDelete.id);
+                    setTaskToDelete(null);
+                  } catch {
+                    // The dialog stays open: closing it would look like the
+                    // task had gone when it is still there.
+                    showToast("Could not delete that task. Please try again.", "error");
+                  } finally {
+                    setIsDeletingTask(false);
+                  }
+                }}
+                className="px-4 py-2 rounded-edge bg-red-700 hover:bg-red-800 text-white font-bold text-spec cursor-pointer disabled:opacity-50"
+              >
+                {isDeletingTask ? "Deleting..." : "Delete task"}
+              </button>
+            </div>
+          </section>
         </div>
       )}
 

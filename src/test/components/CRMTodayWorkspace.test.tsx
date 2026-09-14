@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { CRMTodayWorkspace } from '../../components/crm/CRMTodayWorkspace';
 import { AppProvider, useApp } from '../../context/AppContext';
@@ -148,5 +148,83 @@ describe("CRM Today's Action Queue Suite (Step 6)", () => {
 
     expect(screen.getByText(/Follow up on quote Q-2048/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Log follow-up/i })).toBeInTheDocument();
+  });
+
+  /**
+   * A follow-up that turns out not to be needed has to be removable from here.
+   * Leaving it to go overdue trains a rep to ignore the overdue marker on the
+   * ones that do matter, and Today is where they actually meet these rows.
+   */
+  describe("deleting a task from the queue", () => {
+    it("offers a delete control on a task row", () => {
+      render(
+        <AppProvider>
+          <TodayTestWrapper />
+        </AppProvider>
+      );
+
+      expect(
+        screen.getByRole("button", { name: /delete task: Call Sarah about DIALux spacing/i })
+      ).toBeInTheDocument();
+    });
+
+    it("asks before deleting, and keeps the task if the rep backs out", async () => {
+      render(
+        <AppProvider>
+          <TodayTestWrapper />
+        </AppProvider>
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", { name: /delete task: Call Sarah about DIALux spacing/i })
+      );
+
+      const dialog = await screen.findByRole("dialog", { name: /delete task/i });
+      expect(within(dialog).getByText(/cannot be undone/i)).toBeInTheDocument();
+
+      fireEvent.click(within(dialog).getByRole("button", { name: /keep it/i }));
+
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: /delete task/i })).not.toBeInTheDocument()
+      );
+      expect(screen.getByText(/Call Sarah about DIALux spacing/i)).toBeInTheDocument();
+    });
+
+    it("removes the task from the queue once confirmed", async () => {
+      render(
+        <AppProvider>
+          <TodayTestWrapper />
+        </AppProvider>
+      );
+
+      fireEvent.click(
+        screen.getByRole("button", { name: /delete task: Call Sarah about DIALux spacing/i })
+      );
+
+      const dialog = await screen.findByRole("dialog", { name: /delete task/i });
+      fireEvent.click(within(dialog).getByRole("button", { name: /^delete task$/i }));
+
+      // Asserted on the row's own control rather than its title: the test deal
+      // carries the same string as its nextAction, so the text survives on the
+      // quote follow-up row even once the task itself is gone.
+      await waitFor(() =>
+        expect(
+          screen.queryByRole("button", { name: /delete task: Call Sarah about DIALux spacing/i })
+        ).not.toBeInTheDocument()
+      );
+    });
+
+    it("does not offer deletion on rows that are not tasks", () => {
+      // A quote follow-up row is a view of the deal's next action. There is no
+      // task behind it to delete, and removing the row would only make it
+      // reappear on the next render.
+      render(
+        <AppProvider>
+          <TodayTestWrapper tasks={[]} />
+        </AppProvider>
+      );
+
+      expect(screen.queryByRole("button", { name: /^delete task:/i })).not.toBeInTheDocument();
+    });
   });
 });
